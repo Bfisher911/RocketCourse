@@ -1,0 +1,385 @@
+import { describe, expect, it } from "vitest";
+import { defaultSettings } from "../data/defaultSettings";
+import { generateCourseProject, sampleProject } from "./courseGenerator";
+import { buildCourseQualityReport } from "./courseQuality";
+import { buildImsccZip, generateImsccBlob, validateImsccZip } from "./imsccExport";
+import { importCanvasCourseFromImscc } from "./imsccImport";
+import { buildReadinessReport } from "./readiness";
+
+describe("CourseForge export engine", () => {
+  it("scores a generated course as ready with Canvas-specific checks", () => {
+    const report = buildReadinessReport(sampleProject);
+
+    expect(report.score).toBeGreaterThanOrEqual(90);
+    expect(report.blockers).toBe(0);
+    expect(report.checks.find((check) => check.id === "assignment-groups")?.passed).toBe(true);
+    expect(report.checks.find((check) => check.id === "start-here-link")?.passed).toBe(true);
+    expect(report.checks.find((check) => check.id === "instructor-unpublished")?.passed).toBe(true);
+  });
+
+  it("generates the required Start Here, content, final, and unpublished instructor modules", () => {
+    const start = sampleProject.modules.find((module) => module.kind === "start");
+    const content = sampleProject.modules.filter((module) => module.kind === "content");
+    const final = sampleProject.modules.find((module) => module.kind === "final");
+    const instructor = sampleProject.modules.find((module) => module.kind === "instructor");
+
+    expect(start?.title).toBe("Start Here");
+    expect(content).toHaveLength(sampleProject.settings.moduleCount);
+    expect(final?.title).toBe("Final Project");
+    expect(final?.items.some((item) => item.type === "assignment")).toBe(true);
+    expect(instructor?.publishState).toBe("unpublished");
+    expect(instructor?.items.every((item) => item.publishState === "unpublished")).toBe(true);
+  });
+
+  it("gives every content module an overview and recap boundary", () => {
+    const contentModules = sampleProject.modules.filter((module) => module.kind === "content");
+
+    expect(contentModules.length).toBeGreaterThan(0);
+    contentModules.forEach((module) => {
+      expect(module.items.some((item) => item.type === "page" && /overview/i.test(item.title))).toBe(true);
+      expect(module.items.some((item) => item.type === "page" && /(wrap|recap)/i.test(item.title))).toBe(true);
+    });
+  });
+
+  it("generates teachable module learning paths with resources, lessons, and practice", () => {
+    const contentModules = sampleProject.modules.filter((module) => module.kind === "content");
+
+    contentModules.forEach((module) => {
+      expect(module.items.some((item) => /Overview/i.test(item.title))).toBe(true);
+      expect(module.items.some((item) => /Readings and Resources/i.test(item.title))).toBe(true);
+      expect(module.items.some((item) => /Lecture and Notes/i.test(item.title))).toBe(true);
+      expect(module.items.some((item) => /Practice Activity/i.test(item.title))).toBe(true);
+      expect(module.items.some((item) => /(Wrap|Recap)/i.test(item.title))).toBe(true);
+      expect(sampleProject.resources.filter((resource) => resource.moduleId === module.id)).toHaveLength(3);
+    });
+
+    const lessonPages = sampleProject.pages.filter((page) => /Lecture and Notes/i.test(page.title));
+    expect(lessonPages.length).toBe(contentModules.length);
+    lessonPages.forEach((page) => {
+      expect(page.bodyHtml).toContain("Mini-Lecture");
+      expect(page.bodyHtml).toContain("Key Terms");
+      expect(page.bodyHtml).toContain("Common Misconception");
+      expect(page.bodyHtml).toContain("Check Your Understanding");
+    });
+  });
+
+  it("creates a student-facing course calendar and workload page", () => {
+    const calendarPage = sampleProject.pages.find((page) => page.slug === "course-calendar-and-workload-plan");
+    const start = sampleProject.modules.find((module) => module.kind === "start");
+    const homepage = sampleProject.pages.find((page) => page.frontPage);
+    const syllabus = sampleProject.pages.find((page) => page.slug === "syllabus");
+    const studentGuide = sampleProject.pages.find((page) => page.slug === "course-success-guide");
+
+    expect(calendarPage).toBeDefined();
+    expect(calendarPage?.publishState).toBe("published");
+    expect(calendarPage?.bodyHtml).toContain("Schedule Table");
+    expect(calendarPage?.bodyHtml).toContain("Generated module calendar");
+    expect(calendarPage?.bodyHtml).toContain("<table");
+    expect(calendarPage?.bodyHtml).toContain("Set by instructor");
+    expect(start?.items.some((item) => item.refId === calendarPage?.id && item.title === "Course Calendar and Workload Plan")).toBe(true);
+    expect(homepage?.bodyHtml).toContain("course-calendar-and-workload-plan.html");
+    expect(syllabus?.bodyHtml).toContain("course-calendar-and-workload-plan.html");
+    expect(studentGuide?.bodyHtml).toContain("course-calendar-and-workload-plan.html");
+    expect(buildReadinessReport(sampleProject).checks.find((check) => check.id === "calendar-page")?.passed).toBe(true);
+  });
+
+  it("creates resource placeholders without fabricating citations or URLs", () => {
+    expect(sampleProject.resources.length).toBe(sampleProject.settings.moduleCount * 3);
+    sampleProject.resources.forEach((resource) => {
+      expect(resource.placeholder).toMatch(/Add verified|Add textbook|upload/i);
+      expect(resource.instructorEditNote).toMatch(/Replace|Add|verified|captions|transcript/i);
+      expect(resource.studentInstructions.length).toBeGreaterThan(40);
+    });
+  });
+
+  it("scaffolds final project checkpoints in key milestone modules", () => {
+    const milestoneItems = sampleProject.modules
+      .filter((module) => module.kind === "content")
+      .flatMap((module) => module.items.filter((item) => /Final Project .*Checkpoint|Final Project Milestone/i.test(item.title)));
+
+    expect(sampleProject.settings.scaffoldPattern).toBe("key-milestones");
+    expect(milestoneItems.length).toBeGreaterThanOrEqual(3);
+    expect(milestoneItems.every((item) => item.indent === 1)).toBe(true);
+  });
+
+  it("wires meaningful assignment groups to all graded items", () => {
+    const groups = new Map(sampleProject.assignmentGroups.map((group) => [group.id, group]));
+    const total = sampleProject.assignmentGroups.reduce((sum, group) => sum + group.weight, 0);
+
+    expect(total).toBe(100);
+    sampleProject.assignments.forEach((assignment) => {
+      expect(groups.get(assignment.assignmentGroupId)?.weight).toBeGreaterThan(0);
+    });
+    sampleProject.discussions
+      .filter((discussion) => discussion.points > 0)
+      .forEach((discussion) => {
+        expect(groups.get(discussion.assignmentGroupId)?.name).toMatch(/Discussion|Engagement/);
+      });
+    sampleProject.quizzes.forEach((quiz) => {
+      expect(groups.get(quiz.assignmentGroupId)?.name).toMatch(/Knowledge/);
+    });
+  });
+
+  it("attaches rubrics and outcomes to graded assignments and discussions", () => {
+    const rubricIds = new Set(sampleProject.rubrics.map((rubric) => rubric.id));
+    const outcomeIds = new Set(sampleProject.outcomes.map((outcome) => outcome.id));
+
+    sampleProject.assignments.forEach((assignment) => {
+      expect(assignment.rubricId && rubricIds.has(assignment.rubricId)).toBe(true);
+      expect(assignment.alignedOutcomeIds.length).toBeGreaterThan(0);
+      expect(assignment.alignedOutcomeIds.every((outcomeId) => outcomeIds.has(outcomeId))).toBe(true);
+    });
+
+    sampleProject.discussions
+      .filter((discussion) => discussion.points > 0)
+      .forEach((discussion) => {
+        expect(discussion.rubricId && rubricIds.has(discussion.rubricId)).toBe(true);
+        expect(discussion.alignedOutcomeIds.length).toBeGreaterThan(0);
+      });
+
+    sampleProject.rubrics.forEach((rubric) => {
+      expect(rubric.alignedOutcomeIds.length).toBeGreaterThan(0);
+      expect(rubric.alignedOutcomeIds.every((outcomeId) => outcomeIds.has(outcomeId))).toBe(true);
+    });
+  });
+
+  it("generates quiz questions with answer keys, feedback, difficulty, and alignment", () => {
+    sampleProject.quizzes.forEach((quiz) => {
+      expect(quiz.questions.length).toBeGreaterThanOrEqual(sampleProject.settings.quizQuestionsPerQuiz);
+      quiz.questions.forEach((question) => {
+        expect(question.difficulty).toBeTruthy();
+        expect(question.moduleId).toBe(quiz.moduleId);
+        expect(question.alignedOutcomeIds.length).toBeGreaterThan(0);
+        expect(question.correctFeedback || question.feedback).toBeTruthy();
+        expect(question.incorrectFeedback || question.feedback).toBeTruthy();
+        if (question.type === "multiple_choice" || question.type === "true_false") {
+          expect(question.correctAnswer).toBeTruthy();
+        }
+      });
+    });
+  });
+
+  it("generates an instructor-only human review checklist before publishing", () => {
+    const priorities = new Set(sampleProject.reviewChecklist.map((item) => item.priority));
+    const instructor = sampleProject.modules.find((module) => module.kind === "instructor");
+    const checklistPage = sampleProject.pages.find((page) => page.slug === "before-publishing-human-review-checklist");
+
+    expect(sampleProject.reviewChecklist.length).toBeGreaterThanOrEqual(10);
+    expect(priorities.has("must")).toBe(true);
+    expect(priorities.has("recommended")).toBe(true);
+    expect(priorities.has("optional")).toBe(true);
+    expect(instructor?.items.some((item) => item.title === "Before Publishing Human Review Checklist" && item.publishState === "unpublished")).toBe(true);
+    expect(checklistPage?.publishState).toBe("unpublished");
+    expect(checklistPage?.bodyHtml).toContain("Must Review Before Publishing");
+    expect(checklistPage?.bodyHtml).toContain("Recommended Review");
+    expect(checklistPage?.bodyHtml).toContain("Optional Polish");
+    expect(checklistPage?.bodyHtml).toContain("Review outcome and assessment alignment map");
+  });
+
+  it("generates an unpublished outcome and assessment alignment map for instructors", () => {
+    const instructor = sampleProject.modules.find((module) => module.kind === "instructor");
+    const alignmentMap = sampleProject.pages.find((page) => page.slug === "outcome-and-assessment-alignment-map");
+
+    expect(alignmentMap).toBeDefined();
+    expect(alignmentMap?.publishState).toBe("unpublished");
+    expect(alignmentMap?.bodyHtml).toContain("Outcome Alignment Table");
+    expect(alignmentMap?.bodyHtml).toContain("Gradebook Group Summary");
+    expect(alignmentMap?.bodyHtml).toContain("CLO 1");
+    expect(alignmentMap?.bodyHtml).toContain("Engagement and Discussions");
+    expect(instructor?.items.some((item) => item.refId === alignmentMap?.id && item.publishState === "unpublished")).toBe(true);
+    expect(buildReadinessReport(sampleProject).checks.find((check) => check.id === "alignment-map")?.passed).toBe(true);
+  });
+
+  it("keeps syllabus outcomes in sync with exported course outcomes", () => {
+    const syllabus = sampleProject.pages.find((page) => page.slug === "syllabus");
+
+    expect(syllabus).toBeDefined();
+    sampleProject.outcomes.forEach((outcome) => {
+      expect(syllabus?.bodyHtml).toContain(outcome.code);
+      expect(syllabus?.bodyHtml).toContain(outcome.text);
+    });
+    expect(syllabus?.bodyHtml).toContain("Weekly Schedule");
+    expect(syllabus?.bodyHtml).toContain("Late Work Policy");
+    expect(syllabus?.bodyHtml).toContain("Academic Integrity and AI Use");
+    expect(syllabus?.bodyHtml).toContain("Technology Requirements");
+  });
+
+  it("scores representative generated courses above the production quality thresholds implemented so far", () => {
+    const thresholdByCategory = {
+      completeness: 90,
+      accessibility: 95,
+      outcomeAlignment: 90,
+      workloadBalance: 85,
+      assessmentVariety: 85,
+      instructorReadiness: 90,
+      studentClarity: 90,
+      canvasCompatibility: 95,
+      exportReadiness: 95
+    };
+    const courses = [
+      sampleProject,
+      generateCourseProject({
+        prompt: "Build me a 4-week professional course on Community Health Program Design.",
+        settings: { ...defaultSettings, courseLengthPreset: "4-weeks", lengthWeeks: 4, moduleCount: 4, organizationPattern: "weeks", assignmentCadence: "every-module" }
+      }),
+      generateCourseProject({
+        prompt: "Build me an 8-module course on Museum Exhibit Planning with quizzes and discussions.",
+        settings: { ...defaultSettings, courseLengthPreset: "8-weeks", lengthWeeks: 8, moduleCount: 8, quizFrequency: "module", discussionFrequency: "module", assignmentCadence: "every-other-module" }
+      }),
+      generateCourseProject({
+        prompt: "Build me a quiz-heavy 6-week course on Data Literacy.",
+        settings: { ...defaultSettings, courseLengthPreset: "6-weeks", lengthWeeks: 6, moduleCount: 6, quizFrequency: "module", discussionFrequency: "none", assignmentCadence: "custom" }
+      })
+    ];
+
+    courses.forEach((course) => {
+      const report = buildCourseQualityReport(course);
+      Object.entries(thresholdByCategory).forEach(([category, threshold]) => {
+        const score = report.categories.find((item) => item.category === category)?.score;
+        expect(score, `${course.title} ${category}`).toBeGreaterThanOrEqual(threshold);
+      });
+    });
+  });
+
+  it("builds and validates an imscc package with Canvas-oriented files", async () => {
+    const zip = await buildImsccZip(sampleProject);
+    const report = await validateImsccZip(sampleProject, zip);
+    const moduleMeta = await zip.file("course_settings/module_meta.xml")?.async("text");
+
+    expect(report.valid).toBe(true);
+    expect(report.packageName.endsWith(".imscc")).toBe(true);
+    expect(report.files).toContain("imsmanifest.xml");
+    expect(report.files).toContain("course_settings/canvas_export.txt");
+    expect(report.files).toContain("course_settings/course_settings.xml");
+    expect(report.files).toContain("course_settings/module_meta.xml");
+    expect(report.files).toContain("course_settings/assignment_groups.xml");
+    expect(report.files).toContain("course_settings/rubrics.xml");
+    expect(report.files).toContain("course_settings/learning_outcomes.xml");
+    expect(report.files).toContain("course_settings/course_navigation.xml");
+    expect(report.files).toContain("course_settings/syllabus.html");
+    expect(report.files).toContain("web_resources/syllabus-printable.pdf");
+    expect(report.files).toContain("web_resources/instructor-guide.pdf");
+    expect(report.files).toContain("web_resources/course-tile.svg");
+    expect(report.files).not.toContain("rubrics.xml");
+    expect(report.files).not.toContain("assessment_qti.xml");
+    expect(report.files).toContain("quiz_1/assessment_qti.xml");
+    expect(report.files).toContain("quiz_1/assessment_meta.xml");
+    expect(report.files).toContain("non_cc_assessments/quiz_1.xml.qti");
+    expect(report.files.some((file) => file.startsWith("wiki_content/"))).toBe(true);
+    expect(moduleMeta).toContain("<title>Instructor Guide</title>");
+    expect(moduleMeta).toContain("<workflow_state>unpublished</workflow_state>");
+    expect(report.sandboxImportStatus).toBe("not_tested");
+  });
+
+  it("exports Canvas due date metadata when scheduling is enabled", async () => {
+    const scheduledProject = generateCourseProject({
+      prompt: "Build me a 4-week professional course on Community Health Program Design.",
+      settings: {
+        ...defaultSettings,
+        courseLengthPreset: "4-weeks",
+        lengthWeeks: 4,
+        moduleCount: 4,
+        organizationPattern: "weeks",
+        assignmentCadence: "every-module",
+        schedule: {
+          ...defaultSettings.schedule,
+          enableDueDates: true,
+          termStartDate: "2026-08-24",
+          termEndDate: "2026-12-12",
+          holidays: ["2026-09-07"],
+          blackoutDates: ["2026-10-12"],
+          moduleReleaseDay: 1,
+          preferredDueDay: 0,
+          preferredDueTime: "23:59"
+        }
+      }
+    });
+    const gradedDueDates = [
+      ...scheduledProject.assignments.map((assignment) => assignment.dueAt),
+      ...scheduledProject.discussions.filter((discussion) => discussion.points > 0).map((discussion) => discussion.dueAt),
+      ...scheduledProject.quizzes.map((quiz) => quiz.dueAt)
+    ];
+    const blockedDates = new Set([...scheduledProject.settings.schedule.holidays, ...scheduledProject.settings.schedule.blackoutDates]);
+    const zip = await buildImsccZip(scheduledProject);
+    const report = await validateImsccZip(scheduledProject, zip);
+    const assignmentSettingsXml = await zip.file(`${scheduledProject.assignments[0].id}/assignment_settings.xml`)?.async("text");
+    const discussion = scheduledProject.discussions.find((item) => item.points > 0);
+    const discussionMetaXml = discussion ? await zip.file(`${discussion.id}_meta.xml`)?.async("text") : "";
+    const quizMetaXml = await zip.file(`${scheduledProject.quizzes[0].id}/assessment_meta.xml`)?.async("text");
+
+    expect(gradedDueDates.every(Boolean)).toBe(true);
+    expect(gradedDueDates.every((dueAt) => dueAt && !blockedDates.has(dueAt.slice(0, 10)))).toBe(true);
+    expect(buildReadinessReport(scheduledProject).checks.find((check) => check.id === "graded-due-dates")?.passed).toBe(true);
+    expect(report.valid).toBe(true);
+    expect(assignmentSettingsXml).toContain("<due_at>");
+    expect(discussionMetaXml).toContain("<due_at>");
+    expect(quizMetaXml).toContain("<due_at>");
+    expect(scheduledProject.pages.find((page) => page.slug === "course-calendar-and-workload-plan")?.bodyHtml).toContain("2026-08-24");
+  });
+
+  it("fails validation when due dates are enabled but graded due dates are missing", async () => {
+    const scheduledProject = generateCourseProject({
+      prompt: "Build me a 4-week course on Grant Writing.",
+      settings: {
+        ...defaultSettings,
+        courseLengthPreset: "4-weeks",
+        lengthWeeks: 4,
+        moduleCount: 4,
+        schedule: {
+          ...defaultSettings.schedule,
+          enableDueDates: true,
+          termStartDate: "2026-08-24",
+          termEndDate: "2026-12-12"
+        }
+      }
+    });
+    const brokenProject = {
+      ...scheduledProject,
+      assignments: scheduledProject.assignments.map((assignment, index) => (index === 0 ? { ...assignment, dueAt: undefined } : assignment))
+    };
+    const zip = await buildImsccZip(brokenProject);
+    const report = await validateImsccZip(brokenProject, zip);
+
+    expect(report.valid).toBe(false);
+    expect(report.issues.some((issue) => issue.id.startsWith("due-date-missing-"))).toBe(true);
+  });
+
+  it("validates changed-content export mode with required dependencies included", async () => {
+    const { report } = await generateImsccBlob({ ...sampleProject, exportMode: "changed" }, "changed");
+
+    expect(report.valid).toBe(true);
+    expect(report.files).toContain("course_settings/assignment_groups.xml");
+    expect(report.files).toContain("course_settings/rubrics.xml");
+    expect(report.files).toContain("course_settings/learning_outcomes.xml");
+    expect(report.files).toContain("web_resources/syllabus-printable.pdf");
+    expect(report.files).toContain("web_resources/instructor-guide.pdf");
+  });
+
+  it("warns when exported Canvas HTML points to missing internal content", async () => {
+    const brokenProject = {
+      ...sampleProject,
+      pages: sampleProject.pages.map((page) =>
+        page.frontPage ? { ...page, bodyHtml: `${page.bodyHtml}<p><a href="missing-page.html">Broken internal link</a></p>` } : page
+      )
+    };
+    const zip = await buildImsccZip(brokenProject);
+    const report = await validateImsccZip(brokenProject, zip);
+
+    expect(report.valid).toBe(true);
+    expect(report.issues.some((issue) => issue.id.startsWith("broken-internal-link") && issue.severity === "warning")).toBe(true);
+  });
+
+  it("recovers Canvas module metadata when importing an imscc package", async () => {
+    const sourceProject = generateCourseProject({
+      prompt: "Build me a 4-week course on Digital Storytelling.",
+      settings: { ...defaultSettings, moduleCount: 4, lengthWeeks: 4, courseLengthPreset: "4-weeks" }
+    });
+    const zip = await buildImsccZip(sourceProject);
+    const blob = await zip.generateAsync({ type: "blob", mimeType: "application/zip" });
+    const result = await importCanvasCourseFromImscc(new File([blob], "digital-storytelling.imscc"), defaultSettings);
+
+    expect(result.notes.some((note) => /Recovered Canvas module structure/.test(note))).toBe(true);
+    expect(result.course.modules.some((module) => module.title.includes("Week 1") && module.items.some((item) => item.title.includes("Overview")))).toBe(true);
+    expect(result.course.pages.some((page) => page.slug === "syllabus")).toBe(true);
+  });
+});
