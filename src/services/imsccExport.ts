@@ -16,7 +16,11 @@ import type {
 } from "../types";
 import { escapeXml, slugify, stripHtml } from "../utils/text";
 import { validateAssignmentPlan } from "./assignmentBuilder";
+import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
+import { validatePagePlan } from "./pageBuilder";
+import { validateQuizPlan } from "./quizBuilder";
+import { validateRubricPlan } from "./rubricBuilder";
 import { buildReadinessReport } from "./readiness";
 import { collectXmlParseErrors, formatXmlParseError } from "./xmlWellFormed";
 
@@ -852,6 +856,11 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
   course.pages.forEach((page) => {
     if (!zip.file(pagePath(page))) fail(`missing-page-${page.id}`, `Missing page file for ${page.title}.`);
   });
+  validatePagePlan(course).issues.forEach((issue) => {
+    const id = `page-quality-${issue.id}`;
+    if (issue.severity === "error") fail(id, issue.detail);
+    else warn(id, issue.detail);
+  });
 
   htmlBlocks(course).forEach((block) => {
     if (unsafeHtml(block.html)) fail(`unsafe-html-${block.id}`, `${block.title} includes Canvas-hostile HTML.`);
@@ -888,6 +897,21 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
     .forEach((issue) => fail(`module-object-alignment-${issue.itemId ?? issue.id}`, issue.detail));
   validateAssignmentPlan(course).issues.forEach((issue) => {
     const id = `assignment-quality-${issue.id}`;
+    if (issue.severity === "error") fail(id, issue.detail);
+    else warn(id, issue.detail);
+  });
+  validateDiscussionPlan(course).issues.forEach((issue) => {
+    const id = `discussion-quality-${issue.id}`;
+    if (issue.severity === "error") fail(id, issue.detail);
+    else warn(id, issue.detail);
+  });
+  validateQuizPlan(course).issues.forEach((issue) => {
+    const id = `quiz-quality-${issue.id}`;
+    if (issue.severity === "error") fail(id, issue.detail);
+    else warn(id, issue.detail);
+  });
+  validateRubricPlan(course).issues.forEach((issue) => {
+    const id = `rubric-quality-${issue.id}`;
     if (issue.severity === "error") fail(id, issue.detail);
     else warn(id, issue.detail);
   });

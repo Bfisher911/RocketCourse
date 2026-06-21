@@ -1253,6 +1253,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
 
     if (shouldIncludeQuiz(mergedSettings, moduleNumber)) {
       const quizId = id("quiz", moduleNumber);
+      const questions = quizQuestions(quizId, moduleTopic, moduleId, alignedOutcomeIds, mergedSettings);
       quizzes.push({
         id: quizId,
         title: `${moduleLabel} Knowledge Check`,
@@ -1260,12 +1261,12 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
         dueAt: quizDueAt,
         assignmentGroupId: "group_quizzes",
         purpose: `Check understanding of ${moduleTopic}. Aligned outcomes: ${alignedOutcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.code).join(", ")}.`,
-        points: 10,
+        points: questions.reduce((sum, question) => sum + question.points, 0),
         alignedOutcomeIds,
         publishState: "published",
         status: "generated",
         metadata: metadata(generatedAt),
-        questions: quizQuestions(quizId, moduleTopic, moduleId, alignedOutcomeIds, mergedSettings)
+        questions
       });
       moduleItems.push(makeItem(id("item", quizId), "quiz", "Knowledge Check", quizId, moduleItems.length + 1, generatedAt));
       schedule.push({

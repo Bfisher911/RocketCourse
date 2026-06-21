@@ -32,7 +32,11 @@ import {
 } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { AssignmentsTab } from "./components/AssignmentsTab";
+import { DiscussionsTab } from "./components/DiscussionsTab";
 import { HomepageTab } from "./components/HomepageTab";
+import { PagesTab } from "./components/PagesTab";
+import { QuizzesTab } from "./components/QuizzesTab";
+import { RubricsTab } from "./components/RubricsTab";
 import { SyllabusTab } from "./components/SyllabusTab";
 import { defaultSettings } from "./data/defaultSettings";
 import { themes } from "./data/themes";
@@ -1018,11 +1022,11 @@ function Editor({
               onJumpToTab={setActiveTab}
             />
           )}
-          {activeTab === "Pages" && <CollectionTab<CoursePage> title="Pages" objectType="page" course={course} items={course.pages} getBody={(item) => item.bodyHtml} setBody={(item, body) => ({ ...item, bodyHtml: body })} onReplace={(pages) => onUpdateCourse((current) => ({ ...current, pages }))} />}
+          {activeTab === "Pages" && <PagesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Assignments" && <AssignmentsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Discussions" && <CollectionTab<Discussion> title="Discussions" objectType="discussion" course={course} items={course.discussions} getBody={(item) => item.promptHtml} setBody={(item, body) => ({ ...item, promptHtml: body })} onReplace={(discussions) => onUpdateCourse((current) => ({ ...current, discussions }))} />}
-          {activeTab === "Quizzes" && <QuizzesTab quizzes={course.quizzes} onUpdate={(quizzes) => onUpdateCourse((current) => ({ ...current, quizzes }))} />}
-          {activeTab === "Rubrics" && <RubricsTab rubrics={course.rubrics} onUpdate={(rubrics) => onUpdateCourse((current) => ({ ...current, rubrics }))} />}
+          {activeTab === "Discussions" && <DiscussionsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
+          {activeTab === "Quizzes" && <QuizzesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
+          {activeTab === "Rubrics" && <RubricsTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Gradebook Setup" && <GradebookTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Contact Hours" && <ContactHoursTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Theme" && <ThemeTab course={course} onUpdateCourse={onUpdateCourse} />}
@@ -1570,53 +1574,6 @@ function CollectionTab<T extends { id: string; title: string; status: CourseProj
           <TextArea label="Canvas HTML" value={getBody(item)} rows={10} onChange={(value) => onReplace(items.map((current) => (current.id === item.id ? setBody(current, value) : current)))} />
         </details>
       ))}
-    </div>
-  );
-}
-
-function QuizzesTab({ quizzes, onUpdate }: { quizzes: Quiz[]; onUpdate: (quizzes: Quiz[]) => void }) {
-  return (
-    <div className="stack">
-      <h2>Quizzes</h2>
-      {quizzes.map((quiz) => (
-        <details className="detail-editor" key={quiz.id}>
-          <summary>
-            {quiz.title} <span>{quiz.questions.length} questions</span>
-          </summary>
-          <Input label="Title" value={quiz.title} onChange={(value) => onUpdate(quizzes.map((item) => (item.id === quiz.id ? { ...item, title: value } : item)))} />
-          <TextArea label="Purpose" value={quiz.purpose} onChange={(value) => onUpdate(quizzes.map((item) => (item.id === quiz.id ? { ...item, purpose: value } : item)))} compact />
-          <div className="question-list">
-            {quiz.questions.map((question) => (
-              <div className="question-row" key={question.id}>
-                <span>{question.type.replace("_", " ")}</span>
-                <textarea
-                  value={question.stem}
-                  onChange={(event) =>
-                    onUpdate(quizzes.map((item) => (item.id === quiz.id ? { ...item, questions: item.questions.map((q) => (q.id === question.id ? { ...q, stem: event.target.value } : q)) } : item)))
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </details>
-      ))}
-    </div>
-  );
-}
-
-function RubricsTab({ rubrics, onUpdate }: { rubrics: Rubric[]; onUpdate: (rubrics: Rubric[]) => void }) {
-  return (
-    <div className="stack">
-      <h2>Rubrics</h2>
-      <div className="object-grid">
-        {rubrics.map((rubric) => (
-          <div className="object-card" key={rubric.id}>
-            <Input label="Rubric title" value={rubric.title} onChange={(value) => onUpdate(rubrics.map((item) => (item.id === rubric.id ? { ...item, title: value } : item)))} />
-            <strong>{rubric.points} points</strong>
-            <small>{rubric.criteria.length} criteria</small>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

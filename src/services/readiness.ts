@@ -1,7 +1,11 @@
 import type { CourseProject, ModuleItemType, ReadinessCheck, ReadinessReport } from "../types";
 import { slugify, stripHtml } from "../utils/text";
 import { validateAssignmentPlan } from "./assignmentBuilder";
+import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
+import { validatePagePlan } from "./pageBuilder";
+import { validateQuizPlan } from "./quizBuilder";
+import { validateRubricPlan } from "./rubricBuilder";
 import { validateSyllabus } from "./syllabusValidation";
 
 const check = (
@@ -251,8 +255,16 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const danglingRefs = danglingReferences(course);
   const modulePlanValidation = validateModulePlan(course);
   const moduleLocationIssues = modulePlanValidation.issues.filter((issue) => /-missing-target$|-module-mismatch$/.test(issue.id));
+  const pagePlanValidation = validatePagePlan(course);
+  const pageBlockers = pagePlanValidation.issues.filter((issue) => issue.severity === "error");
   const assignmentPlanValidation = validateAssignmentPlan(course);
   const assignmentBlockers = assignmentPlanValidation.issues.filter((issue) => issue.severity === "error");
+  const discussionPlanValidation = validateDiscussionPlan(course);
+  const discussionBlockers = discussionPlanValidation.issues.filter((issue) => issue.severity === "error");
+  const quizPlanValidation = validateQuizPlan(course);
+  const quizBlockers = quizPlanValidation.issues.filter((issue) => issue.severity === "error");
+  const rubricPlanValidation = validateRubricPlan(course);
+  const rubricBlockers = rubricPlanValidation.issues.filter((issue) => issue.severity === "error");
   const distinctOutcomeCodes = new Set(course.outcomes.map((outcome) => outcome.code.trim().toLowerCase())).size === course.outcomes.length;
   const weakObjectives = course.outcomes.filter((outcome) => outcome.code.trim().length === 0 || visibleLength(outcome.text) < 24);
   const nonMeasurableObjectives = course.outcomes.filter((outcome) => !MEASURABLE_VERB.test(outcome.text));
@@ -287,16 +299,20 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("module-boundaries", "Content modules have overview and recap pages", hasModuleBoundaryPages(course), "Each content module should begin and end with student-facing guide pages."),
     check("module-refs", "Module item references resolve", allModuleItemRefsResolve(course), "Every module item should point to an exported page, assignment, discussion, or quiz."),
     check("module-object-alignment", "Module item locations match content objects", moduleLocationIssues.length === 0, moduleLocationIssues.length ? `${moduleLocationIssues.length} module location issue(s): ${moduleLocationIssues.slice(0, 3).map((issue) => issue.detail).join("; ")}` : "Module item locations match the referenced objects."),
+    check("page-quality", "Pages pass safety and structure checks", pageBlockers.length === 0 && pagePlanValidation.score >= 85, pageBlockers.length ? `${pageBlockers.length} page blocker(s): ${pageBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Page validation score is ${pagePlanValidation.score}.`, "recommended"),
     check("reference-integrity", "Cross-object references resolve", danglingRefs.length === 0, danglingRefs.length ? `${danglingRefs.length} broken reference(s): ${danglingRefs.slice(0, 3).join("; ")}.` : "Group, rubric, outcome, module, and item references all resolve."),
     check("start-here-content", "Start Here module carries orientation content", startHereMissing.length === 0, startHereMissing.length ? `Start Here is missing: ${startHereMissing.join(", ")}.` : "Start Here includes the homepage, syllabus, success guide, and calendar."),
     check("weights", "Grade weights total 100%", Math.round(gradeWeightTotal) === 100, `Current assignment group total is ${gradeWeightTotal}%.`),
     check("weight-bounds", "Assignment group weights are in range and balanced", outOfRangeWeightGroups.length === 0 && Math.abs(gradeWeightTotal - 100) < 0.5 && gradedItemsInUnweightedGroup.length === 0, outOfRangeWeightGroups.length ? `${outOfRangeWeightGroups.map((group) => group.name).slice(0, 3).join(", ")} have weights outside 0-100%.` : gradedItemsInUnweightedGroup.length ? `${gradedItemsInUnweightedGroup.map((item) => item.title).slice(0, 3).join(", ")} sit in a 0%-weight group and would not count.` : "Group weights are within range and sum to 100%."),
     check("assignment-groups", "Graded items use meaningful assignment groups", gradedItemsHaveGroups, `${gradedItems.length} graded items checked for assignment group references.`),
     check("assignment-quality", "Assignments pass safety and design checks", assignmentBlockers.length === 0 && assignmentPlanValidation.score >= 85, assignmentBlockers.length ? `${assignmentBlockers.length} assignment blocker(s): ${assignmentBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Assignment validation score is ${assignmentPlanValidation.score}.`, "recommended"),
+    check("discussion-quality", "Discussions pass prompt and participation checks", discussionBlockers.length === 0 && discussionPlanValidation.score >= 85, discussionBlockers.length ? `${discussionBlockers.length} discussion blocker(s): ${discussionBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Discussion validation score is ${discussionPlanValidation.score}.`, "recommended"),
+    check("quiz-quality", "Quizzes pass question and QTI checks", quizBlockers.length === 0 && quizPlanValidation.score >= 85, quizBlockers.length ? `${quizBlockers.length} quiz blocker(s): ${quizBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Quiz validation score is ${quizPlanValidation.score}.`, "recommended"),
     check("nonzero-weight-groups", "Active assignment groups are weighted", zeroWeightActiveGroups.length === 0, zeroWeightActiveGroups.length ? `${zeroWeightActiveGroups.map((group) => group.name).join(", ")} has graded items but 0% weight.` : "No active graded group is weighted at 0%."),
     check("rubrics", "Assignments and graded discussions have rubrics", assignmentAndDiscussionRubrics, "Assignments and graded discussions should include attached rubric references."),
     check("rubric-depth", "Rubrics have substantive criteria and points", shallowRubrics.length === 0, shallowRubrics.length ? `${shallowRubrics.map((rubric) => rubric.title).slice(0, 3).join(", ")} need 3+ criteria, leveled ratings, and nonzero points.` : "Every rubric has at least three leveled criteria and nonzero points."),
     check("rubric-outcomes", "Rubrics align to outcomes", allRubricsAligned, "Every generated rubric should reference at least one course outcome."),
+    check("rubric-quality", "Rubrics pass criteria and level checks", rubricBlockers.length === 0 && rubricPlanValidation.score >= 85, rubricBlockers.length ? `${rubricBlockers.length} rubric blocker(s): ${rubricBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Rubric validation score is ${rubricPlanValidation.score}.`, "recommended"),
     check("graded-outcomes", "Graded items align to outcomes", gradedItemsHaveOutcomes, "Every graded item should reference at least one course outcome."),
     check("orphaned-outcomes", "No orphaned outcomes", orphanedOutcomes.length === 0, orphanedOutcomes.length ? `${orphanedOutcomes.length} outcome(s) are not aligned.` : "All outcomes are represented in modules, rubrics, or graded work.", "recommended"),
     check("syllabus-outcomes", "Syllabus outcomes match course outcomes", syllabusOutcomeMatch, syllabus ? "Syllabus lists the generated course outcomes." : "No syllabus page found."),
