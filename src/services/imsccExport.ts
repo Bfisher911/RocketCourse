@@ -16,6 +16,7 @@ import type {
 } from "../types";
 import { escapeXml, slugify, stripHtml } from "../utils/text";
 import { buildReadinessReport } from "./readiness";
+import { collectXmlParseErrors, formatXmlParseError } from "./xmlWellFormed";
 
 const CANVAS_NAMESPACE = "http://canvas.instructure.com/xsd/cccv1p0";
 const CANVAS_XSD_URI = "https://canvas.instructure.com/xsd/cccv1p0.xsd";
@@ -895,6 +896,15 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
   const fileRefs = Array.from(manifestText?.matchAll(/<file\s+href="([^"]+)"/g) ?? []).map((match) => match[1]);
   fileRefs.forEach((ref) => {
     if (!zip.file(ref)) fail(`missing-file-${ref}`, `Manifest file reference ${ref} is missing from the package.`);
+  });
+
+  // Parse every generated XML document (manifest, course settings, QTI, meta, SVG) and fail
+  // the package on any that is not well-formed, naming the exact file and parse error. Canvas
+  // aborts an import the moment its XML parser hits a malformed descriptor, so this is a hard
+  // error rather than a warning.
+  const xmlParseErrors = await collectXmlParseErrors(zip);
+  xmlParseErrors.forEach((error) => {
+    fail(`malformed-xml-${error.path}`, formatXmlParseError(error));
   });
 
   const errorCount = issues.filter((issue) => issue.severity === "error").length;
