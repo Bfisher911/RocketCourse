@@ -12,7 +12,6 @@ import type {
   PublishState,
   Quiz,
   QuizQuestion,
-  QuizQuestionType,
   Rubric
 } from "../types";
 import { escapeXml, slugify, stripHtml } from "../utils/text";
@@ -338,30 +337,40 @@ ${module.items
   .join("\n")}
 </modules>`;
 
-// Canvas reads question_type from item metadata to pick its native question editor.
-// Open prompts (short_answer/essay) carry no answer key, so they map to manually graded
-// essay_question rather than short_answer_question (which would auto-mark every response wrong).
-const CANVAS_QUESTION_TYPE: Record<QuizQuestionType, string> = {
-  multiple_choice: "multiple_choice_question",
-  true_false: "true_false_question",
-  short_answer: "essay_question",
-  essay: "essay_question"
-};
-
-// Common Cartridge QTI 1.2 profile identifiers for the cc-flavored assessment.
-const CC_QUESTION_PROFILE: Record<QuizQuestionType, string> = {
-  multiple_choice: "cc.multiple_choice.v0p1",
-  true_false: "cc.true_false.v0p1",
-  short_answer: "cc.essay.v0p1",
-  essay: "cc.essay.v0p1"
-};
-
 const isAutoGradedChoice = (question: QuizQuestion): boolean =>
   (question.type === "multiple_choice" || question.type === "true_false") &&
   Array.isArray(question.choices) &&
   question.choices.length > 0 &&
   Boolean(question.correctAnswer) &&
   question.choices.includes(question.correctAnswer as string);
+
+// A short-answer question is auto-gradable only when it carries an answer key. Acceptable
+// answers may be pipe-delimited; each becomes a case-insensitive fill-in-the-blank match.
+const acceptableAnswers = (question: QuizQuestion): string[] =>
+  (question.correctAnswer ?? "")
+    .split("|")
+    .map((answer) => answer.trim())
+    .filter(Boolean);
+
+const isFillInBlank = (question: QuizQuestion): boolean => question.type === "short_answer" && acceptableAnswers(question).length > 0;
+
+// Canvas reads question_type from item metadata to pick its native question editor.
+// short_answer/essay prompts without an answer key map to manually graded essay_question
+// rather than short_answer_question (which would auto-mark every response wrong).
+const canvasQuestionType = (question: QuizQuestion): string => {
+  if (question.type === "multiple_choice") return "multiple_choice_question";
+  if (question.type === "true_false") return "true_false_question";
+  if (isFillInBlank(question)) return "short_answer_question";
+  return "essay_question";
+};
+
+// Common Cartridge QTI 1.2 profile identifiers for the cc-flavored assessment.
+const ccQuestionProfile = (question: QuizQuestion): string => {
+  if (question.type === "multiple_choice") return "cc.multiple_choice.v0p1";
+  if (question.type === "true_false") return "cc.true_false.v0p1";
+  if (isFillInBlank(question)) return "cc.fib.v0p1";
+  return "cc.essay.v0p1";
+};
 
 const choiceLabelId = (questionId: string, index: number): string => `${questionId}_a${index + 1}`;
 const responseLid = (questionId: string): string => `response_${questionId}`;
@@ -375,10 +384,10 @@ const qtiItemFeedback = (ident: string, html: string): string =>
 
 const createQtiItem = (question: QuizQuestion, canvasFlavor: boolean): string => {
   const metaFields = [
-    `<qtimetadatafield><fieldlabel>question_type</fieldlabel><fieldentry>${xml(CANVAS_QUESTION_TYPE[question.type])}</fieldentry></qtimetadatafield>`,
+    `<qtimetadatafield><fieldlabel>question_type</fieldlabel><fieldentry>${xml(canvasQuestionType(question))}</fieldentry></qtimetadatafield>`,
     canvasFlavor
       ? ""
-      : `<qtimetadatafield><fieldlabel>cc_profile</fieldlabel><fieldentry>${xml(CC_QUESTION_PROFILE[question.type])}</fieldentry></qtimetadatafield>`,
+      : `<qtimetadatafield><fieldlabel>cc_profile</fieldlabel><fieldentry>${xml(ccQuestionProfile(question))}</fieldentry></qtimetadatafield>`,
     `<qtimetadatafield><fieldlabel>points_possible</fieldlabel><fieldentry>${question.points}</fieldentry></qtimetadatafield>`
   ]
     .filter(Boolean)
@@ -422,6 +431,42 @@ ${labels}
           <outcomes><decvar maxvalue="100" minvalue="0" varname="SCORE" vartype="Decimal"/></outcomes>
           <respcondition continue="No">
             <conditionvar><varequal respident="${xml(lid)}">${xml(choiceLabelId(question.id, correctIndex))}</varequal></conditionvar>
+            <setvar action="Set" varname="SCORE">100</setvar>
+            <displayfeedback feedbacktype="Response" linkrefid="${xml(`${question.id}_correct_fb`)}"/>
+          </respcondition>
+          <respcondition continue="Yes">
+            <conditionvar><other/></conditionvar>
+            <displayfeedback feedbacktype="Response" linkrefid="${xml(`${question.id}_incorrect_fb`)}"/>
+          </respcondition>
+        </resprocessing>
+${feedback}
+      </item>`;
+  }
+
+  if (isFillInBlank(question)) {
+    const lid = responseLid(question.id);
+    const answers = acceptableAnswers(question);
+    const varequals = answers.map((answer) => `<varequal respident="${xml(lid)}" case="No">${xml(answer)}</varequal>`);
+    // Multiple acceptable answers are alternatives, so wrap them in <or>; a lone answer needs no wrapper.
+    const conditionBody = varequals.length > 1 ? `<or>${varequals.join("")}</or>` : varequals.join("");
+    const feedback = [
+      qtiItemFeedback(`${question.id}_correct_fb`, question.correctFeedback || question.feedback || ""),
+      qtiItemFeedback(`${question.id}_incorrect_fb`, question.incorrectFeedback || question.feedback || "")
+    ]
+      .filter(Boolean)
+      .join("\n");
+    return `      <item ident="${xml(question.id)}" title="${xml(question.stem.slice(0, 72))}">
+${itemMetadata}
+        <presentation>
+${stem}
+          <response_str ident="${xml(lid)}" rcardinality="Single">
+            <render_fib><response_label ident="${xml(`${question.id}_answer`)}" rshuffle="No"/></render_fib>
+          </response_str>
+        </presentation>
+        <resprocessing>
+          <outcomes><decvar maxvalue="100" minvalue="0" varname="SCORE" vartype="Decimal"/></outcomes>
+          <respcondition continue="No">
+            <conditionvar>${conditionBody}</conditionvar>
             <setvar action="Set" varname="SCORE">100</setvar>
             <displayfeedback feedbacktype="Response" linkrefid="${xml(`${question.id}_correct_fb`)}"/>
           </respcondition>

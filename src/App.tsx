@@ -1,27 +1,33 @@
 import {
   ArrowDownToLine,
+  ArrowRight,
   BookOpen,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
+  Clock,
   CreditCard,
   FileArchive,
   FileText,
+  Gauge,
   GripVertical,
+  Layers,
   LayoutDashboard,
   Loader2,
   Lock,
   MessageSquareText,
+  Palette,
   PanelLeft,
   PenLine,
   Plus,
   RotateCcw,
+  ShieldCheck,
   Sparkles,
   Upload,
   Wand2
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { defaultSettings } from "./data/defaultSettings";
 import { themes } from "./data/themes";
 import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./services/courseGenerator";
@@ -573,41 +579,167 @@ function TopBar({
   );
 }
 
+const howItWorks = [
+  {
+    icon: Wand2,
+    title: "Prompt & configure",
+    body: "Describe your course, then set level, length, modules, assessments, and schedule. Start fresh or upload a syllabus or an existing Canvas .imscc export."
+  },
+  {
+    icon: Sparkles,
+    title: "Generate & edit",
+    body: "CourseForge builds modules, pages, assignments, discussions, quizzes, and rubrics as native Canvas objects you can edit, reorder, and refine."
+  },
+  {
+    icon: FileArchive,
+    title: "Validate & export",
+    body: "Check readiness and instructional quality, then download a validated .imscc package ready to import straight into Canvas."
+  }
+] as const;
+
+const landingFeatures = [
+  {
+    icon: BookOpen,
+    tone: "cyan",
+    title: "Canvas-native structure",
+    body: "Homepage, syllabus, modules, pages, assignments, discussions, quizzes, rubrics, outcomes, and gradebook groups — generated as real Canvas objects."
+  },
+  {
+    icon: PenLine,
+    tone: "pink",
+    title: "Editable before export",
+    body: "Tighten a page, reorder a module, or adjust workload without rebuilding the whole course. Your edits are preserved."
+  },
+  {
+    icon: Gauge,
+    tone: "orange",
+    title: "Readiness scoring",
+    body: "A live readiness and instructional-quality score shows exactly what needs attention before you export."
+  },
+  {
+    icon: ShieldCheck,
+    tone: "success",
+    title: "Local IMSCC validation",
+    body: "Manifest, module metadata, references, and HTML are checked locally before you download the package."
+  },
+  {
+    icon: Palette,
+    tone: "orchid",
+    title: "Cohesive themes",
+    body: "Apply a visual theme across generated content while preserving anything you've edited by hand."
+  },
+  {
+    icon: Clock,
+    tone: "yellow",
+    title: "Workload & accessibility",
+    body: "Plan contact hours and keep accessibility-minded structure baked into the generated Canvas HTML."
+  }
+] as const;
+
 function Landing({ onStart, onDashboard }: { onStart: () => void; onDashboard: () => void }) {
   return (
     <main className="landing">
-      <section className="landing-copy">
-        <h1>Generate a full Canvas course in minutes.</h1>
-        <p>
-          CourseForge turns a course prompt, syllabus, and a few guided settings into a structured Canvas shell with editable native objects and a Canvas-ready export path.
-        </p>
+      <section className="landing-hero">
+        <div className="landing-copy">
+          <span className="hero-badge">
+            <Sparkles size={15} /> Cosmic course builder for Canvas LMS
+          </span>
+          <h1>
+            Generate a full <span className="gradient-text">Canvas course</span> in minutes.
+          </h1>
+          <p>
+            CourseForge turns a course prompt and a few guided settings into a structured, editable Canvas shell — then
+            validates and exports a Canvas-ready <strong>.imscc</strong> package. Built for instructors and instructional
+            designers.
+          </p>
+          <div className="hero-actions">
+            <button className="primary" onClick={onStart}>
+              <Sparkles size={18} /> Build a course
+            </button>
+            <button className="secondary" onClick={onDashboard}>
+              <LayoutDashboard size={17} /> View dashboard
+            </button>
+          </div>
+          <div className="hero-meta">
+            <span>
+              <CheckCircle2 size={16} /> Canvas-native objects
+            </span>
+            <span>
+              <CheckCircle2 size={16} /> Editable before export
+            </span>
+            <span>
+              <CheckCircle2 size={16} /> Real .imscc download
+            </span>
+          </div>
+        </div>
+        <section className="product-preview" aria-label="CourseForge workflow preview">
+          <div className="preview-header">
+            <span>AI and Modern Society</span>
+            <strong>Readiness 94%</strong>
+          </div>
+          <div className="preview-grid">
+            <div>
+              <h2>Canvas-native structure</h2>
+              <p>Homepage, syllabus, Start Here, modules, pages, assignments, discussions, quizzes, rubrics, and gradebook groups.</p>
+            </div>
+            <div>
+              <h2>Editable before export</h2>
+              <p>Revise a page, reorder a module, or adjust workload without rebuilding the whole course.</p>
+            </div>
+            <div>
+              <h2>IMSCC package check</h2>
+              <p>Manifest, module metadata, references, HTML, and package files are validated before download.</p>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section className="landing-section" aria-labelledby="how-heading">
+        <span className="section-eyebrow">How it works</span>
+        <h2 id="how-heading">From prompt to Canvas package in three steps</h2>
+        <p>A guided, calm flow that keeps you in control of every object before anything is exported.</p>
+        <div className="how-grid">
+          {howItWorks.map((step, index) => (
+            <article className="step-card" key={step.title}>
+              <span className="step-line" />
+              <span className="step-index">{index + 1}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section" aria-labelledby="features-heading">
+        <span className="section-eyebrow">What you get</span>
+        <h2 id="features-heading">Everything a Canvas course needs, structured for you</h2>
+        <p>Powerful where it counts, simple everywhere else — no fake AI claims, just a fast, honest build.</p>
+        <div className="feature-grid">
+          {landingFeatures.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <article className="feature-card" key={feature.title}>
+                <span className={`feature-icon ${feature.tone}`}>
+                  <Icon size={22} />
+                </span>
+                <h3>{feature.title}</h3>
+                <p>{feature.body}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="landing-cta">
+        <h2>Ready to build your next Canvas course?</h2>
+        <p>Start from a prompt or an existing export, edit everything, and ship a validated package.</p>
         <div className="hero-actions">
           <button className="primary" onClick={onStart}>
-            <Sparkles size={18} /> Build a course
+            <Sparkles size={18} /> Build a course <ArrowRight size={17} />
           </button>
           <button className="secondary" onClick={onDashboard}>
             View dashboard
           </button>
-        </div>
-      </section>
-      <section className="product-preview" aria-label="CourseForge workflow preview">
-        <div className="preview-header">
-          <span>AI and Modern Society</span>
-          <strong>Readiness 94%</strong>
-        </div>
-        <div className="preview-grid">
-          <div>
-            <h2>Canvas-native structure</h2>
-            <p>Homepage, syllabus, Start Here, modules, pages, assignments, discussions, quizzes, rubrics, and gradebook groups.</p>
-          </div>
-          <div>
-            <h2>Editable before export</h2>
-            <p>Revise one page, regenerate a module, reorder content, or adjust workload without rebuilding the whole course.</p>
-          </div>
-          <div>
-            <h2>IMSCC package check</h2>
-            <p>Manifest, module metadata, references, HTML, and package files are validated before download.</p>
-          </div>
         </div>
       </section>
     </main>
@@ -630,42 +762,69 @@ function Dashboard({
       <section className="page-heading">
         <div>
           <h1>Dashboard</h1>
-          <p>Drafts, generated courses, export history, and subscription status.</p>
+          <p>Your drafts, generated courses, export history, and demo subscription status.</p>
         </div>
         <button className="primary" onClick={onCreate}>
-          <Plus size={18} /> Create New Course
+          <Plus size={18} /> Create new course
         </button>
       </section>
       <section className="dashboard-grid">
         <div className="stat-panel">
-          <BookOpen size={20} />
+          <span className="stat-icon">
+            <BookOpen size={20} />
+          </span>
           <span>{projects.length}</span>
           <p>Course projects</p>
         </div>
-        <div className="stat-panel">
-          <FileArchive size={20} />
+        <div className="stat-panel pink">
+          <span className="stat-icon">
+            <FileArchive size={20} />
+          </span>
           <span>{projects.reduce((sum, project) => sum + project.exportHistory.length, 0)}</span>
-          <p>Exports</p>
+          <p>Validated exports</p>
         </div>
-        <div className="stat-panel">
-          <CreditCard size={20} />
-          <span>{subscriptionActive ? "$20/mo" : "Preview"}</span>
-          <p>{subscriptionActive ? "Individual plan active" : "Export disabled"}</p>
+        <div className="stat-panel orchid">
+          <span className="stat-icon">
+            <CreditCard size={20} />
+          </span>
+          <span>{subscriptionActive ? "Active" : "Locked"}</span>
+          <p>{subscriptionActive ? "Export enabled (demo plan)" : "Export disabled (demo)"}</p>
         </div>
       </section>
-      <section className="project-list">
-        {projects.map((project) => (
-          <button key={project.id} className="project-row" onClick={() => onOpen(project)}>
-            <span>
-              <strong>{project.title}</strong>
-              <small>
-                {project.modules.length} modules • {project.assignments.length} assignments • updated {formatDate(project.updatedAt)}
-              </small>
-            </span>
-            <span className="status-pill">{project.status}</span>
-          </button>
-        ))}
-      </section>
+      {projects.length === 0 ? (
+        <EmptyState title="No courses yet" body="Create your first course to see it appear here with readiness and export status." />
+      ) : (
+        <section className="project-list" aria-label="Course projects">
+          {projects.map((project) => {
+            const score = buildReadinessReport(project).score;
+            return (
+              <button key={project.id} className="project-row" onClick={() => onOpen(project)}>
+                <span className="project-main">
+                  <span className="project-glyph" aria-hidden="true">
+                    <BookOpen size={20} />
+                  </span>
+                  <span>
+                    <strong>{project.title}</strong>
+                    <small>
+                      {project.modules.length} modules • {project.assignments.length} assignments • updated {formatDate(project.updatedAt)}
+                    </small>
+                  </span>
+                </span>
+                <span className="project-meta">
+                  <span className="readiness-mini" title={`Readiness ${score}%`}>
+                    <span className="bar" aria-hidden="true">
+                      <i style={{ width: `${score}%` }} />
+                    </span>
+                    {score}%
+                  </span>
+                  <span className={`status-pill ${project.status}`}>{project.status}</span>
+                  <ArrowRight size={16} aria-hidden="true" />
+                </span>
+              </button>
+            );
+          })}
+        </section>
+      )}
     </main>
   );
 }
@@ -710,13 +869,21 @@ function Intake({
       </section>
       <section className="intake-layout">
         <div className="prompt-panel">
-          <label htmlFor="prompt">Vibe-build prompt</label>
+          <span className="panel-label">
+            <Wand2 size={14} /> Course brief
+          </span>
+          <label htmlFor="prompt">Describe your course</label>
+          <p className="prompt-hint">Plain language is fine — topic, audience, goals, tone, and anything you want emphasized.</p>
           <textarea id="prompt" value={prompt} onChange={(event) => onPromptChange(event.target.value)} />
           <label className="upload-zone">
             <Upload size={22} />
-            <span>Attach syllabus, notes, reading list, policy language, or an existing Canvas .imscc export</span>
+            <span>Attach a syllabus, notes, reading list, or an existing Canvas .imscc export</span>
             <input type="file" multiple accept=".imscc,.txt,.md,.doc,.docx,.pdf,.html" onChange={(event) => onFiles(event.target.files)} />
           </label>
+          <p className="upload-note">
+            Uploading an <strong>.imscc</strong> imports its structure right away. Other files are listed as sources for your
+            reference — this build records their names, but does not yet parse their contents.
+          </p>
           {settings.sourceFiles.length > 0 && (
             <div className="source-list">
               {settings.sourceFiles.map((file) => (
@@ -728,58 +895,85 @@ function Intake({
           )}
         </div>
         <div className="settings-panel">
-          <Select
-            label="Build mode"
-            value={settings.buildMode}
-            options={["vibe", "guided", "hybrid"]}
-            labels={{ vibe: "Vibe Build", guided: "Guided Build", hybrid: "Hybrid" }}
-            onChange={(value) => onSettingsChange("buildMode", value as CourseSettings["buildMode"])}
-          />
-          <Input label="Course title" value={settings.title} onChange={(value) => onSettingsChange("title", value)} />
-          <TextArea label="Course description" value={settings.description} onChange={(value) => onSettingsChange("description", value)} compact />
-          <div className="field-grid">
-            <Select label="Level" value={settings.level} options={["Undergraduate", "Graduate", "Professional", "High school", "Continuing education"]} onChange={(value) => onSettingsChange("level", value)} />
-            <Select label="Modality" value={settings.modality} options={["Online asynchronous", "Online synchronous", "Hybrid", "Face-to-face", "Accelerated"]} onChange={(value) => onSettingsChange("modality", value)} />
-            <NumberInput label="Credit hours" value={settings.creditHours} min={1} max={6} onChange={(value) => onSettingsChange("creditHours", value)} />
+          <span className="panel-label">
+            <Sparkles size={14} /> Course settings
+          </span>
+          <div className="settings-section">
+            <div className="subsection-heading">
+              <h2>Course basics</h2>
+            </div>
             <Select
-              label="Length preset"
-              value={settings.courseLengthPreset}
-              options={["4-weeks", "6-weeks", "8-weeks", "12-weeks", "15-weeks", "16-weeks", "maymester", "custom"]}
-              labels={{ "4-weeks": "4 weeks", "6-weeks": "6 weeks", "8-weeks": "8 weeks", "12-weeks": "12 weeks", "15-weeks": "15 weeks", "16-weeks": "16 weeks", maymester: "Maymester", custom: "Custom" }}
-              onChange={(value) => onSettingsChange("courseLengthPreset", value as CourseSettings["courseLengthPreset"])}
+              label="Build mode"
+              value={settings.buildMode}
+              options={["vibe", "guided", "hybrid"]}
+              labels={{ vibe: "Vibe Build", guided: "Guided Build", hybrid: "Hybrid" }}
+              onChange={(value) => onSettingsChange("buildMode", value as CourseSettings["buildMode"])}
             />
-            <NumberInput label="Course length" value={settings.lengthWeeks} min={3} max={18} suffix="weeks" onChange={(value) => onSettingsChange("lengthWeeks", value)} />
-            <NumberInput label="Modules" value={settings.moduleCount} min={3} max={18} onChange={(value) => onSettingsChange("moduleCount", value)} />
-            <Select
-              label="Organization"
-              value={settings.organizationPattern}
-              options={["weeks", "topics", "chapters", "units", "quarters", "custom"]}
-              labels={{ weeks: "Weeks", topics: "Topics", chapters: "Chapters", units: "Units", quarters: "Quarters", custom: "Custom sections" }}
-              onChange={(value) => onSettingsChange("organizationPattern", value as CourseSettings["organizationPattern"])}
-            />
-            <Select label="Theme" value={settings.themeId} options={themes.map((theme) => theme.id)} labels={themes.reduce<Record<string, string>>((map, theme) => ({ ...map, [theme.id]: theme.name }), {})} onChange={(value) => onSettingsChange("themeId", value)} />
-            <Select label="Tone" value={settings.tone} options={["Friendly academic", "Formal", "Practical", "Technical", "Clinical"]} onChange={(value) => onSettingsChange("tone", value)} />
-            <Select label="Quizzes" value={settings.quizFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("quizFrequency", value as CourseSettings["quizFrequency"])} />
-            <NumberInput label="Questions per quiz" value={settings.quizQuestionsPerQuiz} min={1} max={10} onChange={(value) => onSettingsChange("quizQuestionsPerQuiz", value)} />
-            <Select label="Quiz difficulty" value={settings.quizDifficulty} options={["introductory", "balanced", "challenging"]} onChange={(value) => onSettingsChange("quizDifficulty", value as CourseSettings["quizDifficulty"])} />
-            <Select label="Discussions" value={settings.discussionFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("discussionFrequency", value as CourseSettings["discussionFrequency"])} />
-            <Select label="Discussion style" value={settings.discussionStyle} options={["reflective", "case-based", "debate", "peer-review", "application"]} onChange={(value) => onSettingsChange("discussionStyle", value as CourseSettings["discussionStyle"])} />
-            <Select label="Assignments" value={settings.assignmentCadence} options={["every-module", "every-other-module", "major-milestones", "custom"]} labels={{ "every-module": "Every module", "every-other-module": "Every other module", "major-milestones": "Major milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("assignmentCadence", value as CourseSettings["assignmentCadence"])} />
-            <Select label="Final project type" value={settings.finalProjectType} options={["project", "presentation", "paper", "portfolio", "exam", "case-study", "simulation", "other"]} onChange={(value) => onSettingsChange("finalProjectType", value as CourseSettings["finalProjectType"])} />
-            <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />
+            <Input label="Course title" value={settings.title} onChange={(value) => onSettingsChange("title", value)} />
+            <TextArea label="Course description" value={settings.description} onChange={(value) => onSettingsChange("description", value)} compact />
+            <div className="field-grid">
+              <Select label="Level" value={settings.level} options={["Undergraduate", "Graduate", "Professional", "High school", "Continuing education"]} onChange={(value) => onSettingsChange("level", value)} />
+              <Select label="Modality" value={settings.modality} options={["Online asynchronous", "Online synchronous", "Hybrid", "Face-to-face", "Accelerated"]} onChange={(value) => onSettingsChange("modality", value)} />
+              <NumberInput label="Credit hours" value={settings.creditHours} min={1} max={6} onChange={(value) => onSettingsChange("creditHours", value)} />
+              <Select label="Tone" value={settings.tone} options={["Friendly academic", "Formal", "Practical", "Technical", "Clinical"]} onChange={(value) => onSettingsChange("tone", value)} />
+            </div>
           </div>
-          <div className="toggle-grid">
-            <Toggle label="Final project" checked={settings.finalProject} onChange={(value) => onSettingsChange("finalProject", value)} />
-            <Toggle label="Scaffold final project" checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />
-            <Toggle label="Rubrics" checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
-            <Toggle label="Bloom alignment" checked={settings.includeBloom} onChange={(value) => onSettingsChange("includeBloom", value)} />
-            <Toggle label="Workload/contact hours" checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
-            <Toggle label="Accessibility emphasis" checked={settings.accessibilityFocus} onChange={(value) => onSettingsChange("accessibilityFocus", value)} />
-            <Toggle label="Module image hooks" checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
+          <div className="settings-section">
+            <div className="subsection-heading">
+              <h2>Structure &amp; cadence</h2>
+            </div>
+            <div className="field-grid">
+              <Select
+                label="Length preset"
+                value={settings.courseLengthPreset}
+                options={["4-weeks", "6-weeks", "8-weeks", "12-weeks", "15-weeks", "16-weeks", "maymester", "custom"]}
+                labels={{ "4-weeks": "4 weeks", "6-weeks": "6 weeks", "8-weeks": "8 weeks", "12-weeks": "12 weeks", "15-weeks": "15 weeks", "16-weeks": "16 weeks", maymester: "Maymester", custom: "Custom" }}
+                onChange={(value) => onSettingsChange("courseLengthPreset", value as CourseSettings["courseLengthPreset"])}
+              />
+              <NumberInput label="Course length" value={settings.lengthWeeks} min={3} max={18} suffix="weeks" onChange={(value) => onSettingsChange("lengthWeeks", value)} />
+              <NumberInput label="Modules" value={settings.moduleCount} min={3} max={18} onChange={(value) => onSettingsChange("moduleCount", value)} />
+              <Select
+                label="Organization"
+                value={settings.organizationPattern}
+                options={["weeks", "topics", "chapters", "units", "quarters", "custom"]}
+                labels={{ weeks: "Weeks", topics: "Topics", chapters: "Chapters", units: "Units", quarters: "Quarters", custom: "Custom sections" }}
+                onChange={(value) => onSettingsChange("organizationPattern", value as CourseSettings["organizationPattern"])}
+              />
+              <Select label="Theme" value={settings.themeId} options={themes.map((theme) => theme.id)} labels={themes.reduce<Record<string, string>>((map, theme) => ({ ...map, [theme.id]: theme.name }), {})} onChange={(value) => onSettingsChange("themeId", value)} />
+            </div>
+          </div>
+          <div className="settings-section">
+            <div className="subsection-heading">
+              <h2>Assessments</h2>
+            </div>
+            <div className="field-grid">
+              <Select label="Quizzes" value={settings.quizFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("quizFrequency", value as CourseSettings["quizFrequency"])} />
+              <NumberInput label="Questions per quiz" value={settings.quizQuestionsPerQuiz} min={1} max={10} onChange={(value) => onSettingsChange("quizQuestionsPerQuiz", value)} />
+              <Select label="Quiz difficulty" value={settings.quizDifficulty} options={["introductory", "balanced", "challenging"]} onChange={(value) => onSettingsChange("quizDifficulty", value as CourseSettings["quizDifficulty"])} />
+              <Select label="Discussions" value={settings.discussionFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("discussionFrequency", value as CourseSettings["discussionFrequency"])} />
+              <Select label="Discussion style" value={settings.discussionStyle} options={["reflective", "case-based", "debate", "peer-review", "application"]} onChange={(value) => onSettingsChange("discussionStyle", value as CourseSettings["discussionStyle"])} />
+              <Select label="Assignments" value={settings.assignmentCadence} options={["every-module", "every-other-module", "major-milestones", "custom"]} labels={{ "every-module": "Every module", "every-other-module": "Every other module", "major-milestones": "Major milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("assignmentCadence", value as CourseSettings["assignmentCadence"])} />
+              <Select label="Final project type" value={settings.finalProjectType} options={["project", "presentation", "paper", "portfolio", "exam", "case-study", "simulation", "other"]} onChange={(value) => onSettingsChange("finalProjectType", value as CourseSettings["finalProjectType"])} />
+              <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />
+            </div>
+          </div>
+          <div className="settings-section">
+            <div className="subsection-heading">
+              <h2>Options</h2>
+            </div>
+            <div className="toggle-grid">
+              <Toggle label="Final project" checked={settings.finalProject} onChange={(value) => onSettingsChange("finalProject", value)} />
+              <Toggle label="Scaffold final project" checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />
+              <Toggle label="Rubrics" checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
+              <Toggle label="Bloom alignment" checked={settings.includeBloom} onChange={(value) => onSettingsChange("includeBloom", value)} />
+              <Toggle label="Workload/contact hours" checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
+              <Toggle label="Accessibility emphasis" checked={settings.accessibilityFocus} onChange={(value) => onSettingsChange("accessibilityFocus", value)} />
+              <Toggle label="Module image hooks" checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
+            </div>
           </div>
           <div className="schedule-settings">
             <div className="subsection-heading">
-              <h2>Course Schedule</h2>
+              <h2>Course schedule</h2>
             </div>
             <Toggle label="Generate due dates" checked={settings.schedule.enableDueDates} onChange={(value) => updateSchedule("enableDueDates", value)} />
             <div className="field-grid">
@@ -807,19 +1001,28 @@ function Intake({
 }
 
 function Progress({ progressIndex }: { progressIndex: number }) {
+  const percent = Math.min(100, Math.round(((progressIndex + 1) / progressSteps.length) * 100));
   return (
     <main className="progress page-shell">
       <section className="progress-card">
-        <Loader2 className="spin" size={30} />
-        <h1>Generating Canvas course shell</h1>
-        <p>{progressSteps[Math.min(progressIndex, progressSteps.length - 1)]}</p>
-        <div className="progress-track">
-          <span style={{ width: `${Math.min(100, ((progressIndex + 1) / progressSteps.length) * 100)}%` }} />
+        <div className="progress-orb" aria-hidden="true">
+          <span className="ring" />
+          <span className="ring inner" />
+          <span className="core">
+            <Sparkles size={22} />
+          </span>
         </div>
+        <h1>Building your Canvas course</h1>
+        <p>{progressSteps[Math.min(progressIndex, progressSteps.length - 1)]}</p>
+        <div className="progress-track" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+          <span style={{ width: `${percent}%` }} />
+        </div>
+        <span className="progress-percent">{percent}% complete</span>
         <ol>
           {progressSteps.map((step, index) => (
-            <li key={step} className={index <= progressIndex ? "done" : ""}>
-              <CheckCircle2 size={16} /> {step}
+            <li key={step} className={index < progressIndex ? "done" : index === progressIndex ? "current" : ""}>
+              {index < progressIndex ? <CheckCircle2 size={16} /> : index === progressIndex ? <Loader2 size={16} className="spin" /> : <ChevronRight size={16} />}
+              {step}
             </li>
           ))}
         </ol>
@@ -882,6 +1085,7 @@ function Editor({
             {course.modules.length} modules • {course.pages.length} pages
           </small>
         </div>
+        <span className="rail-label">Quick nav</span>
         {[
           ["Overview", BookOpen],
           ["Modules", GripVertical],
@@ -1542,11 +1746,11 @@ function ReadinessPanel({
 }) {
   return (
     <div className="readiness-card">
-      <div className="score-ring" aria-label={`Course readiness ${readiness.score}%`}>
-        {readiness.score}
+      <div className="score-ring" style={{ "--score": readiness.score } as CSSProperties} role="img" aria-label={`Course readiness ${readiness.score} percent`}>
+        <span>{readiness.score}</span>
       </div>
       <h2>Course Readiness</h2>
-      <p>{readiness.blockers === 0 ? "Ready for local package validation." : `${readiness.blockers} required checks need attention.`}</p>
+      <p>{readiness.blockers === 0 ? "Ready for local package validation." : `${readiness.blockers} required ${readiness.blockers === 1 ? "check needs" : "checks need"} attention.`}</p>
       <div className="export-status">
         <strong>Quality</strong>
         <span>{quality.score}% instructional</span>
