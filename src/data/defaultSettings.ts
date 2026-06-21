@@ -1,0 +1,52 @@
+import type { CourseSettings } from "../types";
+
+export const defaultSettings: CourseSettings = {
+  buildMode: "hybrid",
+  title: "AI and Modern Society",
+  description:
+    "An undergraduate course exploring the social, ethical, technical, and civic dimensions of artificial intelligence.",
+  level: "Undergraduate",
+  modality: "Online asynchronous",
+  creditHours: 3,
+  courseLengthPreset: "12-weeks",
+  lengthWeeks: 12,
+  organizationPattern: "weeks",
+  customOrganizationLabel: "Module",
+  moduleCount: 12,
+  themeId: "modern-minimal",
+  tone: "Friendly academic",
+  assignmentTypes: ["Reflection papers", "Case analysis", "Final project"],
+  quizFrequency: "weekly",
+  quizQuestionsPerQuiz: 5,
+  quizDifficulty: "balanced",
+  discussionFrequency: "weekly",
+  discussionStyle: "application",
+  assignmentCadence: "major-milestones",
+  finalProject: true,
+  finalProjectType: "portfolio",
+  scaffoldFinalProject: true,
+  scaffoldPattern: "key-milestones",
+  includeRubrics: true,
+  includeObjectives: true,
+  includeBloom: true,
+  includeContactHours: true,
+  accessibilityFocus: true,
+  schedule: {
+    enableDueDates: false,
+    meetingCadence: "weekly",
+    weeklyPattern: ["Monday", "Wednesday"],
+    holidays: [],
+    blackoutDates: [],
+    preferredDueDay: 0,
+    preferredDueTime: "23:59",
+    moduleReleaseDay: 1,
+    allowDueDatesOutsideTerm: false
+  },
+  imageSettings: {
+    homepageBannerMode: "generated-svg",
+    courseTileMode: "generated-svg",
+    moduleHeaderImages: false,
+    futureImageCreditLimit: 20
+  },
+  sourceFiles: []
+};

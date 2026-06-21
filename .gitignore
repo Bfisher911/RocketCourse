@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.playwright-mcp/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+courseforge-*.png
+courseforge-*.imscc
+.DS_Store
