@@ -15,6 +15,7 @@ import type {
   Rubric
 } from "../types";
 import { escapeXml, slugify, stripHtml } from "../utils/text";
+import { validateModulePlan } from "./modulePlanner";
 import { buildReadinessReport } from "./readiness";
 import { collectXmlParseErrors, formatXmlParseError } from "./xmlWellFormed";
 
@@ -881,6 +882,9 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
       if (!exists) fail(`broken-module-ref-${item.id}`, `Module item "${item.title}" references a missing object.`);
     });
   });
+  validateModulePlan(course).issues
+    .filter((issue) => /-module-mismatch$/.test(issue.id))
+    .forEach((issue) => fail(`module-object-alignment-${issue.itemId ?? issue.id}`, issue.detail));
 
   if (readiness.blockers > 0) {
     warn("readiness-blockers", `${readiness.blockers} readiness blocker(s) should be resolved before Canvas import.`);

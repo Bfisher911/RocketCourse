@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultSettings } from "../data/defaultSettings";
-import { generateCourseProject, sampleProject } from "./courseGenerator";
+import { getTheme } from "../data/themes";
+import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./courseGenerator";
 import { buildCourseQualityReport } from "./courseQuality";
 import { buildImsccZip, generateImsccBlob, validateImsccZip } from "./imsccExport";
 import { importCanvasCourseFromImscc } from "./imsccImport";
@@ -200,7 +201,8 @@ describe("CourseForge export engine", () => {
     });
     expect(syllabus?.bodyHtml).toContain("Weekly Schedule");
     expect(syllabus?.bodyHtml).toContain("Late Work Policy");
-    expect(syllabus?.bodyHtml).toContain("Academic Integrity and AI Use");
+    expect(syllabus?.bodyHtml).toContain("Academic Integrity Policy");
+    expect(syllabus?.bodyHtml).toContain("AI Use Policy");
     expect(syllabus?.bodyHtml).toContain("Technology Requirements");
   });
 
@@ -245,6 +247,8 @@ describe("CourseForge export engine", () => {
     const zip = await buildImsccZip(sampleProject);
     const report = await validateImsccZip(sampleProject, zip);
     const moduleMeta = await zip.file("course_settings/module_meta.xml")?.async("text");
+    const syllabusHtml = await zip.file("course_settings/syllabus.html")?.async("text");
+    const printableHtml = await zip.file("web_resources/syllabus-printable.html")?.async("text");
 
     expect(report.valid).toBe(true);
     expect(report.packageName.endsWith(".imscc")).toBe(true);
@@ -257,6 +261,7 @@ describe("CourseForge export engine", () => {
     expect(report.files).toContain("course_settings/learning_outcomes.xml");
     expect(report.files).toContain("course_settings/course_navigation.xml");
     expect(report.files).toContain("course_settings/syllabus.html");
+    expect(report.files).toContain("web_resources/syllabus-printable.html");
     expect(report.files).toContain("web_resources/syllabus-printable.pdf");
     expect(report.files).toContain("web_resources/instructor-guide.pdf");
     expect(report.files).toContain("web_resources/course-tile.svg");
@@ -268,7 +273,28 @@ describe("CourseForge export engine", () => {
     expect(report.files.some((file) => file.startsWith("wiki_content/"))).toBe(true);
     expect(moduleMeta).toContain("<title>Instructor Guide</title>");
     expect(moduleMeta).toContain("<workflow_state>unpublished</workflow_state>");
+    expect(syllabusHtml).toContain("../web_resources/syllabus-printable.html");
+    expect(syllabusHtml).toContain("../web_resources/syllabus-printable.pdf");
+    expect(syllabusHtml).toContain(sampleProject.pages.find((page) => page.slug === "syllabus")?.bodyHtml);
+    expect(printableHtml).toContain("<title>Printable Syllabus</title>");
+    expect(printableHtml).toContain(sampleProject.title);
     expect(report.sandboxImportStatus).toBe("not_tested");
+  });
+
+  it("carries refreshed theme styling into exported Canvas assets and syllabus content", async () => {
+    const theme = getTheme("stem-lab");
+    const themedProject = applyThemeToGeneratedContent(sampleProject, theme);
+    const zip = await buildImsccZip(themedProject);
+    const bannerSvg = (await zip.file("web_resources/course-banner.svg")?.async("text")) ?? "";
+    const courseSettingsXml = (await zip.file("course_settings/course_settings.xml")?.async("text")) ?? "";
+    const syllabusHtml = (await zip.file("course_settings/syllabus.html")?.async("text")) ?? "";
+
+    expect(bannerSvg).toContain(theme.soft);
+    expect(bannerSvg).toContain(theme.accent);
+    expect(bannerSvg).toContain(theme.bannerLabel);
+    expect(courseSettingsXml).toContain(`<course_color>${theme.accent}</course_color>`);
+    expect(syllabusHtml).toContain(theme.accentDark);
+    expect(syllabusHtml).not.toMatch(/CourseForge|theme-choice|theme-preview-tabs/);
   });
 
   it("exports auto-graded QTI with choices, answer keys, and feedback Canvas can import", async () => {
@@ -423,6 +449,24 @@ describe("CourseForge export engine", () => {
 
     expect(report.valid).toBe(true);
     expect(report.issues.some((issue) => issue.id.startsWith("broken-internal-link") && issue.severity === "warning")).toBe(true);
+  });
+
+  it("fails validation when module item locations drift from their content objects", async () => {
+    const sourceModule = sampleProject.modules.find((module) => module.items.some((item) => item.type === "assignment"));
+    const assignmentItem = sourceModule?.items.find((item) => item.type === "assignment");
+    const targetModule = sampleProject.modules.find((module) => module.id !== sourceModule?.id && module.kind === "content");
+    expect(sourceModule).toBeDefined();
+    expect(assignmentItem).toBeDefined();
+    expect(targetModule).toBeDefined();
+    const brokenProject = {
+      ...sampleProject,
+      assignments: sampleProject.assignments.map((assignment) => (assignment.id === assignmentItem?.refId ? { ...assignment, moduleId: targetModule!.id } : assignment))
+    };
+    const zip = await buildImsccZip(brokenProject);
+    const report = await validateImsccZip(brokenProject, zip);
+
+    expect(report.valid).toBe(false);
+    expect(report.issues.some((issue) => issue.id.startsWith("module-object-alignment-"))).toBe(true);
   });
 
   it("recovers Canvas module metadata when importing an imscc package", async () => {

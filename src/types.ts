@@ -127,6 +127,7 @@ export interface Theme {
   soft: string;
   contrastText: string;
   bannerLabel: string;
+  contrastStatus: "pass" | "review";
 }
 
 export interface CourseOutcome {
@@ -365,6 +366,99 @@ export interface CourseQualityReport {
   categories: CourseQualityItem[];
 }
 
+// A single editable link target on the homepage (button or quick link). Targets are exported
+// Canvas page file names (e.g. "syllabus.html"), mailto:, or absolute URLs.
+export interface HomepageLink {
+  label: string;
+  target: string;
+}
+
+// Structured, template-driven model for the course homepage. The homepage's rendered
+// `bodyHtml` is always derivable from (templateId, content, theme), which keeps the friendly
+// builder, the preview, and the exported page in sync and lets a theme change re-color the
+// page without touching instructor-authored text.
+export interface HomepageContent {
+  bannerAlt: string;
+  heroEyebrow: string;
+  heroHeading: string;
+  welcome: string;
+  primaryButton: HomepageLink;
+  secondaryButton: HomepageLink;
+  pathItems: string[];
+  instructorNote: string;
+  weeklyItems: string[];
+  resourceLinks: HomepageLink[];
+  purpose: string;
+}
+
+export type HomepageMode = "builder" | "custom";
+
+// A point-in-time copy of the homepage, captured before risky actions (template apply, revise,
+// theme refresh) so the instructor can restore or compare.
+export interface HomepageSnapshot {
+  id: string;
+  label: string;
+  takenAt: string;
+  mode: HomepageMode;
+  templateId: string;
+  content: HomepageContent;
+  bodyHtml: string;
+}
+
+// Persisted homepage builder state. Lives on the project so it survives tab switches, theme
+// changes, and re-themes. `themeId` records the theme the current HTML was rendered with so the
+// editor can detect drift and offer a one-click re-theme.
+export interface HomepageState {
+  mode: HomepageMode;
+  templateId: string;
+  content: HomepageContent;
+  themeId: string;
+  updatedAt: string;
+  snapshots: HomepageSnapshot[];
+}
+
+export interface SyllabusContent {
+  courseDescription: string;
+  learningOutcomes: string[];
+  requiredMaterials: string[];
+  scheduleSummary: string;
+  weeklySchedule: string[];
+  gradingBreakdown: string[];
+  assignmentOverview: string[];
+  communicationExpectations: string;
+  lateWorkPolicy: string;
+  academicIntegrityPolicy: string;
+  aiUsePolicy: string;
+  accessibilityAccommodations: string;
+  studentSupportResources: string[];
+  instructorContactBlock: string;
+  workloadContactHours: string;
+  technologyRequirements: string;
+  instructorReviewNotes: string[];
+}
+
+export type SyllabusMode = "builder" | "custom";
+
+export interface SyllabusSnapshot {
+  id: string;
+  label: string;
+  takenAt: string;
+  mode: SyllabusMode;
+  templateId: string;
+  content: SyllabusContent;
+  bodyHtml: string;
+  validationScore: number;
+}
+
+export interface SyllabusState {
+  mode: SyllabusMode;
+  templateId: string;
+  content: SyllabusContent;
+  themeId: string;
+  updatedAt: string;
+  snapshots: SyllabusSnapshot[];
+}
+
 export interface CourseProject {
   id: string;
   title: string;
@@ -374,6 +468,8 @@ export interface CourseProject {
   theme: Theme;
   status: CourseStatus;
   updatedAt: string;
+  homepage?: HomepageState;
+  syllabus?: SyllabusState;
   outcomes: CourseOutcome[];
   modules: CourseModule[];
   pages: CoursePage[];

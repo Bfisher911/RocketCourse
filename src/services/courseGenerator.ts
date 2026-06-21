@@ -27,6 +27,17 @@ import type {
 } from "../types";
 import { escapeXml, nowIso, slugify } from "../utils/text";
 import { buildCourseQualityReport } from "./courseQuality";
+import { DEFAULT_TEMPLATE_ID, createHomepageState, defaultHomepageContent, renderHomepage, rethemeHomepageHtml } from "./homepageTemplates";
+import {
+  chooseSyllabusTemplate,
+  createSyllabusState,
+  defaultSyllabusContent,
+  renderSyllabus,
+  rethemeSyllabusHtml,
+  type SyllabusContext
+} from "./syllabusTemplates";
+import { buildThemedButton, buildThemedCallout, buildThemedCard, buildThemedSecondaryButton, buildThemedShell } from "./themeDesign";
+import { validateSyllabus } from "./syllabusValidation";
 
 export interface GenerateCourseInput {
   prompt: string;
@@ -141,32 +152,15 @@ const outcomeBadges = (outcomes: CourseOutcome[], outcomeIds: string[], theme: T
     )
     .join("")}</p>`;
 
-const buttonLink = (href: string, label: string, theme: Theme): string =>
-  `<a href="${href}" style="display: inline-block; margin: 8px 10px 8px 0; padding: 11px 16px; border-radius: 6px; background: ${theme.accent}; color: #ffffff; text-decoration: none; font-weight: 700;">${label}</a>`;
+const buttonLink = (href: string, label: string, theme: Theme): string => buildThemedButton(theme, label, href);
 
-const secondaryLink = (href: string, label: string, theme: Theme): string =>
-  `<a href="${href}" style="display: inline-block; margin: 8px 10px 8px 0; padding: 10px 15px; border-radius: 6px; border: 1px solid ${theme.accent}; color: ${theme.accentDark}; text-decoration: none; font-weight: 700;">${label}</a>`;
+const secondaryLink = (href: string, label: string, theme: Theme): string => buildThemedSecondaryButton(theme, label, href);
 
-const callout = (title: string, body: string, theme: Theme): string => `
-<div style="margin: 18px 0; padding: 16px 18px; border-left: 5px solid ${theme.accent}; background: ${theme.soft};">
-  <h3 style="margin: 0 0 8px; color: ${theme.accentDark};">${title}</h3>
-  ${body}
-</div>`.trim();
+const callout = (title: string, body: string, theme: Theme): string => buildThemedCallout(theme, title, body);
 
-const section = (title: string, body: string, theme: Theme): string => `
-<section style="margin: 18px 0; padding: 18px; background: #ffffff; border: 1px solid #dbe4f0; border-radius: 8px;">
-  <h2 style="margin: 0 0 10px; color: #111827;">${title}</h2>
-  ${body}
-</section>`.trim();
+const section = (title: string, body: string, theme: Theme): string => buildThemedCard(theme, title, body);
 
-const canvasShell = (title: string, subtitle: string, body: string, theme: Theme): string => `
-<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.55;">
-  <div style="margin: 0 0 18px; padding: 24px; background: ${theme.soft}; border: 1px solid #dbe4f0; border-radius: 8px;">
-    <h1 style="margin: 0 0 8px; color: #111827;">${title}</h1>
-    <p style="margin: 0; color: #374151; font-size: 16px;">${subtitle}</p>
-  </div>
-  ${body}
-</div>`.trim();
+const canvasShell = (title: string, subtitle: string, body: string, theme: Theme): string => buildThemedShell(theme, title, subtitle, body);
 
 const pageHref = (slugOrTitle: string): string => `${slugify(slugOrTitle)}.html`;
 
@@ -889,18 +883,28 @@ ${callout("Canvas Reimport Reminder", "<p>If you import revised content into an 
     theme
   );
 
-const buildHomepageHtml = (title: string, description: string, theme: Theme): string =>
-  `<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.55;">
-  <div style="background: ${theme.soft}; border: 1px solid #dbe4f0; padding: 24px; border-radius: 8px;">
-    <p><img src="../web_resources/course-banner.svg" alt="Abstract course banner for ${title}" style="width: 100%; max-height: 220px; object-fit: cover; border-radius: 6px;" /></p>
-    <h1 style="margin: 0 0 8px;">Welcome to ${title}</h1>
-    <p style="color: #374151;">${description}</p>
-    <p>${buttonLink("course-success-guide.html", "Start Here", theme)}${secondaryLink("syllabus.html", "View syllabus", theme)}${secondaryLink("course-calendar-and-workload-plan.html", "View calendar", theme)}</p>
-  </div>
-  ${section("Course Path", checklistHtml(["Start in the Course Success Guide.", "Check the Course Calendar and Workload Plan for pacing.", "Move through modules in order.", "Use rubrics and recap pages before graded work.", "Finish with the Final Project module."]), theme)}
-  ${section("What To Do Next", `<p>Open the Start Here module and read the Course Success Guide before beginning the first content module.</p>`, theme)}
-  ${section("Instructor Placeholder", "<p>Add instructor name, office hours, preferred contact method, response-time expectations, and institution-specific support links before publishing.</p>", theme)}
-</div>`;
+// The generated homepage now shares a single source of truth with the in-app Homepage builder:
+// it derives the structured HomepageContent and renders it through the template system. This
+// keeps the friendly builder, the live preview, and the exported page identical, and lets a
+// theme change recolor the page without touching instructor-authored text.
+interface GeneratedHomepage {
+  html: string;
+  content: ReturnType<typeof defaultHomepageContent>;
+}
+
+const buildHomepage = (settings: CourseSettings, title: string, moduleCount: number, theme: Theme): GeneratedHomepage => {
+  const content = defaultHomepageContent({
+    title,
+    description: settings.description,
+    modality: settings.modality,
+    level: settings.level,
+    moduleCount,
+    finalProject: settings.finalProject,
+    finalProjectType: settings.finalProjectType,
+    organizationLabel: settings.organizationPattern === "custom" ? settings.customOrganizationLabel : settings.organizationPattern
+  });
+  return { html: renderHomepage(DEFAULT_TEMPLATE_ID, content, theme), content };
+};
 
 export const generateCourseProject = ({ prompt, settings }: GenerateCourseInput): CourseProject => {
   const generatedAt = nowIso();
@@ -974,10 +978,32 @@ export const generateCourseProject = ({ prompt, settings }: GenerateCourseInput)
   const syllabusId = "page_syllabus";
   const studentGuideId = "page_course_success_guide";
   const instructorGuideId = "page_instructor_guide";
-  const syllabusHtml = buildSyllabusHtml(title, mergedSettings.description, outcomes, assignmentGroups, contactHours, syllabusScheduleRows, theme);
+  const syllabusContext: SyllabusContext = {
+    title,
+    description: mergedSettings.description,
+    modality: mergedSettings.modality,
+    level: mergedSettings.level,
+    creditHours: mergedSettings.creditHours,
+    lengthWeeks: mergedSettings.lengthWeeks,
+    moduleCount,
+    organizationLabel: mergedSettings.organizationPattern === "custom" ? mergedSettings.customOrganizationLabel : mergedSettings.organizationPattern,
+    finalProject: mergedSettings.finalProject,
+    finalProjectType: mergedSettings.finalProjectType,
+    outcomes,
+    assignmentGroups,
+    assignments,
+    discussions,
+    quizzes,
+    contactHours,
+    scheduleRows: syllabusScheduleRows.map((row) => row.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim())
+  };
+  const generatedSyllabusContent = defaultSyllabusContent(syllabusContext);
+  const generatedSyllabusTemplateId = chooseSyllabusTemplate(syllabusContext);
+  const syllabusHtml = renderSyllabus(generatedSyllabusTemplateId, generatedSyllabusContent, theme);
   const instructorGuideHtml = buildInstructorGuideHtml(title, navigation, theme);
 
-  pages.push(makePage(homepageId, `${title} Homepage`, "homepage", buildHomepageHtml(title, mergedSettings.description, theme), "module_start", generatedAt, { frontPage: true }));
+  const generatedHomepage = buildHomepage(mergedSettings, title, moduleCount, theme);
+  pages.push(makePage(homepageId, `${title} Homepage`, "homepage", generatedHomepage.html, "module_start", generatedAt, { frontPage: true }));
   pages.push(makePage(syllabusId, "Syllabus", "syllabus", syllabusHtml, "module_start", generatedAt));
   pages.push(makePage(studentGuideId, "Course Success Guide", "course-success-guide", buildStudentGuideHtml(title, theme), "module_start", generatedAt));
 
@@ -1582,6 +1608,22 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     metadata: metadata(generatedAt)
   });
 
+  const finalSyllabusContext: SyllabusContext = {
+    ...syllabusContext,
+    assignments,
+    discussions,
+    quizzes,
+    scheduleRows: schedule
+      .filter((entry) => entry.itemType === "module")
+      .slice(0, moduleCount)
+      .map((entry) => `${entry.title}: ${entry.notes || `Plan approximately ${entry.workloadHours} hours.`}`)
+  };
+  const finalSyllabusContent = defaultSyllabusContent(finalSyllabusContext);
+  const finalSyllabusTemplateId = chooseSyllabusTemplate(finalSyllabusContext);
+  const finalSyllabusHtml = renderSyllabus(finalSyllabusTemplateId, finalSyllabusContent, theme);
+  const generatedSyllabusPage = pages.find((page) => page.id === syllabusId);
+  if (generatedSyllabusPage) generatedSyllabusPage.bodyHtml = finalSyllabusHtml;
+
   const project: CourseProject = {
     id: projectId,
     title,
@@ -1591,6 +1633,8 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     theme,
     status: "generated",
     updatedAt: generatedAt,
+    homepage: createHomepageState(generatedHomepage.content, DEFAULT_TEMPLATE_ID, theme.id, generatedAt),
+    syllabus: createSyllabusState(finalSyllabusContent, finalSyllabusTemplateId, theme.id, generatedAt),
     outcomes,
     modules,
     pages,
@@ -1614,6 +1658,7 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
 };
 
 export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme): CourseProject => {
+  const refreshedAt = nowIso();
   const regenerated = generateCourseProject({
     prompt: course.prompt,
     settings: { ...course.settings, themeId: theme.id }
@@ -1640,11 +1685,61 @@ export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme
     schedule: regenerated.schedule,
     reviewChecklist: regenerated.reviewChecklist,
     navigation: course.navigation.length ? course.navigation : regenerated.navigation,
-    updatedAt: nowIso(),
+    updatedAt: refreshedAt,
     status: "edited"
   };
 
-  return { ...themedCourse, quality: buildCourseQualityReport(themedCourse) };
+  // Re-theme the homepage from its builder model so a theme change recolors it even when the
+  // page is marked "edited" (keepEdited would otherwise retain the old palette). A custom,
+  // hand-edited homepage returns null here and is deliberately left untouched.
+  const rethemedHomepageHtml = rethemeHomepageHtml(course.homepage, theme);
+  const rethemedSyllabusHtml = rethemeSyllabusHtml(course.syllabus, theme);
+  const homepagePage = course.pages.find((page) => page.frontPage);
+  const syllabusPage = course.pages.find((page) => page.slug === "syllabus");
+  const snapshotId = (prefix: string): string => `${prefix}_${refreshedAt.replace(/[^0-9]/g, "")}`;
+  const homepageSnapshot = course.homepage && rethemedHomepageHtml
+    ? {
+        id: snapshotId("homepage_theme"),
+        label: `Before refreshing ${theme.name} styling`,
+        takenAt: refreshedAt,
+        mode: course.homepage.mode,
+        templateId: course.homepage.templateId,
+        content: course.homepage.content,
+        bodyHtml: homepagePage?.bodyHtml ?? ""
+      }
+    : null;
+  const syllabusSnapshot = course.syllabus && rethemedSyllabusHtml
+    ? {
+        id: snapshotId("syllabus_theme"),
+        label: `Before refreshing ${theme.name} styling`,
+        takenAt: refreshedAt,
+        mode: course.syllabus.mode,
+        templateId: course.syllabus.templateId,
+        content: course.syllabus.content,
+        bodyHtml: syllabusPage?.bodyHtml ?? "",
+        validationScore: validateSyllabus(syllabusPage?.bodyHtml ?? "", { includeContactHours: course.settings.includeContactHours }).score
+      }
+    : null;
+  const finalCourse: CourseProject = rethemedHomepageHtml || rethemedSyllabusHtml
+    ? {
+        ...themedCourse,
+        pages: themedCourse.pages.map((page) => {
+          if (page.frontPage && rethemedHomepageHtml) return { ...page, bodyHtml: rethemedHomepageHtml };
+          if (page.slug === "syllabus" && rethemedSyllabusHtml) return { ...page, bodyHtml: rethemedSyllabusHtml };
+          return page;
+        }),
+        homepage:
+          course.homepage && rethemedHomepageHtml
+            ? { ...course.homepage, themeId: theme.id, updatedAt: refreshedAt, snapshots: homepageSnapshot ? [homepageSnapshot, ...course.homepage.snapshots].slice(0, 12) : course.homepage.snapshots }
+            : course.homepage,
+        syllabus:
+          course.syllabus && rethemedSyllabusHtml
+            ? { ...course.syllabus, themeId: theme.id, updatedAt: refreshedAt, snapshots: syllabusSnapshot ? [syllabusSnapshot, ...course.syllabus.snapshots].slice(0, 12) : course.syllabus.snapshots }
+            : course.syllabus
+      }
+    : themedCourse;
+
+  return { ...finalCourse, quality: buildCourseQualityReport(finalCourse) };
 };
 
 export const sampleProject = generateCourseProject({

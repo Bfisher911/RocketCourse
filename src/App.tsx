@@ -1,6 +1,7 @@
 import {
   ArrowDownToLine,
   ArrowRight,
+  AlertTriangle,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -17,6 +18,7 @@ import {
   Loader2,
   Lock,
   MessageSquareText,
+  MoveRight,
   Palette,
   PanelLeft,
   PenLine,
@@ -24,18 +26,32 @@ import {
   RotateCcw,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Upload,
   Wand2
 } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { HomepageTab } from "./components/HomepageTab";
+import { SyllabusTab } from "./components/SyllabusTab";
 import { defaultSettings } from "./data/defaultSettings";
 import { themes } from "./data/themes";
 import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./services/courseGenerator";
 import { buildCourseQualityReport } from "./services/courseQuality";
 import { generateImsccBlob } from "./services/imsccExport";
 import { importCanvasCourseFromImscc } from "./services/imsccImport";
+import {
+  duplicateModuleWithContent,
+  getModuleItemTarget,
+  itemCountsForModule,
+  moduleItemTypeLabel,
+  moveModuleItem,
+  removeModule,
+  validateModulePlan,
+  type ModulePreviewFilter
+} from "./services/modulePlanner";
 import { reviseCourseObject, type RevisionMode } from "./services/objectRevision";
 import { buildReadinessReport } from "./services/readiness";
+import { buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
 import type {
   Assignment,
   CourseModule,
@@ -50,7 +66,8 @@ import type {
   Quiz,
   Rubric,
   Screen,
-  SourceFile
+  SourceFile,
+  Theme
 } from "./types";
 
 const progressSteps = [
@@ -115,8 +132,6 @@ const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number): T[] => {
 
 const renumberModules = (modules: CourseModule[]): CourseModule[] =>
   modules.map((module, index) => ({ ...module, order: index, status: "edited" }));
-
-const renumberItems = (items: ModuleItem[]): ModuleItem[] => items.map((item, index) => ({ ...item, order: index + 1, status: "edited" }));
 
 const editMetadata = (): ObjectMetadata => ({
   createdAt: new Date().toISOString(),
@@ -236,170 +251,16 @@ function App() {
 
   const reorderModuleItem = (targetModuleId: string, targetItemId?: string): void => {
     if (!draggedItem) return;
-    updateCourse((current) => {
-      const modules = current.modules.map((module) => ({ ...module, items: [...module.items] }));
-      const sourceModule = modules.find((module) => module.id === draggedItem.moduleId);
-      const targetModule = modules.find((module) => module.id === targetModuleId);
-      if (!sourceModule || !targetModule) return current;
-      const sourceIndex = sourceModule.items.findIndex((item) => item.id === draggedItem.itemId);
-      if (sourceIndex < 0) return current;
-      const [item] = sourceModule.items.splice(sourceIndex, 1);
-      const targetIndex = targetItemId ? targetModule.items.findIndex((target) => target.id === targetItemId) : targetModule.items.length;
-      targetModule.items.splice(targetIndex < 0 ? targetModule.items.length : targetIndex, 0, { ...item, status: "edited" });
-      return {
-        ...current,
-        modules: modules.map((module) => ({ ...module, items: renumberItems(module.items) })),
-        pages: item.type === "page" || item.type === "syllabus" ? current.pages.map((page) => (page.id === item.refId ? { ...page, moduleId: targetModuleId, status: "edited" } : page)) : current.pages,
-        assignments: item.type === "assignment" ? current.assignments.map((assignment) => (assignment.id === item.refId ? { ...assignment, moduleId: targetModuleId, status: "edited" } : assignment)) : current.assignments,
-        discussions: item.type === "discussion" ? current.discussions.map((discussion) => (discussion.id === item.refId ? { ...discussion, moduleId: targetModuleId, status: "edited" } : discussion)) : current.discussions,
-        quizzes: item.type === "quiz" ? current.quizzes.map((quiz) => (quiz.id === item.refId ? { ...quiz, moduleId: targetModuleId, status: "edited" } : quiz)) : current.quizzes
-      };
-    });
+    updateCourse((current) => moveModuleItem(current, draggedItem, targetModuleId, targetItemId));
     setDraggedItem(null);
   };
 
   const duplicateModule = (moduleId: string): void => {
-    updateCourse((current) => {
-      const original = current.modules.find((module) => module.id === moduleId);
-      if (!original) return current;
-      const stamp = Date.now();
-      const copiedModuleId = `${original.id}_copy_${stamp}`;
-      const copiedPages: CoursePage[] = [];
-      const copiedAssignments: Assignment[] = [];
-      const copiedDiscussions: Discussion[] = [];
-      const copiedQuizzes: Quiz[] = [];
-      const copiedRubrics: Rubric[] = [];
-      const copiedItems = original.items.map((item, index) => {
-        const copiedItem = { ...item, id: `${item.id}_copy_${stamp}_${index}`, order: index + 1, status: "edited" as const, metadata: editMetadata() };
-
-        if (item.type === "page" || item.type === "syllabus") {
-          const page = current.pages.find((entry) => entry.id === item.refId);
-          if (!page) return copiedItem;
-          const copiedPageId = `${page.id}_copy_${stamp}_${index}`;
-          copiedPages.push({
-            ...page,
-            id: copiedPageId,
-            title: `${page.title} Copy`,
-            slug: `${page.slug}-copy-${stamp}`,
-            moduleId: copiedModuleId,
-            frontPage: false,
-            status: "edited",
-            metadata: editMetadata()
-          });
-          return { ...copiedItem, refId: copiedPageId };
-        }
-
-        if (item.type === "assignment") {
-          const assignment = current.assignments.find((entry) => entry.id === item.refId);
-          if (!assignment) return copiedItem;
-          const copiedAssignmentId = `${assignment.id}_copy_${stamp}_${index}`;
-          let rubricId = assignment.rubricId;
-          if (assignment.rubricId) {
-            const rubric = current.rubrics.find((entry) => entry.id === assignment.rubricId);
-            if (rubric) {
-              rubricId = `${rubric.id}_copy_${stamp}_${index}`;
-              copiedRubrics.push({ ...rubric, id: rubricId, title: `${rubric.title} Copy`, status: "edited", metadata: editMetadata() });
-            }
-          }
-          copiedAssignments.push({
-            ...assignment,
-            id: copiedAssignmentId,
-            title: `${assignment.title} Copy`,
-            moduleId: copiedModuleId,
-            rubricId,
-            status: "edited",
-            metadata: editMetadata()
-          });
-          return { ...copiedItem, refId: copiedAssignmentId };
-        }
-
-        if (item.type === "discussion") {
-          const discussion = current.discussions.find((entry) => entry.id === item.refId);
-          if (!discussion) return copiedItem;
-          const copiedDiscussionId = `${discussion.id}_copy_${stamp}_${index}`;
-          let rubricId = discussion.rubricId;
-          if (discussion.rubricId) {
-            const rubric = current.rubrics.find((entry) => entry.id === discussion.rubricId);
-            if (rubric) {
-              rubricId = `${rubric.id}_copy_${stamp}_${index}`;
-              copiedRubrics.push({ ...rubric, id: rubricId, title: `${rubric.title} Copy`, status: "edited", metadata: editMetadata() });
-            }
-          }
-          copiedDiscussions.push({
-            ...discussion,
-            id: copiedDiscussionId,
-            title: `${discussion.title} Copy`,
-            moduleId: copiedModuleId,
-            rubricId,
-            status: "edited",
-            metadata: editMetadata()
-          });
-          return { ...copiedItem, refId: copiedDiscussionId };
-        }
-
-        if (item.type === "quiz") {
-          const quiz = current.quizzes.find((entry) => entry.id === item.refId);
-          if (!quiz) return copiedItem;
-          const copiedQuizId = `${quiz.id}_copy_${stamp}_${index}`;
-          copiedQuizzes.push({
-            ...quiz,
-            id: copiedQuizId,
-            title: `${quiz.title} Copy`,
-            moduleId: copiedModuleId,
-            questions: quiz.questions.map((question, questionIndex) => ({ ...question, id: `${question.id}_copy_${stamp}_${questionIndex}` })),
-            status: "edited",
-            metadata: editMetadata()
-          });
-          return { ...copiedItem, refId: copiedQuizId };
-        }
-
-        return copiedItem;
-      });
-      const copy: CourseModule = {
-        ...original,
-        id: copiedModuleId,
-        title: `${original.title} Copy`,
-        order: original.order + 1,
-        status: "edited",
-        expanded: true,
-        metadata: editMetadata(),
-        items: copiedItems
-      };
-      const modules = [...current.modules];
-      modules.splice(original.order + 1, 0, copy);
-      return {
-        ...current,
-        modules: renumberModules(modules),
-        pages: [...current.pages, ...copiedPages],
-        assignments: [...current.assignments, ...copiedAssignments],
-        discussions: [...current.discussions, ...copiedDiscussions],
-        quizzes: [...current.quizzes, ...copiedQuizzes],
-        rubrics: [...current.rubrics, ...copiedRubrics]
-      };
-    });
+    updateCourse((current) => duplicateModuleWithContent(current, moduleId));
   };
 
-  const addBlankModule = (): void => {
-    updateCourse((current) => ({
-      ...current,
-      modules: renumberModules([
-        ...current.modules,
-        {
-          id: `module_custom_${Date.now()}`,
-          title: "New Module",
-          description: "Add a module description.",
-          objectives: ["Add a measurable module objective."],
-          workloadHours: 4,
-          order: current.modules.length,
-          kind: "content",
-          publishState: "published",
-          expanded: true,
-          items: [],
-          status: "draft",
-          metadata: editMetadata()
-        }
-      ])
-    }));
+  const deleteModule = (moduleId: string, moveItemsToModuleId?: string): void => {
+    updateCourse((current) => removeModule(current, moduleId, moveItemsToModuleId));
   };
 
   const reviseActiveContent = (mode: RevisionMode): void => {
@@ -528,8 +389,8 @@ function App() {
           onDropItem={reorderModuleItem}
           onUpdateCourse={updateCourse}
           onExport={exportCourse}
-          onAddBlankModule={addBlankModule}
           onDuplicateModule={duplicateModule}
+          onDeleteModule={deleteModule}
           onRevise={reviseActiveContent}
           exportMode={exportMode}
           onExportModeChange={setExportMode}
@@ -1047,8 +908,8 @@ function Editor({
   onDropItem,
   onUpdateCourse,
   onExport,
-  onAddBlankModule,
   onDuplicateModule,
+  onDeleteModule,
   onRevise,
   exportMode,
   onExportModeChange,
@@ -1069,8 +930,8 @@ function Editor({
   onDropItem: (moduleId: string, itemId?: string) => void;
   onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
   onExport: () => void;
-  onAddBlankModule: () => void;
   onDuplicateModule: (moduleId: string) => void;
+  onDeleteModule: (moduleId: string, moveItemsToModuleId?: string) => void;
   onRevise: (mode: RevisionMode) => void;
   exportMode: ExportMode;
   onExportModeChange: (mode: ExportMode) => void;
@@ -1112,20 +973,25 @@ function Editor({
             <h1>{course.title}</h1>
             <p>Structured Canvas course preview and editor</p>
           </div>
-          <div className="ai-toolbar" aria-label="AI revise actions">
-            <button onClick={() => onRevise("concise")}>
-              <PenLine size={15} /> Concise
-            </button>
-            <button onClick={() => onRevise("examples")}>
-              <Sparkles size={15} /> Add examples
-            </button>
-            <button onClick={() => onRevise("accessibility")}>
-              <CheckCircle2 size={15} /> Accessibility
-            </button>
-            <button onClick={() => onRevise("rubric")}>
-              <RotateCcw size={15} /> Rubric note
-            </button>
-          </div>
+          {/* The Homepage tab has its own context-aware "Quick improvements" that edit the
+              structured builder model, so the generic page-level revise toolbar is hidden there
+              to avoid duplication and keep the builder and its HTML in sync. */}
+          {activeTab !== "Homepage" && activeTab !== "Syllabus" && (
+            <div className="ai-toolbar" aria-label="AI revise actions">
+              <button onClick={() => onRevise("concise")}>
+                <PenLine size={15} /> Concise
+              </button>
+              <button onClick={() => onRevise("examples")}>
+                <Sparkles size={15} /> Add examples
+              </button>
+              <button onClick={() => onRevise("accessibility")}>
+                <CheckCircle2 size={15} /> Accessibility
+              </button>
+              <button onClick={() => onRevise("rubric")}>
+                <RotateCcw size={15} /> Rubric note
+              </button>
+            </div>
+          )}
         </div>
         <div className="tabs" role="tablist" aria-label="Course editor sections" ref={tabsRef}>
           {editorTabs.map((tab) => (
@@ -1136,8 +1002,8 @@ function Editor({
         </div>
         <div className="tab-body">
           {activeTab === "Overview" && <OverviewTab course={course} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Homepage" && <PageTab title="Homepage" course={course} page={course.pages.find((page) => page.frontPage) ?? course.pages[0]} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Syllabus" && <PageTab title="Syllabus" course={course} page={course.pages.find((page) => page.slug === "syllabus") ?? course.pages[1]} onUpdateCourse={onUpdateCourse} />}
+          {activeTab === "Homepage" && <HomepageTab course={course} onUpdateCourse={onUpdateCourse} />}
+          {activeTab === "Syllabus" && <SyllabusTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Modules" && (
             <ModulesTab
               course={course}
@@ -1147,8 +1013,9 @@ function Editor({
               onDragItem={onDragItem}
               onDropItem={onDropItem}
               onUpdateCourse={onUpdateCourse}
-              onAddBlankModule={onAddBlankModule}
               onDuplicateModule={onDuplicateModule}
+              onDeleteModule={onDeleteModule}
+              onJumpToTab={setActiveTab}
             />
           )}
           {activeTab === "Pages" && <CollectionTab<CoursePage> title="Pages" objectType="page" course={course} items={course.pages} getBody={(item) => item.bodyHtml} setBody={(item, body) => ({ ...item, bodyHtml: body })} onReplace={(pages) => onUpdateCourse((current) => ({ ...current, pages }))} />}
@@ -1273,8 +1140,9 @@ function ModulesTab({
   onDragItem,
   onDropItem,
   onUpdateCourse,
-  onAddBlankModule,
-  onDuplicateModule
+  onDuplicateModule,
+  onDeleteModule,
+  onJumpToTab
 }: {
   course: CourseProject;
   draggedModuleId: string | null;
@@ -1283,117 +1151,378 @@ function ModulesTab({
   onDragItem: (item: { moduleId: string; itemId: string } | null) => void;
   onDropItem: (moduleId: string, itemId?: string) => void;
   onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
-  onAddBlankModule: () => void;
   onDuplicateModule: (moduleId: string) => void;
+  onDeleteModule: (moduleId: string, moveItemsToModuleId?: string) => void;
+  onJumpToTab: (tab: EditorTab) => void;
 }) {
+  const [selectedModuleId, setSelectedModuleId] = useState(course.modules[0]?.id ?? "");
+  const [previewFilter, setPreviewFilter] = useState<ModulePreviewFilter>("all");
+  const [pendingDeleteModuleId, setPendingDeleteModuleId] = useState<string | null>(null);
+  const [moveTargetModuleId, setMoveTargetModuleId] = useState("");
+  const validation = useMemo(() => validateModulePlan(course), [course]);
+  const totalItems = course.modules.reduce((sum, module) => sum + module.items.length, 0);
+  const emptyModules = course.modules.filter((module) => module.items.length === 0).length;
+  const totalWorkload = course.modules.reduce((sum, module) => sum + Number(module.workloadHours || 0), 0);
+  const selectedModule = course.modules.find((module) => module.id === selectedModuleId) ?? course.modules[0];
+
+  useEffect(() => {
+    if (!course.modules.some((module) => module.id === selectedModuleId)) {
+      setSelectedModuleId(course.modules[0]?.id ?? "");
+    }
+  }, [course.modules, selectedModuleId]);
+
+  const tabForItem = (type: ModuleItem["type"]): EditorTab => {
+    if (type === "assignment") return "Assignments";
+    if (type === "discussion") return "Discussions";
+    if (type === "quiz") return "Quizzes";
+    if (type === "syllabus") return "Syllabus";
+    return "Pages";
+  };
+
+  const iconForType = (type: ModuleItem["type"]) => {
+    if (type === "assignment") return <ClipboardCheck size={14} />;
+    if (type === "discussion") return <MessageSquareText size={14} />;
+    if (type === "quiz") return <CheckCircle2 size={14} />;
+    return <FileText size={14} />;
+  };
+
+  const updateModuleField = <K extends keyof CourseModule>(moduleId: string, key: K, value: CourseModule[K]): void => {
+    onUpdateCourse((current) => ({
+      ...current,
+      modules: current.modules.map((module) => (module.id === moduleId ? { ...module, [key]: value, status: "edited" } : module))
+    }));
+  };
+
+  const renameModuleItem = (moduleId: string, item: ModuleItem, title: string): void => {
+    onUpdateCourse((current) => ({
+      ...current,
+      modules: current.modules.map((module) =>
+        module.id === moduleId
+          ? {
+              ...module,
+              items: module.items.map((moduleItem) => (moduleItem.id === item.id ? { ...moduleItem, title, status: "edited" } : moduleItem))
+            }
+          : module
+      ),
+      pages: item.type === "page" || item.type === "syllabus" ? current.pages.map((page) => (page.id === item.refId ? { ...page, title, status: "edited" } : page)) : current.pages,
+      assignments: item.type === "assignment" ? current.assignments.map((assignment) => (assignment.id === item.refId ? { ...assignment, title, status: "edited" } : assignment)) : current.assignments,
+      discussions: item.type === "discussion" ? current.discussions.map((discussion) => (discussion.id === item.refId ? { ...discussion, title, status: "edited" } : discussion)) : current.discussions,
+      quizzes: item.type === "quiz" ? current.quizzes.map((quiz) => (quiz.id === item.refId ? { ...quiz, title, status: "edited" } : quiz)) : current.quizzes
+    }));
+  };
+
+  const moveModuleBy = (moduleId: string, offset: number): void => {
+    const index = course.modules.findIndex((module) => module.id === moduleId);
+    const targetIndex = index + offset;
+    if (index < 0 || targetIndex < 0 || targetIndex >= course.modules.length) return;
+    onUpdateCourse((current) => ({ ...current, modules: renumberModules(moveItem(current.modules, index, targetIndex)) }));
+  };
+
+  const startDelete = (module: CourseModule): void => {
+    setPendingDeleteModuleId(module.id);
+    setMoveTargetModuleId(course.modules.find((candidate) => candidate.id !== module.id)?.id ?? "");
+  };
+
+  const moduleSummaryFor = (moduleId: string) => validation.moduleSummaries.find((summary) => summary.moduleId === moduleId);
+  const itemIssues = (itemId: string) => validation.issues.filter((issue) => issue.itemId === itemId);
+  const visiblePreviewItems =
+    selectedModule?.items
+      .map((item) => ({ item, target: getModuleItemTarget(course, item), issues: itemIssues(item.id) }))
+      .filter(({ item, target, issues }) => {
+        if (previewFilter === "pages") return item.type === "page" || item.type === "syllabus";
+        if (previewFilter === "graded") return item.type === "assignment" || item.type === "quiz" || (target?.points ?? 0) > 0;
+        if (previewFilter === "risky") return issues.length > 0 || !target;
+        return true;
+      }) ?? [];
+
+  if (course.modules.length === 0) {
+    return <EmptyState title="No modules yet" body="Add a module to begin building the Canvas course sequence." />;
+  }
+
   return (
-    <div className="stack">
-      <div className="section-actions">
-        <button className="secondary" onClick={onAddBlankModule}>
-          <Plus size={16} /> Add blank module
+    <div className="module-planner">
+      <section className="module-planner-hero">
+        <div>
+          <span className="hp-eyebrow"><Layers size={14} /> Canvas module planner</span>
+          <h2>Course Sequence Builder</h2>
+          <p>Plan the student path, edit module metadata, move content safely, and catch broken Canvas references before export.</p>
+        </div>
+        <div className={`module-readiness-badge ${validation.status === "Ready" ? "ready" : "review"}`}>
+          {validation.status === "Ready" ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+          <strong>{validation.score}%</strong>
+          <span>{validation.status}</span>
+        </div>
+      </section>
+
+      <section className="module-metric-grid" aria-label="Module planner summary">
+        <div>
+          <strong>{course.modules.length}</strong>
+          <span>Modules</span>
+        </div>
+        <div>
+          <strong>{totalItems}</strong>
+          <span>Items in sequence</span>
+        </div>
+        <div className={emptyModules ? "warn" : ""}>
+          <strong>{emptyModules}</strong>
+          <span>Empty modules</span>
+        </div>
+        <div>
+          <strong>{totalWorkload}</strong>
+          <span>Estimated hours</span>
+        </div>
+      </section>
+
+      <section className="module-sequence" aria-label="Visual course sequence">
+        {course.modules.map((module, index) => {
+          const summary = moduleSummaryFor(module.id);
+          return (
+            <button key={module.id} className={selectedModule?.id === module.id ? "active" : ""} onClick={() => setSelectedModuleId(module.id)}>
+              <span>{index + 1}</span>
+              <strong>{module.title || "Untitled module"}</strong>
+              <small>{summary?.status ?? "Ready"}</small>
+            </button>
+          );
+        })}
+      </section>
+
+      <div className="module-planner-actions">
+        <button
+          type="button"
+          className="secondary"
+          onClick={() =>
+            onUpdateCourse((current) => ({
+              ...current,
+              modules: renumberModules([
+                ...current.modules,
+                {
+                  id: `module_custom_${Date.now()}`,
+                  title: "New Module",
+                  description: "Add a module description.",
+                  objectives: ["Add a measurable module objective."],
+                  workloadHours: 4,
+                  order: current.modules.length,
+                  kind: "content",
+                  publishState: "published",
+                  expanded: true,
+                  items: [],
+                  status: "draft",
+                  metadata: editMetadata()
+                }
+              ])
+            }))
+          }
+        >
+          <Plus size={16} /> Add module
         </button>
       </div>
-      {course.modules.map((module) => (
-        <article
-          key={module.id}
-          className={`module-editor ${draggedModuleId === module.id ? "dragging" : ""}`}
-          draggable
-          onDragStart={() => onDragModule(module.id)}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={() => onDropModule(module.id)}
-        >
-          <header>
-            <GripVertical size={18} />
-            <button
-              className="icon-button"
-              onClick={() =>
-                onUpdateCourse((current) => ({
-                  ...current,
-                  modules: current.modules.map((item) => (item.id === module.id ? { ...item, expanded: !item.expanded } : item))
-                }))
-              }
-              aria-label={`${module.expanded ? "Collapse" : "Expand"} ${module.title}`}
-            >
-              {module.expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-            </button>
-            <input
-              value={module.title}
-              onChange={(event) =>
-                onUpdateCourse((current) => ({
-                  ...current,
-                  modules: current.modules.map((item) => (item.id === module.id ? { ...item, title: event.target.value, status: "edited" } : item))
-                }))
-              }
-            />
-            <select
-              value={module.publishState}
-              aria-label={`${module.title} publish state`}
-              onChange={(event) =>
-                onUpdateCourse((current) => ({
-                  ...current,
-                  modules: current.modules.map((item) => (item.id === module.id ? { ...item, publishState: event.target.value as CourseModule["publishState"], status: "edited" } : item))
-                }))
-              }
-            >
-              <option value="published">Published</option>
-              <option value="unpublished">Unpublished</option>
-            </select>
-            <button className="small-button" onClick={() => onDuplicateModule(module.id)}>
-              Duplicate
-            </button>
-          </header>
-          {module.expanded && (
-            <div className="module-body" onDragOver={(event) => event.preventDefault()} onDrop={() => onDropItem(module.id)}>
-              <textarea
-                value={module.description}
-                onChange={(event) =>
-                  onUpdateCourse((current) => ({
-                    ...current,
-                    modules: current.modules.map((item) => (item.id === module.id ? { ...item, description: event.target.value, status: "edited" } : item))
-                  }))
-                }
-              />
-              <div className="module-items">
-                {module.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="module-item"
-                    draggable
-                    onDragStart={(event) => {
-                      event.stopPropagation();
-                      onDragItem({ moduleId: module.id, itemId: item.id });
-                    }}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                      event.stopPropagation();
-                      onDropItem(module.id, item.id);
-                    }}
+
+      <div className="module-planner-layout">
+        <section className="module-board" aria-label="Editable module cards">
+          {course.modules.map((module, moduleIndex) => {
+            const counts = itemCountsForModule(module);
+            const summary = moduleSummaryFor(module.id);
+            const currentDelete = pendingDeleteModuleId === module.id;
+            return (
+              <article
+                key={module.id}
+                className={`module-editor ${draggedModuleId === module.id ? "dragging" : ""} ${summary?.status === "Needs review" ? "needs-review" : ""}`}
+                draggable
+                onDragStart={() => onDragModule(module.id)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => onDropModule(module.id)}
+              >
+                <header>
+                  <span className="module-drag-handle" aria-label={`Drag ${module.title}`} title="Drag to reorder">
+                    <GripVertical size={16} /> Drag
+                  </span>
+                  <button
+                    className="icon-button"
+                    onClick={() => updateModuleField(module.id, "expanded", !module.expanded)}
+                    aria-label={`${module.expanded ? "Collapse" : "Expand"} ${module.title}`}
                   >
-                    <GripVertical size={15} />
-                    <span className={`item-type ${item.type}`}>{item.type}</span>
-                    <input
-                      value={item.title}
-                      onChange={(event) =>
-                        onUpdateCourse((current) => ({
-                          ...current,
-                          modules: current.modules.map((mod) =>
-                            mod.id === module.id
-                              ? {
-                                  ...mod,
-                                  items: mod.items.map((moduleItem) => (moduleItem.id === item.id ? { ...moduleItem, title: event.target.value, status: "edited" } : moduleItem))
-                                }
-                              : mod
-                          )
-                        }))
-                      }
-                    />
+                    {module.expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  </button>
+                  <div className="module-title-block">
+                    <input value={module.title} aria-label={`${module.title} title`} onChange={(event) => updateModuleField(module.id, "title", event.target.value)} />
+                    <div className="module-card-meta">
+                      <span>{module.objectives.filter(Boolean).length} objectives</span>
+                      <span>{module.workloadHours} hours</span>
+                      <span>{module.items.length} items</span>
+                      <span className={summary?.status === "Needs review" ? "warn" : "ok"}>{summary?.status ?? "Ready"}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <select value={module.publishState} aria-label={`${module.title} publish state`} onChange={(event) => updateModuleField(module.id, "publishState", event.target.value as CourseModule["publishState"])}>
+                    <option value="published">Published</option>
+                    <option value="unpublished">Unpublished</option>
+                  </select>
+                  <div className="module-card-actions">
+                    <button className="small-button" onClick={() => moveModuleBy(module.id, -1)} disabled={moduleIndex === 0}>
+                      Up
+                    </button>
+                    <button className="small-button" onClick={() => moveModuleBy(module.id, 1)} disabled={moduleIndex === course.modules.length - 1}>
+                      Down
+                    </button>
+                    <button className="small-button" onClick={() => onDuplicateModule(module.id)}>
+                      Duplicate
+                    </button>
+                  </div>
+                </header>
+                {module.expanded && (
+                  <div className="module-body" onDragOver={(event) => event.preventDefault()} onDrop={() => onDropItem(module.id)}>
+                    <div className="module-card-fields">
+                      <label>
+                        <span>Description</span>
+                        <textarea value={module.description} onChange={(event) => updateModuleField(module.id, "description", event.target.value)} />
+                      </label>
+                      <label>
+                        <span>Objectives</span>
+                        <textarea value={module.objectives.join("\n")} onChange={(event) => updateModuleField(module.id, "objectives", event.target.value.split("\n").filter((value) => value.trim()))} />
+                      </label>
+                      <label>
+                        <span>Workload hours</span>
+                        <input type="number" min={0} step={0.5} value={module.workloadHours} onChange={(event) => updateModuleField(module.id, "workloadHours", Number(event.target.value))} />
+                      </label>
+                    </div>
+
+                    <div className="module-count-row" aria-label={`${module.title} item counts`}>
+                      {(Object.keys(counts) as ModuleItem["type"][]).map((type) =>
+                        counts[type] > 0 ? (
+                          <span key={type} className={`item-type ${type}`}>
+                            {iconForType(type)} {counts[type]} {moduleItemTypeLabel(type)}
+                          </span>
+                        ) : null
+                      )}
+                      {module.items.length === 0 && <span className="module-empty-note">Drop items here or add content from another tab.</span>}
+                    </div>
+
+                    {summary && summary.issues.length > 0 && (
+                      <div className="module-issue-list" aria-label={`${module.title} module checks`}>
+                        {summary.issues.slice(0, 4).map((issue) => (
+                          <p key={issue.id} className={issue.severity}>
+                            {issue.severity === "error" ? <AlertTriangle size={14} /> : <ShieldCheck size={14} />}
+                            <strong>{issue.title}:</strong> {issue.detail}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="module-items">
+                      {module.items.map((item) => {
+                        const target = getModuleItemTarget(course, item);
+                        const issues = itemIssues(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            className={`module-item ${issues.length ? "risky" : ""}`}
+                            draggable
+                            onDragStart={(event) => {
+                              event.stopPropagation();
+                              onDragItem({ moduleId: module.id, itemId: item.id });
+                            }}
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={(event) => {
+                              event.stopPropagation();
+                              onDropItem(module.id, item.id);
+                            }}
+                          >
+                            <GripVertical size={15} />
+                            <span className={`item-type ${item.type}`}>{iconForType(item.type)} {moduleItemTypeLabel(item.type)}</span>
+                            <input value={item.title} aria-label={`${item.title} module item title`} onChange={(event) => renameModuleItem(module.id, item, event.target.value)} />
+                            <small>{target ? target.summary || "No preview text available yet." : "Missing referenced object."}</small>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="module-delete-zone">
+                      {module.items.length === 0 ? (
+                        <button className="small-button danger" onClick={() => onDeleteModule(module.id)}>
+                          <Trash2 size={14} /> Delete empty module
+                        </button>
+                      ) : (
+                        <>
+                          <button className="small-button danger" onClick={() => startDelete(module)}>
+                            <Trash2 size={14} /> Delete or move
+                          </button>
+                          {currentDelete && (
+                            <div className="module-delete-panel">
+                              <strong>Move items before deleting</strong>
+                              <p>Non-empty modules cannot be deleted silently. Choose where the {module.items.length} item(s) should go.</p>
+                              <select value={moveTargetModuleId} onChange={(event) => setMoveTargetModuleId(event.target.value)} aria-label="Move items to module">
+                                {course.modules
+                                  .filter((candidate) => candidate.id !== module.id)
+                                  .map((candidate) => (
+                                    <option key={candidate.id} value={candidate.id}>
+                                      {candidate.title}
+                                    </option>
+                                  ))}
+                              </select>
+                              <div>
+                                <button className="small-button" onClick={() => setPendingDeleteModuleId(null)}>
+                                  Cancel
+                                </button>
+                                <button
+                                  className="small-button"
+                                  disabled={!moveTargetModuleId}
+                                  onClick={() => {
+                                    onDeleteModule(module.id, moveTargetModuleId);
+                                    setPendingDeleteModuleId(null);
+                                  }}
+                                >
+                                  <MoveRight size={14} /> Move items and delete
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </section>
+
+        <aside className="module-preview-panel" aria-label="Module path preview">
+          <div className="module-preview-sticky">
+            <header>
+              <span className="hp-eyebrow"><BookOpen size={14} /> Preview module path</span>
+              <h2>{selectedModule?.title ?? "Select a module"}</h2>
+              <p>{selectedModule?.description || "Choose a module to preview what students will see in order."}</p>
+            </header>
+            <div className="module-preview-tabs" role="tablist" aria-label="Module preview filter">
+              {[
+                ["all", "All items"],
+                ["pages", "Pages only"],
+                ["graded", "Graded"],
+                ["risky", "Missing or risky"]
+              ].map(([id, label]) => (
+                <button key={id} className={previewFilter === id ? "active" : ""} onClick={() => setPreviewFilter(id as ModulePreviewFilter)} aria-pressed={previewFilter === id}>
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
-        </article>
-      ))}
+            <div className="module-preview-list">
+              {visiblePreviewItems.length === 0 && <p className="module-empty-note">No items match this preview filter.</p>}
+              {visiblePreviewItems.map(({ item, target, issues }, index) => (
+                <article key={item.id} className={issues.length ? "risky" : ""}>
+                  <span className={`item-type ${item.type}`}>{iconForType(item.type)} {moduleItemTypeLabel(item.type)}</span>
+                  <strong>{index + 1}. {item.title}</strong>
+                  <p>{target?.summary || "No linked content preview is available."}</p>
+                  {issues.map((issue) => (
+                    <small key={issue.id} className={issue.severity}>{issue.title}: {issue.detail}</small>
+                  ))}
+                  <button className="small-button" onClick={() => onJumpToTab(tabForItem(item.type))}>
+                    Open {tabForItem(item.type)}
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -1572,42 +1701,180 @@ function ContactHoursTab({ course, onUpdateCourse }: { course: CourseProject; on
   );
 }
 
-function ThemeTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void }) {
+const themePreviewModes: Array<{ id: ThemePreviewKind; label: string }> = [
+  { id: "homepage", label: "Homepage" },
+  { id: "syllabus", label: "Syllabus" },
+  { id: "assignment", label: "Assignment" },
+  { id: "quiz", label: "Quiz" },
+  { id: "rubric", label: "Rubric" }
+];
+
+function ThemeSwatch({ label, value }: { label: string; value: string }) {
   return (
-    <div className="stack">
-      <div className="theme-grid">
-        {themes.map((theme) => (
-          <button
-            key={theme.id}
-            className={`theme-choice ${course.theme.id === theme.id ? "active" : ""}`}
-            onClick={() => onUpdateCourse((current) => ({ ...current, theme, settings: { ...current.settings, themeId: theme.id } }))}
-          >
-            <span style={{ background: theme.accent }} />
-            <strong>{theme.name}</strong>
-            <small>{theme.bannerLabel}</small>
-          </button>
-        ))}
+    <div className="theme-swatch-row">
+      <span className="theme-swatch" style={{ background: value }} />
+      <span>
+        <strong>{label}</strong>
+        <small>{value}</small>
+      </span>
+    </div>
+  );
+}
+
+function ThemeTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void }) {
+  const [previewKind, setPreviewKind] = useState<ThemePreviewKind>("homepage");
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
+  const validation = useMemo(() => validateTheme(course.theme), [course.theme]);
+  const styles = useMemo(() => getThemeStyles(course.theme), [course.theme]);
+  const previewHtml = useMemo(() => buildThemePreviewHtml(course.theme, previewKind, course.title), [course.theme, previewKind, course.title]);
+  const editedObjects = [
+    ...course.pages,
+    ...course.assignments,
+    ...course.discussions,
+    ...course.quizzes,
+    ...course.rubrics,
+    ...course.modules
+  ].filter((item) => item.status === "edited").length;
+  const builderThemeDrift = [
+    course.homepage && course.homepage.mode === "builder" && course.homepage.themeId !== course.theme.id ? "Homepage" : null,
+    course.syllabus && course.syllabus.mode === "builder" && course.syllabus.themeId !== course.theme.id ? "Syllabus" : null
+  ].filter((value): value is string => Boolean(value));
+
+  const chooseTheme = (theme: Theme): void => {
+    setRefreshNotice(null);
+    onUpdateCourse((current) => ({ ...current, theme, settings: { ...current.settings, themeId: theme.id }, status: "edited" }));
+  };
+
+  const refreshThemeStyling = (): void => {
+    onUpdateCourse((current) => applyThemeToGeneratedContent(current, current.theme));
+    setRefreshNotice("Theme styling refreshed. Template-generated content was recolored, builder pages received snapshots, and manually edited objects were preserved where possible.");
+  };
+
+  return (
+    <div className="theme-system">
+      <section className="theme-summary-card">
+        <div>
+          <span className="hp-eyebrow"><Palette size={14} /> Canvas visual design system</span>
+          <h2>{course.theme.name}</h2>
+          <p>
+            Theme selection updates this preview immediately. Use refresh when you are ready to recolor generated Canvas HTML while preserving manually edited content.
+          </p>
+          <div className="theme-summary-meta">
+            <span>{course.theme.bannerLabel}</span>
+            <span>{validation.score}% contrast score</span>
+            <span>{editedObjects} edited object(s) preserved on refresh</span>
+          </div>
+        </div>
+        <div className={`theme-access-badge ${validation.status}`}>
+          {validation.status === "pass" ? <CheckCircle2 size={18} /> : <ShieldCheck size={18} />}
+          <strong>{validation.status === "pass" ? "Accessible" : "Needs review"}</strong>
+          <small>{validation.warnings ? `${validation.warnings} contrast warning(s)` : "All theme checks pass"}</small>
+        </div>
+      </section>
+
+      <div className="theme-token-grid" aria-label="Theme color tokens">
+        <ThemeSwatch label="Accent" value={styles.accent} />
+        <ThemeSwatch label="Accent dark" value={styles.accentDark} />
+        <ThemeSwatch label="Soft background" value={styles.soft} />
+        <ThemeSwatch label="Contrast text" value={styles.contrastText} />
+        <ThemeSwatch label="Button text" value={styles.onAccent} />
       </div>
-      <section className="export-card">
-        <h2>Apply Theme to Generated Content</h2>
-        <p>
-          Rebuilds generated homepage, syllabus, guide, module, assignment, and discussion HTML with the selected theme. Objects marked edited are preserved so faculty changes are not overwritten.
-        </p>
-        <button className="primary" onClick={() => onUpdateCourse((current) => applyThemeToGeneratedContent(current, current.theme))}>
-          <Sparkles size={18} /> Apply theme to generated content
-        </button>
-      </section>
-      <section className="export-card">
-        <h2>Image Hooks</h2>
-        <p>
-          Current MVP packages deterministic SVG banner and tile assets. Future image generation should run server-side with usage tracking, plan limits, per-course credits, and super-admin controls.
-        </p>
-        <ul className="compact-list">
-          <li>Homepage banner: {course.settings.imageSettings.homepageBannerMode}</li>
-          <li>Course tile: {course.settings.imageSettings.courseTileMode}</li>
-          <li>Future image credit limit: {course.settings.imageSettings.futureImageCreditLimit}</li>
-        </ul>
-      </section>
+
+      <div className="theme-workbench">
+        <section className="theme-library-panel">
+          <header>
+            <div>
+              <h2>Theme Library</h2>
+              <p>Higher-ed palettes with Canvas-safe colors and readable button/link states.</p>
+            </div>
+          </header>
+          <div className="theme-grid">
+            {themes.map((theme) => {
+              const themeCheck = validateTheme(theme);
+              return (
+                <button
+                  key={theme.id}
+                  className={`theme-choice ${course.theme.id === theme.id ? "active" : ""}`}
+                  onClick={() => chooseTheme(theme)}
+                  aria-pressed={course.theme.id === theme.id}
+                >
+                  <span className="theme-choice-swatches" aria-hidden="true">
+                    <i style={{ background: theme.accent }} />
+                    <i style={{ background: theme.accentDark }} />
+                    <i style={{ background: theme.soft }} />
+                  </span>
+                  <strong>{theme.name}</strong>
+                  <small>{theme.bannerLabel}</small>
+                  <em className={themeCheck.status}>{themeCheck.status === "pass" ? "Contrast pass" : "Review contrast"}</em>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="theme-preview-panel">
+          <header>
+            <div>
+              <h2>Live Canvas Preview</h2>
+              <p>See how the selected theme treats common exported Canvas surfaces.</p>
+            </div>
+            <div className="theme-preview-tabs" role="tablist" aria-label="Theme preview type">
+              {themePreviewModes.map((mode) => (
+                <button key={mode.id} className={previewKind === mode.id ? "active" : ""} onClick={() => setPreviewKind(mode.id)} role="tab" aria-selected={previewKind === mode.id}>
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </header>
+          <div className="theme-canvas-frame">
+            <div className="theme-canvas-bar">
+              <span>Canvas preview</span>
+              <strong>{themePreviewModes.find((mode) => mode.id === previewKind)?.label}</strong>
+            </div>
+            <div className="theme-canvas-page" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+          </div>
+        </section>
+      </div>
+
+      <div className="theme-support-grid">
+        <section className="theme-check-panel">
+          <header>
+            <h2>Theme Safety Checks</h2>
+            <span className={`hp-badge ${validation.status === "pass" ? "ok" : "warn"}`}>{validation.status === "pass" ? "Pass" : "Review"}</span>
+          </header>
+          <ul>
+            {validation.checks.map((check) => (
+              <li key={check.id} className={check.passed ? "pass" : "warn"}>
+                <span>{check.passed ? <CheckCircle2 size={15} /> : <ShieldCheck size={15} />}</span>
+                <strong>{check.label}</strong>
+                <small>{check.detail}</small>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="theme-refresh-card">
+          <h2>Refresh Course Theme Styling</h2>
+          <p>
+            Rebuilds generated homepage, syllabus, guide, module, assignment, discussion, and support page HTML with the selected theme. Manual edits are preserved where possible.
+          </p>
+          {builderThemeDrift.length > 0 && <p className="theme-refresh-hint">{builderThemeDrift.join(", ")} can be refreshed from structured builder data.</p>}
+          <button className="primary" onClick={refreshThemeStyling}>
+            <Sparkles size={18} /> Refresh course theme styling
+          </button>
+          {refreshNotice && <p className="theme-refresh-success"><CheckCircle2 size={15} /> {refreshNotice}</p>}
+        </section>
+
+        <section className="theme-refresh-card">
+          <h2>Export Assets</h2>
+          <p>The exported banner and course tile use the selected theme's soft background, accent, and banner label.</p>
+          <ul className="compact-list">
+            <li>Homepage banner: {course.settings.imageSettings.homepageBannerMode}</li>
+            <li>Course tile: {course.settings.imageSettings.courseTileMode}</li>
+            <li>Future image credit limit: {course.settings.imageSettings.futureImageCreditLimit}</li>
+          </ul>
+        </section>
+      </div>
     </div>
   );
 }
