@@ -8,3 +8,6 @@ courseforge-*.png
 courseforge-*.imscc
 .claude/settings.local.json
 .DS_Store
+
+# Local Netlify folder
+.netlify

@@ -45,6 +45,16 @@ CourseForge already generated a Canvas-oriented shell with Start Here, content m
 - Canvas sandbox import verification against a real known-good export fixture.
 - Full object-level revision coverage for resources, outcomes, modules, syllabus sections, instructor notes, and milestones.
 
+## Loop 2 Prompt Template System
+
+- Added a versioned AI prompt-template architecture under `src/ai/promptTemplates/`.
+- Added explicit prompt stages for blueprint generation, module drafting, lesson pages, assignments, discussions, quizzes, rubrics, syllabus, homepage, resources, contact hours, and object-level revisions.
+- Added six prompt versions per stage, representing baseline, completeness, specificity, alignment, Canvas-readiness/editability, and regression/rollback passes.
+- Added a registry that centralizes active version selection and supports lookup, comparison, rollback targets, and override-based testing.
+- Added the CourseForge fully fledged course standard, anti-generic rules, and structured output validation expectations.
+- Added multi-discipline fixture inputs and a deterministic eval harness under `src/ai/evals/`.
+- Kept real AI calls out of the browser. The default eval provider uses the deterministic generator until a server-side AI endpoint exists.
+
 ## Verification
 
 Current automated checks cover generated module structure, resource placeholders, quiz metadata, assignment groups, rubrics/outcomes, syllabus sync, IMSCC files, selected/changed export dependencies, internal link warnings, Canvas module import recovery, and representative quality thresholds for 4-, 6-, 8-, and 12-module course shapes.
