@@ -31,6 +31,7 @@ import {
   Wand2
 } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { AssignmentsTab } from "./components/AssignmentsTab";
 import { HomepageTab } from "./components/HomepageTab";
 import { SyllabusTab } from "./components/SyllabusTab";
 import { defaultSettings } from "./data/defaultSettings";
@@ -53,7 +54,6 @@ import { reviseCourseObject, type RevisionMode } from "./services/objectRevision
 import { buildReadinessReport } from "./services/readiness";
 import { buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
 import type {
-  Assignment,
   CourseModule,
   CoursePage,
   CourseProject,
@@ -1019,7 +1019,7 @@ function Editor({
             />
           )}
           {activeTab === "Pages" && <CollectionTab<CoursePage> title="Pages" objectType="page" course={course} items={course.pages} getBody={(item) => item.bodyHtml} setBody={(item, body) => ({ ...item, bodyHtml: body })} onReplace={(pages) => onUpdateCourse((current) => ({ ...current, pages }))} />}
-          {activeTab === "Assignments" && <CollectionTab<Assignment> title="Assignments" objectType="assignment" course={course} items={course.assignments} getBody={(item) => item.descriptionHtml} setBody={(item, body) => ({ ...item, descriptionHtml: body })} onReplace={(assignments) => onUpdateCourse((current) => ({ ...current, assignments }))} />}
+          {activeTab === "Assignments" && <AssignmentsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Discussions" && <CollectionTab<Discussion> title="Discussions" objectType="discussion" course={course} items={course.discussions} getBody={(item) => item.promptHtml} setBody={(item, body) => ({ ...item, promptHtml: body })} onReplace={(discussions) => onUpdateCourse((current) => ({ ...current, discussions }))} />}
           {activeTab === "Quizzes" && <QuizzesTab quizzes={course.quizzes} onUpdate={(quizzes) => onUpdateCourse((current) => ({ ...current, quizzes }))} />}
           {activeTab === "Rubrics" && <RubricsTab rubrics={course.rubrics} onUpdate={(rubrics) => onUpdateCourse((current) => ({ ...current, rubrics }))} />}

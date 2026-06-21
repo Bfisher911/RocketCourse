@@ -1,5 +1,6 @@
 import type { CourseProject, ModuleItemType, ReadinessCheck, ReadinessReport } from "../types";
 import { slugify, stripHtml } from "../utils/text";
+import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateModulePlan } from "./modulePlanner";
 import { validateSyllabus } from "./syllabusValidation";
 
@@ -250,6 +251,8 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const danglingRefs = danglingReferences(course);
   const modulePlanValidation = validateModulePlan(course);
   const moduleLocationIssues = modulePlanValidation.issues.filter((issue) => /-missing-target$|-module-mismatch$/.test(issue.id));
+  const assignmentPlanValidation = validateAssignmentPlan(course);
+  const assignmentBlockers = assignmentPlanValidation.issues.filter((issue) => issue.severity === "error");
   const distinctOutcomeCodes = new Set(course.outcomes.map((outcome) => outcome.code.trim().toLowerCase())).size === course.outcomes.length;
   const weakObjectives = course.outcomes.filter((outcome) => outcome.code.trim().length === 0 || visibleLength(outcome.text) < 24);
   const nonMeasurableObjectives = course.outcomes.filter((outcome) => !MEASURABLE_VERB.test(outcome.text));
@@ -289,6 +292,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("weights", "Grade weights total 100%", Math.round(gradeWeightTotal) === 100, `Current assignment group total is ${gradeWeightTotal}%.`),
     check("weight-bounds", "Assignment group weights are in range and balanced", outOfRangeWeightGroups.length === 0 && Math.abs(gradeWeightTotal - 100) < 0.5 && gradedItemsInUnweightedGroup.length === 0, outOfRangeWeightGroups.length ? `${outOfRangeWeightGroups.map((group) => group.name).slice(0, 3).join(", ")} have weights outside 0-100%.` : gradedItemsInUnweightedGroup.length ? `${gradedItemsInUnweightedGroup.map((item) => item.title).slice(0, 3).join(", ")} sit in a 0%-weight group and would not count.` : "Group weights are within range and sum to 100%."),
     check("assignment-groups", "Graded items use meaningful assignment groups", gradedItemsHaveGroups, `${gradedItems.length} graded items checked for assignment group references.`),
+    check("assignment-quality", "Assignments pass safety and design checks", assignmentBlockers.length === 0 && assignmentPlanValidation.score >= 85, assignmentBlockers.length ? `${assignmentBlockers.length} assignment blocker(s): ${assignmentBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Assignment validation score is ${assignmentPlanValidation.score}.`, "recommended"),
     check("nonzero-weight-groups", "Active assignment groups are weighted", zeroWeightActiveGroups.length === 0, zeroWeightActiveGroups.length ? `${zeroWeightActiveGroups.map((group) => group.name).join(", ")} has graded items but 0% weight.` : "No active graded group is weighted at 0%."),
     check("rubrics", "Assignments and graded discussions have rubrics", assignmentAndDiscussionRubrics, "Assignments and graded discussions should include attached rubric references."),
     check("rubric-depth", "Rubrics have substantive criteria and points", shallowRubrics.length === 0, shallowRubrics.length ? `${shallowRubrics.map((rubric) => rubric.title).slice(0, 3).join(", ")} need 3+ criteria, leveled ratings, and nonzero points.` : "Every rubric has at least three leveled criteria and nonzero points."),

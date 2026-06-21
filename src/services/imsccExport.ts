@@ -15,6 +15,7 @@ import type {
   Rubric
 } from "../types";
 import { escapeXml, slugify, stripHtml } from "../utils/text";
+import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateModulePlan } from "./modulePlanner";
 import { buildReadinessReport } from "./readiness";
 import { collectXmlParseErrors, formatXmlParseError } from "./xmlWellFormed";
@@ -885,6 +886,11 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
   validateModulePlan(course).issues
     .filter((issue) => /-module-mismatch$/.test(issue.id))
     .forEach((issue) => fail(`module-object-alignment-${issue.itemId ?? issue.id}`, issue.detail));
+  validateAssignmentPlan(course).issues.forEach((issue) => {
+    const id = `assignment-quality-${issue.id}`;
+    if (issue.severity === "error") fail(id, issue.detail);
+    else warn(id, issue.detail);
+  });
 
   if (readiness.blockers > 0) {
     warn("readiness-blockers", `${readiness.blockers} readiness blocker(s) should be resolved before Canvas import.`);
