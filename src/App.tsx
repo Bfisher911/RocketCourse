@@ -27,7 +27,7 @@ import {
   Upload,
   Wand2
 } from "lucide-react";
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { defaultSettings } from "./data/defaultSettings";
 import { themes } from "./data/themes";
 import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./services/courseGenerator";
@@ -1076,6 +1076,13 @@ function Editor({
   onExportModeChange: (mode: ExportMode) => void;
   importNotes: string[];
 }) {
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const active = tabsRef.current?.querySelector<HTMLButtonElement>("button.active");
+    active?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [activeTab]);
+
   return (
     <main className="editor-shell">
       <aside className="editor-rail" aria-label="Course navigation">
@@ -1120,9 +1127,9 @@ function Editor({
             </button>
           </div>
         </div>
-        <div className="tabs" role="tablist" aria-label="Course editor sections">
+        <div className="tabs" role="tablist" aria-label="Course editor sections" ref={tabsRef}>
           {editorTabs.map((tab) => (
-            <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
+            <button key={tab} role="tab" aria-selected={activeTab === tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
               {tab}
             </button>
           ))}
