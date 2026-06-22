@@ -50,6 +50,7 @@ import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
 import { buildThemeFromCustom, customThemesEnabled, listCustomThemes, saveCustomTheme, type CustomThemeInput } from "./services/customThemes";
+import { openBillingPortal, startCheckout } from "./billing/checkout";
 import { defaultSettings } from "./data/defaultSettings";
 import type { Plan, PlanKey } from "./data/plans";
 import { plans } from "./data/plans";
@@ -195,6 +196,8 @@ function App() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [customThemes, setCustomThemes] = useState<Theme[]>([]);
+  const [checkoutBusyPlan, setCheckoutBusyPlan] = useState<PlanKey | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const readiness = useMemo(() => buildReadinessReport(course), [course]);
   const quality = useMemo(() => buildCourseQualityReport(course), [course]);
@@ -235,6 +238,19 @@ function App() {
       setScreen("dashboard");
     }
   }, [auth.loading, auth.session, screen]);
+
+  // Returning from Stripe Checkout (?checkout=success|cancel): refresh the subscription so the new
+  // plan shows, land on the dashboard, and strip the query param.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    if (!checkout) return;
+    if (checkout === "success" && auth.session) {
+      void auth.refreshSubscription();
+      setScreen("dashboard");
+    }
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [auth.session]);
 
   // Load the signed-in user's saved projects from Supabase (replacing the local sample list).
   useEffect(() => {
@@ -339,12 +355,13 @@ function App() {
   };
 
   // Pricing CTA. Free routes to the sample editor (public demo). Paid plans require an account —
-  // an unauthenticated user is sent to sign up first. Real Stripe Checkout is wired in a later loop
-  // (needs a Stripe TEST key); in local dev mode, choosing a plan simulates activating it so the
-  // demo flow is operable end-to-end. Contact-sales uses the mailto link in the card.
+  // an unauthenticated user is sent to sign up first. Authenticated users in real (Supabase) mode go
+  // to Stripe Checkout; in local dev mode (no Supabase) choosing a plan simulates activation so the
+  // offline demo still works. Contact-sales uses the mailto link in the card.
   const handleChoosePlan = (plan: Plan): void => {
-    if (plan.checkoutMode === "free") {
-      setScreen("editor");
+    setCheckoutError(null);
+    if (plan.checkoutMode === "free" || plan.checkoutMode === "contact") {
+      if (plan.checkoutMode === "free") setScreen("editor");
       return;
     }
     if (!auth.session) {
@@ -356,8 +373,22 @@ function App() {
       void auth.devSetPlan(plan.key).then(() => setScreen("dashboard"));
       return;
     }
-    // Supabase mode: Stripe Checkout is wired next; for now land on the dashboard to check status.
-    setScreen("dashboard");
+    // Real Stripe Checkout — redirects the browser to the hosted Stripe page on success.
+    setCheckoutBusyPlan(plan.key);
+    void startCheckout(plan.key).then((result) => {
+      if (!result.ok) {
+        setCheckoutError(result.error ?? "Could not start checkout.");
+        setCheckoutBusyPlan(null);
+      }
+      // On success the browser navigates away to Stripe; no further UI update needed.
+    });
+  };
+
+  const handleOpenBillingPortal = (): void => {
+    setCheckoutError(null);
+    void openBillingPortal().then((result) => {
+      if (!result.ok) setCheckoutError(result.error ?? "Could not open billing portal.");
+    });
   };
 
   const handleFiles = async (files: FileList | null): Promise<void> => {
@@ -521,7 +552,13 @@ function App() {
         <Landing onStart={() => setScreen("intake")} onDashboard={() => setScreen(auth.session ? "dashboard" : "login")} onPricing={() => setScreen("pricing")} />
       )}
       {screen === "pricing" && (
-        <PricingPage onChoosePlan={handleChoosePlan} onTryDemo={() => setScreen("editor")} currentPlanKey={auth.entitlement.planKey} />
+        <PricingPage
+          onChoosePlan={handleChoosePlan}
+          onTryDemo={() => setScreen("editor")}
+          currentPlanKey={auth.entitlement.planKey}
+          busyPlanKey={checkoutBusyPlan}
+          error={checkoutError}
+        />
       )}
       {(screen === "login" || screen === "signup") && (
         <AuthScreen
@@ -543,6 +580,8 @@ function App() {
           onCreate={() => setScreen("intake")}
           onPricing={() => setScreen("pricing")}
           onRefreshStatus={auth.refreshSubscription}
+          onBillingPortal={handleOpenBillingPortal}
+          billingError={checkoutError}
           onOpen={(project) => {
             setCourse(project);
             setExportMode(project.exportMode);
@@ -873,6 +912,8 @@ function Dashboard({
   onCreate,
   onPricing,
   onRefreshStatus,
+  onBillingPortal,
+  billingError,
   onOpen
 }: {
   projects: CourseProject[];
@@ -880,6 +921,8 @@ function Dashboard({
   onCreate: () => void;
   onPricing: () => void;
   onRefreshStatus: () => Promise<void>;
+  onBillingPortal: () => void;
+  billingError?: string | null;
   onOpen: (project: CourseProject) => void;
 }) {
   const [refreshing, setRefreshing] = useState(false);
@@ -934,10 +977,20 @@ function Dashboard({
           <button className="secondary" onClick={onPricing}>
             {entitlement.active ? "Change plan" : "View pricing"}
           </button>
+          {entitlement.active && (
+            <button className="ghost-button" onClick={onBillingPortal} title="Manage payment method, invoices, cancellation">
+              <CreditCard size={15} /> Billing portal
+            </button>
+          )}
           <button className="ghost-button" onClick={refresh} disabled={refreshing} title="Re-check subscription status (after checkout)">
             <RefreshCw size={15} className={refreshing ? "spin" : ""} /> Refresh status
           </button>
         </div>
+        {billingError && (
+          <p className="intake-ai-error" role="alert" style={{ marginTop: 12 }}>
+            <AlertTriangle size={15} /> {billingError}
+          </p>
+        )}
       </section>
 
       <section className="dashboard-grid">

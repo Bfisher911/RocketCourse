@@ -1,4 +1,4 @@
-import { ArrowRight, Building2, Check, Sparkles, Star } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, Check, Loader2, Sparkles, Star } from "lucide-react";
 import {
   contactSalesPlans,
   formatPlanPrice,
@@ -19,11 +19,15 @@ const SALES_EMAIL = "sales@courseforge.app";
 export function PricingPage({
   onChoosePlan,
   onTryDemo,
-  currentPlanKey
+  currentPlanKey,
+  busyPlanKey,
+  error
 }: {
   onChoosePlan: (plan: Plan) => void;
   onTryDemo: () => void;
   currentPlanKey?: PlanKey;
+  busyPlanKey?: PlanKey | null;
+  error?: string | null;
 }) {
   const free = plans.find((plan) => plan.key === "free_preview");
   const paid = selfServePlans();
@@ -68,10 +72,17 @@ export function PricingPage({
         </section>
       )}
 
+      {error && (
+        <p className="intake-ai-error" role="alert">
+          <AlertTriangle size={15} /> {error}
+        </p>
+      )}
+
       {/* Self-serve plans */}
       <section className="pricing-grid" aria-label="Self-serve plans">
         {paid.map((plan) => {
           const isCurrent = plan.key === currentPlanKey;
+          const busy = busyPlanKey === plan.key;
           return (
             <article key={plan.key} className={`pricing-card ${plan.highlighted ? "featured" : ""}`}>
               {plan.highlighted && <span className="pricing-flag">Most popular</span>}
@@ -94,10 +105,11 @@ export function PricingPage({
               <button
                 className={plan.highlighted ? "primary" : "secondary"}
                 onClick={() => onChoosePlan(plan)}
-                disabled={isCurrent}
+                disabled={isCurrent || Boolean(busyPlanKey)}
               >
-                {isCurrent ? "Current plan" : `Choose ${plan.name}`}
-                {!isCurrent && <ArrowRight size={16} />}
+                {busy ? <Loader2 size={16} className="spin" /> : null}
+                {isCurrent ? "Current plan" : busy ? "Starting checkout…" : `Choose ${plan.name}`}
+                {!isCurrent && !busy && <ArrowRight size={16} />}
               </button>
             </article>
           );
