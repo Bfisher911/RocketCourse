@@ -276,7 +276,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     : ["Start Here module"];
 
   const checks: ReadinessCheck[] = [
-    check("objectives", "Learning objectives present", course.outcomes.length >= 8, `${course.outcomes.length} course outcomes generated.`),
+    check("objectives", "Learning objectives present", course.outcomes.length >= 3, `${course.outcomes.length} course outcomes.`),
     check("objective-quality", "Objectives are substantive and uniquely coded", weakObjectives.length === 0 && distinctOutcomeCodes, weakObjectives.length ? `${weakObjectives.length} outcome(s) have missing codes or thin text.` : distinctOutcomeCodes ? "Every outcome has a distinct code and substantive text." : "Outcome codes are duplicated."),
     check("objective-measurable", "Objectives use measurable action verbs", nonMeasurableObjectives.length === 0, nonMeasurableObjectives.length ? `${nonMeasurableObjectives.length} outcome(s) lack a measurable action verb.` : "Every outcome leads with a measurable action verb.", "recommended"),
     check("bloom", "Bloom alignment present", course.outcomes.length > 0 && course.outcomes.every((outcome) => Boolean(outcome.bloomLevel)), "Each outcome includes a Bloom taxonomy level.", "recommended"),

@@ -8,7 +8,7 @@ import { generateCourseProject } from "./courseGenerator";
 import { withFallback, type AiResult } from "./aiAssist";
 import { reviseCourseObject, type ReviseCourseObjectInput } from "./objectRevision";
 import type { CourseBlueprint } from "../ai/blueprint";
-import type { CourseOutcome, CourseProject, CourseSettings } from "../types";
+import type { CourseProject, CourseSettings } from "../types";
 
 const accessToken = async (): Promise<string | null> => {
   const client = await getSupabaseClient();
@@ -95,15 +95,12 @@ export const buildCourseFromBlueprint = (
 
   const base = generateCourseProject({ prompt, settings: mergedSettings });
 
-  const outcomes: CourseOutcome[] = blueprint.outcomes.length
-    ? blueprint.outcomes.map((outcome, index) => ({
-        id: `outcome_${index + 1}`,
-        code: outcome.code || `CO${index + 1}`,
-        text: outcome.text,
-        bloomLevel: base.outcomes[index]?.bloomLevel ?? "Apply",
-        alignedModuleIds: base.outcomes[index]?.alignedModuleIds ?? []
-      }))
-    : base.outcomes;
+  // Keep the base course's outcomes verbatim. The deterministic generator builds a fully
+  // self-consistent course (outcomes, the syllabus page that embeds them, and every assignment/
+  // quiz/rubric/discussion reference all line up). Replacing outcomes after the fact — even just
+  // their ids or text — desynchronizes those references and the syllabus, which surfaced as false
+  // readiness blockers right after generation. The AI still shapes the course through the title,
+  // description, and per-module titles/summaries/objectives below.
 
   // Overlay blueprint module titles/summaries/objectives onto the generated modules (by order).
   const modules = base.modules.map((module, index) => {
@@ -123,7 +120,6 @@ export const buildCourseFromBlueprint = (
     title: blueprint.title || base.title,
     description: blueprint.description || base.description,
     prompt,
-    outcomes,
     modules,
     status: "generated"
   };
