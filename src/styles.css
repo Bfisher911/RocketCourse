@@ -9085,3 +9085,19 @@ p {
   align-items: center;
   gap: 10px;
 }
+
+/* Autosave indicator in the editor header */
+.save-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.save-chip.saving { background: rgba(34, 230, 255, 0.1); color: var(--cyan); }
+.save-chip.saved { background: rgba(75, 232, 168, 0.12); color: var(--success); }
+.save-chip.error { background: rgba(255, 93, 115, 0.12); color: var(--danger); }

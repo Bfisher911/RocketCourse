@@ -66,6 +66,7 @@ import {
   type ModulePreviewFilter
 } from "./services/modulePlanner";
 import { reviseCourseObject, type RevisionMode } from "./services/objectRevision";
+import { listProjects, persistenceEnabled, saveProject } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
 import { buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
 import type {
@@ -186,6 +187,7 @@ function App() {
   const [draggedItem, setDraggedItem] = useState<{ moduleId: string; itemId: string } | null>(null);
   const [importNotes, setImportNotes] = useState<string[]>([]);
   const [exportMode, setExportMode] = useState<ExportMode>(sampleProject.exportMode);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const readiness = useMemo(() => buildReadinessReport(course), [course]);
   const quality = useMemo(() => buildCourseQualityReport(course), [course]);
@@ -195,7 +197,11 @@ function App() {
   useEffect(() => {
     if (screen !== "progress") return;
     if (progressIndex >= progressSteps.length) {
-      const generated = generateCourseProject({ prompt, settings });
+      const base = generateCourseProject({ prompt, settings });
+      // The generator derives its id from the title slug, so two courses with the same title (or a
+      // generation that falls back to the default title) collide with the public sample. Give every
+      // generated project a unique id so it persists as its own row and never shadows the sample.
+      const generated: CourseProject = { ...base, id: `course_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}` };
       setCourse(generated);
       setProjects((current) => [generated, ...current.filter((project) => project.id !== generated.id)]);
       setValidationReport(null);
@@ -222,6 +228,31 @@ function App() {
       setScreen("dashboard");
     }
   }, [auth.loading, auth.session, screen]);
+
+  // Load the signed-in user's saved projects from Supabase (replacing the local sample list).
+  useEffect(() => {
+    if (!auth.session || !persistenceEnabled()) return;
+    let active = true;
+    void listProjects().then((loaded) => {
+      if (active && loaded.length) setProjects(loaded);
+    });
+    return () => {
+      active = false;
+    };
+  }, [auth.session]);
+
+  // Autosave the open course (debounced) for signed-in users who can create private projects.
+  // The public sample course is never persisted to an account.
+  useEffect(() => {
+    if (!auth.session || !persistenceEnabled()) return;
+    if (course.id === sampleProject.id) return;
+    if (!auth.entitlement.canCreateProject) return;
+    setSaveState("saving");
+    const timer = window.setTimeout(() => {
+      void saveProject(course).then((result) => setSaveState(result.ok ? "saved" : "error"));
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [course, auth.session, auth.entitlement.canCreateProject]);
 
   const updateCourse = (updater: (current: CourseProject) => CourseProject): void => {
     setCourse((current) => {
@@ -499,6 +530,7 @@ function App() {
           exportMode={exportMode}
           onExportModeChange={setExportMode}
           importNotes={importNotes}
+          saveState={auth.session && course.id !== sampleProject.id ? saveState : "idle"}
         />
       )}
     </div>
@@ -1117,7 +1149,8 @@ function Editor({
   onRevise,
   exportMode,
   onExportModeChange,
-  importNotes
+  importNotes,
+  saveState
 }: {
   course: CourseProject;
   activeTab: EditorTab;
@@ -1143,6 +1176,7 @@ function Editor({
   exportMode: ExportMode;
   onExportModeChange: (mode: ExportMode) => void;
   importNotes: string[];
+  saveState: "idle" | "saving" | "saved" | "error";
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
 
@@ -1178,7 +1212,12 @@ function Editor({
         <div className="editor-header">
           <div>
             <h1>{course.title}</h1>
-            <p>Structured Canvas course preview and editor</p>
+            <p>
+              Structured Canvas course preview and editor
+              {saveState === "saving" && <span className="save-chip saving"><Loader2 size={12} className="spin" /> Saving…</span>}
+              {saveState === "saved" && <span className="save-chip saved"><CheckCircle2 size={12} /> Saved</span>}
+              {saveState === "error" && <span className="save-chip error"><AlertTriangle size={12} /> Save failed</span>}
+            </p>
           </div>
           {/* The Homepage tab has its own context-aware "Quick improvements" that edit the
               structured builder model, so the generic page-level revise toolbar is hidden there
