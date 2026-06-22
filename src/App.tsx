@@ -1,8 +1,10 @@
 import {
   ArrowDownToLine,
+  ArrowLeft,
   ArrowRight,
   AlertTriangle,
   BookOpen,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -17,6 +19,7 @@ import {
   Info,
   Layers,
   LayoutDashboard,
+  ListChecks,
   Loader2,
   Lock,
   Mail,
@@ -35,7 +38,7 @@ import {
   User,
   Wand2
 } from "lucide-react";
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { AssignmentsTab } from "./components/AssignmentsTab";
 import { AuthScreen, type AuthScreenMode } from "./components/AuthScreen";
 import { ContactHoursTab } from "./components/ContactHoursTab";
@@ -107,6 +110,7 @@ import type {
   ModuleItem,
   ObjectMetadata,
   Quiz,
+  ReadinessCheck,
   Rubric,
   Screen,
   SourceFile,
@@ -1425,6 +1429,12 @@ function Intake({
   onUpgrade: () => void;
 }) {
   const [pasteText, setPasteText] = useState("");
+  // Quick mode keeps the page calm (essentials visible, advanced settings collapsed); Guided mode
+  // walks through one step at a time. Both expose the full settings — just at different paces.
+  const [intakeMode, setIntakeMode] = useState<"quick" | "guided">("quick");
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [guidedStep, setGuidedStep] = useState(0);
+  const toggleSection = (key: string): void => setOpenSections((current) => ({ ...current, [key]: !current[key] }));
   const updateSchedule = <K extends keyof CourseSettings["schedule"]>(key: K, value: CourseSettings["schedule"][K]) => {
     onSettingsChange("schedule", { ...settings.schedule, [key]: value });
   };
@@ -1433,35 +1443,23 @@ function Intake({
     setPasteText("");
   };
 
-  return (
-    <main className="intake page-shell">
-      <section className="page-heading">
-        <div>
-          <h1>Create a Course</h1>
-          <p>Mix a natural prompt with a few settings. Advanced design details stay behind the curtain.</p>
-        </div>
-        {canUseAi ? (
-          <button className="primary" onClick={onGenerateBlueprint} disabled={aiBusy}>
-            {aiBusy ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
-            {aiBusy ? "Generating blueprint…" : "Generate Blueprint with AI"}
-          </button>
-        ) : isAuthed ? (
-          <button className="primary" onClick={onUpgrade}>
-            <Lock size={18} /> Upgrade to generate with AI
-          </button>
-        ) : (
-          <button className="primary" onClick={onGenerate}>
-            <Sparkles size={18} /> Generate sample course (no AI)
-          </button>
-        )}
-      </section>
-      {aiError && (
-        <p className="intake-ai-error">
-          <AlertTriangle size={15} /> {aiError}
-        </p>
-      )}
-      <section className="intake-layout">
-        <div className="prompt-panel">
+  const generateButton = canUseAi ? (
+    <button className="primary" onClick={onGenerateBlueprint} disabled={aiBusy}>
+      {aiBusy ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
+      {aiBusy ? "Generating blueprint…" : "Generate Blueprint with AI"}
+    </button>
+  ) : isAuthed ? (
+    <button className="primary" onClick={onUpgrade}>
+      <Lock size={18} /> Upgrade to generate with AI
+    </button>
+  ) : (
+    <button className="primary" onClick={onGenerate}>
+      <Sparkles size={18} /> Generate sample course (no AI)
+    </button>
+  );
+
+  const promptPanel = (
+    <div className="prompt-panel">
           <span className="panel-label">
             <Wand2 size={14} /> Course brief
           </span>
@@ -1525,14 +1523,10 @@ function Intake({
             Generated content is a first draft and must be reviewed for accuracy, accessibility, grading, and policy before use.
           </p>
         </div>
-        <div className="settings-panel">
-          <span className="panel-label">
-            <Sparkles size={14} /> Course settings
-          </span>
-          <div className="settings-section">
-            <div className="subsection-heading">
-              <h2>Course basics</h2>
-            </div>
+  );
+
+  const basicsFields = (
+    <>
             <Select
               label="Build mode"
               value={settings.buildMode}
@@ -1548,11 +1542,10 @@ function Intake({
               <NumberInput label="Credit hours" value={settings.creditHours} min={1} max={6} onChange={(value) => onSettingsChange("creditHours", value)} />
               <Select label="Tone" value={settings.tone} options={["Friendly academic", "Formal", "Practical", "Technical", "Clinical"]} onChange={(value) => onSettingsChange("tone", value)} />
             </div>
-          </div>
-          <div className="settings-section">
-            <div className="subsection-heading">
-              <h2>Structure &amp; cadence</h2>
-            </div>
+    </>
+  );
+
+  const structureFields = (
             <div className="field-grid">
               <Select
                 label="Length preset"
@@ -1572,11 +1565,9 @@ function Intake({
               />
               <Select label="Theme" value={settings.themeId} options={themes.map((theme) => theme.id)} labels={themes.reduce<Record<string, string>>((map, theme) => ({ ...map, [theme.id]: theme.name }), {})} onChange={(value) => onSettingsChange("themeId", value)} />
             </div>
-          </div>
-          <div className="settings-section">
-            <div className="subsection-heading">
-              <h2>Assessments</h2>
-            </div>
+  );
+
+  const assessmentsFields = (
             <div className="field-grid">
               <Select label="Quizzes" value={settings.quizFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("quizFrequency", value as CourseSettings["quizFrequency"])} />
               <NumberInput label="Questions per quiz" value={settings.quizQuestionsPerQuiz} min={1} max={10} onChange={(value) => onSettingsChange("quizQuestionsPerQuiz", value)} />
@@ -1587,11 +1578,9 @@ function Intake({
               <Select label="Final project type" value={settings.finalProjectType} options={["project", "presentation", "paper", "portfolio", "exam", "case-study", "simulation", "other"]} onChange={(value) => onSettingsChange("finalProjectType", value as CourseSettings["finalProjectType"])} />
               <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />
             </div>
-          </div>
-          <div className="settings-section">
-            <div className="subsection-heading">
-              <h2>Options</h2>
-            </div>
+  );
+
+  const optionsFields = (
             <div className="toggle-grid">
               <Toggle label="Final project" checked={settings.finalProject} onChange={(value) => onSettingsChange("finalProject", value)} />
               <Toggle label="Scaffold final project" checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />
@@ -1601,11 +1590,10 @@ function Intake({
               <Toggle label="Accessibility emphasis" checked={settings.accessibilityFocus} onChange={(value) => onSettingsChange("accessibilityFocus", value)} />
               <Toggle label="Module image hooks" checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
             </div>
-          </div>
-          <div className="schedule-settings">
-            <div className="subsection-heading">
-              <h2>Course schedule</h2>
-            </div>
+  );
+
+  const scheduleFields = (
+    <>
             <Toggle label="Generate due dates" checked={settings.schedule.enableDueDates} onChange={(value) => updateSchedule("enableDueDates", value)} />
             <div className="field-grid">
               <Input label="Term start" type="date" value={settings.schedule.termStartDate ?? ""} onChange={(value) => updateSchedule("termStartDate", value || undefined)} />
@@ -1624,9 +1612,111 @@ function Intake({
             <TextArea label="Holidays" value={joinDateList(settings.schedule.holidays)} onChange={(value) => updateSchedule("holidays", parseDateList(value))} compact rows={2} />
             <TextArea label="Blackout dates" value={joinDateList(settings.schedule.blackoutDates)} onChange={(value) => updateSchedule("blackoutDates", parseDateList(value))} compact rows={2} />
             <Toggle label="Allow dates outside term" checked={settings.schedule.allowDueDatesOutsideTerm} onChange={(value) => updateSchedule("allowDueDatesOutsideTerm", value)} />
+    </>
+  );
+
+  // Advanced sections are collapsed by default in Quick mode (calm first glance) and become the
+  // steps of the Guided wizard. Both expose exactly the same controls.
+  const advancedSections = [
+    { key: "structure", title: "Structure & cadence", node: structureFields },
+    { key: "assessments", title: "Assessments", node: assessmentsFields },
+    { key: "options", title: "Options", node: optionsFields },
+    { key: "schedule", title: "Course schedule", node: scheduleFields }
+  ];
+  const guidedSteps = [
+    { key: "describe", title: "Describe your course", node: promptPanel },
+    { key: "basics", title: "Course basics", node: <div className="settings-section">{basicsFields}</div> },
+    { key: "structure", title: "Structure & cadence", node: <div className="settings-section">{structureFields}</div> },
+    { key: "assessments", title: "Assessments", node: <div className="settings-section">{assessmentsFields}</div> },
+    { key: "options", title: "Options", node: <div className="settings-section">{optionsFields}</div> },
+    { key: "schedule", title: "Schedule", node: <div className="settings-section">{scheduleFields}</div> }
+  ];
+  const lastStep = guidedSteps.length - 1;
+
+  return (
+    <main className="intake page-shell">
+      <section className="page-heading intake-heading">
+        <div>
+          <h1>Create a Course</h1>
+          <p>
+            {intakeMode === "quick"
+              ? "Describe your course and generate. Open Advanced options only if you want to fine-tune."
+              : "Walk through each part of your course design, one step at a time."}
+          </p>
+        </div>
+        <div className="intake-controls">
+          <div className="intake-mode-toggle" role="tablist" aria-label="Create mode">
+            <button role="tab" aria-selected={intakeMode === "quick"} className={intakeMode === "quick" ? "active" : ""} onClick={() => setIntakeMode("quick")}>
+              <Wand2 size={15} /> Quick build
+            </button>
+            <button role="tab" aria-selected={intakeMode === "guided"} className={intakeMode === "guided" ? "active" : ""} onClick={() => { setIntakeMode("guided"); setGuidedStep(0); }}>
+              <ListChecks size={15} /> Guided steps
+            </button>
           </div>
+          {intakeMode === "quick" && generateButton}
         </div>
       </section>
+      {aiError && (
+        <p className="intake-ai-error">
+          <AlertTriangle size={15} /> {aiError}
+        </p>
+      )}
+
+      {intakeMode === "quick" ? (
+        <section className="intake-layout">
+          {promptPanel}
+          <div className="settings-panel">
+            <span className="panel-label">
+              <Sparkles size={14} /> Course settings
+            </span>
+            <div className="settings-section">
+              <div className="subsection-heading">
+                <h2>Course basics</h2>
+              </div>
+              {basicsFields}
+            </div>
+            {advancedSections.map((section) => (
+              <CollapsibleSection key={section.key} title={section.title} open={Boolean(openSections[section.key])} onToggle={() => toggleSection(section.key)}>
+                {section.node}
+              </CollapsibleSection>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="intake-guided">
+          <ol className="guided-stepper" aria-label="Course setup steps">
+            {guidedSteps.map((step, index) => (
+              <li key={step.key} className={index === guidedStep ? "active" : index < guidedStep ? "done" : ""}>
+                <button type="button" onClick={() => setGuidedStep(index)}>
+                  <span className="guided-step-num">{index < guidedStep ? <Check size={13} /> : index + 1}</span>
+                  <span>{step.title}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+          <div className="guided-step-body">
+            <div className="guided-progress" aria-hidden="true">
+              <i style={{ width: `${((guidedStep + 1) / guidedSteps.length) * 100}%` }} />
+            </div>
+            <h2 className="guided-step-title">
+              Step {guidedStep + 1} of {guidedSteps.length}: {guidedSteps[guidedStep].title}
+            </h2>
+            <div className="guided-step-fields">{guidedSteps[guidedStep].node}</div>
+            <div className="guided-nav">
+              <button className="secondary" onClick={() => setGuidedStep((value) => Math.max(0, value - 1))} disabled={guidedStep === 0}>
+                <ArrowLeft size={15} /> Back
+              </button>
+              {guidedStep < lastStep ? (
+                <button className="primary" onClick={() => setGuidedStep((value) => Math.min(lastStep, value + 1))}>
+                  Next <ArrowRight size={15} />
+                </button>
+              ) : (
+                generateButton
+              )}
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
 }
@@ -2022,7 +2112,7 @@ function Editor({
       </section>
 
       <aside className="readiness-panel">
-        <ReadinessPanel readiness={readiness} quality={quality} validationReport={validationReport} subscriptionActive={subscriptionActive} />
+        <ReadinessPanel readiness={readiness} quality={quality} validationReport={validationReport} subscriptionActive={subscriptionActive} onJumpToTab={setActiveTab} />
       </aside>
     </main>
   );
@@ -2864,17 +2954,40 @@ function ThemeTab({
 }
 
 
+// Map a readiness check to the editor tab where the user can act on it, so each item is a shortcut.
+const readinessTab = (id: string): EditorTab => {
+  if (id.startsWith("homepage")) return "Homepage";
+  if (id.startsWith("syllabus")) return "Syllabus";
+  if (id.startsWith("discussion")) return "Discussions";
+  if (id.startsWith("quiz")) return "Quizzes";
+  if (id.startsWith("rubric")) return "Rubrics";
+  if (id.startsWith("assignment-group") || /^(weight|weights|nonzero-weight)/.test(id)) return "Gradebook Setup";
+  if (id.startsWith("assignment")) return "Assignments";
+  if (/^(workload|contact|calendar|schedule|due-date|graded-due)/.test(id)) return "Contact Hours";
+  if (/^(export|instructor-pdf|syllabus-pdf|human-review|reference-integrity)/.test(id)) return "Export";
+  if (/^(module|required-modules|content-module|start-here|instructor-unpublished)/.test(id)) return "Modules";
+  if (/^(page-quality|internal-links|placeholder-links|thin-content|empty-content)/.test(id)) return "Pages";
+  return "Overview"; // outcomes, objectives, bloom, accessibility, navigation, alignment-map
+};
+
 function ReadinessPanel({
   readiness,
   quality,
   validationReport,
-  subscriptionActive
+  subscriptionActive,
+  onJumpToTab
 }: {
   readiness: ReturnType<typeof buildReadinessReport>;
   quality: ReturnType<typeof buildCourseQualityReport>;
   validationReport: ExportValidationReport | null;
   subscriptionActive: boolean;
+  onJumpToTab: (tab: EditorTab) => void;
 }) {
+  // Surface what needs attention first (failed required, then recommended), then the passed checks.
+  const ordered = [...readiness.checks].sort((a, b) => {
+    const weight = (item: ReadinessCheck): number => (item.passed ? 2 : item.severity === "required" ? 0 : 1);
+    return weight(a) - weight(b);
+  });
   return (
     <div className="readiness-card">
       <div className="score-ring" style={{ "--score": readiness.score } as CSSProperties} role="img" aria-label={`Course readiness ${readiness.score} percent`}>
@@ -2886,12 +2999,18 @@ function ReadinessPanel({
         <strong>Quality</strong>
         <span>{quality.score}% instructional</span>
       </div>
-      <ul>
-        {readiness.checks.map((item) => (
-          <li key={item.id} className={item.passed ? "passed" : item.severity}>
-            <CheckCircle2 size={15} /> <span>{item.label}</span>
-          </li>
-        ))}
+      <ul className="readiness-list">
+        {ordered.map((item) => {
+          const target = readinessTab(item.id);
+          const Icon = item.passed ? CheckCircle2 : item.severity === "required" ? AlertTriangle : Info;
+          return (
+            <li key={item.id} className={item.passed ? "passed" : item.severity}>
+              <button type="button" onClick={() => onJumpToTab(target)} title={`${item.detail} — go to ${target}`}>
+                <Icon size={15} /> <span>{item.label}</span> <ChevronRight size={14} className="readiness-go" aria-hidden="true" />
+              </button>
+            </li>
+          );
+        })}
       </ul>
       <div className="export-status">
         <strong>Export</strong>
@@ -3023,6 +3142,30 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       <span>{label}</span>
     </label>
+  );
+}
+
+// Accordion section used on the Create page so advanced settings stay tucked away until wanted.
+function CollapsibleSection({
+  title,
+  open,
+  onToggle,
+  children
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`collapsible-section ${open ? "open" : ""}`}>
+      <button type="button" className="collapsible-head" onClick={onToggle} aria-expanded={open}>
+        <ChevronRight size={16} className="collapsible-chevron" />
+        <span>{title}</span>
+        <small>{open ? "Hide" : "Edit"}</small>
+      </button>
+      {open && <div className="collapsible-body">{children}</div>}
+    </div>
   );
 }
 

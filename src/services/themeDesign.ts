@@ -1,4 +1,4 @@
-import type { Theme, ThemePattern } from "../types";
+import type { Theme, ThemeMotif, ThemePattern } from "../types";
 import { bestTextOn, contrastRatio, withAlpha } from "../utils/color";
 import { escapeXml } from "../utils/text";
 
@@ -19,6 +19,7 @@ export interface ThemeStyles {
   gradientFrom: string;
   gradientTo: string;
   pattern: ThemePattern;
+  motif: ThemeMotif;
   onGradient: string;
 }
 
@@ -114,6 +115,7 @@ export const getThemeStyles = (theme: Theme): ThemeStyles => {
     gradientFrom,
     gradientTo,
     pattern: theme.pattern ?? "none",
+    motif: theme.motif ?? "none",
     onGradient: textForGradient(gradientFrom, gradientTo)
   };
 };
@@ -136,9 +138,75 @@ const svgBannerPattern = (pattern: ThemePattern): { def: string; rect: string } 
   }
 };
 
-// A themed 1440×360 banner SVG: gradient + pattern with a white title card. Used verbatim by the
-// .imscc export (web_resources/course-banner.svg) and, as a data URI, by the in-app homepage preview,
-// so the two never diverge. Title text sits on a white card, so it stays readable for any theme.
+// Decorative banner illustration per motif, drawn over the gradient on the RIGHT side (the white
+// title card sits at x 96–736, so motif art stays clear of it). White at low opacity reads on every
+// dark gradient. "none" keeps the original soft circles so existing themes are unchanged.
+const motifBannerArt = (motif: ThemeMotif): string => {
+  switch (motif) {
+    case "cosmic":
+      return `
+  <g fill="none" stroke="#ffffff" opacity="0.16"><ellipse cx="1170" cy="180" rx="195" ry="72" stroke-width="2.5" transform="rotate(-18 1170 180)"/><circle cx="1300" cy="70" r="150" stroke-width="2"/></g>
+  <circle cx="1170" cy="180" r="68" fill="#ffffff" opacity="0.16"/>
+  <circle cx="1150" cy="158" r="16" fill="#ffffff" opacity="0.10"/>
+  <circle cx="1356" cy="146" r="13" fill="#ffffff" opacity="0.55"/>
+  <g fill="#ffffff">
+    <circle cx="840" cy="70" r="3" opacity="0.6"/><circle cx="980" cy="300" r="2.5" opacity="0.5"/><circle cx="1240" cy="300" r="2.5" opacity="0.5"/><circle cx="1390" cy="250" r="3" opacity="0.55"/><circle cx="900" cy="200" r="2" opacity="0.4"/>
+    <path d="M1040 90 l3 9 l9 3 l-9 3 l-3 9 l-3 -9 l-9 -3 l9 -3 z" opacity="0.7"/>
+    <path d="M1330 300 l2.5 7 l7 2.5 l-7 2.5 l-2.5 7 l-2.5 -7 l-7 -2.5 l7 -2.5 z" opacity="0.55"/>
+  </g>`;
+    case "circuit":
+      return `
+  <g fill="none" stroke="#ffffff" stroke-width="3" opacity="0.20"><path d="M820 80 H1010 V210 H1210"/><path d="M1250 60 V150 H1380"/><path d="M880 300 H1080 V230"/><path d="M1210 210 H1320 V300"/></g>
+  <g fill="#ffffff" opacity="0.75"><circle cx="820" cy="80" r="6"/><circle cx="1010" cy="210" r="6"/><circle cx="1210" cy="210" r="6"/><circle cx="1380" cy="150" r="6"/><circle cx="880" cy="300" r="6"/><circle cx="1320" cy="300" r="6"/></g>
+  <rect x="1150" y="120" width="120" height="92" rx="12" fill="#ffffff" opacity="0.12"/>
+  <g stroke="#ffffff" stroke-width="3" opacity="0.30"><path d="M1150 145 H1130 M1150 175 H1130 M1270 145 H1290 M1270 175 H1290 M1180 120 V100 M1240 120 V100"/></g>`;
+    case "lab":
+      return `
+  <g opacity="0.9">
+    <path d="M1175 90 h54 v66 l52 104 a12 12 0 0 1 -11 17 h-136 a12 12 0 0 1 -11 -17 l52 -104 z" fill="#ffffff" opacity="0.13" stroke="#ffffff" stroke-width="2.5"/>
+    <path d="M1129 234 l24 -48 h98 l24 48 a12 12 0 0 1 -11 17 h-124 a12 12 0 0 1 -11 -17 z" fill="#ffffff" opacity="0.24"/>
+    <line x1="1169" y1="90" x2="1235" y2="90" stroke="#ffffff" stroke-width="4" opacity="0.5"/>
+    <circle cx="1190" cy="214" r="6" fill="#ffffff" opacity="0.5"/><circle cx="1214" cy="198" r="4" fill="#ffffff" opacity="0.45"/><circle cx="1170" cy="196" r="3.5" fill="#ffffff" opacity="0.4"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.22"><polygon points="900,150 940,128 980,150 980,194 940,216 900,194"/></g>
+  <g fill="#ffffff" opacity="0.5"><circle cx="900" cy="150" r="5"/><circle cx="980" cy="194" r="5"/></g>`;
+    case "botanical":
+      return `
+  <g opacity="0.9">
+    <path d="M1300 80 C1190 116 1170 250 1290 312 C1380 256 1388 138 1300 80 z" fill="#ffffff" opacity="0.13"/>
+    <path d="M1300 80 C1292 160 1288 244 1290 312" stroke="#ffffff" stroke-width="2" fill="none" opacity="0.3"/>
+    <path d="M1300 140 C1330 150 1352 142 1366 124 M1296 196 C1326 208 1350 202 1366 184 M1294 250 C1322 262 1346 258 1360 242" stroke="#ffffff" stroke-width="2" fill="none" opacity="0.25"/>
+    <path d="M840 330 C940 280 1020 320 1120 286" stroke="#ffffff" stroke-width="2.5" fill="none" opacity="0.22"/>
+    <path d="M960 304 q-10 -26 16 -34 q6 26 -16 34 z M1050 300 q-10 -26 16 -34 q6 26 -16 34 z" fill="#ffffff" opacity="0.2"/>
+  </g>`;
+    case "blueprint":
+      return `
+  <g stroke="#ffffff" fill="none" opacity="0.22" stroke-width="2">
+    <circle cx="1190" cy="186" r="118"/>
+    <line x1="1190" y1="56" x2="1190" y2="316"/><line x1="1060" y1="186" x2="1320" y2="186"/>
+    <path d="M1190 92 L1146 280 M1190 92 L1234 280"/>
+    <rect x="860" y="240" width="180" height="80"/><line x1="860" y1="300" x2="1040" y2="300"/>
+  </g>
+  <g fill="#ffffff" opacity="0.55"><circle cx="1190" cy="92" r="6"/><circle cx="1190" cy="186" r="4"/></g>
+  <g stroke="#ffffff" stroke-width="2" opacity="0.3"><path d="M820 90 h40 m-20 -20 v40"/></g>`;
+    case "wave":
+      return `
+  <g fill="#ffffff">
+    <path d="M0 300 C200 270 360 332 560 302 C760 272 960 332 1160 302 C1300 282 1380 312 1440 300 L1440 360 L0 360 z" opacity="0.12"/>
+    <path d="M0 330 C240 302 420 352 640 328 C880 302 1080 352 1440 328 L1440 360 L0 360 z" opacity="0.18"/>
+    <circle cx="1250" cy="150" r="7" opacity="0.4"/><circle cx="1300" cy="118" r="5" opacity="0.35"/><circle cx="1210" cy="120" r="4" opacity="0.3"/>
+    <path d="M1180 220 q40 -30 80 0 q40 30 80 0" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.25"/>
+  </g>`;
+    default:
+      return `
+  <circle cx="1200" cy="84" r="130" fill="#ffffff" opacity="0.08"/>
+  <circle cx="1030" cy="320" r="96" fill="#ffffff" opacity="0.06"/>`;
+  }
+};
+
+// A themed 1440×360 banner SVG: gradient + pattern + motif illustration with a white title card. Used
+// verbatim by the .imscc export (web_resources/course-banner.svg) and, as a data URI, by the in-app
+// homepage preview, so the two never diverge. Title text sits on a white card, readable for any theme.
 export const buildBannerSvg = (title: string, theme: Theme): string => {
   const styles = getThemeStyles(theme);
   const pattern = svgBannerPattern(styles.pattern);
@@ -154,8 +222,7 @@ export const buildBannerSvg = (title: string, theme: Theme): string => {
   </defs>
   <rect width="1440" height="360" fill="url(#bannerBg)"/>
   ${pattern.rect}
-  <circle cx="1200" cy="84" r="130" fill="#ffffff" opacity="0.08"/>
-  <circle cx="1030" cy="320" r="96" fill="#ffffff" opacity="0.06"/>
+  ${motifBannerArt(styles.motif)}
   <rect x="96" y="92" width="640" height="176" rx="18" fill="#ffffff" opacity="0.94"/>
   <text x="132" y="166" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#111827">${escapeXml(title)}</text>
   <text x="132" y="214" font-family="Arial, sans-serif" font-size="24" fill="#374151">${escapeXml(theme.bannerLabel)}</text>
@@ -403,14 +470,17 @@ const paragraph = (text: string): string => `<p style="margin: 0 0 12px; color: 
 export const buildThemePreviewHtml = (theme: Theme, kind: ThemePreviewKind, courseTitle = "Course Preview"): string => {
   const styles = getThemeStyles(theme);
   const intro = `<p style="margin: 0 0 12px; color: ${styles.mutedText};">This preview uses Canvas-safe inline HTML with no external fonts, scripts, or fragile assets.</p>`;
+  // The real homepage leads with the themed course banner — show it so the motif (cosmic, circuit,
+  // lab, …) is visible the moment a theme is selected. Rendered in-app, so a data-URI img is safe.
+  const bannerImg = `<img src="data:image/svg+xml;utf8,${encodeURIComponent(buildBannerSvg(courseTitle, theme))}" alt="${escAttr(courseTitle)} banner" style="display: block; width: 100%; height: auto; border-radius: 12px; margin: 0 0 18px;"/>`;
 
   if (kind === "homepage") {
-    return buildThemedShell(
+    return `<div style="font-family: ${FONT};">${bannerImg}${buildThemedShell(
       theme,
       `${courseTitle} Homepage`,
       "Welcome students into a clear Canvas course path.",
       `${intro}${buildThemedCard(theme, "Start Here", `${paragraph("Open the Course Success Guide, review the syllabus, then begin Module 1.")}${buildThemedButton(theme, "Start Here", "course-success-guide.html")}${buildThemedSecondaryButton(theme, "View syllabus", "syllabus.html")}`)}${buildThemedCallout(theme, "Instructor note", paragraph("Use announcements and office hours to ask questions early."))}${sampleTable(theme)}`
-    );
+    )}</div>`;
   }
 
   if (kind === "syllabus") {

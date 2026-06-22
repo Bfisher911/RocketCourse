@@ -165,6 +165,11 @@ export interface SourceFile {
 // can strip url() in inline styles, but CSS gradient functions survive).
 export type ThemePattern = "none" | "dots" | "grid" | "diagonal" | "crosshatch";
 
+// A decorative illustration motif rendered into the course banner SVG (and theme preview), giving a
+// theme a recognizable visual identity beyond color — cosmic stars/planets, tech circuits, lab
+// glassware, botanical leaves, architectural blueprint, ocean waves.
+export type ThemeMotif = "none" | "cosmic" | "circuit" | "lab" | "botanical" | "blueprint" | "wave";
+
 export interface Theme {
   id: string;
   name: string;
@@ -179,6 +184,8 @@ export interface Theme {
   gradientFrom?: string;
   gradientTo?: string;
   pattern?: ThemePattern;
+  /** Decorative illustration motif drawn into the banner (cosmic, circuit, lab, …). */
+  motif?: ThemeMotif;
 }
 
 export interface CourseOutcome {

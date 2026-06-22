@@ -9851,3 +9851,113 @@ p {
 .quiz-disclaimer svg { color: var(--warning); flex: none; margin-top: 2px; }
 .quiz-disclaimer p { margin: 0; color: var(--ink-dim); font-size: 13px; line-height: 1.55; }
 .quiz-disclaimer strong { color: var(--ink); }
+
+/* Clickable Course Readiness items — each row jumps to the tab where it can be fixed. */
+.readiness-card .readiness-list li { display: block; padding: 0; overflow: hidden; }
+.readiness-card .readiness-list li button {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.readiness-card .readiness-list li button:hover { background: rgba(255, 255, 255, 0.05); }
+.readiness-card .readiness-list li button:focus-visible { outline: none; box-shadow: var(--focus-ring-soft); }
+.readiness-card .readiness-list .readiness-go { opacity: 0; transition: opacity var(--dur) var(--ease); }
+.readiness-card .readiness-list li button:hover .readiness-go,
+.readiness-card .readiness-list li button:focus-visible .readiness-go { opacity: 0.7; }
+
+/* ============================================================================
+   Create page — streamlined Quick mode (collapsible advanced settings) + a
+   Guided step-by-step wizard. Same controls, calmer first glance.
+   ========================================================================== */
+.intake-heading { align-items: flex-start; }
+.intake-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.intake-mode-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+.intake-mode-toggle button {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: var(--radius-pill);
+  background: none; border: none; color: var(--muted);
+  font: inherit; font-weight: 650; font-size: 13px; cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.intake-mode-toggle button:hover { color: var(--ink-dim); }
+.intake-mode-toggle button.active { background: linear-gradient(135deg, var(--cyan), var(--indigo)); color: var(--on-accent); }
+.intake-mode-toggle button:focus-visible { outline: none; box-shadow: var(--focus-ring-soft); }
+
+/* Collapsible advanced sections */
+.collapsible-section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-top: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+  transition: border-color var(--dur) var(--ease);
+}
+.collapsible-section.open { border-color: var(--line-strong); }
+.collapsible-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none; border: none; color: var(--ink);
+  font: inherit; font-family: var(--font-display); font-weight: 600; font-size: 15px;
+  cursor: pointer; text-align: left;
+}
+.collapsible-head:hover { background: rgba(255, 255, 255, 0.03); }
+.collapsible-head:focus-visible { outline: none; box-shadow: var(--focus-ring-soft); }
+.collapsible-chevron { color: var(--cyan); transition: transform var(--dur) var(--ease); }
+.collapsible-section.open .collapsible-chevron { transform: rotate(90deg); }
+.collapsible-head small { color: var(--subtle); font-family: var(--font); font-weight: 600; }
+.collapsible-body { padding: 2px 16px 18px; }
+
+/* Guided wizard */
+.intake-guided { max-width: 1120px; margin: 0 auto; }
+.guided-stepper { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0 0 18px; padding: 0; }
+.guided-stepper li button {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: var(--radius-pill);
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.guided-stepper li.active button { border-color: var(--line-strong); color: var(--ink); }
+.guided-stepper li.done button { color: var(--ink-dim); }
+.guided-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(130, 146, 230, 0.18); color: var(--muted); font-size: 12px; font-weight: 800;
+}
+.guided-stepper li.active .guided-step-num { background: linear-gradient(135deg, var(--cyan), var(--indigo)); color: var(--on-accent); }
+.guided-stepper li.done .guided-step-num { background: var(--success); color: var(--success-ink); }
+.guided-step-body {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-card);
+}
+.guided-progress { height: 4px; border-radius: 999px; background: rgba(130, 146, 230, 0.18); overflow: hidden; margin-bottom: 16px; }
+.guided-progress i { display: block; height: 100%; background: var(--grad-plasma); transition: width var(--dur) var(--ease); }
+.guided-step-title { font-size: 18px; margin: 0 0 16px; }
+.guided-step-fields .prompt-panel { position: static; padding: 0; background: none; border: none; box-shadow: none; }
+.guided-step-fields .settings-section { padding: 0; }
+.guided-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; }
+@media (max-width: 720px) { .intake-controls { width: 100%; justify-content: stretch; } .intake-mode-toggle { flex: 1; } .intake-mode-toggle button { flex: 1; justify-content: center; } }

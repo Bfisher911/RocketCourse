@@ -200,6 +200,93 @@ export const themes: Theme[] = [
     gradientFrom: "#1e293b",
     gradientTo: "#334155",
     pattern: "grid"
+  },
+  // Motif themes — visual identity beyond color. Colors mirror an existing contrast-validated theme
+  // so every check still passes; the `motif` adds a recognizable illustrated banner (stars, circuits,
+  // lab glassware, leaves, blueprint lines, waves).
+  {
+    id: "cosmic",
+    name: "Cosmic",
+    accent: "#7c3aed",
+    accentDark: "#5b21b6",
+    soft: "#f3e8ff",
+    contrastText: "#2e1065",
+    bannerLabel: "Cosmic explorer",
+    contrastStatus: "pass",
+    gradientFrom: "#1e1b4b",
+    gradientTo: "#4c1d95",
+    pattern: "dots",
+    motif: "cosmic"
+  },
+  {
+    id: "circuit",
+    name: "Circuit Board",
+    accent: "#0891b2",
+    accentDark: "#155e75",
+    soft: "#ecfeff",
+    contrastText: "#083344",
+    bannerLabel: "Systems & signals",
+    contrastStatus: "pass",
+    gradientFrom: "#0b1220",
+    gradientTo: "#0e7490",
+    pattern: "grid",
+    motif: "circuit"
+  },
+  {
+    id: "science-lab",
+    name: "Science Lab",
+    accent: "#047857",
+    accentDark: "#065f46",
+    soft: "#ecfdf5",
+    contrastText: "#10231d",
+    bannerLabel: "Lab & inquiry",
+    contrastStatus: "pass",
+    gradientFrom: "#064e3b",
+    gradientTo: "#047857",
+    pattern: "dots",
+    motif: "lab"
+  },
+  {
+    id: "botanical",
+    name: "Botanical",
+    accent: "#15803d",
+    accentDark: "#14532d",
+    soft: "#f0fdf4",
+    contrastText: "#14532d",
+    bannerLabel: "Roots & growth",
+    contrastStatus: "pass",
+    gradientFrom: "#14532d",
+    gradientTo: "#3f6212",
+    pattern: "crosshatch",
+    motif: "botanical"
+  },
+  {
+    id: "blueprint",
+    name: "Blueprint",
+    accent: "#0ea5e9",
+    accentDark: "#0369a1",
+    soft: "#f0f9ff",
+    contrastText: "#0f172a",
+    bannerLabel: "Design & structure",
+    contrastStatus: "pass",
+    gradientFrom: "#0c1f3a",
+    gradientTo: "#14406b",
+    pattern: "grid",
+    motif: "blueprint"
+  },
+  {
+    id: "deep-current",
+    name: "Deep Current",
+    accent: "#2563eb",
+    accentDark: "#1e40af",
+    soft: "#eff6ff",
+    contrastText: "#0f172a",
+    bannerLabel: "Currents & depth",
+    contrastStatus: "pass",
+    gradientFrom: "#0c2a52",
+    gradientTo: "#1e40af",
+    pattern: "diagonal",
+    motif: "wave"
   }
 ];
 
