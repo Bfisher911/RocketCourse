@@ -42,7 +42,17 @@ With the Supabase project created (region `us-east-1` recommended), apply in ord
 Then set `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and (server-only)
 `SUPABASE_SERVICE_ROLE_KEY` in `.env` / the Netlify dashboard.
 
-## Stripe (test mode — free, no approval)
+## Stripe (test mode — free, no approval) — ⚠️ blocked on a test key
+
+**Discovered:** the connected Stripe MCP is authenticated with a **LIVE** key (its products return
+`livemode: true` and are real products from the owner's other apps). The money-gate rules forbid
+creating live products/prices/webhooks without approval, and the demo wants **test mode** anyway.
+
+**Therefore CourseForge will NOT create any Stripe objects via the live MCP.** All Stripe
+integration is built as **env-driven code** (checkout/webhook/portal functions + a sync script) that
+lights up once a Stripe **TEST** secret key (`sk_test_…`) is provided. To unblock, the owner can
+either (a) add a `sk_test_…` key to `.env`/Netlify so the sync script creates the test products, or
+(b) create the 5 test products in the Stripe dashboard and paste their price IDs into `.env`.
 
 Test-mode products, prices, checkout, and webhooks cost nothing and touch no real customers.
 Going **live** (live products/prices/webhooks, real invoices/emails) requires separate owner

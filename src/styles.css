@@ -8848,3 +8848,240 @@ p {
   font-size: 0.82rem;
   max-width: 80ch;
 }
+
+/* ============================================================
+   Auth + account + plan panel
+   ============================================================ */
+.topbar-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+.plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.plan-badge.active {
+  border-color: rgba(75, 232, 168, 0.4);
+  color: var(--success);
+  background: rgba(75, 232, 168, 0.08);
+}
+.plan-badge.free {
+  color: var(--muted);
+}
+.account-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.account-email {
+  font-size: 0.8rem;
+  color: var(--muted);
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.ghost-button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.ghost-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.signin-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 11px;
+  border: 1px solid var(--line-strong);
+  background: var(--elevated);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.signin-button:hover {
+  box-shadow: var(--shadow-soft);
+}
+.dev-plan-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 9px;
+  border: 1px dashed var(--warning);
+  background: rgba(255, 180, 61, 0.07);
+}
+.dev-plan-switcher span {
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--warning);
+  font-weight: 700;
+}
+.dev-plan-switcher select {
+  background: var(--surface-solid);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 3px 6px;
+  font-size: 0.78rem;
+}
+
+/* Auth screen */
+.auth-screen {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 48px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  padding: 34px 32px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card);
+}
+.auth-card h1 {
+  margin: 10px 0 6px;
+  font-size: 1.5rem;
+}
+.auth-sub {
+  color: var(--muted);
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+}
+.auth-local-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--warning);
+  background: rgba(255, 180, 61, 0.07);
+  color: var(--warning);
+  font-size: 0.78rem;
+  margin: 0 0 16px;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.auth-form .field span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.auth-form .primary {
+  margin-top: 4px;
+  justify-content: center;
+}
+.auth-error {
+  color: var(--danger);
+  font-size: 0.84rem;
+  margin: 0;
+}
+.auth-info {
+  color: var(--success);
+  font-size: 0.84rem;
+  margin: 0;
+}
+.auth-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+.auth-switch .link {
+  background: none;
+  border: none;
+  color: var(--cyan);
+  cursor: pointer;
+  font-size: 0.86rem;
+  padding: 0;
+  text-decoration: underline;
+}
+.auth-switch .link.subtle {
+  color: var(--subtle);
+}
+
+/* Plan + usage panel on dashboard */
+.plan-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 26px;
+  margin-bottom: 20px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.plan-panel.active {
+  border-color: rgba(75, 232, 168, 0.32);
+}
+.plan-panel-main {
+  flex: 1 1 220px;
+}
+.plan-panel-main h2 {
+  margin: 6px 0 4px;
+}
+.plan-panel-main p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.plan-usage {
+  display: flex;
+  gap: 26px;
+}
+.plan-usage div {
+  display: flex;
+  flex-direction: column;
+}
+.plan-usage strong {
+  font-size: 1.02rem;
+  color: var(--ink);
+}
+.plan-usage span {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.plan-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

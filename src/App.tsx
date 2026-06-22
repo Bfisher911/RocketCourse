@@ -23,15 +23,18 @@ import {
   PanelLeft,
   PenLine,
   Plus,
+  RefreshCw,
   RotateCcw,
   ShieldCheck,
   Sparkles,
   Trash2,
   Upload,
+  User,
   Wand2
 } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { AssignmentsTab } from "./components/AssignmentsTab";
+import { AuthScreen, type AuthScreenMode } from "./components/AuthScreen";
 import { ContactHoursTab } from "./components/ContactHoursTab";
 import { DiscussionsTab } from "./components/DiscussionsTab";
 import { ExportTab } from "./components/ExportTab";
@@ -43,8 +46,10 @@ import { PricingPage } from "./components/PricingPage";
 import { QuizzesTab } from "./components/QuizzesTab";
 import { RubricsTab } from "./components/RubricsTab";
 import { SyllabusTab } from "./components/SyllabusTab";
+import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import { defaultSettings } from "./data/defaultSettings";
-import type { Plan } from "./data/plans";
+import type { Plan, PlanKey } from "./data/plans";
+import { plans } from "./data/plans";
 import { themes } from "./data/themes";
 import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./services/courseGenerator";
 import { buildCourseQualityReport } from "./services/courseQuality";
@@ -169,7 +174,10 @@ function App() {
   const [prompt, setPrompt] = useState(sampleProject.prompt);
   const [progressIndex, setProgressIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<EditorTab>("Overview");
-  const [subscriptionActive, setSubscriptionActive] = useState(true);
+  const auth = useAuthSession();
+  const [authMode, setAuthMode] = useState<AuthScreenMode>("login");
+  // Real export entitlement, derived from the trusted subscription snapshot — no fake toggle.
+  const subscriptionActive = auth.entitlement.canExport;
   const [validationReport, setValidationReport] = useState<ExportValidationReport | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -201,6 +209,20 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [progressIndex, prompt, screen, settings]);
 
+  // Route guard: the authenticated dashboard requires a session. Unauthenticated users are sent
+  // to sign in. (Landing, pricing, and the public sample editor stay open.) Once a session exists,
+  // leave the auth screens for the dashboard.
+  useEffect(() => {
+    if (auth.loading) return;
+    if (!auth.session && screen === "dashboard") {
+      setAuthMode("login");
+      setScreen("login");
+    }
+    if (auth.session && (screen === "login" || screen === "signup")) {
+      setScreen("dashboard");
+    }
+  }, [auth.loading, auth.session, screen]);
+
   const updateCourse = (updater: (current: CourseProject) => CourseProject): void => {
     setCourse((current) => {
       const updatedAt = new Date().toISOString();
@@ -226,15 +248,26 @@ function App() {
     setScreen("progress");
   };
 
-  // Pricing CTA. Real Stripe Checkout is wired in a later loop (needs a Stripe TEST key); until
-  // then, choosing a self-serve plan routes into the create flow (local demo mode is unlocked),
-  // free routes to the sample editor, and contact-sales uses the mailto link in the card.
+  // Pricing CTA. Free routes to the sample editor (public demo). Paid plans require an account —
+  // an unauthenticated user is sent to sign up first. Real Stripe Checkout is wired in a later loop
+  // (needs a Stripe TEST key); in local dev mode, choosing a plan simulates activating it so the
+  // demo flow is operable end-to-end. Contact-sales uses the mailto link in the card.
   const handleChoosePlan = (plan: Plan): void => {
     if (plan.checkoutMode === "free") {
       setScreen("editor");
       return;
     }
-    setScreen("intake");
+    if (!auth.session) {
+      setAuthMode("signup");
+      setScreen("signup");
+      return;
+    }
+    if (auth.authMode === "local") {
+      void auth.devSetPlan(plan.key).then(() => setScreen("dashboard"));
+      return;
+    }
+    // Supabase mode: Stripe Checkout is wired next; for now land on the dashboard to check status.
+    setScreen("dashboard");
   };
 
   const handleFiles = async (files: FileList | null): Promise<void> => {
@@ -387,21 +420,39 @@ function App() {
       <TopBar
         screen={screen}
         onNavigate={setScreen}
-        subscriptionActive={subscriptionActive}
-        onToggleSubscription={() => setSubscriptionActive((value) => !value)}
+        auth={auth}
+        onSignIn={() => {
+          setAuthMode("login");
+          setScreen("login");
+        }}
       />
 
       {screen === "landing" && (
-        <Landing onStart={() => setScreen("intake")} onDashboard={() => setScreen("dashboard")} onPricing={() => setScreen("pricing")} />
+        <Landing onStart={() => setScreen("intake")} onDashboard={() => setScreen(auth.session ? "dashboard" : "login")} onPricing={() => setScreen("pricing")} />
       )}
       {screen === "pricing" && (
-        <PricingPage onChoosePlan={handleChoosePlan} onTryDemo={() => setScreen("editor")} currentPlanKey={subscriptionActive ? "individual_semester" : "free_preview"} />
+        <PricingPage onChoosePlan={handleChoosePlan} onTryDemo={() => setScreen("editor")} currentPlanKey={auth.entitlement.planKey} />
       )}
-      {screen === "dashboard" && (
+      {(screen === "login" || screen === "signup") && (
+        <AuthScreen
+          mode={authMode}
+          onModeChange={(mode) => {
+            setAuthMode(mode);
+            setScreen(mode);
+          }}
+          isLocalMode={auth.authMode === "local"}
+          onSignIn={auth.signIn}
+          onSignUp={auth.signUp}
+          onCancel={() => setScreen("landing")}
+        />
+      )}
+      {screen === "dashboard" && auth.session && (
         <Dashboard
           projects={projects}
-          subscriptionActive={subscriptionActive}
+          entitlement={auth.entitlement}
           onCreate={() => setScreen("intake")}
+          onPricing={() => setScreen("pricing")}
+          onRefreshStatus={auth.refreshSubscription}
           onOpen={(project) => {
             setCourse(project);
             setExportMode(project.exportMode);
@@ -457,14 +508,15 @@ function App() {
 function TopBar({
   screen,
   onNavigate,
-  subscriptionActive,
-  onToggleSubscription
+  auth,
+  onSignIn
 }: {
   screen: Screen;
   onNavigate: (screen: Screen) => void;
-  subscriptionActive: boolean;
-  onToggleSubscription: () => void;
+  auth: AuthSessionState;
+  onSignIn: () => void;
 }) {
+  const { session, entitlement } = auth;
   return (
     <header className="topbar">
       <button className="brand" onClick={() => onNavigate("landing")} aria-label="Open CourseForge landing page">
@@ -475,7 +527,7 @@ function TopBar({
         </span>
       </button>
       <nav className="topnav" aria-label="Primary">
-        <button className={screen === "dashboard" ? "active" : ""} onClick={() => onNavigate("dashboard")}>
+        <button className={screen === "dashboard" ? "active" : ""} onClick={() => onNavigate(session ? "dashboard" : "login")}>
           <LayoutDashboard size={16} /> Dashboard
         </button>
         <button className={screen === "intake" ? "active" : ""} onClick={() => onNavigate("intake")}>
@@ -488,11 +540,50 @@ function TopBar({
           <PanelLeft size={16} /> Editor
         </button>
       </nav>
-      <button className={`subscription ${subscriptionActive ? "paid" : "locked"}`} onClick={onToggleSubscription}>
-        {subscriptionActive ? <CheckCircle2 size={16} /> : <Lock size={16} />}
-        {subscriptionActive ? "Individual active" : "Export locked"}
-      </button>
+      <div className="topbar-account">
+        {session ? (
+          <>
+            <span className={`plan-badge ${entitlement.active ? "active" : "free"}`} title={`Plan: ${entitlement.planName}`}>
+              {entitlement.active ? <CheckCircle2 size={14} /> : <Lock size={14} />}
+              {entitlement.planName}
+            </span>
+            {auth.authMode === "local" && <DevPlanSwitcher auth={auth} />}
+            <div className="account-menu">
+              <span className="account-email" title={session.user.email}>
+                {session.user.email}
+              </span>
+              <button className="ghost-button" onClick={() => void auth.signOut().then(() => onNavigate("landing"))}>
+                Sign out
+              </button>
+            </div>
+          </>
+        ) : (
+          <button className="signin-button" onClick={onSignIn}>
+            <User size={15} /> Sign in
+          </button>
+        )}
+      </div>
     </header>
+  );
+}
+
+// DEV ONLY (local mode): lets the operator simulate a plan so the demo flow works end-to-end
+// without Stripe/Supabase. Hidden entirely once Supabase + Stripe are configured.
+function DevPlanSwitcher({ auth }: { auth: AuthSessionState }) {
+  return (
+    <label className="dev-plan-switcher" title="Local dev only — simulate a subscription plan">
+      <span>DEV plan</span>
+      <select
+        value={auth.entitlement.planKey}
+        onChange={(event) => void auth.devSetPlan(event.target.value as PlanKey)}
+      >
+        {plans.map((plan) => (
+          <option key={plan.key} value={plan.key}>
+            {plan.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -668,26 +759,77 @@ function Landing({ onStart, onDashboard, onPricing }: { onStart: () => void; onD
 
 function Dashboard({
   projects,
-  subscriptionActive,
+  entitlement,
   onCreate,
+  onPricing,
+  onRefreshStatus,
   onOpen
 }: {
   projects: CourseProject[];
-  subscriptionActive: boolean;
+  entitlement: AuthSessionState["entitlement"];
   onCreate: () => void;
+  onPricing: () => void;
+  onRefreshStatus: () => Promise<void>;
   onOpen: (project: CourseProject) => void;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const fmtLimit = (used: number, remaining: number | null): string =>
+    remaining === null ? `${used} used · unlimited` : `${remaining} of ${used + remaining} left`;
+  const refresh = async (): Promise<void> => {
+    setRefreshing(true);
+    try {
+      await onRefreshStatus();
+    } finally {
+      setRefreshing(false);
+    }
+  };
   return (
     <main className="dashboard page-shell">
       <section className="page-heading">
         <div>
           <h1>Dashboard</h1>
-          <p>Your drafts, generated courses, export history, and demo subscription status.</p>
+          <p>Your projects, exports, plan, and usage.</p>
         </div>
-        <button className="primary" onClick={onCreate}>
+        <button className="primary" onClick={onCreate} disabled={!entitlement.canCreateProject} title={entitlement.canCreateProject ? "Create a new course" : "Upgrade to create private courses"}>
           <Plus size={18} /> Create new course
         </button>
       </section>
+
+      {/* Plan + usage panel — driven by the trusted subscription snapshot */}
+      <section className={`plan-panel ${entitlement.active ? "active" : "free"}`}>
+        <div className="plan-panel-main">
+          <span className="hp-eyebrow">
+            <CreditCard size={14} /> {entitlement.active ? "Active plan" : "No active plan"}
+          </span>
+          <h2>{entitlement.planName}</h2>
+          <p>
+            {entitlement.active
+              ? entitlement.currentPeriodEnd
+                ? `Access through ${new Date(entitlement.currentPeriodEnd).toLocaleDateString()}`
+                : "Active subscription"
+              : "Choose a plan to generate and export private Canvas courses."}
+          </p>
+        </div>
+        <div className="plan-usage">
+          <div>
+            <strong>{entitlement.aiGenerationsLimit === null ? "Unlimited" : fmtLimit(entitlement.aiGenerationsUsed, entitlement.aiGenerationsRemaining)}</strong>
+            <span>AI generations</span>
+          </div>
+          <div>
+            <strong>{entitlement.exportsLimit === null ? "Unlimited" : fmtLimit(entitlement.exportsUsed, entitlement.exportsRemaining)}</strong>
+            <span>Exports</span>
+          </div>
+        </div>
+        <div className="plan-panel-actions">
+          <button className="secondary" onClick={onPricing}>
+            {entitlement.active ? "Change plan" : "View pricing"}
+          </button>
+          <button className="ghost-button" onClick={refresh} disabled={refreshing} title="Re-check subscription status (after checkout)">
+            <RefreshCw size={15} className={refreshing ? "spin" : ""} /> Refresh status
+          </button>
+        </div>
+      </section>
+
       <section className="dashboard-grid">
         <div className="stat-panel">
           <span className="stat-icon">
@@ -705,10 +847,10 @@ function Dashboard({
         </div>
         <div className="stat-panel orchid">
           <span className="stat-icon">
-            <CreditCard size={20} />
+            <Gauge size={20} />
           </span>
-          <span>{subscriptionActive ? "Active" : "Locked"}</span>
-          <p>{subscriptionActive ? "Export enabled (demo plan)" : "Export disabled (demo)"}</p>
+          <span>{projects.length ? Math.round(projects.reduce((sum, project) => sum + buildReadinessReport(project).score, 0) / projects.length) : 0}%</span>
+          <p>Avg readiness</p>
         </div>
       </section>
       {projects.length === 0 ? (
