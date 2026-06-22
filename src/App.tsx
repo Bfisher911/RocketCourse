@@ -47,6 +47,8 @@ import { QuizzesTab } from "./components/QuizzesTab";
 import { RubricsTab } from "./components/RubricsTab";
 import { SyllabusTab } from "./components/SyllabusTab";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
+import type { CourseBlueprint } from "./ai/blueprint";
+import { buildCourseFromBlueprint, generateBlueprint } from "./services/aiGeneration";
 import { defaultSettings } from "./data/defaultSettings";
 import type { Plan, PlanKey } from "./data/plans";
 import { plans } from "./data/plans";
@@ -188,6 +190,9 @@ function App() {
   const [importNotes, setImportNotes] = useState<string[]>([]);
   const [exportMode, setExportMode] = useState<ExportMode>(sampleProject.exportMode);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [blueprint, setBlueprint] = useState<CourseBlueprint | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const readiness = useMemo(() => buildReadinessReport(course), [course]);
   const quality = useMemo(() => buildCourseQualityReport(course), [course]);
@@ -277,6 +282,35 @@ function App() {
   const startGeneration = (): void => {
     setProgressIndex(0);
     setScreen("progress");
+  };
+
+  // Real AI: generate a blueprint server-side (auth + entitlement enforced there), then show it for
+  // approval. Falls back with a friendly error if the AI route is unreachable or denied.
+  const handleGenerateBlueprint = async (): Promise<void> => {
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const result = await generateBlueprint(prompt, settings);
+      setBlueprint(result);
+      setScreen("blueprint");
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "Blueprint generation failed.");
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  // Approve the blueprint → build a full, export-valid course seeded by it, then open the editor.
+  const approveBlueprint = (): void => {
+    if (!blueprint) return;
+    const generated = buildCourseFromBlueprint(blueprint, settings, prompt);
+    setCourse(generated);
+    setProjects((current) => [generated, ...current.filter((project) => project.id !== generated.id)]);
+    setValidationReport(null);
+    setImportNotes([]);
+    setExportMode(generated.exportMode);
+    setActiveTab("Overview");
+    setScreen("editor");
   };
 
   // Pricing CTA. Free routes to the sample editor (public demo). Paid plans require an account —
@@ -501,6 +535,22 @@ function App() {
           onSettingsChange={updateSettings}
           onFiles={handleFiles}
           onGenerate={startGeneration}
+          canUseAi={auth.entitlement.canGenerate}
+          isAuthed={Boolean(auth.session)}
+          onGenerateBlueprint={() => void handleGenerateBlueprint()}
+          aiBusy={aiBusy}
+          aiError={aiError}
+          onUpgrade={() => setScreen(auth.session ? "pricing" : "signup")}
+        />
+      )}
+      {screen === "blueprint" && blueprint && (
+        <BlueprintReview
+          blueprint={blueprint}
+          busy={aiBusy}
+          error={aiError}
+          onApprove={approveBlueprint}
+          onRegenerate={() => void handleGenerateBlueprint()}
+          onBack={() => setScreen("intake")}
         />
       )}
       {screen === "progress" && <Progress progressIndex={progressIndex} />}
@@ -937,7 +987,13 @@ function Intake({
   onPromptChange,
   onSettingsChange,
   onFiles,
-  onGenerate
+  onGenerate,
+  canUseAi,
+  isAuthed,
+  onGenerateBlueprint,
+  aiBusy,
+  aiError,
+  onUpgrade
 }: {
   prompt: string;
   settings: CourseSettings;
@@ -945,6 +1001,12 @@ function Intake({
   onSettingsChange: <K extends keyof CourseSettings>(key: K, value: CourseSettings[K]) => void;
   onFiles: (files: FileList | null) => void;
   onGenerate: () => void;
+  canUseAi: boolean;
+  isAuthed: boolean;
+  onGenerateBlueprint: () => void;
+  aiBusy: boolean;
+  aiError: string | null;
+  onUpgrade: () => void;
 }) {
   const updateSchedule = <K extends keyof CourseSettings["schedule"]>(key: K, value: CourseSettings["schedule"][K]) => {
     onSettingsChange("schedule", { ...settings.schedule, [key]: value });
@@ -957,10 +1019,26 @@ function Intake({
           <h1>Create a Course</h1>
           <p>Mix a natural prompt with a few settings. Advanced design details stay behind the curtain.</p>
         </div>
-        <button className="primary" onClick={onGenerate}>
-          <Sparkles size={18} /> Generate Course
-        </button>
+        {canUseAi ? (
+          <button className="primary" onClick={onGenerateBlueprint} disabled={aiBusy}>
+            {aiBusy ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
+            {aiBusy ? "Generating blueprint…" : "Generate Blueprint with AI"}
+          </button>
+        ) : isAuthed ? (
+          <button className="primary" onClick={onUpgrade}>
+            <Lock size={18} /> Upgrade to generate with AI
+          </button>
+        ) : (
+          <button className="primary" onClick={onGenerate}>
+            <Sparkles size={18} /> Generate sample course (no AI)
+          </button>
+        )}
       </section>
+      {aiError && (
+        <p className="intake-ai-error">
+          <AlertTriangle size={15} /> {aiError}
+        </p>
+      )}
       <section className="intake-layout">
         <div className="prompt-panel">
           <span className="panel-label">
@@ -1090,6 +1168,130 @@ function Intake({
           </div>
         </div>
       </section>
+    </main>
+  );
+}
+
+function BlueprintReview({
+  blueprint,
+  busy,
+  error,
+  onApprove,
+  onRegenerate,
+  onBack
+}: {
+  blueprint: CourseBlueprint;
+  busy: boolean;
+  error: string | null;
+  onApprove: () => void;
+  onRegenerate: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <main className="blueprint page-shell">
+      <section className="page-heading">
+        <div>
+          <span className="section-eyebrow">
+            <Sparkles size={14} /> AI Blueprint
+          </span>
+          <h1>{blueprint.title}</h1>
+          <p>Review the AI's instructional plan. Approve to build the full Canvas course, or regenerate.</p>
+        </div>
+        <div className="blueprint-actions">
+          <button className="secondary" onClick={onBack}>
+            Back
+          </button>
+          <button className="secondary" onClick={onRegenerate} disabled={busy}>
+            {busy ? <Loader2 size={16} className="spin" /> : <RotateCcw size={16} />} Regenerate
+          </button>
+          <button className="primary" onClick={onApprove} disabled={busy}>
+            <CheckCircle2 size={18} /> Approve &amp; Build Course
+          </button>
+        </div>
+      </section>
+
+      {error && (
+        <p className="intake-ai-error">
+          <AlertTriangle size={15} /> {error}
+        </p>
+      )}
+
+      <section className="blueprint-meta">
+        <span><strong>Audience</strong>{blueprint.audience || "—"}</span>
+        <span><strong>Level</strong>{blueprint.level || "—"}</span>
+        <span><strong>Modality</strong>{blueprint.modality || "—"}</span>
+        <span><strong>Credit hours</strong>{blueprint.creditHours}</span>
+        <span><strong>Length</strong>{blueprint.lengthWeeks} weeks</span>
+        <span><strong>Modules</strong>{blueprint.modules.length}</span>
+      </section>
+
+      <p className="blueprint-description">{blueprint.description}</p>
+      {blueprint.teachingApproach && (
+        <p className="blueprint-approach"><strong>Teaching approach:</strong> {blueprint.teachingApproach}</p>
+      )}
+
+      <div className="blueprint-grid">
+        <section className="blueprint-card">
+          <h2>Learning outcomes</h2>
+          <ul className="blueprint-outcomes">
+            {blueprint.outcomes.length === 0 && <li>No outcomes returned.</li>}
+            {blueprint.outcomes.map((outcome) => (
+              <li key={outcome.code}>
+                <span className="outcome-code">{outcome.code}</span> {outcome.text}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="blueprint-card">
+          <h2>Assessment plan</h2>
+          <ul className="blueprint-assessments">
+            {blueprint.majorAssessments.map((item, index) => (
+              <li key={index}>
+                <ClipboardCheck size={14} /> {item}
+              </li>
+            ))}
+          </ul>
+          {blueprint.finalProject && (
+            <p className="blueprint-final">
+              <strong>Final project:</strong> {blueprint.finalProject}
+            </p>
+          )}
+        </section>
+      </div>
+
+      <section className="blueprint-modules">
+        <h2>Module map</h2>
+        <div className="blueprint-module-list">
+          {blueprint.modules.map((module, index) => (
+            <article key={index} className="blueprint-module">
+              <span className="blueprint-module-index">{index + 1}</span>
+              <div>
+                <strong>{module.title}</strong>
+                <p>{module.summary}</p>
+                {module.objectives.length > 0 && (
+                  <ul>
+                    {module.objectives.map((objective, objectiveIndex) => (
+                      <li key={objectiveIndex}>{objective}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {blueprint.validationWarnings.length > 0 && (
+        <section className="blueprint-warnings">
+          <h2><AlertTriangle size={16} /> Things to verify</h2>
+          <ul>
+            {blueprint.validationWarnings.map((warning, index) => (
+              <li key={index}>{warning}</li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   );
 }
