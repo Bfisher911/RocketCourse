@@ -60,12 +60,12 @@ Real signup → profile-trigger → login → session verified in-browser. `.env
    `STRIPE_WEBHOOK_SECRET` set from `stripe listen`. Verified: checkout URL, signed webhook →
    Supabase update, billing portal, bad-signature rejection. Run `stripe listen --forward-to
    localhost:8888/.netlify/functions/stripe-webhook` during the demo (see DEMO_SCRIPT).
-3. ⏳ **For production deploy only** — fix the Netlify site's `OPENAI_API_KEY` (currently a stale
-   JWT) and add `SUPABASE_SERVICE_ROLE_KEY` + the Stripe vars to the Netlify dashboard. Not needed
-   for the local `netlify dev --offline` demo.
-4. **(Recommended) Disable email confirmation** for frictionless live signups: Supabase dashboard →
-   Authentication → Sign In / Providers → Email → turn **off** "Confirm email". The seeded demo
-   account is already confirmed. The MCP can't toggle this.
+3. ✅ **DONE** — Netlify site `OPENAI_API_KEY` updated to the real `sk-proj-…` key across all 4
+   deploy contexts (verified). For a full production deploy, also add `SUPABASE_SERVICE_ROLE_KEY`,
+   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and the `STRIPE_PRICE_*` vars to the Netlify
+   dashboard (and create a Stripe dashboard webhook endpoint at the deployed `/stripe-webhook` URL).
+4. ✅ **DONE** — Supabase email confirmation **disabled** (verified: fresh signup returns a session
+   immediately). Live signups are now frictionless.
 
 ## Stripe (test mode — free, no approval) — ⚠️ blocked on a test key
 
