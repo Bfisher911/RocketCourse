@@ -2,7 +2,7 @@ export type CourseStatus = "draft" | "generated" | "edited" | "ready" | "exporte
 
 export type ModuleItemType = "page" | "assignment" | "discussion" | "quiz" | "syllabus";
 
-export type Screen = "landing" | "dashboard" | "intake" | "progress" | "editor";
+export type Screen = "landing" | "pricing" | "dashboard" | "intake" | "progress" | "editor";
 
 export type EditorTab =
   | "Overview"

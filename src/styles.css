@@ -8649,3 +8649,202 @@ p {
     scroll-behavior: auto;
   }
 }
+
+/* ============================================================
+   Pricing page
+   ============================================================ */
+.pricing-heading {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.pricing-heading h1 {
+  max-width: 18ch;
+}
+.pricing-heading p {
+  max-width: 64ch;
+}
+
+.pricing-free-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 22px 26px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--grad-rail);
+  box-shadow: var(--shadow-card);
+}
+.pricing-free-banner h2 {
+  margin: 6px 0 12px;
+  font-size: 1.18rem;
+}
+.pricing-free-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pricing-free-points li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-dim);
+  font-size: 0.86rem;
+}
+.pricing-free-points li svg {
+  color: var(--success);
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+  gap: 18px;
+  margin-top: 26px;
+}
+.pricing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 22px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+.pricing-card.featured {
+  border-color: var(--line-strong);
+  box-shadow: var(--glow-cyan);
+}
+.pricing-flag {
+  position: absolute;
+  top: -11px;
+  left: 22px;
+  padding: 3px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-accent);
+  background: var(--grad-laser);
+  border-radius: 999px;
+}
+.pricing-card-head h3 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+.pricing-audience {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.pricing-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 14px 0 8px;
+}
+.pricing-price strong {
+  font-size: 1.9rem;
+  line-height: 1;
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.pricing-price small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.pricing-tagline {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.86rem;
+}
+.pricing-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+}
+.pricing-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--ink-dim);
+  font-size: 0.85rem;
+}
+.pricing-features li svg {
+  color: var(--success);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.pricing-card button,
+.pricing-sales-card .link-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.pricing-sales {
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line-soft);
+}
+.pricing-sales-head h2 {
+  margin: 8px 0 4px;
+}
+.pricing-sales-head p {
+  color: var(--muted);
+  margin: 0;
+}
+.pricing-sales-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+.pricing-sales-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+.pricing-sales-card h3 {
+  margin: 0;
+}
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--elevated);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.link-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+.pricing-note {
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  max-width: 80ch;
+}

@@ -39,10 +39,12 @@ import { GradebookTab } from "./components/GradebookTab";
 import { HomepageTab } from "./components/HomepageTab";
 import { OverviewTab } from "./components/OverviewTab";
 import { PagesTab } from "./components/PagesTab";
+import { PricingPage } from "./components/PricingPage";
 import { QuizzesTab } from "./components/QuizzesTab";
 import { RubricsTab } from "./components/RubricsTab";
 import { SyllabusTab } from "./components/SyllabusTab";
 import { defaultSettings } from "./data/defaultSettings";
+import type { Plan } from "./data/plans";
 import { themes } from "./data/themes";
 import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./services/courseGenerator";
 import { buildCourseQualityReport } from "./services/courseQuality";
@@ -224,6 +226,17 @@ function App() {
     setScreen("progress");
   };
 
+  // Pricing CTA. Real Stripe Checkout is wired in a later loop (needs a Stripe TEST key); until
+  // then, choosing a self-serve plan routes into the create flow (local demo mode is unlocked),
+  // free routes to the sample editor, and contact-sales uses the mailto link in the card.
+  const handleChoosePlan = (plan: Plan): void => {
+    if (plan.checkoutMode === "free") {
+      setScreen("editor");
+      return;
+    }
+    setScreen("intake");
+  };
+
   const handleFiles = async (files: FileList | null): Promise<void> => {
     if (!files) return;
     const fileList = Array.from(files);
@@ -378,7 +391,12 @@ function App() {
         onToggleSubscription={() => setSubscriptionActive((value) => !value)}
       />
 
-      {screen === "landing" && <Landing onStart={() => setScreen("intake")} onDashboard={() => setScreen("dashboard")} />}
+      {screen === "landing" && (
+        <Landing onStart={() => setScreen("intake")} onDashboard={() => setScreen("dashboard")} onPricing={() => setScreen("pricing")} />
+      )}
+      {screen === "pricing" && (
+        <PricingPage onChoosePlan={handleChoosePlan} onTryDemo={() => setScreen("editor")} currentPlanKey={subscriptionActive ? "individual_semester" : "free_preview"} />
+      )}
       {screen === "dashboard" && (
         <Dashboard
           projects={projects}
@@ -463,6 +481,9 @@ function TopBar({
         <button className={screen === "intake" ? "active" : ""} onClick={() => onNavigate("intake")}>
           <Wand2 size={16} /> Create
         </button>
+        <button className={screen === "pricing" ? "active" : ""} onClick={() => onNavigate("pricing")}>
+          <CreditCard size={16} /> Pricing
+        </button>
         <button className={screen === "editor" ? "active" : ""} onClick={() => onNavigate("editor")}>
           <PanelLeft size={16} /> Editor
         </button>
@@ -532,7 +553,7 @@ const landingFeatures = [
   }
 ] as const;
 
-function Landing({ onStart, onDashboard }: { onStart: () => void; onDashboard: () => void }) {
+function Landing({ onStart, onDashboard, onPricing }: { onStart: () => void; onDashboard: () => void; onPricing: () => void }) {
   return (
     <main className="landing">
       <section className="landing-hero">
@@ -551,6 +572,9 @@ function Landing({ onStart, onDashboard }: { onStart: () => void; onDashboard: (
           <div className="hero-actions">
             <button className="primary" onClick={onStart}>
               <Sparkles size={18} /> Build a course
+            </button>
+            <button className="secondary" onClick={onPricing}>
+              <CreditCard size={17} /> View pricing
             </button>
             <button className="secondary" onClick={onDashboard}>
               <LayoutDashboard size={17} /> View dashboard
