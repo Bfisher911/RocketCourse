@@ -52,7 +52,8 @@ export const aiGeneratePageBody = (course: CourseProject, page: CoursePage): Pro
           blueprintJson: buildBlueprintContext(course),
           pageRequestJson: { title: page.title, module: moduleTitle(course, page.moduleId) }
         },
-        outputContract: 'Return {"bodyHtml": "<Canvas-safe HTML lesson with headings, lists, and short paragraphs>"}.'
+        outputContract:
+          'Return {"bodyHtml": "<Canvas-safe HTML lesson tailored to this exact subject. Include: a mini-lecture (2-3 short paragraphs), a Key Terms list where each term has a one-sentence definition, a numbered Worked Example that models the reasoning step by step, a short comparison or summary <table> when it genuinely aids understanding, a Why This Matters note connecting to the discipline, and a Check Your Understanding list. Use only inline styles; no scripts, iframes, or external CSS.>"}.'
       });
       const bodyHtml = toCleanString(json.bodyHtml);
       if (!bodyHtml) throw new Error("AI did not return page HTML.");
@@ -80,7 +81,8 @@ export const aiGenerateAssignmentDescription = (course: CourseProject, assignmen
             outcomes: outcomeTexts(course, assignment.alignedOutcomeIds)
           }
         },
-        outputContract: 'Return {"descriptionHtml": "<Canvas-safe HTML with purpose, scenario, steps, deliverables, and success criteria>"}.'
+        outputContract:
+          'Return {"descriptionHtml": "<Canvas-safe HTML with purpose, a concrete subject-specific scenario, numbered task steps, deliverable requirements, and an evaluation-criteria <table> (each row: criterion -> what strong work shows). Use only inline styles.>"}.'
       });
       const descriptionHtml = toCleanString(json.descriptionHtml);
       if (!descriptionHtml) throw new Error("AI did not return assignment HTML.");
@@ -168,7 +170,7 @@ export const aiGenerateQuizQuestions = (course: CourseProject, quiz: Quiz): Prom
           }
         },
         outputContract:
-          'Return {"questions": [{"type": "multiple_choice|true_false|short_answer|essay", "stem": string, "choices": string[], "correctAnswer": string, "correctFeedback": string, "incorrectFeedback": string, "points": number}]}.'
+          'Return {"questions": [{"type": "multiple_choice|true_false|short_answer|essay", "stem": string, "choices": string[], "correctAnswer": string, "correctFeedback": "why the correct answer is right, using module vocabulary", "incorrectFeedback": "name the most likely wrong choice and explain the misconception behind it", "points": number}]}. Write subject-specific stems with plausible distractors, not generic placeholders.'
       });
       const list = Array.isArray(json.questions) ? json.questions : [];
       const questions = list.map((raw, index) => coerceQuestion(raw, quiz, course, index)).filter((q): q is QuizQuestion => q !== null);

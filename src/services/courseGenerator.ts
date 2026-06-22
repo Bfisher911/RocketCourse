@@ -140,6 +140,35 @@ const listHtml = (items: string[]): string => `<ul style="margin: 10px 0 0 20px;
 
 const orderedListHtml = (items: string[]): string => `<ol style="margin: 10px 0 0 20px; padding: 0;">${items.map((item) => `<li style="margin: 6px 0;">${item}</li>`).join("")}</ol>`;
 
+// A Canvas-safe themed table. First cell of each row is a <th scope="row"> header for accessibility.
+const tableHtml = (caption: string, headers: string[], rows: string[][], theme: Theme): string => {
+  const border = "#dbe4f0";
+  const head = headers
+    .map((header) => `<th scope="col" style="text-align: left; padding: 10px; border: 1px solid ${border}; background: ${theme.soft}; color: ${theme.accentDark};">${header}</th>`)
+    .join("");
+  const body = rows
+    .map(
+      (cells) =>
+        `<tr>${cells
+          .map((cell, index) =>
+            index === 0
+              ? `<th scope="row" style="text-align: left; padding: 10px; border: 1px solid ${border}; font-weight: 600;">${cell}</th>`
+              : `<td style="padding: 10px; border: 1px solid ${border};">${cell}</td>`
+          )
+          .join("")}</tr>`
+    )
+    .join("");
+  return `<table style="width: 100%; border-collapse: collapse; margin: 6px 0 0; font-size: 14px;">${
+    caption ? `<caption style="caption-side: top; text-align: left; margin-bottom: 8px; color: ${theme.accentDark}; font-weight: 700;">${caption}</caption>` : ""
+  }<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+};
+
+// A small themed status pill (e.g. workload, outcome count) for at-a-glance visual scanning.
+const pill = (label: string, theme: Theme): string =>
+  `<span style="display: inline-block; margin: 0 8px 8px 0; padding: 5px 12px; border-radius: 999px; background: ${theme.soft}; border: 1px solid ${theme.accent}; color: ${theme.accentDark}; font-size: 13px; font-weight: 600;">${label}</span>`;
+
+const pillRow = (labels: string[], theme: Theme): string => `<p style="margin: 0 0 4px;">${labels.map((label) => pill(label, theme)).join("")}</p>`;
+
 const checklistHtml = (items: string[]): string =>
   `<ul style="list-style: none; margin: 10px 0 0; padding: 0;">${items
     .map((item) => `<li style="margin: 8px 0; padding-left: 28px; position: relative;"><span style="position: absolute; left: 0; color: #0f766e; font-weight: 700;">&#10003;</span>${item}</li>`)
@@ -591,6 +620,7 @@ ${section("Task Instructions", checklistHtml(["Select a relevant example, case, 
 ${section("Deliverable Requirements", checklistHtml(["Use clear headings that match the task.", "Include 700-1000 words or an equivalent instructor-approved artifact.", "Cite or name course sources according to local expectations.", "Use descriptive links and accessible file names if attachments are included."]), theme)}
 ${section("Format Guidance", "<p>A strong submission usually includes: context, evidence, analysis, recommendation, and reflection. Tables or diagrams are welcome when they make the reasoning easier to follow.</p>", theme)}
 ${section("Model Elements", checklistHtml(["A specific example instead of a broad topic.", "A claim supported by evidence.", "A paragraph that explains why the evidence matters.", "A recommendation that follows from the analysis."]), theme)}
+${section("How Your Work Is Evaluated", tableHtml("Self-check against these before you submit — they mirror the rubric", ["Criterion", "What strong work shows"], [["Evidence", "Specific, relevant course evidence is cited and explained, not just listed."], ["Analysis", "Reasoning connects evidence to context, stakeholders, and tradeoffs."], ["Recommendation", "A defensible recommendation follows directly from the analysis."], ["Communication", "Clear headings, accessible links, and audience-appropriate language."]], theme), theme)}
 ${section("Submission Instructions", "<p>Submit in Canvas using online text entry or upload as directed by your instructor. Confirm that any attached file opens correctly before submitting.</p>", theme)}
 ${section("Estimated Workload", "<p>Plan for approximately 4-6 focused hours: review sources, outline, draft, revise, and check the rubric.</p>", theme)}
 ${section("Academic Integrity and AI Use", "<p>Use institutional academic integrity and AI-use policies. If AI tools are permitted, document how they were used and verify all output against course sources.</p>", theme)}
@@ -1138,6 +1168,23 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
     });
 
     const overviewPageId = id("page", `${moduleNumber}-${moduleTopic}-overview`);
+    const hasDiscussion = shouldIncludeDiscussion(mergedSettings, moduleNumber);
+    const hasQuiz = shouldIncludeQuiz(mergedSettings, moduleNumber);
+    const hasAssignment = shouldIncludeAssignment(mergedSettings, moduleNumber);
+    const glanceRows: string[][] = [
+      ["Overview", "Page", "—", "Read first"],
+      ["Readings &amp; Resources", "Page", readableDate(resourceDueAt), "Required reading"],
+      ["Lecture &amp; Notes", "Page", "—", "Study"],
+      ["Practice Activity", "Page", readableDate(practiceDueAt), "Ungraded practice"]
+    ];
+    if (hasDiscussion) glanceRows.push(["Discussion", "Discussion", readableDate(discussionDueAt), "Graded"]);
+    if (hasQuiz) glanceRows.push(["Knowledge Check", "Quiz", readableDate(quizDueAt), "Graded"]);
+    if (hasAssignment) glanceRows.push(["Applied Assignment", "Assignment", readableDate(assignmentDueAt), "Graded"]);
+    glanceRows.push(["Wrap-Up &amp; Reflection", "Page", "—", "Recap"]);
+    const overviewPills = pillRow(
+      [`~${workloadHours} hrs of work`, `${alignedOutcomeIds.length} aligned outcomes`, `${glanceRows.length} activities`, `${[hasDiscussion, hasQuiz, hasAssignment].filter(Boolean).length} graded`],
+      theme
+    );
     pages.push(
       makePage(
         overviewPageId,
@@ -1146,11 +1193,11 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
         canvasShell(
           `${moduleLabel}: ${moduleTopic}`,
           "Start here to understand the learning path, outcomes, activities, and expectations for this module.",
-          `${section("What You Will Do", checklistHtml(["Review the module overview and required materials.", "Study the lecture/content page.", "Complete discussions, quizzes, and assignments shown in the module.", "Use the recap page to prepare for what comes next."]), theme)}
+          `${overviewPills}${section("What You Will Do", checklistHtml(["Review the module overview and required materials.", "Study the lecture/content page.", "Complete discussions, quizzes, and assignments shown in the module.", "Use the recap page to prepare for what comes next."]), theme)}
 ${section("Module Learning Objectives", listHtml(moduleObjectives), theme)}
 ${section("Aligned Course Outcomes", outcomeBadges(outcomes, alignedOutcomeIds, theme), theme)}
+${section("Module at a Glance", tableHtml("Everything in this module and when it is due", ["Activity", "Type", "Due", "Counts toward grade"], glanceRows, theme), theme)}
 ${section("Learning Path", checklistHtml(["Read the resource page and note which sources require instructor replacement.", "Work through the mini-lecture and examples.", "Complete the practice activity before graded work.", "Use discussion, quiz, or assignment feedback to prepare for the module recap."]), theme)}
-${section("Key Activities", "<p>Resources, lesson content, practice, instructor notes, discussion, knowledge check, and applied work are sequenced in Modules.</p>", theme)}
 ${callout("Estimated Workload", `<p>Plan for approximately ${workloadHours} hours of student work in this module.</p>`, theme)}
 ${section("Module Navigation", moduleNavBar(index), theme)}`,
           theme
