@@ -20,8 +20,8 @@ It is the operational companion to `docs/COURSEFORGE_MVP_PLAN.md`.
 | **Real AI blueprint generation** | `netlify/functions/generate-blueprint.ts` | ✅ **Verified live (auth+entitlement gated)** |
 | **Course project persistence** | `course_projects` via RLS | ✅ **Verified live (autosave + load)** |
 | Blueprint → full course (approval flow) | `src/services/aiGeneration.ts` | ✅ Built + verified |
-| Stripe checkout / webhook / portal functions | `netlify/functions/` | ✅ Built — needs test key + service role key |
-| Stripe test products/prices | Stripe (test mode) | ⏳ Needs owner `sk_test_` key |
+| Stripe checkout / webhook / portal functions | `netlify/functions/` | ✅ **Verified live (test mode)** |
+| Stripe test products/prices | Stripe (test mode) | ✅ **5 created; price IDs in .env** |
 | Full-course AI content enrichment | — | ⏳ Next (pages/assignments via AI) |
 
 ## 🤖 Real AI generation is LIVE (verified)
@@ -53,17 +53,19 @@ Real signup → profile-trigger → login → session verified in-browser. `.env
 
 **Demo account (created + email-confirmed):** `zoomedic911+cfdemo@gmail.com` / `CourseForge123`.
 
-### ⚠️ Owner action items to finish the billing + server-enforcement half
+### Owner action items
 
-1. **Paste the Supabase SERVICE ROLE key** into `.env` as `SUPABASE_SERVICE_ROLE_KEY` (Supabase
-   dashboard → Project Settings → API → `service_role` secret). The MCP cannot expose it. Required
-   for the Stripe webhook and server-side entitlement enforcement to write/read trusted rows.
-2. **Add a Stripe TEST secret key** to `.env` as `STRIPE_SECRET_KEY=sk_test_…`. Then I create the 5
-   test products/prices and set the `STRIPE_PRICE_*` vars, and wire `STRIPE_WEBHOOK_SECRET`.
-3. **(Recommended) Disable email confirmation** for a frictionless demo: Supabase dashboard →
-   Authentication → Sign In / Providers → Email → turn **off** "Confirm email". Otherwise new signups
-   must click an emailed link (the seeded demo account above is already confirmed). The MCP can't
-   toggle this.
+1. ✅ **DONE** — `SUPABASE_SERVICE_ROLE_KEY` is in `.env` (verified: bypasses RLS).
+2. ✅ **DONE** — Stripe **test** key in `.env`; 5 test products/prices created (`STRIPE_PRICE_*`);
+   `STRIPE_WEBHOOK_SECRET` set from `stripe listen`. Verified: checkout URL, signed webhook →
+   Supabase update, billing portal, bad-signature rejection. Run `stripe listen --forward-to
+   localhost:8888/.netlify/functions/stripe-webhook` during the demo (see DEMO_SCRIPT).
+3. ⏳ **For production deploy only** — fix the Netlify site's `OPENAI_API_KEY` (currently a stale
+   JWT) and add `SUPABASE_SERVICE_ROLE_KEY` + the Stripe vars to the Netlify dashboard. Not needed
+   for the local `netlify dev --offline` demo.
+4. **(Recommended) Disable email confirmation** for frictionless live signups: Supabase dashboard →
+   Authentication → Sign In / Providers → Email → turn **off** "Confirm email". The seeded demo
+   account is already confirmed. The MCP can't toggle this.
 
 ## Stripe (test mode — free, no approval) — ⚠️ blocked on a test key
 

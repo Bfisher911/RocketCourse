@@ -8,9 +8,15 @@ owner action (noted) before they're fully live. Companion: `docs/SAAS_SETUP.md`.
 
 ```bash
 npm install
-# Run the FULL stack (app + serverless functions) with the real OpenAI key from .env.
+
+# Terminal 1 — the FULL stack (app + serverless functions) with the real OpenAI key from .env.
 # Plain `vite` does NOT serve the /.netlify/functions/* routes — AI/Stripe calls 404 there.
 netlify dev --offline
+
+# Terminal 2 — forward Stripe test webhooks to the local webhook (needed for live checkout).
+# Uses the test key already in .env; its signing secret already matches STRIPE_WEBHOOK_SECRET.
+stripe listen --api-key "$(grep ^STRIPE_SECRET_KEY= .env | cut -d= -f2-)" \
+  --forward-to localhost:8888/.netlify/functions/stripe-webhook
 ```
 
 `--offline` is required locally: the linked Netlify site's `OPENAI_API_KEY` is a stale JWT that
@@ -38,14 +44,18 @@ otherwise overrides the real `sk-proj-…` key in `.env`. App runs at **http://l
    Authentication → Email for a frictionless demo — see SAAS_SETUP.)*
 3. Or just sign in with the seeded demo account above.
 
-## 4. Choose a plan + pay ⏳ pending (needs Stripe test key)
-1. On pricing, click a paid plan → **Stripe Checkout** opens (test card `4242 4242 4242 4242`,
-   any future expiry/CVC/ZIP) → on success you return to the dashboard.
-2. The **webhook** writes your subscription row in Supabase; the dashboard shows the active plan.
-- **Status:** the checkout/webhook/portal code is built and committed. To activate, add
-  `STRIPE_SECRET_KEY=sk_test_…` and `SUPABASE_SERVICE_ROLE_KEY` to `.env`, then create the test
-  prices (see SAAS_SETUP). **Until then**, the demo account is pre-seeded as active so steps 5–9
-  work; the live "I just paid" moment lights up once the keys are in.
+## 4. Choose a plan + pay ✅ live (Stripe test mode)
+1. On pricing, click a paid plan → **Stripe Checkout** opens → pay with test card
+   `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP → you return to the dashboard.
+2. Stripe fires `checkout.session.completed` → `stripe listen` (Terminal 2) forwards it to the
+   **webhook**, which writes your subscription row in Supabase. Click **Refresh status** on the
+   dashboard if it hasn't appeared within a second or two.
+- **Verified:** create-checkout-session returns a real `checkout.stripe.com` URL; the webhook
+  (signature-verified, bad signatures rejected) updates the subscription with the correct plan,
+  limits, and period; the **Billing portal** (dashboard) opens a real `billing.stripe.com` session.
+  Test products/prices for all 5 self-serve plans exist in your Stripe **test** account.
+- The seeded demo account starts as Individual Semester active, so steps 5–9 also work without
+  paying. For the live "I just paid" moment, sign up a fresh account and run through checkout.
 
 ## 5. Authenticated dashboard ✅ live
 1. The dashboard shows your **active plan** (Individual Semester), **usage** (AI generations +
