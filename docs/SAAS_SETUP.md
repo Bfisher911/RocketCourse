@@ -105,7 +105,7 @@ The Contact page routes inquiries through a Netlify function using the Resend HT
 
 - **`RESEND_API_KEY`** — Resend API key for contact-form email delivery. **If unset, the contact
   form gracefully falls back to a prefilled mailto link; no email is sent server-side.**
-- **`CONTACT_TO_EMAIL`** — destination inbox. Defaults to `rocketproof.ai@gmail.com`.
+- **`CONTACT_TO_EMAIL`** — destination inbox. Defaults to `rocketproofai@gmail.com`.
 - **`CONTACT_FROM_EMAIL`** — the verified Resend sender. Defaults to
   `RocketCourse <onboarding@resend.dev>`.
 

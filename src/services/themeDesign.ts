@@ -1,5 +1,5 @@
 import type { Theme, ThemePattern } from "../types";
-import { bestTextOn, contrastRatio } from "../utils/color";
+import { bestTextOn, contrastRatio, withAlpha } from "../utils/color";
 import { escapeXml } from "../utils/text";
 
 export type ThemeValidationStatus = "pass" | "review";
@@ -52,13 +52,21 @@ const patternLayer = (pattern: ThemePattern, ink: string): { image: string; size
   }
 };
 
-// The full hero background: the theme gradient, optionally textured with a pattern. Pure inline CSS.
+// The full hero background: the theme gradient, a soft corner glow for depth, optionally textured
+// with a pattern. Pure inline CSS (gradients only — never url(), which Canvas can strip).
 export const heroBackgroundCss = (styles: ThemeStyles): string => {
   const gradient = `linear-gradient(135deg, ${styles.gradientFrom} 0%, ${styles.gradientTo} 100%)`;
+  // A bright top-right glow + a subtle bottom-left lift give the flat gradient real dimension.
+  const glowTop =
+    styles.onGradient === "#ffffff"
+      ? "radial-gradient(1100px 380px at 85% -25%, rgba(255,255,255,0.26), transparent 60%)"
+      : "radial-gradient(1100px 380px at 85% -25%, rgba(255,255,255,0.40), transparent 60%)";
+  const glowBottom = "radial-gradient(700px 260px at 5% 120%, rgba(0,0,0,0.18), transparent 60%)";
   const ink = styles.onGradient === "#ffffff" ? "rgba(255,255,255,0.13)" : "rgba(0,0,0,0.10)";
   const layer = patternLayer(styles.pattern, ink);
-  if (!layer) return `background: ${gradient};`;
-  return `background-color: ${styles.gradientTo}; background-image: ${layer.image}, ${gradient}; background-size: ${layer.size}, auto;`;
+  const images = layer ? `${layer.image}, ${glowTop}, ${glowBottom}, ${gradient}` : `${glowTop}, ${glowBottom}, ${gradient}`;
+  const sizes = layer ? `${layer.size}, auto, auto, auto` : "auto, auto, auto";
+  return `background-color: ${styles.gradientTo}; background-image: ${images}; background-size: ${sizes};`;
 };
 
 export interface ThemeContrastCheck {
@@ -191,41 +199,157 @@ export const validateTheme = (theme: Theme): ThemeValidationResult => {
   };
 };
 
+// Shared font stack — Lato (Canvas's UI font) with safe fallbacks; no @font-face/url().
+const FONT = "'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+const SHADOW_SM = "0 1px 2px rgba(15,23,42,0.04), 0 4px 14px rgba(15,23,42,0.06)";
+const SHADOW_MD = "0 10px 26px rgba(15,23,42,0.10)";
+
 export const buildThemedButton = (theme: Theme, label: string, href: string): string => {
   const styles = getThemeStyles(theme);
-  return `<a href="${escAttr(safeHref(href))}" style="display: inline-block; margin: 8px 10px 8px 0; padding: 11px 16px; border-radius: 7px; background: ${styles.accent}; color: ${styles.onAccent}; text-decoration: none; font-weight: 700;">${escHtml(label)}</a>`;
+  return `<a href="${escAttr(safeHref(href))}" style="display: inline-block; margin: 10px 12px 6px 0; padding: 13px 22px; border-radius: 10px; background: linear-gradient(135deg, ${styles.accent} 0%, ${styles.accentDark} 100%); color: ${styles.onAccent}; text-decoration: none; font-weight: 800; font-family: ${FONT}; box-shadow: 0 8px 18px ${withAlpha(styles.accentDark, 0.32)};">${escHtml(label)} <span aria-hidden="true" style="opacity: 0.8;">&rarr;</span></a>`;
 };
 
 export const buildThemedSecondaryButton = (theme: Theme, label: string, href: string): string => {
   const styles = getThemeStyles(theme);
-  return `<a href="${escAttr(safeHref(href))}" style="display: inline-block; margin: 8px 10px 8px 0; padding: 10px 15px; border-radius: 7px; background: #ffffff; border: 1px solid ${styles.accent}; color: ${styles.accentDark}; text-decoration: none; font-weight: 700;">${escHtml(label)}</a>`;
+  return `<a href="${escAttr(safeHref(href))}" style="display: inline-block; margin: 10px 12px 6px 0; padding: 12px 20px; border-radius: 10px; background: #ffffff; border: 2px solid ${styles.accent}; color: ${styles.accentDark}; text-decoration: none; font-weight: 800; font-family: ${FONT}; box-shadow: ${SHADOW_SM};">${escHtml(label)}</a>`;
 };
 
 export const buildThemedCallout = (theme: Theme, title: string, body: string): string => {
   const styles = getThemeStyles(theme);
-  return `<div style="margin: 18px 0; padding: 16px 18px; border-left: 5px solid ${styles.accent}; background: ${styles.soft}; border-radius: 8px;">
-  <h3 style="margin: 0 0 8px; color: ${styles.accentDark};">${escHtml(title)}</h3>
+  return `<div style="margin: 20px 0; padding: 18px 20px; border-left: 6px solid ${styles.accent}; background: linear-gradient(135deg, ${styles.soft} 0%, ${withAlpha(styles.accent, 0.06)} 100%); border-radius: 12px; box-shadow: ${SHADOW_SM};">
+  <h3 style="margin: 0 0 8px; color: ${styles.accentDark}; font-size: 17px; font-weight: 800; font-family: ${FONT};">${escHtml(title)}</h3>
   ${body}
 </div>`.trim();
 };
 
 export const buildThemedCard = (theme: Theme, title: string, body: string): string => {
   const styles = getThemeStyles(theme);
-  return `<section style="margin: 18px 0; padding: 18px; background: #ffffff; border: 1px solid ${styles.border}; border-radius: 8px;">
-  <h2 style="margin: 0 0 10px; color: ${styles.accentDark};">${escHtml(title)}</h2>
-  ${body}
+  return `<section style="margin: 22px 0; background: #ffffff; border: 1px solid ${styles.border}; border-radius: 16px; box-shadow: ${SHADOW_SM}; overflow: hidden;">
+  <div style="height: 6px; background: linear-gradient(90deg, ${styles.accent} 0%, ${styles.accentDark} 100%);"></div>
+  <div style="padding: 22px 26px;">
+    <h2 style="margin: 0 0 14px; color: ${styles.accentDark}; font-size: 22px; font-weight: 800; font-family: ${FONT};"><span style="display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); vertical-align: middle; margin-right: 11px;"></span>${escHtml(title)}</h2>
+    ${body}
+  </div>
 </section>`.trim();
 };
 
 export const buildThemedShell = (theme: Theme, title: string, subtitle: string, body: string): string => {
   const styles = getThemeStyles(theme);
-  return `<div style="font-family: Arial, sans-serif; color: ${styles.canvasText}; line-height: 1.55;">
-  <div style="margin: 0 0 20px; padding: 28px 26px; ${heroBackgroundCss(styles)} border-radius: 12px; color: ${styles.onGradient};">
-    <h1 style="margin: 0 0 8px; color: ${styles.onGradient}; font-size: 28px; line-height: 1.2;">${escHtml(title)}</h1>
-    <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.92; font-size: 16px;">${escHtml(subtitle)}</p>
+  const underline = withAlpha(styles.onGradient === "#ffffff" ? "#ffffff" : "#0b1020", 0.55);
+  return `<div style="font-family: ${FONT}; color: ${styles.canvasText}; line-height: 1.65;">
+  <div style="position: relative; overflow: hidden; margin: 0 0 24px; padding: 36px 34px; ${heroBackgroundCss(styles)} border-radius: 18px; color: ${styles.onGradient}; box-shadow: ${SHADOW_MD};">
+    <div style="display: inline-block; margin: 0 0 16px; padding: 6px 14px; border-radius: 999px; background: ${withAlpha(styles.onGradient === "#ffffff" ? "#ffffff" : "#0b1020", 0.18)}; color: ${styles.onGradient}; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>
+    <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 34px; line-height: 1.15; font-weight: 900;">${escHtml(title)}</h1>
+    <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: 0 0 14px;"></div>
+    <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.96; font-size: 17px; max-width: 62ch;">${escHtml(subtitle)}</p>
   </div>
   ${body}
 </div>`.trim();
+};
+
+// ---- Extended visual kit (Canvas-safe inline HTML) -------------------------
+
+/** A row of theme-tinted "meta" chips, e.g. course length, credits, modules. */
+export const buildThemedChips = (theme: Theme, items: string[]): string => {
+  const styles = getThemeStyles(theme);
+  if (!items.length) return "";
+  const chips = items
+    .map(
+      (item) =>
+        `<span style="display: inline-block; margin: 0 9px 9px 0; padding: 7px 15px; border-radius: 999px; background: ${withAlpha(styles.accent, 0.1)}; border: 1px solid ${withAlpha(styles.accent, 0.4)}; color: ${styles.accentDark}; font-size: 13px; font-weight: 700; font-family: ${FONT};">${escHtml(item)}</span>`
+    )
+    .join("");
+  return `<p style="margin: 0 0 18px;">${chips}</p>`;
+};
+
+type NoteVariant = "key-term" | "example" | "misconception" | "check" | "instructor" | "tip";
+
+// Semantic, universally-readable colors per note type (misconception/example/check stay fixed so
+// their meaning reads on any theme; key-term/tip pick up the course accent).
+const noteStyle = (theme: Theme, variant: NoteVariant): { bg: string; border: string; fg: string; emoji: string } => {
+  const styles = getThemeStyles(theme);
+  switch (variant) {
+    case "example":
+      return { bg: "#fff8ec", border: "#f3c97d", fg: "#92400e", emoji: "&#128161;" }; // 💡
+    case "misconception":
+      return { bg: "#fef2f2", border: "#f3b4b4", fg: "#b91c1c", emoji: "&#9888;&#65039;" }; // ⚠️
+    case "check":
+      return { bg: "#ecfdf5", border: "#9be7c4", fg: "#15803d", emoji: "&#9989;" }; // ✅
+    case "instructor":
+      return { bg: "#f1f5f9", border: "#cbd5e1", fg: "#334155", emoji: "&#129517;" }; // 🧭
+    case "key-term":
+      return { bg: withAlpha(styles.accent, 0.08), border: withAlpha(styles.accent, 0.42), fg: styles.accentDark, emoji: "&#128216;" }; // 📘
+    default:
+      return { bg: withAlpha(styles.accent, 0.08), border: withAlpha(styles.accent, 0.42), fg: styles.accentDark, emoji: "&#10024;" }; // ✨
+  }
+};
+
+/** A typed callout (key term, example, misconception, check, instructor note, tip) with an icon. */
+export const buildThemedNote = (theme: Theme, variant: NoteVariant, title: string, body: string): string => {
+  const note = noteStyle(theme, variant);
+  return `<div style="margin: 18px 0; padding: 16px 18px 16px 20px; border: 1px solid ${note.border}; border-left: 5px solid ${note.fg}; background: ${note.bg}; border-radius: 12px; box-shadow: ${SHADOW_SM};">
+  <h3 style="margin: 0 0 8px; color: ${note.fg}; font-weight: 800; font-size: 16px; font-family: ${FONT};"><span aria-hidden="true" style="margin-right: 8px;">${note.emoji}</span>${escHtml(title)}</h3>
+  <div style="color: #374151;">${body}</div>
+</div>`.trim();
+};
+
+/** A polished table: gradient header, zebra rows, rounded shadowed container. */
+export const buildThemedTable = (theme: Theme, caption: string, headers: string[], rows: string[][]): string => {
+  const styles = getThemeStyles(theme);
+  const head = headers
+    .map((header) => `<th scope="col" style="text-align: left; padding: 12px 15px; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); color: ${styles.onAccent}; font-weight: 800; border: none; font-family: ${FONT};">${escHtml(header)}</th>`)
+    .join("");
+  const body = rows
+    .map(
+      (row, index) =>
+        `<tr style="background: ${index % 2 === 1 ? withAlpha(styles.accent, 0.05) : "#ffffff"};">${row
+          .map((cell) => `<td style="padding: 11px 15px; border-top: 1px solid ${styles.border}; color: #374151; vertical-align: top;">${cell}</td>`)
+          .join("")}</tr>`
+    )
+    .join("");
+  const cap = caption ? `<caption style="caption-side: top; text-align: left; margin: 0 0 10px; color: ${styles.accentDark}; font-weight: 800; font-family: ${FONT};">${escHtml(caption)}</caption>` : "";
+  return `<div style="margin: 18px 0; border: 1px solid ${styles.border}; border-radius: 14px; overflow: hidden; box-shadow: ${SHADOW_SM};">
+  <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-family: ${FONT};">${cap}
+    <thead><tr>${head}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+</div>`.trim();
+};
+
+/** A soft gradient divider rule. */
+export const buildThemedDivider = (theme: Theme): string => {
+  const styles = getThemeStyles(theme);
+  return `<div style="height: 2px; margin: 26px 0; border-radius: 2px; background: linear-gradient(90deg, transparent, ${withAlpha(styles.accent, 0.55)}, transparent);"></div>`;
+};
+
+/** Numbered step cards for "how this works" flows. */
+export const buildThemedSteps = (theme: Theme, steps: Array<{ title: string; body: string }>): string => {
+  const styles = getThemeStyles(theme);
+  const items = steps
+    .map(
+      (step, index) =>
+        `<div style="margin: 0 0 12px; padding: 16px 18px; background: #ffffff; border: 1px solid ${styles.border}; border-radius: 13px; box-shadow: ${SHADOW_SM};">
+    <span style="display: inline-block; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); color: ${styles.onAccent}; text-align: center; line-height: 32px; font-weight: 800; vertical-align: middle; margin-right: 12px; font-family: ${FONT};">${index + 1}</span><strong style="color: ${styles.accentDark}; font-size: 16px; font-family: ${FONT};">${escHtml(step.title)}</strong>
+    <div style="margin: 10px 0 0; color: #374151;">${step.body}</div>
+  </div>`
+    )
+    .join("");
+  return `<div style="margin: 16px 0;">${items}</div>`;
+};
+
+/** Responsive two-up card grid (inline-block so it survives Canvas + the mobile app). */
+export const buildThemedColumns = (theme: Theme, cards: Array<{ title: string; body: string; emoji?: string }>): string => {
+  const styles = getThemeStyles(theme);
+  const items = cards
+    .map(
+      (card) =>
+        `<div style="display: inline-block; width: 48%; min-width: 230px; vertical-align: top; margin: 0 1% 16px 0; box-sizing: border-box; font-size: 15px; padding: 18px 20px; background: #ffffff; border: 1px solid ${styles.border}; border-radius: 14px; box-shadow: ${SHADOW_SM};">
+    ${card.emoji ? `<div aria-hidden="true" style="font-size: 24px; line-height: 1; margin: 0 0 8px;">${card.emoji}</div>` : ""}<div style="font-weight: 800; color: ${styles.accentDark}; font-size: 16px; margin: 0 0 6px; font-family: ${FONT};">${escHtml(card.title)}</div>
+    <div style="color: #374151;">${card.body}</div>
+  </div>`
+    )
+    .join("");
+  return `<div style="margin: 16px 0; font-size: 0;">${items}</div>`;
 };
 
 const sampleTable = (theme: Theme): string => {

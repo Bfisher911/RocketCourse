@@ -14,8 +14,11 @@
 // ============================================================================
 
 import type { HomepageContent, HomepageLink, HomepageState, Theme } from "../types";
-import { bestTextOn } from "../utils/color";
+import { bestTextOn, withAlpha } from "../utils/color";
 import { fileRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
+
+// Shared soft shadows for the homepage cards/buttons — depth without heaviness.
+const HP_SHADOW = "0 1px 2px rgba(15,23,42,0.04), 0 6px 16px rgba(15,23,42,0.07)";
 
 // The canonical Canvas link tokens the homepage points at. These are NOT relative
 // ".html" paths — Canvas rewrites these tokens to live course URLs on import, so the
@@ -108,18 +111,36 @@ const wrapper = (inner: string): string =>
 const banner = (content: HomepageContent, radius = 12): string =>
   `<p style="margin: 0 0 20px;"><img src="${BANNER_SRC}" alt="${escAttr(content.bannerAlt)}" style="width: 100%; max-height: 240px; object-fit: cover; border-radius: ${radius}px; display: block;" /></p>`;
 
-const primaryButton = (link: HomepageLink, theme: Theme, bg = theme.accent): string =>
-  `<a href="${escAttr(safeHref(link.target))}" style="display: inline-block; margin: 0 12px 12px 0; padding: 13px 24px; border-radius: 8px; background: ${bg}; color: ${bestTextOn(bg)}; text-decoration: none; font-weight: 700; font-size: 16px;">${escHtml(link.label)}</a>`;
+const primaryButton = (link: HomepageLink, theme: Theme, bg = theme.accent): string => {
+  // When a solid bg is passed (e.g. white over a colored hero) keep it flat; otherwise use the
+  // accent→accentDark gradient with a matching glow for depth.
+  const isGradient = bg === theme.accent;
+  const background = isGradient ? `linear-gradient(135deg, ${theme.accent} 0%, ${theme.accentDark} 100%)` : bg;
+  const shadow = isGradient ? `box-shadow: 0 8px 18px ${withAlpha(theme.accentDark, 0.32)};` : `box-shadow: ${HP_SHADOW};`;
+  return `<a href="${escAttr(safeHref(link.target))}" style="display: inline-block; margin: 0 12px 12px 0; padding: 14px 26px; border-radius: 10px; background: ${background}; color: ${bestTextOn(isGradient ? theme.accentDark : bg)}; text-decoration: none; font-weight: 800; font-size: 16px; ${shadow}">${escHtml(link.label)} <span aria-hidden="true" style="opacity: 0.8;">&rarr;</span></a>`;
+};
 
 const secondaryButton = (link: HomepageLink, theme: Theme): string =>
-  `<a href="${escAttr(safeHref(link.target))}" style="display: inline-block; margin: 0 12px 12px 0; padding: 11px 22px; border-radius: 8px; background: #ffffff; border: 2px solid ${theme.accent}; color: ${theme.accentDark}; text-decoration: none; font-weight: 700; font-size: 16px;">${escHtml(link.label)}</a>`;
+  `<a href="${escAttr(safeHref(link.target))}" style="display: inline-block; margin: 0 12px 12px 0; padding: 12px 24px; border-radius: 10px; background: #ffffff; border: 2px solid ${theme.accent}; color: ${theme.accentDark}; text-decoration: none; font-weight: 800; font-size: 16px; box-shadow: ${HP_SHADOW};">${escHtml(link.label)}</a>`;
+
+// At-a-glance course facts as theme-tinted chips under the hero.
+const metaChipsRow = (content: HomepageContent, theme: Theme): string => {
+  const chips = (content.metaChips ?? []).filter((chip) => chip.trim().length > 0);
+  if (!chips.length) return "";
+  return `<p style="margin: 16px 0 0;">${chips
+    .map(
+      (chip) =>
+        `<span style="display: inline-block; margin: 0 8px 8px 0; padding: 6px 14px; border-radius: 999px; background: ${withAlpha(theme.accent, 0.12)}; border: 1px solid ${withAlpha(theme.accent, 0.45)}; color: ${theme.accentDark}; font-weight: 700; font-size: 13px;">${escHtml(chip)}</span>`
+    )
+    .join("")}</p>`;
+};
 
 const checklist = (items: string[], accent: string): string =>
-  `<ul style="list-style: none; margin: 12px 0 0; padding: 0;">${items
+  `<ul style="list-style: none; margin: 14px 0 0; padding: 0;">${items
     .filter((item) => item.trim().length > 0)
     .map(
       (item) =>
-        `<li style="margin: 10px 0; padding-left: 30px; position: relative;"><span aria-hidden="true" style="position: absolute; left: 0; top: 0; color: ${accent}; font-weight: 700; font-size: 18px;">&#10003;</span>${escHtml(item)}</li>`
+        `<li style="margin: 12px 0; padding-left: 38px; position: relative; line-height: 1.55;"><span aria-hidden="true" style="position: absolute; left: 0; top: 1px; width: 24px; height: 24px; border-radius: 50%; background: ${withAlpha(accent, 0.14)}; color: ${accent}; text-align: center; line-height: 24px; font-weight: 800; font-size: 14px;">&#10003;</span>${escHtml(item)}</li>`
     )
     .join("")}</ul>`;
 
@@ -130,7 +151,7 @@ const numberedList = (items: string[], accent: string): string =>
     .join("")}</ol>`;
 
 const card = (title: string, body: string, theme: Theme): string =>
-  `<section style="margin: 18px 0; padding: 22px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;"><h2 style="margin: 0 0 10px; font-size: 21px; color: ${theme.accentDark};">${escHtml(title)}</h2>${body}</section>`;
+  `<section style="margin: 20px 0; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: ${HP_SHADOW}; overflow: hidden;"><div style="height: 6px; background: linear-gradient(90deg, ${theme.accent} 0%, ${theme.accentDark} 100%);"></div><div style="padding: 22px 26px;"><h2 style="margin: 0 0 12px; font-size: 22px; color: ${theme.accentDark}; font-weight: 800;"><span style="display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: linear-gradient(135deg, ${theme.accent}, ${theme.accentDark}); vertical-align: middle; margin-right: 11px;"></span>${escHtml(title)}</h2>${body}</div></section>`;
 
 const paragraph = (text: string): string => `<p style="margin: 0 0 12px; color: #374151; font-size: 16px;">${escHtml(text)}</p>`;
 
@@ -159,6 +180,7 @@ const cleanCanvas = (content: HomepageContent, theme: Theme): string =>
     <h1 style="margin: 0 0 12px; font-size: 32px; color: #111827;">${escHtml(content.heroHeading)}</h1>
     <p style="margin: 0 0 18px; color: #374151; font-size: 17px;">${escHtml(content.welcome)}</p>
     <p style="margin: 0;">${primaryButton(content.primaryButton, theme)}${secondaryButton(content.secondaryButton, theme)}</p>
+    ${metaChipsRow(content, theme)}
   </div>
   ${card("Your path through this course", checklist(content.pathItems, theme.accent), theme)}
   ${card("What to do first", `${paragraph("New here? Open the Start Here module and read the Course Success Guide before the first content module. It explains how the course works and how to succeed.")}${quickLinks(content, theme)}`, theme)}
@@ -196,7 +218,8 @@ const warmInstructor = (content: HomepageContent, theme: Theme): string =>
   <section style="margin: 0 0 18px; padding: 24px; background: ${theme.soft}; border-left: 6px solid ${theme.accent}; border-radius: 12px;">
     <p style="margin: 0 0 6px; letter-spacing: 0.06em; text-transform: uppercase; font-size: 12px; font-weight: 700; color: ${theme.accentDark};">${escHtml(content.heroEyebrow)}</p>
     <h1 style="margin: 0 0 12px; font-size: 30px; color: #111827;">${escHtml(content.heroHeading)}</h1>
-    <p style="margin: 0; font-size: 17px; color: #374151;">${escHtml(content.instructorNote.trim() || content.welcome)}</p>
+    <p style="margin: 0 0 ${content.metaChips && content.metaChips.length ? "4px" : "0"}; font-size: 17px; color: #374151;">${escHtml(content.instructorNote.trim() || content.welcome)}</p>
+    ${metaChipsRow(content, theme)}
   </section>
   <p style="margin: 0 0 20px;">${primaryButton(content.primaryButton, theme)}${secondaryButton(content.secondaryButton, theme)}</p>
   ${card("How to get started", numberedList(content.pathItems, theme.accent), theme)}
@@ -241,6 +264,7 @@ const projectBased = (content: HomepageContent, theme: Theme): string => {
     <h1 style="margin: 0 0 12px; font-size: 32px; color: #111827;">${escHtml(content.heroHeading)}</h1>
     <p style="margin: 0 0 18px; color: #374151; font-size: 17px;">${escHtml(content.welcome)}</p>
     <p style="margin: 0;">${primaryButton(content.primaryButton, theme)}${secondaryButton(content.secondaryButton, theme)}</p>
+    ${metaChipsRow(content, theme)}
   </div>
   <section style="margin: 18px 0; padding: 22px; background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid ${theme.accent}; border-radius: 12px;">
     <h2 style="margin: 0 0 10px; font-size: 21px; color: ${theme.accentDark};">Where this course is headed</h2>
@@ -295,8 +319,15 @@ export const defaultHomepageContent = (context: HomepageContext): HomepageConten
     ? "fully online and self-paced within each week"
     : context.modality || "structured";
   const unit = context.organizationLabel?.toLowerCase().includes("week") ? "week" : "module";
+  const chips = [
+    context.level,
+    context.modality,
+    `${context.moduleCount} ${unit}${context.moduleCount === 1 ? "" : "s"}`,
+    context.finalProject ? `Final ${context.finalProjectType || "project"}` : "Culminating assessment"
+  ].filter((chip): chip is string => Boolean(chip && chip.trim()));
   return {
     bannerAlt: `${context.title} course banner`,
+    metaChips: chips,
     heroEyebrow: "Welcome to your course",
     heroHeading: `Welcome to ${context.title}`,
     welcome: sentence(context.description) || `This is your home base for ${context.title}. Start here, then move through the course one step at a time.`,

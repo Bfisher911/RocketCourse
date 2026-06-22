@@ -1,6 +1,6 @@
 // POST /.netlify/functions/contact — public contact-form intake (no auth required).
 //
-// Routes inquiries to the RocketCourse inbox. Because that inbox (rocketproof.ai@gmail.com) also
+// Routes inquiries to the RocketCourse inbox. Because that inbox (rocketproofai@gmail.com) also
 // receives Rocketproof inquiries, every subject is prefixed "[RocketCourse Inquiry]" so the two
 // products stay sortable.
 //
@@ -25,7 +25,7 @@ interface ContactPayload {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TO_EMAIL = (): string => process.env.CONTACT_TO_EMAIL?.trim() || "rocketproof.ai@gmail.com";
+const TO_EMAIL = (): string => process.env.CONTACT_TO_EMAIL?.trim() || "rocketproofai@gmail.com";
 const FROM_EMAIL = (): string => process.env.CONTACT_FROM_EMAIL?.trim() || "RocketCourse <onboarding@resend.dev>";
 
 // Best-effort, warm-instance rate limiting. Serverless instances are recycled, so this is a cheap

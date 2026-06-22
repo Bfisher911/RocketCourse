@@ -15,12 +15,12 @@ import {
 // resilient — if the network request fails (offline, cold function, non-2xx) it never shows a hard
 // dead end. It falls back to a prefilled `mailto:` so the visitor can always reach the team.
 //
-// Email routing: inquiries go to rocketproof.ai@gmail.com. That inbox also receives Rocketproof
+// Email routing: inquiries go to rocketproofai@gmail.com. That inbox also receives Rocketproof
 // inquiries, so every subject is prefixed with "[RocketCourse Inquiry]" to keep the two products
 // from getting tangled.
 
 const CONTACT_ENDPOINT = "/.netlify/functions/contact";
-const CONTACT_EMAIL = "rocketproof.ai@gmail.com";
+const CONTACT_EMAIL = "rocketproofai@gmail.com";
 const SUBJECT_PREFIX = "[RocketCourse Inquiry]";
 // Ignore submits fired within this window of the previous attempt (ms) — guards against
 // double-clicks and rapid re-submits.

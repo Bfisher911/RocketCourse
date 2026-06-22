@@ -60,7 +60,7 @@ describe("contact function", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toContain("api.resend.com");
     const sent = JSON.parse(init.body as string) as { to: string[]; subject: string; reply_to: string };
-    expect(sent.to).toContain("rocketproof.ai@gmail.com");
+    expect(sent.to).toContain("rocketproofai@gmail.com");
     expect(sent.subject.startsWith("[RocketCourse Inquiry]")).toBe(true);
     expect(sent.reply_to).toBe(valid.email);
   });

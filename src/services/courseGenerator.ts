@@ -36,7 +36,8 @@ import {
   rethemeSyllabusHtml,
   type SyllabusContext
 } from "./syllabusTemplates";
-import { buildThemedButton, buildThemedCallout, buildThemedCard, buildThemedSecondaryButton, buildThemedShell } from "./themeDesign";
+import { buildThemedButton, buildThemedCallout, buildThemedCard, buildThemedNote, buildThemedSecondaryButton, buildThemedShell } from "./themeDesign";
+import { bestTextOn, withAlpha } from "../utils/color";
 import { validateSyllabus } from "./syllabusValidation";
 import { fileRef, modulesIndexRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
 
@@ -143,24 +144,28 @@ const orderedListHtml = (items: string[]): string => `<ol style="margin: 10px 0 
 // A Canvas-safe themed table. First cell of each row is a <th scope="row"> header for accessibility.
 const tableHtml = (caption: string, headers: string[], rows: string[][], theme: Theme): string => {
   const border = "#dbe4f0";
+  const onAccent = bestTextOn(theme.accentDark);
   const head = headers
-    .map((header) => `<th scope="col" style="text-align: left; padding: 10px; border: 1px solid ${border}; background: ${theme.soft}; color: ${theme.accentDark};">${header}</th>`)
+    .map(
+      (header) =>
+        `<th scope="col" style="text-align: left; padding: 12px 14px; border: none; background: linear-gradient(135deg, ${theme.accent}, ${theme.accentDark}); color: ${onAccent}; font-weight: 800;">${header}</th>`
+    )
     .join("");
   const body = rows
     .map(
-      (cells) =>
-        `<tr>${cells
+      (cells, rowIndex) =>
+        `<tr style="background: ${rowIndex % 2 === 1 ? withAlpha(theme.accent, 0.05) : "#ffffff"};">${cells
           .map((cell, index) =>
             index === 0
-              ? `<th scope="row" style="text-align: left; padding: 10px; border: 1px solid ${border}; font-weight: 600;">${cell}</th>`
-              : `<td style="padding: 10px; border: 1px solid ${border};">${cell}</td>`
+              ? `<th scope="row" style="text-align: left; padding: 11px 14px; border-top: 1px solid ${border}; font-weight: 700; color: ${theme.accentDark}; vertical-align: top;">${cell}</th>`
+              : `<td style="padding: 11px 14px; border-top: 1px solid ${border}; vertical-align: top;">${cell}</td>`
           )
           .join("")}</tr>`
     )
     .join("");
-  return `<table style="width: 100%; border-collapse: collapse; margin: 6px 0 0; font-size: 14px;">${
-    caption ? `<caption style="caption-side: top; text-align: left; margin-bottom: 8px; color: ${theme.accentDark}; font-weight: 700;">${caption}</caption>` : ""
-  }<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  return `<div style="margin: 8px 0; border: 1px solid ${border}; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 6px 16px rgba(15,23,42,0.06);"><table style="width: 100%; border-collapse: collapse; margin: 0; font-size: 14px;">${
+    caption ? `<caption style="caption-side: top; text-align: left; margin: 12px 14px 8px; color: ${theme.accentDark}; font-weight: 800;">${caption}</caption>` : ""
+  }<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 };
 
 // A small themed status pill (e.g. workload, outcome count) for at-a-glance visual scanning.
@@ -189,6 +194,12 @@ const buttonLink = (href: string, label: string, theme: Theme): string => buildT
 const secondaryLink = (href: string, label: string, theme: Theme): string => buildThemedSecondaryButton(theme, label, href);
 
 const callout = (title: string, body: string, theme: Theme): string => buildThemedCallout(theme, title, body);
+// Typed instructional callouts — each pedagogical move gets a distinct, color-coded, icon-badged look.
+const keyTermNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "key-term", title, body);
+const exampleNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "example", title, body);
+const misconceptionNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "misconception", title, body);
+const checkNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "check", title, body);
+const tipNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "tip", title, body);
 
 const section = (title: string, body: string, theme: Theme): string => buildThemedCard(theme, title, body);
 
@@ -298,17 +309,19 @@ const makeResource = (
 
 const resourceCardsHtml = (resources: CourseResource[], theme: Theme): string =>
   resources
-    .map(
-      (resource) => `
-<div style="margin: 12px 0; padding: 16px; border: 1px solid #dbe4f0; border-radius: 8px; background: ${resource.optional ? "#f8fafc" : "#ffffff"};">
-  <h3 style="margin: 0 0 6px; color: #111827;">${resource.title}</h3>
-  <p style="margin: 0 0 8px;"><strong>Type:</strong> ${resourceTypeLabel(resource.type)}${resource.optional ? " optional" : ""} | <strong>Estimated time:</strong> ${resource.estimatedMinutes} minutes</p>
-  <p style="margin: 0 0 8px;"><strong>Why it matters:</strong> ${resource.whyItMatters}</p>
-  <p style="margin: 0 0 8px;"><strong>Student instructions:</strong> ${resource.studentInstructions}</p>
-  <p style="margin: 0 0 8px;"><strong>Editable source placeholder:</strong> ${resource.placeholder}</p>
-  <p style="margin: 0; color: ${theme.accentDark};"><strong>Instructor edit note:</strong> ${resource.instructorEditNote}</p>
-</div>`.trim()
-    )
+    .map((resource) => {
+      const typeBadge = `<span style="display: inline-block; margin: 0 8px 0 0; padding: 4px 12px; border-radius: 999px; background: ${withAlpha(theme.accent, 0.12)}; border: 1px solid ${withAlpha(theme.accent, 0.42)}; color: ${theme.accentDark}; font-size: 12px; font-weight: 700;">${resourceTypeLabel(resource.type)}${resource.optional ? " &middot; optional" : ""}</span>`;
+      const timeBadge = `<span style="display: inline-block; padding: 4px 12px; border-radius: 999px; background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; font-size: 12px; font-weight: 700;">&#9201; ~${resource.estimatedMinutes} min</span>`;
+      return `
+<div style="margin: 14px 0; padding: 18px 20px; border: 1px solid #e2e8f0; border-left: 5px solid ${theme.accent}; border-radius: 14px; background: ${resource.optional ? "#f8fafc" : "#ffffff"}; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 6px 16px rgba(15,23,42,0.06);">
+  <div style="margin: 0 0 10px;">${typeBadge}${timeBadge}</div>
+  <h3 style="margin: 0 0 8px; color: ${theme.accentDark}; font-size: 18px; font-weight: 800;">${resource.title}</h3>
+  <p style="margin: 0 0 8px; color: #374151;"><strong>Why it matters:</strong> ${resource.whyItMatters}</p>
+  <p style="margin: 0 0 8px; color: #374151;"><strong>Student instructions:</strong> ${resource.studentInstructions}</p>
+  <p style="margin: 0 0 8px; color: #374151;"><strong>Editable source placeholder:</strong> ${resource.placeholder}</p>
+  <p style="margin: 0; color: ${theme.accentDark}; font-size: 13px;"><strong>Instructor edit note:</strong> ${resource.instructorEditNote}</p>
+</div>`.trim();
+    })
     .join("\n");
 
 const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic: string, courseTopic: string, timestamp: string): CourseResource[] => [
@@ -1228,16 +1241,16 @@ ${section("Key Terms", `<p>Learn these well enough to use them in a sentence —
             "<strong>Tradeoff:</strong> what is given up when one option is chosen over another; strong analysis makes tradeoffs explicit.",
             "<strong>Recommendation:</strong> a defensible course of action that follows from the evidence and weighs the tradeoffs."
           ])}`, theme)}
-${section("Worked Example", `<p>Here is the five-move method applied to a case connected to ${topic.toLowerCase()} — the same moves you will use on the assignment:</p>${orderedListHtml([
+${exampleNote("Worked Example", `<p>Here is the five-move method applied to a case connected to ${topic.toLowerCase()} — the same moves you will use on the assignment:</p>${orderedListHtml([
             "<strong>Situation:</strong> state what is happening and when, in one or two sentences, before interpreting anything.",
             "<strong>Stakeholders:</strong> name the people, groups, or systems affected, and note what each one stands to gain or lose.",
             "<strong>Evidence:</strong> cite two or three specific items from the resource page and explain what each one shows.",
             "<strong>Tradeoffs:</strong> make at least one tension between competing goals explicit instead of glossing over it.",
             "<strong>Recommendation:</strong> state a clear, defensible decision and one sentence on why it follows from the evidence."
           ])}<p style="margin: 12px 0 0;">Notice that opinion never appears on its own — every judgment is anchored to evidence and context.</p>`, theme)}
-${callout("Why This Matters", `<p>Advanced courses and employers expect graduates to move from opinion to evidence-based judgment. Practicing the five-move method on ${moduleTopic.toLowerCase()} now builds the exact habit you will use in this module's graded work, in the final project, and in professional decisions later.</p>`, theme)}
-${callout("Common Misconception", `<p>A common mistake is treating ${moduleTopic.toLowerCase()} as a simple opinion question. Course work should move from opinion toward evidence, context, and reasoned judgment.</p>`, theme)}
-${section("Check Your Understanding", checklistHtml(["Define one module term in your own words.", "Name one example that illustrates the concept.", "Explain one consequence or tradeoff.", "Write one question you still need answered."]), theme)}
+${tipNote("Why This Matters", `<p>Advanced courses and employers expect graduates to move from opinion to evidence-based judgment. Practicing the five-move method on ${moduleTopic.toLowerCase()} now builds the exact habit you will use in this module's graded work, in the final project, and in professional decisions later.</p>`, theme)}
+${misconceptionNote("Common Misconception", `<p>A common mistake is treating ${moduleTopic.toLowerCase()} as a simple opinion question. Course work should move from opinion toward evidence, context, and reasoned judgment.</p>`, theme)}
+${checkNote("Check Your Understanding", checklistHtml(["Define one module term in your own words.", "Name one example that illustrates the concept.", "Explain one consequence or tradeoff.", "Write one question you still need answered."]), theme)}
 ${section("Instructor Teaching Notes", checklistHtml(["Replace the worked example with one from the discipline or local context.", "Add a short announcement that connects this lesson to the graded task.", "Watch for students who summarize sources without explaining why the evidence matters."]), theme)}`,
           theme
         ),

@@ -70,6 +70,16 @@ export const bestTextOn = (background: string): "#ffffff" | "#0b1020" => {
 export const meetsAaLarge = (foreground: string, background: string): boolean => contrastRatio(foreground, background) >= 3;
 export const meetsAaNormal = (foreground: string, background: string): boolean => contrastRatio(foreground, background) >= 4.5;
 
+// Translucent rgba() from a hex color. Used to lay soft, theme-tinted washes over white Canvas
+// pages (accent glows, zebra rows, chip fills) that stay readable on any theme. Falls back to the
+// input when it can't be parsed.
+export const withAlpha = (value: string, alpha: number): string => {
+  const rgb = parseHex(value);
+  if (!rgb) return value;
+  const a = Math.max(0, Math.min(1, alpha));
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+};
+
 // Mix a color toward black by `amount` (0–1). Used to derive a darker accent for custom themes so
 // the user only has to pick one primary color. Returns the input unchanged if it can't be parsed.
 export const darken = (value: string, amount: number): string => {

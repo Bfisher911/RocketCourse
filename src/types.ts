@@ -440,6 +440,8 @@ export interface HomepageContent {
   weeklyItems: string[];
   resourceLinks: HomepageLink[];
   purpose: string;
+  /** Optional at-a-glance course facts shown as chips under the hero (level, modality, modules…). */
+  metaChips?: string[];
 }
 
 export type HomepageMode = "builder" | "custom";

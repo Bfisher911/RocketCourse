@@ -75,7 +75,7 @@ Export is gated by real entitlement (active plan + export credits).
 
 ## Contact form
 
-The **Contact** page routes inquiries to **rocketproof.ai@gmail.com** via the Netlify function
+The **Contact** page routes inquiries to **rocketproofai@gmail.com** via the Netlify function
 `netlify/functions/contact.ts` (Resend HTTP API). Because that inbox is shared with Rocketproof,
 every subject is prefixed **`[RocketCourse Inquiry]`**. If `RESEND_API_KEY` is not configured, the
 form **gracefully falls back to a prefilled mailto link** — no email is sent server-side. See

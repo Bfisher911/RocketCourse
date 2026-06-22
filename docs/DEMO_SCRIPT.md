@@ -75,7 +75,7 @@ active Individual Semester plan.
 
 ### 7. Contact ✅ live (mailto fallback) / ⏳ pending (server email)
 1. Click **Contact** → fill the inquiry form and submit.
-2. Inquiries route to **rocketproof.ai@gmail.com** via the Netlify function
+2. Inquiries route to **rocketproofai@gmail.com** via the Netlify function
    `netlify/functions/contact.ts`; the subject is always prefixed **`[RocketCourse Inquiry]`**
    (that inbox is shared with Rocketproof).
 3. **Until `RESEND_API_KEY` + a verified sender domain are configured**, the form **gracefully falls
