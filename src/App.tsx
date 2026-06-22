@@ -57,7 +57,8 @@ import { plans } from "./data/plans";
 import { themes } from "./data/themes";
 import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./services/courseGenerator";
 import { buildCourseQualityReport } from "./services/courseQuality";
-import { generateImsccBlob } from "./services/imsccExport";
+import { generateAllQuizzesQtiBlob, generateImsccBlob, generateQuizQtiBlob } from "./services/imsccExport";
+import { coursePdfFileName, generateCoursePdfBlob } from "./services/coursePdf";
 import { importCanvasCourseFromImscc } from "./services/imsccImport";
 import {
   duplicateModuleWithContent,
@@ -536,6 +537,26 @@ function App() {
     }
   };
 
+  // Download a readable PDF copy of the whole course (no Canvas import needed).
+  const downloadCoursePdf = (): void => {
+    if (!subscriptionActive) return;
+    downloadBlob(generateCoursePdfBlob(course), coursePdfFileName(course));
+  };
+
+  // Download every quiz as one bulk Canvas-importable QTI .zip.
+  const downloadAllQuizzesQti = async (): Promise<void> => {
+    if (!subscriptionActive || course.quizzes.length === 0) return;
+    const { blob, fileName } = await generateAllQuizzesQtiBlob(course);
+    downloadBlob(blob, fileName);
+  };
+
+  // Download a single quiz as a standalone QTI .zip.
+  const downloadQuizQti = async (quiz: Quiz): Promise<void> => {
+    if (!subscriptionActive) return;
+    const { blob, fileName } = await generateQuizQtiBlob(quiz);
+    downloadBlob(blob, fileName);
+  };
+
   return (
     <div className="app">
       <TopBar
@@ -636,6 +657,9 @@ function App() {
           onUpdateCourse={updateCourse}
           onRunValidation={runValidation}
           onDownload={downloadPackage}
+          onDownloadPdf={downloadCoursePdf}
+          onDownloadAllQti={downloadAllQuizzesQti}
+          onExportQuizQti={downloadQuizQti}
           exportError={exportError}
           lastDownloadName={lastDownloadName}
           onDuplicateModule={duplicateModule}
@@ -1425,6 +1449,9 @@ function Editor({
   onUpdateCourse,
   onRunValidation,
   onDownload,
+  onDownloadPdf,
+  onDownloadAllQti,
+  onExportQuizQti,
   exportError,
   lastDownloadName,
   onDuplicateModule,
@@ -1454,6 +1481,9 @@ function Editor({
   onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
   onRunValidation: () => void;
   onDownload: () => void;
+  onDownloadPdf: () => void;
+  onDownloadAllQti: () => void;
+  onExportQuizQti: (quiz: Quiz) => void;
   exportError: string | null;
   lastDownloadName: string | null;
   onDuplicateModule: (moduleId: string) => void;
@@ -1565,7 +1595,7 @@ function Editor({
           {activeTab === "Pages" && <PagesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Assignments" && <AssignmentsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Discussions" && <DiscussionsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Quizzes" && <QuizzesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
+          {activeTab === "Quizzes" && <QuizzesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} onExportQti={onExportQuizQti} />}
           {activeTab === "Rubrics" && <RubricsTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Gradebook Setup" && <GradebookTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Contact Hours" && <ContactHoursTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
@@ -1592,6 +1622,8 @@ function Editor({
               lastDownloadName={lastDownloadName}
               onRunValidation={onRunValidation}
               onDownload={onDownload}
+              onDownloadPdf={onDownloadPdf}
+              onDownloadAllQti={onDownloadAllQti}
               onJumpToTab={setActiveTab}
             />
           )}

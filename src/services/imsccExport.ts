@@ -997,3 +997,54 @@ export const generateImsccBlob = async (
   const blob = await zip.generateAsync({ type: "blob", mimeType: "application/zip" });
   return { blob, report, fileName: report.packageName };
 };
+
+// --- Standalone QTI export ---------------------------------------------------
+// A QTI-only Common Cartridge (manifest + assessment XML) that Canvas imports via
+// "Import Course Content -> QTI .zip file". Reuses the same CC-flavored QTI the full
+// package uses, so a quiz exported on its own is identical to the one inside the .imscc.
+const qtiPackageManifest = (quizzes: Quiz[]): string => {
+  const resources = quizzes
+    .map(
+      (quiz) => `    <resource identifier="${xml(quiz.id)}" type="${resourceType.assessment}" href="${xml(quizCcPath(quiz))}">
+      <file href="${xml(quizCcPath(quiz))}" />
+    </resource>`
+    )
+    .join("\n");
+  const items = quizzes
+    .map((quiz) => `        <item identifier="${xml(`${quiz.id}_org`)}" identifierref="${xml(quiz.id)}"><title>${xml(quiz.title)}</title></item>`)
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="qti_export" xmlns="${CC_NAMESPACE}" xmlns:lom="${LOM_RESOURCE}" xmlns:lomimscc="${LOM_MANIFEST}" xmlns:xsi="${XSI}">
+  <metadata><schema>IMS Common Cartridge</schema><schemaversion>1.1.0</schemaversion></metadata>
+  <organizations>
+    <organization identifier="org_qti" structure="rooted-hierarchy">
+      <item identifier="qti_root">
+${items}
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+${resources}
+  </resources>
+</manifest>`;
+};
+
+const buildQtiZip = async (quizzes: Quiz[]): Promise<Blob> => {
+  const zip = new JSZip();
+  zip.file("imsmanifest.xml", qtiPackageManifest(quizzes));
+  quizzes.forEach((quiz) => zip.file(quizCcPath(quiz), createAssessmentQtiXml(quiz, false)));
+  return zip.generateAsync({ type: "blob", mimeType: "application/zip" });
+};
+
+/** Export one quiz as a standalone Canvas-importable QTI .zip. */
+export const generateQuizQtiBlob = async (quiz: Quiz): Promise<{ blob: Blob; fileName: string }> => ({
+  blob: await buildQtiZip([quiz]),
+  fileName: `${slugify(quiz.title || quiz.id)}-qti.zip`
+});
+
+/** Export every quiz in the course as one bulk QTI .zip. */
+export const generateAllQuizzesQtiBlob = async (course: CourseProject): Promise<{ blob: Blob; fileName: string; count: number }> => ({
+  blob: await buildQtiZip(course.quizzes),
+  fileName: `${slugify(course.title || "course")}-all-quizzes-qti.zip`,
+  count: course.quizzes.length
+});

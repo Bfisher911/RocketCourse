@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Copy, FileQuestion, Filter, GraduationCap, GripVertical, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Copy, Download, FileQuestion, Filter, GraduationCap, GripVertical, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CourseProject, PublishState, Quiz, QuizDifficulty, QuizQuestion, QuizQuestionType } from "../types";
 import { stripHtml } from "../utils/text";
@@ -24,6 +24,7 @@ interface QuizzesTabProps {
   course: CourseProject;
   onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
   onJumpToTab: (tab: "Modules" | "Gradebook Setup") => void;
+  onExportQti: (quiz: Quiz) => void;
 }
 
 interface QuizSnapshot {
@@ -52,7 +53,7 @@ const questionTypeCounts = (quizzes: Quiz[]): string =>
 
 const issueLabel = (count: number): string => (count === 0 ? "Ready" : `${count} warning${count === 1 ? "" : "s"}`);
 
-export function QuizzesTab({ course, onUpdateCourse, onJumpToTab }: QuizzesTabProps) {
+export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti }: QuizzesTabProps) {
   const validation = useMemo(() => validateQuizPlan(course), [course]);
   const [selectedQuizId, setSelectedQuizId] = useState(course.quizzes[0]?.id ?? "");
   const [selectedTemplate, setSelectedTemplate] = useState<QuizTemplateId>("concept-check");
@@ -233,6 +234,7 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab }: QuizzesTabPr
               <button onClick={() => onJumpToTab("Modules")}><Layers size={15} /> Modules</button>
               <button onClick={() => onJumpToTab("Gradebook Setup")}><ClipboardCheck size={15} /> Gradebook</button>
               <button onClick={() => onUpdateCourse((current) => duplicateQuiz(current, selectedQuiz.id))}><Copy size={15} /> Copy</button>
+              <button onClick={() => onExportQti(selectedQuiz)} title="Download this quiz as a Canvas QTI .zip"><Download size={15} /> Export QTI</button>
               <button className="danger" onClick={() => { pushSnapshot(selectedQuiz, "Deleted quiz"); onUpdateCourse((current) => deleteQuiz(current, selectedQuiz.id)); setSelectedQuizId(course.quizzes.find((quiz) => quiz.id !== selectedQuiz.id)?.id ?? ""); }}><Trash2 size={15} /> Delete</button>
             </div>
           </header>

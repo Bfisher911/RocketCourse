@@ -7,6 +7,7 @@ import {
   Download,
   FileArchive,
   FileJson,
+  FileText,
   Info,
   ListChecks,
   Loader2,
@@ -70,6 +71,8 @@ export function ExportTab({
   lastDownloadName,
   onRunValidation,
   onDownload,
+  onDownloadPdf,
+  onDownloadAllQti,
   onJumpToTab
 }: {
   course: CourseProject;
@@ -84,6 +87,8 @@ export function ExportTab({
   lastDownloadName: string | null;
   onRunValidation: () => void;
   onDownload: () => void;
+  onDownloadPdf: () => void;
+  onDownloadAllQti: () => void;
   onJumpToTab: (tab: EditorTab) => void;
 }) {
   const confidence = exportConfidence(validationReport, readiness);
@@ -211,6 +216,18 @@ export function ExportTab({
           </button>
           <button type="button" className="primary" onClick={onDownload} disabled={isExporting || !subscriptionActive || !confidence.downloadable} title={!confidence.downloadable ? "Run validation and resolve blocking issues first." : "Download the .imscc package"}>
             <Download size={16} /> Download .imscc
+          </button>
+          <button type="button" className="secondary" onClick={onDownloadPdf} disabled={!subscriptionActive} title={subscriptionActive ? "Download a readable PDF copy of the whole course" : "Activate a plan to export"}>
+            <FileText size={16} /> Download course PDF
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={onDownloadAllQti}
+            disabled={!subscriptionActive || course.quizzes.length === 0}
+            title={course.quizzes.length === 0 ? "This course has no quizzes yet." : "Download all quizzes as one Canvas QTI .zip"}
+          >
+            <FileArchive size={16} /> Quizzes QTI ({course.quizzes.length})
           </button>
           <button type="button" className="secondary" onClick={downloadReport} disabled={!validationReport}>
             <FileJson size={16} /> Download report
