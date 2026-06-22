@@ -17,10 +17,32 @@ It is the operational companion to `docs/COURSEFORGE_MVP_PLAN.md`.
 | Profile auto-create trigger | `handle_new_user` | ✅ **Verified live** |
 | Pricing page | `src/components/PricingPage.tsx` | ✅ Built |
 | Server AI proxy (OpenAI) | `netlify/functions/openai.ts` | ✅ Built (real key) |
+| **Real AI blueprint generation** | `netlify/functions/generate-blueprint.ts` | ✅ **Verified live (auth+entitlement gated)** |
+| **Course project persistence** | `course_projects` via RLS | ✅ **Verified live (autosave + load)** |
+| Blueprint → full course (approval flow) | `src/services/aiGeneration.ts` | ✅ Built + verified |
 | Stripe checkout / webhook / portal functions | `netlify/functions/` | ✅ Built — needs test key + service role key |
 | Stripe test products/prices | Stripe (test mode) | ⏳ Needs owner `sk_test_` key |
-| Course project persistence | `course_projects` table ready | ⏳ Next (client CRUD via RLS) |
-| Real AI blueprint → full course | proxy ready | ⏳ Next (key is real) |
+| Full-course AI content enrichment | — | ⏳ Next (pages/assignments via AI) |
+
+## 🤖 Real AI generation is LIVE (verified)
+
+`generate-blueprint` is a secure server route: it verifies the caller's Supabase JWT, checks
+entitlement against the DB (free/demo users denied server-side), calls OpenAI server-side with the
+production blueprint prompt template, and returns validated `CourseBlueprint` JSON. Verified live:
+the demo account generated a real 12-module AI ethics blueprint, approved it, and the resulting
+15-module course autosaved to Supabase with the AI module titles.
+
+### ⚠️ OpenAI key gotcha for local dev + production
+The linked Netlify site (`thecourseforge`) has `OPENAI_API_KEY` set to a **stale JWT** (not a valid
+`sk-…` key), and `netlify dev` lets that site value override the real key in `.env`. Two consequences:
+- **Local demo:** run **`netlify dev --offline`** (the preview config `courseforge-fullstack` already
+  does this) so the real `sk-proj-…` key from `.env` is used. Plain `vite` won't serve functions.
+- **Production:** update the site's `OPENAI_API_KEY` to the real key (Netlify dashboard → Site
+  settings → Environment variables) or AI calls will 401. Also add `SUPABASE_SERVICE_ROLE_KEY` and
+  the Stripe vars there for deploys.
+
+(AI usage counting writes via the service-role key; it's best-effort and lights up once that key is
+set — generation itself works without it.)
 
 ## ✅ Supabase backend is LIVE
 

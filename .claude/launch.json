@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "courseforge-fullstack",
+      "runtimeExecutable": "netlify",
+      "runtimeArgs": ["dev", "--offline"],
+      "port": 8888
     }
   ]
 }
