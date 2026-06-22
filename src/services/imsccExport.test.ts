@@ -34,13 +34,17 @@ describe("RocketCourse export engine", () => {
     expect(instructor?.items.every((item) => item.publishState === "unpublished")).toBe(true);
   });
 
-  it("gives every content module an overview and recap boundary", () => {
+  it("gives every content module an About boundary, Content/Activities subheaders, and an End boundary", () => {
     const contentModules = sampleProject.modules.filter((module) => module.kind === "content");
 
     expect(contentModules.length).toBeGreaterThan(0);
     contentModules.forEach((module) => {
-      expect(module.items.some((item) => item.type === "page" && /overview/i.test(item.title))).toBe(true);
-      expect(module.items.some((item) => item.type === "page" && /(wrap|recap)/i.test(item.title))).toBe(true);
+      // First item is the About page; last is the End page; the two text-header dividers are present.
+      expect(module.items[0].type === "page" && /^About /i.test(module.items[0].title)).toBe(true);
+      const last = module.items[module.items.length - 1];
+      expect(last.type === "page" && /^End of /i.test(last.title)).toBe(true);
+      expect(module.items.some((item) => item.type === "subheader" && item.title === "Module Content")).toBe(true);
+      expect(module.items.some((item) => item.type === "subheader" && item.title === "Module Activities")).toBe(true);
     });
   });
 
@@ -48,11 +52,11 @@ describe("RocketCourse export engine", () => {
     const contentModules = sampleProject.modules.filter((module) => module.kind === "content");
 
     contentModules.forEach((module) => {
-      expect(module.items.some((item) => /Overview/i.test(item.title))).toBe(true);
+      expect(module.items.some((item) => /^About /i.test(item.title))).toBe(true);
       expect(module.items.some((item) => /Readings and Resources/i.test(item.title))).toBe(true);
       expect(module.items.some((item) => /Lecture and Notes/i.test(item.title))).toBe(true);
       expect(module.items.some((item) => /Practice Activity/i.test(item.title))).toBe(true);
-      expect(module.items.some((item) => /(Wrap|Recap)/i.test(item.title))).toBe(true);
+      expect(module.items.some((item) => /^End of /i.test(item.title))).toBe(true);
       expect(sampleProject.resources.filter((resource) => resource.moduleId === module.id)).toHaveLength(3);
     });
 
@@ -92,7 +96,7 @@ describe("RocketCourse export engine", () => {
   });
 
   it("wires Previous/Next module navigation with resolvable Canvas wiki tokens", () => {
-    const overviews = sampleProject.pages.filter((page) => /overview/i.test(page.title) && /^module_\d+$/.test(page.moduleId ?? ""));
+    const overviews = sampleProject.pages.filter((page) => /^About /i.test(page.title) && /^module_\d+$/.test(page.moduleId ?? ""));
     expect(overviews.length).toBeGreaterThan(1);
     overviews.forEach((page) => {
       expect(page.bodyHtml).toContain("Module Navigation");
@@ -507,7 +511,7 @@ describe("RocketCourse export engine", () => {
     const result = await importCanvasCourseFromImscc(new File([blob], "digital-storytelling.imscc"), defaultSettings);
 
     expect(result.notes.some((note) => /Recovered Canvas module structure/.test(note))).toBe(true);
-    expect(result.course.modules.some((module) => module.title.includes("Week 1") && module.items.some((item) => item.title.includes("Overview")))).toBe(true);
+    expect(result.course.modules.some((module) => module.title.includes("Week 1") && module.items.some((item) => item.title.includes("About")))).toBe(true);
     expect(result.course.pages.some((page) => page.slug === "syllabus")).toBe(true);
   });
 

@@ -138,10 +138,10 @@ export const buildCourseQualityReport = (course: CourseProject): CourseQualityRe
     ...gradedItems.filter((entry) => (entry.type === "assignment" || entry.type === "discussion") && !entry.rubricId).map((entry) => `${entry.title} is missing a rubric.`)
   ];
   const pathIssues = [
-    ...modules.filter((module) => !module.items.some((moduleItem) => /Overview/i.test(moduleItem.title))).map((module) => `${module.title} is missing an overview item.`),
+    ...modules.filter((module) => !module.items.some((moduleItem) => /(Overview|About )/i.test(moduleItem.title))).map((module) => `${module.title} is missing an overview item.`),
     ...modules.filter((module) => !module.items.some((moduleItem) => /Readings and Resources/i.test(moduleItem.title))).map((module) => `${module.title} is missing a resource item.`),
     ...modules.filter((module) => !module.items.some((moduleItem) => /Practice Activity/i.test(moduleItem.title))).map((module) => `${module.title} is missing a practice item.`),
-    ...modules.filter((module) => !module.items.some((moduleItem) => /(Wrap|Recap)/i.test(moduleItem.title))).map((module) => `${module.title} is missing a recap item.`)
+    ...modules.filter((module) => !module.items.some((moduleItem) => /(Wrap|Recap|End of )/i.test(moduleItem.title))).map((module) => `${module.title} is missing a recap item.`)
   ];
   const exportIssues = readiness.checks.filter((check) => !check.passed && check.severity === "required").map((check) => check.label);
 

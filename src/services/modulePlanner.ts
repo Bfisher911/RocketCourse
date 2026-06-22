@@ -43,7 +43,8 @@ const emptyCounts = (): Record<ModuleItemType, number> => ({
   syllabus: 0,
   assignment: 0,
   discussion: 0,
-  quiz: 0
+  quiz: 0,
+  subheader: 0
 });
 
 const touchedMetadata = (metadata: ObjectMetadata | undefined, timestamp: string): ObjectMetadata => ({
@@ -70,6 +71,7 @@ export const moduleItemTypeLabel = (type: ModuleItemType): string => {
   if (type === "syllabus") return "Syllabus";
   if (type === "assignment") return "Assignment";
   if (type === "discussion") return "Discussion";
+  if (type === "subheader") return "Text Header";
   return "Quiz";
 };
 
@@ -397,11 +399,11 @@ export const validateModulePlan = (course: CourseProject): ModulePlanValidation 
     if (module.kind !== "instructor" && module.items.length > 0 && pageTargets.length === 0) {
       addModuleIssue({ id: `${module.id}-content-page`, severity: "warning", title: "No content page", detail: "Students usually need at least one page that explains the module path." });
     }
-    if (module.kind === "content" && !module.items.some((item) => item.type === "page" && /(overview|intro|orientation)/i.test(item.title))) {
-      addModuleIssue({ id: `${module.id}-overview`, severity: "warning", title: "Overview missing", detail: "Add an overview or intro page at the start of the module." });
+    if (module.kind === "content" && !module.items.some((item) => item.type === "page" && /(overview|intro|orientation|about )/i.test(item.title))) {
+      addModuleIssue({ id: `${module.id}-overview`, severity: "warning", title: "Overview missing", detail: "Add an About/overview page at the start of the module." });
     }
-    if (module.kind === "content" && !module.items.some((item) => item.type === "page" && /(wrap|recap|synthesis|next)/i.test(item.title))) {
-      addModuleIssue({ id: `${module.id}-recap`, severity: "warning", title: "Recap missing", detail: "Add a recap or wrap-up page so students know how to close the module." });
+    if (module.kind === "content" && !module.items.some((item) => item.type === "page" && /(wrap|recap|synthesis|next|end of )/i.test(item.title))) {
+      addModuleIssue({ id: `${module.id}-recap`, severity: "warning", title: "Recap missing", detail: "Add an End/recap page so students know how to close the module." });
     }
     if (gradedTargets.length > 3) {
       addModuleIssue({ id: `${module.id}-graded-bunching`, severity: "warning", title: "Many graded items", detail: `${gradedTargets.length} graded items appear in this module. Confirm the workload is intentional.` });
@@ -414,6 +416,7 @@ export const validateModulePlan = (course: CourseProject): ModulePlanValidation 
     }
 
     targets.forEach(({ item, target }) => {
+      if (item.type === "subheader") return; // text headers are dividers with no backing object
       if (!target) {
         addModuleIssue({ id: `${item.id}-missing-target`, itemId: item.id, severity: "error", title: "Broken item reference", detail: `${item.title} points to a missing ${moduleItemTypeLabel(item.type).toLowerCase()} object.` });
         return;

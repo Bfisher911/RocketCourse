@@ -1,6 +1,6 @@
 export type CourseStatus = "draft" | "generated" | "edited" | "ready" | "exported";
 
-export type ModuleItemType = "page" | "assignment" | "discussion" | "quiz" | "syllabus";
+export type ModuleItemType = "page" | "assignment" | "discussion" | "quiz" | "syllabus" | "subheader";
 
 export type Screen =
   | "landing"
@@ -196,6 +196,17 @@ export interface ModuleItem {
   refId: string;
   order: number;
   indent: number;
+  publishState: PublishState;
+  status: CourseStatus;
+  metadata: ObjectMetadata;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  bodyHtml: string;
+  /** When the announcement should post (Canvas delayed_post_at); omit for "post now". */
+  postedAt?: string;
   publishState: PublishState;
   status: CourseStatus;
   metadata: ObjectMetadata;
@@ -524,6 +535,7 @@ export interface CourseProject {
   homepage?: HomepageState;
   syllabus?: SyllabusState;
   outcomes: CourseOutcome[];
+  announcements: Announcement[];
   modules: CourseModule[];
   pages: CoursePage[];
   assignments: Assignment[];

@@ -39,7 +39,8 @@ export const exportChecklist = (course: CourseProject): ChecklistItem[] => {
     ...course.discussions.map((discussion) => discussion.id),
     ...course.quizzes.map((quiz) => quiz.id)
   ]);
-  const noBrokenRefs = course.modules.every((module) => module.items.every((item) => ids.has(item.refId)));
+  // Text-header (subheader) items are visual dividers with no backing object — they have no refId.
+  const noBrokenRefs = course.modules.every((module) => module.items.filter((item) => item.type !== "subheader").every((item) => ids.has(item.refId)));
   const unsafeBlocks = [
     ...course.pages.map((page) => page.bodyHtml),
     ...course.assignments.map((assignment) => assignment.descriptionHtml),

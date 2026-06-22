@@ -1,6 +1,7 @@
 import { defaultSettings } from "../data/defaultSettings";
 import { getTheme } from "../data/themes";
 import type {
+  Announcement,
   Assignment,
   AssignmentGroup,
   CanvasNavigationItem,
@@ -456,7 +457,10 @@ const navigationDefaults = (): CanvasNavigationItem[] => [
   { id: "discussions", label: "Discussions", visible: false, reason: "Discussions are intentionally reached through Modules by default." },
   { id: "quizzes", label: "Quizzes", visible: false, reason: "Quizzes are intentionally reached through Modules by default." },
   { id: "pages", label: "Pages", visible: false, reason: "Pages are intentionally reached through Modules by default." },
-  { id: "files", label: "Files", visible: false, reason: "Files are linked from relevant pages to avoid exposing a file dump." }
+  { id: "files", label: "Files", visible: false, reason: "Files are linked from relevant pages to avoid exposing a file dump." },
+  { id: "outcomes", label: "Outcomes", visible: false, reason: "Outcomes support assessment design but are not a student-facing destination." },
+  { id: "rubrics", label: "Rubrics", visible: false, reason: "Rubrics are attached to assignments; students reach them in context." },
+  { id: "collaborations", label: "Collaborations", visible: false, reason: "Not used by default; enable only if your design needs it." }
 ];
 
 const makeItem = (
@@ -479,6 +483,43 @@ const makeItem = (
   status: "generated",
   metadata: metadata(timestamp)
 });
+
+// A Canvas "text header" module item (ContextModuleSubHeader) — a labeled divider inside a module
+// with no backing page/object, used to group Module Content vs Module Activities like a real course.
+const makeSubHeader = (itemId: string, title: string, order: number, timestamp: string): ModuleItem => ({
+  id: itemId,
+  type: "subheader",
+  title,
+  refId: "",
+  order,
+  indent: 0,
+  publishState: "published",
+  status: "generated",
+  metadata: metadata(timestamp)
+});
+
+// Reshape a content module's items into the professional Canvas pattern seen in mature courses:
+//   About Module X · [Module Content] · content pages · [Module Activities] · graded items · End of Module X
+// The two bracketed entries are text-header dividers. Works regardless of which optional items exist.
+const structureContentModuleItems = (items: ModuleItem[], moduleNumber: number, ts: string): ModuleItem[] => {
+  const about = items.find((item) => /^About /i.test(item.title));
+  const end = items.find((item) => /^End of /i.test(item.title));
+  const middle = items.filter((item) => item !== about && item !== end);
+  const contentItems = middle.filter((item) => item.type === "page");
+  const activityItems = middle.filter((item) => item.type !== "page");
+  const ordered: ModuleItem[] = [];
+  let position = 1;
+  const push = (item?: ModuleItem): void => {
+    if (item) ordered.push({ ...item, order: position++ });
+  };
+  push(about);
+  if (contentItems.length) ordered.push(makeSubHeader(`item_m${moduleNumber}_content_header`, "Module Content", position++, ts));
+  contentItems.forEach(push);
+  if (activityItems.length) ordered.push(makeSubHeader(`item_m${moduleNumber}_activities_header`, "Module Activities", position++, ts));
+  activityItems.forEach(push);
+  push(end);
+  return ordered;
+};
 
 const makePage = (
   pageId: string,
@@ -622,6 +663,23 @@ ${callout("Grading Criteria", "<p>Strong posts use evidence, connect to course o
     theme
   );
 };
+
+// A warm, visually rich welcome announcement. Canvas shows the latest announcements above the home
+// page (the export turns that setting on), so this is often the first thing a student reads.
+const buildWelcomeAnnouncementHtml = (courseTitle: string, theme: Theme): string =>
+  canvasShell(
+    `Welcome to ${courseTitle}!`,
+    "Read this first — it is your launch pad for the whole course.",
+    `${tipNote("Start here", `<p>Open the <strong>Start Here</strong> module, read the Course Success Guide, and skim the syllabus. Then begin Module 1. The course is laid out so you always know exactly what to do next.</p>`, theme)}
+${section("Your first three steps", checklistHtml([
+      "Open Start Here and read About This Course and the Course Success Guide.",
+      "Post in the Introduce Yourself discussion so we get to know you.",
+      "Check the Course Calendar and Workload Plan so the pace is no surprise."
+    ]), theme)}
+${exampleNote("How to stay on track", "<p>Check <strong>Announcements</strong> and the home page regularly — that is where reminders, updates, and encouragement will show up throughout the term.</p>", theme)}
+${callout("Questions? Reach out early", "<p>Use the <strong>Ask Course Questions</strong> discussion in Start Here, or contact me during office hours. I would much rather hear from you sooner than later — you are not on your own here.</p>", theme)}`,
+    theme
+  );
 
 const assignmentDescription = (title: string, moduleTopic: string, outcomeIds: string[], outcomes: CourseOutcome[], theme: Theme): string =>
   canvasShell(
@@ -1173,12 +1231,14 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
     pages.push(
       makePage(
         overviewPageId,
-        `${moduleLabel}: ${moduleTopic} Overview`,
+        `About ${moduleLabel}`,
         slugify(`${moduleLabel}-${moduleTopic}-overview`),
         canvasShell(
           `${moduleLabel}: ${moduleTopic}`,
           "Start here to understand the learning path, outcomes, activities, and expectations for this module.",
-          `${overviewPills}${section("What You Will Do", checklistHtml(["Review the module overview and required materials.", "Study the lecture/content page.", "Complete discussions, quizzes, and assignments shown in the module.", "Use the recap page to prepare for what comes next."]), theme)}
+          `${overviewPills}${callout("🚀 Mission briefing", `<p>Welcome to <strong>${moduleTopic}</strong> — your launch pad for this part of the course. Work through the module in order: each stop builds on the one before, moving you from new vocabulary to real examples to confident, evidence-based judgment.</p>`, theme)}
+${callout("🧭 Keep this question as your North Star", `<p>As you move through the readings, lecture, and practice, keep asking: <em>What is actually happening, who is affected, what does the evidence show, and what becomes possible once we understand the context?</em></p>`, theme)}
+${section("✅ What You Will Do", checklistHtml(["Review the module overview and required materials.", "Study the lecture/content page.", "Complete discussions, quizzes, and assignments shown in the module.", "Use the recap page to prepare for what comes next."]), theme)}
 ${section("Module Learning Objectives", listHtml(moduleObjectives), theme)}
 ${section("Aligned Course Outcomes", outcomeBadges(outcomes, alignedOutcomeIds, theme), theme)}
 ${section("Module at a Glance", tableHtml("Everything in this module and when it is due", ["Activity", "Type", "Due", "Counts toward grade"], glanceRows, theme), theme)}
@@ -1191,7 +1251,7 @@ ${section("Module Navigation", moduleNavBar(index), theme)}`,
         generatedAt
       )
     );
-    moduleItems.push(makeItem(id("item", overviewPageId), "page", `${moduleLabel} Overview`, overviewPageId, moduleItems.length + 1, generatedAt));
+    moduleItems.push(makeItem(id("item", overviewPageId), "page", `About ${moduleLabel}`, overviewPageId, moduleItems.length + 1, generatedAt));
 
     const resourcesPageId = id("page", `${moduleNumber}-${moduleTopic}-resources`);
     pages.push(
@@ -1428,7 +1488,7 @@ ${section("What To Carry Forward", `<p>This checkpoint should leave you with one
     pages.push(
       makePage(
         wrapPageId,
-        `${moduleLabel} Wrap-Up and Reflection`,
+        `End of ${moduleLabel}`,
         slugify(`${moduleLabel}-wrap-up`),
         canvasShell(
           `${moduleLabel} Wrap-Up`,
@@ -1444,7 +1504,7 @@ ${section("Module Navigation", moduleNavBar(index), theme)}`,
         generatedAt
       )
     );
-    moduleItems.push(makeItem(id("item", wrapPageId), "page", "Wrap-Up and Reflection", wrapPageId, moduleItems.length + 1, generatedAt));
+    moduleItems.push(makeItem(id("item", wrapPageId), "page", `End of ${moduleLabel}`, wrapPageId, moduleItems.length + 1, generatedAt));
 
     outcomes.forEach((outcome) => {
       if (alignedOutcomeIds.includes(outcome.id)) outcome.alignedModuleIds.push(moduleId);
@@ -1460,7 +1520,7 @@ ${section("Module Navigation", moduleNavBar(index), theme)}`,
       kind: "content",
       publishState: "published",
       expanded: moduleNumber <= 2,
-      items: moduleItems,
+      items: structureContentModuleItems(moduleItems, moduleNumber, generatedAt),
       status: "generated",
       metadata: metadata(generatedAt)
     });
@@ -1668,7 +1728,7 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
   ];
   modules.push({
     id: "module_instructor_guide",
-    title: "Instructor Guide",
+    title: "Instructor Resources (DO NOT PUBLISH OR DELETE)",
     description: "Instructor-only resources, import guidance, publishing checklist, and course operation notes.",
     objectives: ["Review the generated course before publication.", "Use the instructor checklist to prepare the Canvas shell."],
     workloadHours: 1,
@@ -1697,6 +1757,17 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
   const generatedSyllabusPage = pages.find((page) => page.id === syllabusId);
   if (generatedSyllabusPage) generatedSyllabusPage.bodyHtml = finalSyllabusHtml;
 
+  const announcements: Announcement[] = [
+    {
+      id: "announcement_welcome",
+      title: `Welcome to ${title}! 🚀`,
+      bodyHtml: buildWelcomeAnnouncementHtml(title, theme),
+      publishState: "published",
+      status: "generated",
+      metadata: metadata(generatedAt)
+    }
+  ];
+
   const project: CourseProject = {
     id: projectId,
     title,
@@ -1709,6 +1780,7 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     homepage: createHomepageState(generatedHomepage.content, DEFAULT_TEMPLATE_ID, theme.id, generatedAt),
     syllabus: createSyllabusState(finalSyllabusContent, finalSyllabusTemplateId, theme.id, generatedAt),
     outcomes,
+    announcements,
     modules,
     pages,
     assignments,

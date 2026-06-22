@@ -50,7 +50,9 @@ describe("module planner operations", () => {
 
     expect(copy).toBeDefined();
     expect(copy?.items.length).toBe(source!.items.length);
-    copy!.items.forEach((item) => {
+    // Text-header (subheader) items legitimately have no backing object (empty refId), so the
+    // copied-content assertions only apply to real content items.
+    copy!.items.filter((item) => item.type !== "subheader").forEach((item) => {
       expect(originalRefIds.has(item.refId), `${item.title} should not point at original content`).toBe(false);
       const target = getModuleItemTarget(duplicated, item);
       expect(target?.moduleId).toBe(copy!.id);
@@ -84,6 +86,6 @@ describe("module planner operations", () => {
     expect(updated.modules.some((module) => module.id === source.id)).toBe(false);
     const targetModule = updated.modules.find((module) => module.id === target.id);
     expect(source.items.every((item) => targetModule?.items.some((targetItem) => targetItem.id === item.id))).toBe(true);
-    targetModule?.items.filter((item) => movedRefIds.has(item.refId)).forEach((item) => expect(getModuleItemTarget(updated, item)?.moduleId).toBe(target.id));
+    targetModule?.items.filter((item) => item.type !== "subheader" && movedRefIds.has(item.refId)).forEach((item) => expect(getModuleItemTarget(updated, item)?.moduleId).toBe(target.id));
   });
 });

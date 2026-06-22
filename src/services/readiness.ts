@@ -64,7 +64,8 @@ const allModuleItemRefsResolve = (course: CourseProject): boolean => {
     ...course.discussions.map((discussion) => discussion.id),
     ...course.quizzes.map((quiz) => quiz.id)
   ]);
-  return course.modules.every((module) => module.items.every((item) => ids.has(item.refId)));
+  // Text-header (subheader) items are visual dividers with no backing object — they have no refId.
+  return course.modules.every((module) => module.items.filter((item) => item.type !== "subheader").every((item) => ids.has(item.refId)));
 };
 
 const hasModuleBoundaryPages = (course: CourseProject): boolean =>
@@ -72,8 +73,8 @@ const hasModuleBoundaryPages = (course: CourseProject): boolean =>
     .filter((module) => module.kind === "content")
     .every(
       (module) =>
-        module.items.some((item) => item.type === "page" && /overview/i.test(item.title)) &&
-        module.items.some((item) => item.type === "page" && /(wrap|recap)/i.test(item.title))
+        module.items.some((item) => item.type === "page" && /(overview|about )/i.test(item.title)) &&
+        module.items.some((item) => item.type === "page" && /(wrap|recap|end of )/i.test(item.title))
     );
 
 // Content modules need a full learning path, not just overview/recap bookends around an empty
@@ -85,10 +86,10 @@ const contentModulePathGaps = (course: CourseProject): string[] =>
       const titles = module.items.map((item) => item.title);
       const has = (pattern: RegExp): boolean => titles.some((title) => pattern.test(title));
       const missing: string[] = [];
-      if (!has(/overview/i)) missing.push("overview");
+      if (!has(/(overview|about )/i)) missing.push("overview");
       if (!has(/(reading|resource)/i)) missing.push("readings/resources");
       if (!has(/(lecture|notes|practice|activity)/i)) missing.push("lecture/practice");
-      if (!has(/(wrap|recap)/i)) missing.push("recap");
+      if (!has(/(wrap|recap|end of )/i)) missing.push("recap");
       return missing.length ? [`${module.title}: missing ${missing.join(", ")}`] : [];
     });
 
@@ -120,6 +121,7 @@ const danglingReferences = (course: CourseProject): string[] => {
   const problems: string[] = [];
   course.modules.forEach((module) =>
     module.items.forEach((item) => {
+      if (item.type === "subheader") return; // text headers have no backing object
       if (!anyObject(item.refId)) problems.push(`Module item "${item.title}" points to missing object ${item.refId}`);
       else if (!typeMatches(item.type, item.refId)) problems.push(`Module item "${item.title}" is typed ${item.type} but references a different object kind`);
     })

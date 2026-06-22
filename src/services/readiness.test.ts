@@ -38,7 +38,9 @@ const degraders = {
     c.modules
       .filter((m) => m.kind === "content")
       .forEach((module) => {
-        module.items = module.items.filter((item) => /overview/i.test(item.title) || /(wrap|recap)/i.test(item.title));
+        // Keep only the About/End bookends so the shallow boundary check still passes but the
+        // deeper learning-path check catches the missing middle.
+        module.items = module.items.filter((item) => /(overview|about )/i.test(item.title) || /(wrap|recap|end of )/i.test(item.title));
       });
     return c;
   },
