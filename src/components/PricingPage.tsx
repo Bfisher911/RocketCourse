@@ -14,7 +14,7 @@ import {
 // (`onChoosePlan`) which routes self-serve plans to Stripe Checkout (when configured) or the
 // signup flow, and contact-sales plans to a sales email.
 
-const SALES_EMAIL = "sales@courseforge.app";
+const SALES_EMAIL = "sales@rocketcourse.app";
 
 export function PricingPage({
   onChoosePlan,
@@ -44,7 +44,7 @@ export function PricingPage({
             Plans for instructors, designers, and <span className="gradient-text">whole departments</span>
           </h1>
           <p>
-            CourseForge is a Canvas-first AI course builder. Start free with a static sample, then pick a plan to
+            RocketCourse is a Canvas-first AI course builder. Start free with a static sample, then pick a plan to
             generate, edit, theme, and export your own Canvas-importable <strong>.imscc</strong> packages.
           </p>
         </div>
@@ -137,7 +137,7 @@ export function PricingPage({
                   </li>
                 ))}
               </ul>
-              <a className="link-button" href={`mailto:${SALES_EMAIL}?subject=CourseForge ${encodeURIComponent(plan.name)} inquiry`}>
+              <a className="link-button" href={`mailto:${SALES_EMAIL}?subject=RocketCourse ${encodeURIComponent(plan.name)} inquiry`}>
                 Contact sales <ArrowRight size={16} />
               </a>
             </article>

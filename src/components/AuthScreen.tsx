@@ -67,7 +67,7 @@ export function AuthScreen({
         <span className="section-eyebrow">
           <ShieldCheck size={14} /> {isSignup ? "Create your account" : "Welcome back"}
         </span>
-        <h1>{isSignup ? "Start building Canvas courses" : "Sign in to CourseForge"}</h1>
+        <h1>{isSignup ? "Start building Canvas courses" : "Sign in to RocketCourse"}</h1>
         <p className="auth-sub">
           {isSignup
             ? "Create an account to generate, edit, theme, and export your own Canvas courses."
@@ -127,7 +127,7 @@ export function AuthScreen({
             </span>
           ) : (
             <span>
-              New to CourseForge?{" "}
+              New to RocketCourse?{" "}
               <button className="link" onClick={() => onModeChange("signup")}>
                 Create an account
               </button>

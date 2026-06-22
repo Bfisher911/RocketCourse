@@ -174,7 +174,7 @@ export const exportConfidence = (report: ExportValidationReport | null, readines
 export const buildValidationReportJson = (course: CourseProject, report: ExportValidationReport, readiness: ReadinessReport): string =>
   JSON.stringify(
     {
-      generatedBy: "CourseForge Canvas Builder",
+      generatedBy: "RocketCourse Canvas Builder",
       disclaimer: "Local package validation only. Canvas sandbox import has NOT been verified; do not treat this as proof of Canvas compatibility.",
       course: { title: course.title, packageName: report.packageName },
       checkedAt: report.checkedAt,
@@ -195,12 +195,12 @@ export const buildValidationReportJson = (course: CourseProject, report: ExportV
   );
 
 // A copy-pasteable manual checklist for importing into a Canvas sandbox and verifying the result —
-// the step CourseForge cannot perform itself.
+// the step RocketCourse cannot perform itself.
 export const buildImportChecklistText = (course: CourseProject, report: ExportValidationReport | null): string => {
   const blockers = report ? report.issues.filter((issue) => issue.severity === "error").length : null;
   const warnings = report ? report.issues.filter((issue) => issue.severity === "warning").length : null;
   const lines: string[] = [
-    "CourseForge → Canvas import & verification checklist",
+    "RocketCourse → Canvas import & verification checklist",
     `Package: ${report?.packageName ?? `${course.title}.imscc`}`,
     report ? `Local validation: ${report.valid ? "Passed" : "Blocked"} (score ${report.score}, ${blockers} blocker(s), ${warnings} warning(s))` : "Local validation: not run yet",
     "",
@@ -208,7 +208,7 @@ export const buildImportChecklistText = (course: CourseProject, report: ExportVa
     "Import into a NON-production Canvas course first.",
     "",
     "Before importing:",
-    `[ ] Resolve ${blockers ?? "all"} blocking issue(s) in CourseForge's Export tab.`,
+    `[ ] Resolve ${blockers ?? "all"} blocking issue(s) in RocketCourse's Export tab.`,
     "[ ] Skim the warnings; decide which to fix now.",
     "",
     "Import into a Canvas sandbox:",

@@ -9,7 +9,7 @@ import { buildImsccZip, generateImsccBlob, validateImsccZip } from "./imsccExpor
 import { importCanvasCourseFromImscc } from "./imsccImport";
 import { buildReadinessReport } from "./readiness";
 
-describe("CourseForge export engine", () => {
+describe("RocketCourse export engine", () => {
   it("scores a generated course as ready with Canvas-specific checks", () => {
     const report = buildReadinessReport(sampleProject);
 
@@ -322,7 +322,7 @@ describe("CourseForge export engine", () => {
     expect(bannerSvg).toContain(theme.bannerLabel);
     expect(courseSettingsXml).toContain(`<course_color>${theme.accent}</course_color>`);
     expect(syllabusHtml).toContain(theme.accentDark);
-    expect(syllabusHtml).not.toMatch(/CourseForge|theme-choice|theme-preview-tabs/);
+    expect(syllabusHtml).not.toMatch(/RocketCourse|theme-choice|theme-preview-tabs/);
   });
 
   it("exports auto-graded QTI with choices, answer keys, and feedback Canvas can import", async () => {

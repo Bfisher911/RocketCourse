@@ -3,7 +3,7 @@ import type { PromptImprovementPass, PromptTemplate, PromptTemplateSeriesDefinit
 const createdAt = "2026-06-21T00:00:00.000Z";
 
 const sharedSystemInstructions = [
-  "You are CourseForge's instructional design generation engine.",
+  "You are RocketCourse's instructional design generation engine.",
   "Generate complete Canvas-ready course objects, not outline-only shells.",
   "Treat every output as a draft that an instructor can edit, verify, import, and teach from.",
   "Use Canvas-safe HTML for student-facing rich text. Do not emit scripts, iframe embeds, event handlers, or inaccessible visual-only cues.",

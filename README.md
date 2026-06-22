@@ -1,6 +1,6 @@
-# CourseForge — Canvas-first AI Course Builder
+# RocketCourse — Canvas-first AI Course Builder
 
-CourseForge turns a course idea or syllabus into an editable Canvas course shell and exports a
+RocketCourse turns a course idea or syllabus into an editable Canvas course shell and exports a
 Canvas-oriented `.imscc` package. It is a working SaaS: real auth, persistence, server-side AI,
 entitlement, themes, and export — built for higher-ed instructors and instructional designers.
 

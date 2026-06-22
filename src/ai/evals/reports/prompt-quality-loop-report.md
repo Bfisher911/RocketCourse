@@ -1,8 +1,8 @@
-# CourseForge Prompt Quality Loop Report
+# RocketCourse Prompt Quality Loop Report
 
 ## Scope
 
-This report documents the first prompt-template quality loop for CourseForge. The implementation creates versioned prompt templates, fixture inputs, a deterministic evaluation harness, and a rubric that can later compare saved server-side AI outputs.
+This report documents the first prompt-template quality loop for RocketCourse. The implementation creates versioned prompt templates, fixture inputs, a deterministic evaluation harness, and a rubric that can later compare saved server-side AI outputs.
 
 ## Passes Represented
 

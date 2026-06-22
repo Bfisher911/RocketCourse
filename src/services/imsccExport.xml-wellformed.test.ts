@@ -25,7 +25,7 @@ describe("imscc XML well-formedness", () => {
     expect(isXmlPath("course_settings/syllabus.html")).toBe(false);
     expect(isXmlPath("course_settings/canvas_export.txt")).toBe(false);
     expect(isXmlPath("web_resources/syllabus-printable.pdf")).toBe(false);
-    expect(isXmlPath("courseforge-readme.txt")).toBe(false);
+    expect(isXmlPath("rocketcourse-readme.txt")).toBe(false);
   });
 
   it("parses every generated XML file in the package as well-formed", async () => {

@@ -451,7 +451,7 @@ export function PagesTab({
                 <AlertTriangle size={16} />
                 <div>
                   <strong>Required page safeguard</strong>
-                  <p>This page anchors Canvas navigation or CourseForge export expectations. Delete it only if you are rebuilding that structure intentionally.</p>
+                  <p>This page anchors Canvas navigation or RocketCourse export expectations. Delete it only if you are rebuilding that structure intentionally.</p>
                 </div>
                 <button className="small-button danger" onClick={() => removePage(selectedPage, true)}>
                   Confirm delete

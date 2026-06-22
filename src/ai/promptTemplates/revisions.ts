@@ -4,7 +4,7 @@ export const revisionPromptTemplates = makePromptTemplateSeries({
   idBase: "revision",
   stage: "revision",
   name: "Object Revision Actions",
-  purpose: "Revise existing CourseForge objects without losing structure, alignment, or Canvas readiness.",
+  purpose: "Revise existing RocketCourse objects without losing structure, alignment, or Canvas readiness.",
   inputSchemaDescription:
     "Input includes course context, target object type, target object, revision action, outcomes, module context, current rubric or quiz context, constraints, and human instructions.",
   outputSchemaDescription:

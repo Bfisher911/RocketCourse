@@ -92,7 +92,7 @@ export const plans: Plan[] = [
   {
     key: "free_preview",
     name: "Free Preview",
-    tagline: "See CourseForge with a prebuilt sample course.",
+    tagline: "See RocketCourse with a prebuilt sample course.",
     priceCents: 0,
     billingInterval: "contact",
     checkoutMode: "free",
@@ -102,7 +102,7 @@ export const plans: Plan[] = [
     seatsLimit: 1,
     projectsLimit: 0,
     capabilities: { ...noCapabilities },
-    audience: "Anyone evaluating CourseForge",
+    audience: "Anyone evaluating RocketCourse",
     features: [
       "Public static demo course",
       "Browse the read-only sample editor",

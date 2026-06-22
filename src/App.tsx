@@ -692,10 +692,10 @@ function TopBar({
   const { session, entitlement } = auth;
   return (
     <header className="topbar">
-      <button className="brand" onClick={() => onNavigate("landing")} aria-label="Open CourseForge landing page">
-        <span className="brand-mark">CF</span>
+      <button className="brand" onClick={() => onNavigate("landing")} aria-label="Open RocketCourse landing page">
+        <span className="brand-mark">RC</span>
         <span>
-          <strong>CourseForge</strong>
+          <strong>RocketCourse</strong>
           <small>Canvas Builder</small>
         </span>
       </button>
@@ -769,7 +769,7 @@ const howItWorks = [
   {
     icon: Sparkles,
     title: "Generate & edit",
-    body: "CourseForge builds modules, pages, assignments, discussions, quizzes, and rubrics as native Canvas objects you can edit, reorder, and refine."
+    body: "RocketCourse builds modules, pages, assignments, discussions, quizzes, and rubrics as native Canvas objects you can edit, reorder, and refine."
   },
   {
     icon: FileArchive,
@@ -829,7 +829,7 @@ function Landing({ onStart, onDashboard, onPricing }: { onStart: () => void; onD
             Generate a full <span className="gradient-text">Canvas course</span> in minutes.
           </h1>
           <p>
-            CourseForge turns a course prompt and a few guided settings into a structured, editable Canvas shell — then
+            RocketCourse turns a course prompt and a few guided settings into a structured, editable Canvas shell — then
             locally validates and exports a Canvas-oriented <strong>.imscc</strong> package. Built for instructors and instructional
             designers.
           </p>
@@ -856,7 +856,7 @@ function Landing({ onStart, onDashboard, onPricing }: { onStart: () => void; onD
             </span>
           </div>
         </div>
-        <section className="product-preview" aria-label="CourseForge workflow preview">
+        <section className="product-preview" aria-label="RocketCourse workflow preview">
           <div className="preview-header">
             <span>AI and Modern Society</span>
             <strong>Readiness 94%</strong>

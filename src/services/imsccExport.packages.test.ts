@@ -99,7 +99,7 @@ const writePackage = async (fileName: string, zip: Awaited<ReturnType<typeof bui
   fs.writeFileSync(`${packageDir}/${fileName}`, buffer);
 };
 
-describe("CourseForge package matrix", () => {
+describe("RocketCourse package matrix", () => {
   it.each(courses)("builds a valid Canvas-importable package for $name", async ({ name, course }) => {
     const zip = await buildImsccZip(course);
     const report = await validateImsccZip(course, zip);

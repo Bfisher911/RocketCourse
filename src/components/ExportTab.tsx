@@ -153,7 +153,7 @@ export function ExportTab({
           </span>
           <h2>Export</h2>
           <p>
-            CourseForge builds a <strong>Canvas-oriented .imscc package</strong> in your browser and validates it locally. Canvas sandbox import is <strong>not verified</strong> — always test in a sandbox course before relying on it.
+            RocketCourse builds a <strong>Canvas-oriented .imscc package</strong> in your browser and validates it locally. Canvas sandbox import is <strong>not verified</strong> — always test in a sandbox course before relying on it.
           </p>
         </div>
         <div className={`overview-health ${heroTone}`}>

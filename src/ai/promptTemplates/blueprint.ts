@@ -4,7 +4,7 @@ export const blueprintPromptTemplates = makePromptTemplateSeries({
   idBase: "blueprint",
   stage: "blueprint",
   name: "Course Blueprint Generation",
-  purpose: "Generate a complete CourseForge blueprint before detailed Canvas object drafting.",
+  purpose: "Generate a complete RocketCourse blueprint before detailed Canvas object drafting.",
   inputSchemaDescription:
     "Input includes prompt, CourseSettings, source file notes, target audience, modality, credit hours, length, module count, assessment preferences, resource constraints, tone, and any instructor-provided source material.",
   outputSchemaDescription:

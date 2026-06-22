@@ -38,7 +38,7 @@ describe("homepage export", () => {
     expect(zip.file("web_resources/course-banner.svg")).toBeTruthy();
   });
 
-  it("contains no CourseForge UI-only artifacts or preview-only assets", async () => {
+  it("contains no RocketCourse UI-only artifacts or preview-only assets", async () => {
     const html = await readHomepage();
     // Builder chrome must never leak into the exported page.
     expect(html).not.toMatch(/hp-canvas|hp-template|QUICK IMPROVEMENTS|Quick improvements/);
