@@ -10,37 +10,38 @@ It is the operational companion to `docs/COURSEFORGE_MVP_PLAN.md`.
 | --- | --- | --- |
 | Plan catalog (source of truth) | `src/data/plans.ts` | ✅ Built |
 | Central entitlement service | `src/services/entitlement.ts` | ✅ Built + tested |
-| Database schema + RLS | `supabase/migrations/0001_init.sql` | ✅ Written (not applied) |
-| Plans seed | `supabase/migrations/0002_seed_plans.sql` | ✅ Written (not applied) |
-| Server AI proxy (OpenAI) | `netlify/functions/openai.ts` | ✅ Built (real key configured) |
-| Supabase client | `src/services/supabaseClient.ts` | ⚙️ Scaffold (auth flows pending) |
-| Auth UI / context | — | ⏳ Pending |
-| Stripe test products/prices | Stripe (test mode) | ⏳ Pending (free, no approval) |
-| Stripe checkout / webhook / portal functions | `netlify/functions/` | ⏳ Pending |
-| Pricing page | — | ⏳ Pending |
-| Real AI blueprint → full course | — | ⏳ Pending (proxy ready) |
+| Database schema + RLS | `supabase/migrations/0001_init.sql` | ✅ **Applied to live project** |
+| Plans seed | `supabase/migrations/0002_seed_plans.sql` | ✅ **Applied (8 plans live)** |
+| Supabase project | `yxyilycskkbcypczlxif` (us-east-1) | ✅ **ACTIVE_HEALTHY** |
+| Supabase auth (signup/login/session) | `src/auth/*` | ✅ **Verified live** |
+| Profile auto-create trigger | `handle_new_user` | ✅ **Verified live** |
+| Pricing page | `src/components/PricingPage.tsx` | ✅ Built |
+| Server AI proxy (OpenAI) | `netlify/functions/openai.ts` | ✅ Built (real key) |
+| Stripe checkout / webhook / portal functions | `netlify/functions/` | ✅ Built — needs test key + service role key |
+| Stripe test products/prices | Stripe (test mode) | ⏳ Needs owner `sk_test_` key |
+| Course project persistence | `course_projects` table ready | ⏳ Next (client CRUD via RLS) |
+| Real AI blueprint → full course | proxy ready | ⏳ Next (key is real) |
 
-## ⛔ Owner approval needed (money gate)
+## ✅ Supabase backend is LIVE
 
-Creating a dedicated Supabase project for CourseForge costs **$10/month** (confirmed via the
-Supabase API for org `Bfisher911's Org`). The org's free active-project slots are already used by
-other apps, so a new project is billable. Per the project's money-gate rules, **no project will be
-created without explicit owner approval.**
+Owner approved the **$10/month** project. Created project **`yxyilycskkbcypczlxif`** (name
+"CourseForge", region us-east-1, ACTIVE_HEALTHY). Both migrations applied; all 8 plans seeded.
+Real signup → profile-trigger → login → session verified in-browser. `.env` now holds the real
+`VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (the app auto-switched out of local-dev mode).
 
-Everything that does **not** require spend is being built first (schema files, entitlement logic,
-Stripe **test-mode** setup, server functions, UI) so the backend lights up the moment approval lands.
+**Demo account (created + email-confirmed):** `zoomedic911+cfdemo@gmail.com` / `CourseForge123`.
 
-**What the $10/month unblocks:** real signup/login, persistence of course projects, server-side
-entitlement enforcement, and the Stripe webhook writing subscription status — i.e. the actual
-end-to-end paid demo. Until then the app runs in **local demo mode** (in-memory, no account).
+### ⚠️ Owner action items to finish the billing + server-enforcement half
 
-### When approved — apply the schema
-With the Supabase project created (region `us-east-1` recommended), apply in order:
-1. `supabase/migrations/0001_init.sql` — tables, triggers, RLS policies.
-2. `supabase/migrations/0002_seed_plans.sql` — plan catalog seed.
-
-Then set `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and (server-only)
-`SUPABASE_SERVICE_ROLE_KEY` in `.env` / the Netlify dashboard.
+1. **Paste the Supabase SERVICE ROLE key** into `.env` as `SUPABASE_SERVICE_ROLE_KEY` (Supabase
+   dashboard → Project Settings → API → `service_role` secret). The MCP cannot expose it. Required
+   for the Stripe webhook and server-side entitlement enforcement to write/read trusted rows.
+2. **Add a Stripe TEST secret key** to `.env` as `STRIPE_SECRET_KEY=sk_test_…`. Then I create the 5
+   test products/prices and set the `STRIPE_PRICE_*` vars, and wire `STRIPE_WEBHOOK_SECRET`.
+3. **(Recommended) Disable email confirmation** for a frictionless demo: Supabase dashboard →
+   Authentication → Sign In / Providers → Email → turn **off** "Confirm email". Otherwise new signups
+   must click an emailed link (the seeded demo account above is already confirmed). The MCP can't
+   toggle this.
 
 ## Stripe (test mode — free, no approval) — ⚠️ blocked on a test key
 
