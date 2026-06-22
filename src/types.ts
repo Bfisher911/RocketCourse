@@ -2,7 +2,22 @@ export type CourseStatus = "draft" | "generated" | "edited" | "ready" | "exporte
 
 export type ModuleItemType = "page" | "assignment" | "discussion" | "quiz" | "syllabus";
 
-export type Screen = "landing" | "pricing" | "login" | "signup" | "dashboard" | "intake" | "blueprint" | "progress" | "editor";
+export type Screen =
+  | "landing"
+  | "pricing"
+  | "about"
+  | "guides"
+  | "contact"
+  | "demo"
+  | "terms"
+  | "privacy"
+  | "login"
+  | "signup"
+  | "dashboard"
+  | "intake"
+  | "blueprint"
+  | "progress"
+  | "editor";
 
 export type EditorTab =
   | "Overview"
@@ -127,11 +142,23 @@ export interface CourseSettings {
   sourceFiles: SourceFile[];
 }
 
+export type SourceParseStatus = "attached" | "parsing" | "parsed" | "needs-review" | "failed";
+
 export interface SourceFile {
   id: string;
   name: string;
   sizeLabel: string;
-  status: "attached" | "parsed";
+  status: SourceParseStatus;
+  /** File kind/extension (e.g. "pdf", "docx", "txt", "paste"). */
+  kind?: string;
+  /** Extracted text used to inform generation. Empty when parsing failed/was skipped. */
+  text?: string;
+  /** Length of the extracted text. */
+  chars?: number;
+  /** Short preview of the extracted text for the UI. */
+  preview?: string;
+  /** Honest note shown to the user (e.g. why a PDF couldn't be fully extracted). */
+  note?: string;
 }
 
 // Subtle, Canvas-safe texture rendered as pure CSS gradients (no url() — Canvas's sanitizer

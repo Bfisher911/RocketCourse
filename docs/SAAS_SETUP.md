@@ -1,8 +1,8 @@
-# CourseForge SaaS Setup & Status
+# RocketCourse SaaS Setup & Status
 
-This doc tracks the work to turn the CourseForge prototype into a working SaaS demo
-(auth → pricing → Stripe checkout → paid dashboard → AI generation → editor → export).
-It is the operational companion to `docs/COURSEFORGE_MVP_PLAN.md`.
+This doc tracks the work to turn the RocketCourse (formerly CourseForge) prototype into a working
+SaaS demo (auth → pricing → Stripe checkout → paid dashboard → AI generation → editor → export).
+It is the operational companion to `docs/ROCKETCOURSE_MVP_PLAN.md`.
 
 ## Architecture at a glance
 
@@ -47,11 +47,13 @@ set — generation itself works without it.)
 ## ✅ Supabase backend is LIVE
 
 Owner approved the **$10/month** project. Created project **`yxyilycskkbcypczlxif`** (name
-"CourseForge", region us-east-1, ACTIVE_HEALTHY). Both migrations applied; all 8 plans seeded.
-Real signup → profile-trigger → login → session verified in-browser. `.env` now holds the real
-`VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (the app auto-switched out of local-dev mode).
+"CourseForge" — the internal project id predates the rename, region us-east-1, ACTIVE_HEALTHY). Both
+migrations applied; all 8 plans seeded. Real signup → profile-trigger → login → session verified
+in-browser. `.env` now holds the real `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (the app
+auto-switched out of local-dev mode).
 
-**Demo account (created + email-confirmed):** `zoomedic911+cfdemo@gmail.com` / `CourseForge123`.
+**Demo account (created + email-confirmed):** `zoomedic911+cfdemo@gmail.com` / `CourseForge123`
+(credentials predate the rename).
 
 ### Owner action items
 
@@ -73,7 +75,7 @@ Real signup → profile-trigger → login → session verified in-browser. `.env
 `livemode: true` and are real products from the owner's other apps). The money-gate rules forbid
 creating live products/prices/webhooks without approval, and the demo wants **test mode** anyway.
 
-**Therefore CourseForge will NOT create any Stripe objects via the live MCP.** All Stripe
+**Therefore RocketCourse will NOT create any Stripe objects via the live MCP.** All Stripe
 integration is built as **env-driven code** (checkout/webhook/portal functions + a sync script) that
 lights up once a Stripe **TEST** secret key (`sk_test_…`) is provided. To unblock, the owner can
 either (a) add a `sk_test_…` key to `.env`/Netlify so the sync script creates the test products, or
@@ -92,8 +94,23 @@ Test card: `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP.
 ## Environment variables
 
 See `.env.example` for the full, commented list. Secrets (`*_SERVICE_ROLE_KEY`,
-`OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) are **server-only** and must never
-carry a `VITE_` prefix (which would bundle them into the browser).
+`OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`) are **server-only**
+and must never carry a `VITE_` prefix (which would bundle them into the browser). The documented set
+covers `DEFAULT_CHAT_MODEL` / `OPENAI_MODEL`, `EMBEDDING_PROVIDER`, `OPENAI_API_KEY`, the
+Supabase vars, the Stripe vars, the app URLs, and the contact-form vars below.
+
+### Contact-form email (`netlify/functions/contact.ts`)
+
+The Contact page routes inquiries through a Netlify function using the Resend HTTP API:
+
+- **`RESEND_API_KEY`** — Resend API key for contact-form email delivery. **If unset, the contact
+  form gracefully falls back to a prefilled mailto link; no email is sent server-side.**
+- **`CONTACT_TO_EMAIL`** — destination inbox. Defaults to `rocketproof.ai@gmail.com`.
+- **`CONTACT_FROM_EMAIL`** — the verified Resend sender. Defaults to
+  `RocketCourse <onboarding@resend.dev>`.
+
+The contact subject is **always prefixed `[RocketCourse Inquiry]`** because that inbox is shared with
+Rocketproof.
 
 ## Entitlement model (how gating stays honest)
 
@@ -101,3 +118,29 @@ carry a `VITE_` prefix (which would bundle them into the browser).
 snapshot (the Supabase `subscriptions` row, written only by the Stripe webhook) plus the plan
 catalog. The browser may call it to disable locked buttons, but the **server re-checks** before any
 paid action (AI generation, private export). There is no client-only toggle that grants real access.
+
+## Remaining owner actions & known limitations
+
+The Stripe / Supabase / OpenAI owner-action notes above still stand. In addition:
+
+1. **Resend contact-email delivery (owner action).** Real contact-email sending needs a
+   **`RESEND_API_KEY`** plus a **verified sender domain** in Resend (and, for production, those vars
+   set on the Netlify site). Until then, the Contact form falls back to a prefilled **mailto** link,
+   which works without any server config — no email is lost, it just opens the user's mail client.
+2. **Canvas sandbox import is still owner-verified.** The package builder is "Canvas-oriented"; it
+   has **not** been imported into a real Canvas sandbox here. Do not claim "Canvas-verified" until
+   the owner imports an `.imscc` into a sandbox and compares against a known-good export.
+3. **Source PDF parsing is best-effort.** Uploaded **text, Markdown, HTML, and `.docx`** sources
+   parse reliably in the browser; **PDF** text extraction is best-effort (many PDFs compress their
+   text streams), and the app says so honestly rather than pretending the content was read. Paste
+   key sections when a PDF won't parse.
+
+## Security & privacy notes
+
+- **Source upload retention.** Uploaded source files are parsed **for text in the browser** and are
+  **not retained as files server-side**. Only the extracted text (capped per file) is used to inform
+  generation.
+- **AI review disclaimer.** Generated course content is a **first draft that requires human review**.
+  Verify resources, dates, examples, local policies, accessibility, and assessment fit before
+  publishing.
+- **Quiz verification disclaimer.** Generated quizzes and **answer keys must be verified** before use.

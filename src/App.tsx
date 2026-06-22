@@ -13,10 +13,13 @@ import {
   FileText,
   Gauge,
   GripVertical,
+  Home,
+  Info,
   Layers,
   LayoutDashboard,
   Loader2,
   Lock,
+  Mail,
   MessageSquareText,
   MoveRight,
   Palette,
@@ -46,6 +49,13 @@ import { PricingPage } from "./components/PricingPage";
 import { QuizzesTab } from "./components/QuizzesTab";
 import { RubricsTab } from "./components/RubricsTab";
 import { SyllabusTab } from "./components/SyllabusTab";
+import { AboutPage } from "./components/AboutPage";
+import { GuidesPage } from "./components/GuidesPage";
+import { ContactPage } from "./components/ContactPage";
+import { DemoIntro } from "./components/DemoIntro";
+import { DemoTour } from "./components/DemoTour";
+import { LegalPage } from "./components/LegalPage";
+import { PublicFooter } from "./components/PublicFooter";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
@@ -59,6 +69,18 @@ import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } fr
 import { buildCourseQualityReport } from "./services/courseQuality";
 import { generateAllQuizzesQtiBlob, generateImsccBlob, generateQuizQtiBlob } from "./services/imsccExport";
 import { coursePdfFileName, generateCoursePdfBlob } from "./services/coursePdf";
+import {
+  allQuizzesAnswerKeyPdfFileName,
+  allQuizzesStudentPdfFileName,
+  buildAllQuizzesAnswerKeyPdfBlob,
+  buildAllQuizzesStudentPdfBlob,
+  buildQuizAnswerKeyPdfBlob,
+  buildQuizStudentPdfBlob,
+  quizAnswerKeyPdfFileName,
+  quizStudentPdfFileName
+} from "./services/quizPdf";
+import { buildSyllabusPdfBlob, syllabusPdfFileName } from "./services/syllabusPdf";
+import { augmentPromptWithSources, parseSourceFile } from "./services/sourceParsing";
 import { importCanvasCourseFromImscc } from "./services/imsccImport";
 import {
   duplicateModuleWithContent,
@@ -199,6 +221,14 @@ function App() {
   const [customThemes, setCustomThemes] = useState<Theme[]>([]);
   const [checkoutBusyPlan, setCheckoutBusyPlan] = useState<PlanKey | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  // Demo mode: the public, pre-populated sample course explored without AI/account. `demoActive`
+  // turns on the demo chrome (banner + Back to Home) in the editor; `tourOpen` runs the walkthrough.
+  const [demoActive, setDemoActive] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  // The public sample course is freely exportable inside the demo (the .imscc/QTI/PDF packages are
+  // built entirely in the browser from in-browser data — no server secret is involved). Real
+  // user-generated courses still require a paid plan; the costly server-side AI stays entitlement-gated.
+  const exportAllowed = subscriptionActive || demoActive;
 
   const readiness = useMemo(() => buildReadinessReport(course), [course]);
   const quality = useMemo(() => buildCourseQualityReport(course), [course]);
@@ -208,7 +238,7 @@ function App() {
   useEffect(() => {
     if (screen !== "progress") return;
     if (progressIndex >= progressSteps.length) {
-      const base = generateCourseProject({ prompt, settings });
+      const base = generateCourseProject({ prompt: augmentPromptWithSources(prompt, settings.sourceFiles), settings });
       // The generator derives its id from the title slug, so two courses with the same title (or a
       // generation that falls back to the default title) collide with the public sample. Give every
       // generated project a unique id so it persists as its own row and never shadows the sample.
@@ -219,6 +249,8 @@ function App() {
       setImportNotes([]);
       setExportMode(generated.exportMode);
       setActiveTab("Overview");
+      setDemoActive(false);
+      setTourOpen(false);
       setScreen("editor");
       return;
     }
@@ -332,7 +364,7 @@ function App() {
     setAiBusy(true);
     setAiError(null);
     try {
-      const result = await generateBlueprint(prompt, settings);
+      const result = await generateBlueprint(augmentPromptWithSources(prompt, settings.sourceFiles), settings);
       setBlueprint(result);
       setScreen("blueprint");
     } catch (error) {
@@ -352,17 +384,19 @@ function App() {
     setImportNotes([]);
     setExportMode(generated.exportMode);
     setActiveTab("Overview");
+    setDemoActive(false);
+    setTourOpen(false);
     setScreen("editor");
   };
 
-  // Pricing CTA. Free routes to the sample editor (public demo). Paid plans require an account —
+  // Pricing CTA. Free routes to the public demo intro. Paid plans require an account —
   // an unauthenticated user is sent to sign up first. Authenticated users in real (Supabase) mode go
   // to Stripe Checkout; in local dev mode (no Supabase) choosing a plan simulates activation so the
   // offline demo still works. Contact-sales uses the mailto link in the card.
   const handleChoosePlan = (plan: Plan): void => {
     setCheckoutError(null);
     if (plan.checkoutMode === "free" || plan.checkoutMode === "contact") {
-      if (plan.checkoutMode === "free") setScreen("editor");
+      if (plan.checkoutMode === "free") setScreen("demo");
       return;
     }
     if (!auth.session) {
@@ -404,17 +438,68 @@ function App() {
       setExportMode(result.course.exportMode);
       setValidationReport(null);
       setActiveTab("Overview");
+      setDemoActive(false);
+      setTourOpen(false);
       setScreen("editor");
       return;
     }
 
-    const sourceFiles: SourceFile[] = fileList.map((file, index) => ({
-      id: `source_${Date.now()}_${index}`,
-      name: file.name,
-      sizeLabel: `${Math.max(1, Math.round(file.size / 1024))} KB`,
-      status: "attached"
+    // Show the files immediately as "parsing", then extract real text in the background and update
+    // each one's status + extracted text so generation can actually use the content.
+    const stamped = fileList.map((file, index) => ({
+      file,
+      id: `source_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`,
+      sizeLabel: `${Math.max(1, Math.round(file.size / 1024))} KB`
     }));
-    updateSettings("sourceFiles", [...settings.sourceFiles, ...sourceFiles]);
+    const pending: SourceFile[] = stamped.map(({ file, id, sizeLabel }) => ({
+      id,
+      name: file.name,
+      sizeLabel,
+      status: "parsing"
+    }));
+    setSettings((current) => ({ ...current, sourceFiles: [...current.sourceFiles, ...pending] }));
+
+    await Promise.all(
+      stamped.map(async ({ file, id, sizeLabel }) => {
+        const parsed = await parseSourceFile(file);
+        const updated: SourceFile = {
+          id,
+          name: file.name,
+          sizeLabel,
+          status: parsed.status,
+          kind: parsed.kind,
+          text: parsed.text,
+          chars: parsed.chars,
+          preview: parsed.preview,
+          note: parsed.note
+        };
+        setSettings((current) => ({
+          ...current,
+          sourceFiles: current.sourceFiles.map((source) => (source.id === id ? updated : source))
+        }));
+      })
+    );
+  };
+
+  // Add pasted source material (syllabus text, outcomes, readings, notes) as a parsed source.
+  const handlePasteSource = (text: string): void => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const source: SourceFile = {
+      id: `paste_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: `Pasted notes (${new Date().toLocaleDateString()})`,
+      sizeLabel: `${Math.max(1, Math.round(trimmed.length / 1024))} KB`,
+      status: "parsed",
+      kind: "paste",
+      text: trimmed.slice(0, 20_000),
+      chars: trimmed.length,
+      preview: trimmed.replace(/\s+/g, " ").slice(0, 600)
+    };
+    setSettings((current) => ({ ...current, sourceFiles: [...current.sourceFiles, source] }));
+  };
+
+  const handleRemoveSource = (id: string): void => {
+    setSettings((current) => ({ ...current, sourceFiles: current.sourceFiles.filter((source) => source.id !== id) }));
   };
 
   const reorderModule = (targetId: string): void => {
@@ -503,7 +588,7 @@ function App() {
   };
 
   const downloadPackage = async (): Promise<void> => {
-    if (!subscriptionActive) return;
+    if (!exportAllowed) return;
     setIsExporting(true);
     setExportError(null);
     setLastDownloadName(null);
@@ -539,22 +624,65 @@ function App() {
 
   // Download a readable PDF copy of the whole course (no Canvas import needed).
   const downloadCoursePdf = (): void => {
-    if (!subscriptionActive) return;
+    if (!exportAllowed) return;
     downloadBlob(generateCoursePdfBlob(course), coursePdfFileName(course));
+  };
+
+  // Download a clean PDF of the syllabus (aligned with the Canvas syllabus page).
+  const downloadSyllabusPdf = (): void => {
+    if (!exportAllowed) return;
+    downloadBlob(buildSyllabusPdfBlob(course), syllabusPdfFileName(course));
   };
 
   // Download every quiz as one bulk Canvas-importable QTI .zip.
   const downloadAllQuizzesQti = async (): Promise<void> => {
-    if (!subscriptionActive || course.quizzes.length === 0) return;
+    if (!exportAllowed || course.quizzes.length === 0) return;
     const { blob, fileName } = await generateAllQuizzesQtiBlob(course);
     downloadBlob(blob, fileName);
   };
 
   // Download a single quiz as a standalone QTI .zip.
   const downloadQuizQti = async (quiz: Quiz): Promise<void> => {
-    if (!subscriptionActive) return;
+    if (!exportAllowed) return;
     const { blob, fileName } = await generateQuizQtiBlob(quiz);
     downloadBlob(blob, fileName);
+  };
+
+  // Printable quiz PDFs — student copy and instructor answer key (single + combined).
+  const downloadQuizStudentPdf = (quiz: Quiz): void => {
+    if (!exportAllowed) return;
+    downloadBlob(buildQuizStudentPdfBlob(course, quiz), quizStudentPdfFileName(course, quiz));
+  };
+  const downloadQuizAnswerKeyPdf = (quiz: Quiz): void => {
+    if (!exportAllowed) return;
+    downloadBlob(buildQuizAnswerKeyPdfBlob(course, quiz), quizAnswerKeyPdfFileName(course, quiz));
+  };
+  const downloadAllQuizzesStudentPdf = (): void => {
+    if (!exportAllowed || course.quizzes.length === 0) return;
+    downloadBlob(buildAllQuizzesStudentPdfBlob(course), allQuizzesStudentPdfFileName(course));
+  };
+  const downloadAllQuizzesAnswerKeyPdf = (): void => {
+    if (!exportAllowed || course.quizzes.length === 0) return;
+    downloadBlob(buildAllQuizzesAnswerKeyPdfBlob(course), allQuizzesAnswerKeyPdfFileName(course));
+  };
+
+  // Enter the public demo: load the static sample course, turn on demo chrome, optionally start the
+  // guided tour. No AI, no account, nothing persisted.
+  const enterDemo = (withTour: boolean): void => {
+    setCourse(sampleProject);
+    setExportMode(sampleProject.exportMode);
+    setValidationReport(null);
+    setImportNotes([]);
+    setActiveTab("Overview");
+    setDemoActive(true);
+    setTourOpen(withTour);
+    setScreen("editor");
+  };
+
+  const exitDemo = (): void => {
+    setDemoActive(false);
+    setTourOpen(false);
+    setScreen("landing");
   };
 
   return (
@@ -567,19 +695,66 @@ function App() {
           setAuthMode("login");
           setScreen("login");
         }}
+        onDemo={() => setScreen("demo")}
       />
 
       {screen === "landing" && (
-        <Landing onStart={() => setScreen("intake")} onDashboard={() => setScreen(auth.session ? "dashboard" : "login")} onPricing={() => setScreen("pricing")} />
+        <>
+          <Landing
+            onStart={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
+            onDashboard={() => setScreen(auth.session ? "dashboard" : "login")}
+            onPricing={() => setScreen("pricing")}
+            onTryDemo={() => setScreen("demo")}
+            onGuides={() => setScreen("guides")}
+          />
+          <PublicFooter onNavigate={setScreen} />
+        </>
       )}
       {screen === "pricing" && (
-        <PricingPage
-          onChoosePlan={handleChoosePlan}
-          onTryDemo={() => setScreen("editor")}
-          currentPlanKey={auth.entitlement.planKey}
-          busyPlanKey={checkoutBusyPlan}
-          error={checkoutError}
-        />
+        <>
+          <PricingPage
+            onChoosePlan={handleChoosePlan}
+            onTryDemo={() => setScreen("demo")}
+            currentPlanKey={auth.entitlement.planKey}
+            busyPlanKey={checkoutBusyPlan}
+            error={checkoutError}
+          />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {screen === "about" && (
+        <>
+          <AboutPage
+            onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
+            onTryDemo={() => setScreen("demo")}
+            onContact={() => setScreen("contact")}
+          />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {screen === "guides" && (
+        <>
+          <GuidesPage onTryDemo={() => setScreen("demo")} onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))} />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {screen === "contact" && (
+        <>
+          <ContactPage />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {screen === "demo" && (
+        <>
+          <DemoIntro onStartTour={() => enterDemo(true)} onExplore={() => enterDemo(false)} onBackHome={() => setScreen("landing")} />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {(screen === "terms" || screen === "privacy") && (
+        <>
+          <LegalPage kind={screen} onContact={() => setScreen("contact")} />
+          <PublicFooter onNavigate={setScreen} />
+        </>
       )}
       {(screen === "login" || screen === "signup") && (
         <AuthScreen
@@ -604,6 +779,8 @@ function App() {
           onBillingPortal={handleOpenBillingPortal}
           billingError={checkoutError}
           onOpen={(project) => {
+            setDemoActive(false);
+            setTourOpen(false);
             setCourse(project);
             setExportMode(project.exportMode);
             setImportNotes([]);
@@ -619,6 +796,8 @@ function App() {
           onPromptChange={setPrompt}
           onSettingsChange={updateSettings}
           onFiles={handleFiles}
+          onPasteSource={handlePasteSource}
+          onRemoveSource={handleRemoveSource}
           onGenerate={startGeneration}
           canUseAi={auth.entitlement.canGenerate}
           isAuthed={Boolean(auth.session)}
@@ -646,7 +825,7 @@ function App() {
           setActiveTab={setActiveTab}
           readiness={readiness}
           quality={quality}
-          subscriptionActive={subscriptionActive}
+          subscriptionActive={exportAllowed}
           validationReport={validationReport}
           isExporting={isExporting}
           draggedModuleId={draggedModuleId}
@@ -658,8 +837,13 @@ function App() {
           onRunValidation={runValidation}
           onDownload={downloadPackage}
           onDownloadPdf={downloadCoursePdf}
+          onDownloadSyllabusPdf={downloadSyllabusPdf}
           onDownloadAllQti={downloadAllQuizzesQti}
           onExportQuizQti={downloadQuizQti}
+          onExportQuizStudentPdf={downloadQuizStudentPdf}
+          onExportQuizAnswerKeyPdf={downloadQuizAnswerKeyPdf}
+          onDownloadAllQuizzesStudentPdf={downloadAllQuizzesStudentPdf}
+          onDownloadAllQuizzesAnswerKeyPdf={downloadAllQuizzesAnswerKeyPdf}
           exportError={exportError}
           lastDownloadName={lastDownloadName}
           onDuplicateModule={duplicateModule}
@@ -672,7 +856,12 @@ function App() {
           customThemes={customThemes}
           canCreateCustomTheme={auth.entitlement.canCreateCustomTheme}
           onSaveCustomTheme={handleSaveCustomTheme}
+          demoMode={demoActive}
+          onExitDemo={exitDemo}
         />
+      )}
+      {screen === "editor" && demoActive && tourOpen && (
+        <DemoTour onSetTab={setActiveTab} onClose={() => setTourOpen(false)} />
       )}
     </div>
   );
@@ -682,17 +871,20 @@ function TopBar({
   screen,
   onNavigate,
   auth,
-  onSignIn
+  onSignIn,
+  onDemo
 }: {
   screen: Screen;
   onNavigate: (screen: Screen) => void;
   auth: AuthSessionState;
   onSignIn: () => void;
+  onDemo: () => void;
 }) {
   const { session, entitlement } = auth;
+  const cls = (active: boolean): string => (active ? "active" : "");
   return (
     <header className="topbar">
-      <button className="brand" onClick={() => onNavigate("landing")} aria-label="Open RocketCourse landing page">
+      <button className="brand" onClick={() => onNavigate("landing")} aria-label="Open RocketCourse home page">
         <span className="brand-mark">RC</span>
         <span>
           <strong>RocketCourse</strong>
@@ -700,18 +892,34 @@ function TopBar({
         </span>
       </button>
       <nav className="topnav" aria-label="Primary">
-        <button className={screen === "dashboard" ? "active" : ""} onClick={() => onNavigate(session ? "dashboard" : "login")}>
-          <LayoutDashboard size={16} /> Dashboard
+        <button className={cls(screen === "landing")} onClick={() => onNavigate("landing")}>
+          <Home size={16} /> Home
         </button>
-        <button className={screen === "intake" ? "active" : ""} onClick={() => onNavigate("intake")}>
-          <Wand2 size={16} /> Create
+        <button className={cls(screen === "demo")} onClick={onDemo}>
+          <PanelLeft size={16} /> Demo
         </button>
-        <button className={screen === "pricing" ? "active" : ""} onClick={() => onNavigate("pricing")}>
+        <button className={cls(screen === "pricing")} onClick={() => onNavigate("pricing")}>
           <CreditCard size={16} /> Pricing
         </button>
-        <button className={screen === "editor" ? "active" : ""} onClick={() => onNavigate("editor")}>
-          <PanelLeft size={16} /> Editor
+        <button className={cls(screen === "guides")} onClick={() => onNavigate("guides")}>
+          <BookOpen size={16} /> Guides
         </button>
+        <button className={cls(screen === "about")} onClick={() => onNavigate("about")}>
+          <Info size={16} /> About
+        </button>
+        <button className={cls(screen === "contact")} onClick={() => onNavigate("contact")}>
+          <Mail size={16} /> Contact
+        </button>
+        {session && (
+          <>
+            <button className={cls(screen === "dashboard")} onClick={() => onNavigate("dashboard")}>
+              <LayoutDashboard size={16} /> Dashboard
+            </button>
+            <button className={cls(screen === "intake")} onClick={() => onNavigate("intake")}>
+              <Wand2 size={16} /> Create
+            </button>
+          </>
+        )}
       </nav>
       <div className="topbar-account">
         {session ? (
@@ -817,31 +1025,43 @@ const landingFeatures = [
   }
 ] as const;
 
-function Landing({ onStart, onDashboard, onPricing }: { onStart: () => void; onDashboard: () => void; onPricing: () => void }) {
+function Landing({
+  onStart,
+  onDashboard,
+  onPricing,
+  onTryDemo,
+  onGuides
+}: {
+  onStart: () => void;
+  onDashboard: () => void;
+  onPricing: () => void;
+  onTryDemo: () => void;
+  onGuides: () => void;
+}) {
   return (
     <main className="landing">
       <section className="landing-hero">
         <div className="landing-copy">
           <span className="hero-badge">
-            <Sparkles size={15} /> Cosmic course builder for Canvas LMS
+            <Sparkles size={15} /> Canvas-first course builder for instructors & designers
           </span>
           <h1>
-            Generate a full <span className="gradient-text">Canvas course</span> in minutes.
+            Turn a course idea into an editable <span className="gradient-text">Canvas course</span>.
           </h1>
           <p>
-            RocketCourse turns a course prompt and a few guided settings into a structured, editable Canvas shell — then
-            locally validates and exports a Canvas-oriented <strong>.imscc</strong> package. Built for instructors and instructional
-            designers.
+            RocketCourse turns a topic, syllabus, notes, readings, or an existing Canvas export into a structured,
+            editable course shell — homepage, syllabus, modules, pages, assignments, discussions, quizzes, rubrics, and
+            gradebook groups — then locally validates and exports a Canvas-oriented <strong>.imscc</strong> package.
           </p>
           <div className="hero-actions">
             <button className="primary" onClick={onStart}>
-              <Sparkles size={18} /> Build a course
+              <Sparkles size={18} /> Build your first course
+            </button>
+            <button className="secondary" onClick={onTryDemo}>
+              <PanelLeft size={17} /> Try the demo
             </button>
             <button className="secondary" onClick={onPricing}>
               <CreditCard size={17} /> View pricing
-            </button>
-            <button className="secondary" onClick={onDashboard}>
-              <LayoutDashboard size={17} /> View dashboard
             </button>
           </div>
           <div className="hero-meta">
@@ -876,6 +1096,60 @@ function Landing({ onStart, onDashboard, onPricing }: { onStart: () => void; onD
             </div>
           </div>
         </section>
+      </section>
+
+      <section className="landing-section" aria-labelledby="problem-heading">
+        <span className="section-eyebrow">The problem</span>
+        <h2 id="problem-heading">The blank Canvas shell is where courses stall</h2>
+        <p>
+          A new Canvas course opens empty. Before any teaching happens, someone has to build the homepage, write the
+          syllabus, lay out modules, draft pages, create assignments and discussions, write quizzes and rubrics, set up
+          gradebook groups, and wire it all together — then copy and paste it into Canvas, piece by piece. That setup
+          labor is repetitive, time-consuming, and easy to do inconsistently.
+        </p>
+        <p>
+          RocketCourse removes the blank-shell burden. You start from your own topic, syllabus, readings, or prompt and
+          get a structured first draft you can edit — so you spend your time on teaching, quality, accessibility, and the
+          student experience instead of scaffolding.
+        </p>
+      </section>
+
+      <section className="landing-section" aria-labelledby="audience-heading">
+        <span className="section-eyebrow">Who it's for</span>
+        <h2 id="audience-heading">Built for everyone who shapes a Canvas course</h2>
+        <p>RocketCourse is for any instructor building any course — and the people who help them do it well.</p>
+        <div className="feature-grid">
+          <article className="feature-card">
+            <span className="feature-icon cyan"><User size={22} /></span>
+            <h3>Instructors & faculty</h3>
+            <p>Get a strong, consistent starting point for a new or redesigned course without rebuilding structure from scratch every term.</p>
+          </article>
+          <article className="feature-card">
+            <span className="feature-icon orchid"><Palette size={22} /></span>
+            <h3>Instructional designers</h3>
+            <p>Skip the repetitive shell-building and spend your expertise on alignment, quality, accessibility, and improvement.</p>
+          </article>
+          <article className="feature-card">
+            <span className="feature-icon orange"><Layers size={22} /></span>
+            <h3>Instructional technologists</h3>
+            <p>Hand faculty a clean, Canvas-oriented package and a consistent baseline that's easy to support and review.</p>
+          </article>
+          <article className="feature-card">
+            <span className="feature-icon success"><BookOpen size={22} /></span>
+            <h3>Departments & institutions</h3>
+            <p>Bring consistency to course structure across sections and programs, while keeping every course editable and owned by its instructor.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-section" aria-labelledby="student-heading">
+        <span className="section-eyebrow">Why it matters</span>
+        <h2 id="student-heading">A clearer course for students, a faster start for you</h2>
+        <p>
+          Consistent navigation, predictable module structure, understandable instructions, and professional-looking
+          pages reduce course confusion — so students spend less energy figuring out where things are and more on
+          learning. Designers and technologists get a clean baseline to improve, not a blank page to rescue.
+        </p>
       </section>
 
       <section className="landing-section" aria-labelledby="how-heading">
@@ -914,15 +1188,48 @@ function Landing({ onStart, onDashboard, onPricing }: { onStart: () => void; onD
         </div>
       </section>
 
+      <section className="landing-section landing-demo-invite" aria-labelledby="demo-invite-heading">
+        <span className="section-eyebrow">See it in action</span>
+        <h2 id="demo-invite-heading">Explore the AI and Modern Society demo</h2>
+        <p>
+          Poke around a fully built sample course — every tab, the readiness scoring, and the export flow — with no
+          sign-in and no AI credits used. It's the fastest way to see how RocketCourse structures a Canvas course before
+          you build your own.
+        </p>
+        <div className="hero-actions">
+          <button className="primary" onClick={onTryDemo}>
+            <PanelLeft size={18} /> Open the demo
+          </button>
+          <button className="secondary" onClick={onGuides}>
+            <BookOpen size={17} /> Read the guides
+          </button>
+        </div>
+      </section>
+
+      <section className="landing-section" aria-labelledby="pricing-teaser-heading">
+        <span className="section-eyebrow">Pricing</span>
+        <h2 id="pricing-teaser-heading">Start free, upgrade when you're ready to build your own</h2>
+        <p>
+          The demo is free and uses no AI. Paid plans unlock AI course generation and private Canvas exports for
+          instructors, designers, and whole departments. Export and AI limits are enforced on the server against your
+          subscription — never the browser.
+        </p>
+        <div className="hero-actions">
+          <button className="primary" onClick={onPricing}>
+            <CreditCard size={18} /> View pricing <ArrowRight size={16} />
+          </button>
+        </div>
+      </section>
+
       <section className="landing-cta">
         <h2>Ready to build your next Canvas course?</h2>
-        <p>Start from a prompt or an existing export, edit everything, and ship a validated package.</p>
+        <p>Start from a prompt, a syllabus, or an existing export, edit everything, and ship a validated package.</p>
         <div className="hero-actions">
           <button className="primary" onClick={onStart}>
-            <Sparkles size={18} /> Build a course <ArrowRight size={17} />
+            <Sparkles size={18} /> Build your first course <ArrowRight size={17} />
           </button>
           <button className="secondary" onClick={onDashboard}>
-            View dashboard
+            <LayoutDashboard size={17} /> Go to dashboard
           </button>
         </div>
       </section>
@@ -1092,6 +1399,8 @@ function Intake({
   onPromptChange,
   onSettingsChange,
   onFiles,
+  onPasteSource,
+  onRemoveSource,
   onGenerate,
   canUseAi,
   isAuthed,
@@ -1105,6 +1414,8 @@ function Intake({
   onPromptChange: (value: string) => void;
   onSettingsChange: <K extends keyof CourseSettings>(key: K, value: CourseSettings[K]) => void;
   onFiles: (files: FileList | null) => void;
+  onPasteSource: (text: string) => void;
+  onRemoveSource: (id: string) => void;
   onGenerate: () => void;
   canUseAi: boolean;
   isAuthed: boolean;
@@ -1113,8 +1424,13 @@ function Intake({
   aiError: string | null;
   onUpgrade: () => void;
 }) {
+  const [pasteText, setPasteText] = useState("");
   const updateSchedule = <K extends keyof CourseSettings["schedule"]>(key: K, value: CourseSettings["schedule"][K]) => {
     onSettingsChange("schedule", { ...settings.schedule, [key]: value });
+  };
+  const submitPaste = (): void => {
+    onPasteSource(pasteText);
+    setPasteText("");
   };
 
   return (
@@ -1151,25 +1467,63 @@ function Intake({
           </span>
           <label htmlFor="prompt">Describe your course</label>
           <p className="prompt-hint">Plain language is fine — topic, audience, goals, tone, and anything you want emphasized.</p>
-          <textarea id="prompt" value={prompt} onChange={(event) => onPromptChange(event.target.value)} />
+          <textarea id="prompt" className="prompt-textarea" value={prompt} onChange={(event) => onPromptChange(event.target.value)} placeholder="e.g. An 8-week undergraduate course on AI and Modern Society for non-majors. Emphasize ethics, real-world cases, and weekly discussion. Friendly, practical tone." />
           <label className="upload-zone">
             <Upload size={22} />
             <span>Attach a syllabus, notes, reading list, or an existing Canvas .imscc export</span>
-            <input type="file" multiple accept=".imscc,.txt,.md,.doc,.docx,.pdf,.html" onChange={(event) => onFiles(event.target.files)} />
+            <input type="file" multiple accept=".imscc,.txt,.md,.markdown,.csv,.json,.rtf,.doc,.docx,.pdf,.html,.htm" onChange={(event) => onFiles(event.target.files)} />
           </label>
           <p className="upload-note">
-            Uploading an <strong>.imscc</strong> imports its structure right away. Other files are listed as sources for your
-            reference — this build records their names, but does not yet parse their contents.
+            Uploading an <strong>.imscc</strong> imports its structure right away. Text, Markdown, HTML, and <strong>.docx</strong>{" "}
+            files are parsed in your browser and their content informs generation. PDFs are best-effort — if the text can't be
+            extracted, paste key sections below. Review all generated content before publishing.
           </p>
           {settings.sourceFiles.length > 0 && (
-            <div className="source-list">
+            <ul className="source-list" aria-label="Attached sources">
               {settings.sourceFiles.map((file) => (
-                <span key={file.id}>
-                  <FileText size={14} /> {file.name} <small>{file.sizeLabel}</small>
-                </span>
+                <li key={file.id} className={`source-item ${file.status}`}>
+                  <div className="source-item-head">
+                    <span className="source-item-name">
+                      <FileText size={14} /> {file.name} <small>{file.sizeLabel}</small>
+                    </span>
+                    <span className="source-status-row">
+                      <SourceStatusBadge status={file.status} />
+                      <button type="button" className="source-remove" onClick={() => onRemoveSource(file.id)} aria-label={`Remove ${file.name}`}>
+                        <Trash2 size={13} />
+                      </button>
+                    </span>
+                  </div>
+                  {file.status === "parsed" && typeof file.chars === "number" && (
+                    <p className="source-meta">{file.chars.toLocaleString()} characters extracted</p>
+                  )}
+                  {file.note && <p className="source-note">{file.note}</p>}
+                  {file.preview && file.status !== "failed" && <p className="source-preview">{file.preview}</p>}
+                </li>
               ))}
-            </div>
+            </ul>
           )}
+
+          <div className="paste-source">
+            <label htmlFor="paste-source">Or paste source material</label>
+            <p className="prompt-hint">
+              Course/catalog description, outcomes, readings, assignment ideas, policies, or instructor notes — anything you
+              want reflected in the draft.
+            </p>
+            <textarea
+              id="paste-source"
+              className="paste-textarea"
+              value={pasteText}
+              onChange={(event) => setPasteText(event.target.value)}
+              placeholder="Paste a syllabus section, learning outcomes, a reading list, or notes…"
+            />
+            <button type="button" className="secondary" onClick={submitPaste} disabled={!pasteText.trim()}>
+              <Plus size={15} /> Add as source
+            </button>
+          </div>
+          <p className="upload-note privacy-note">
+            <Lock size={13} /> Your prompt and extracted source text are sent to the AI provider only to generate your draft.
+            Generated content is a first draft and must be reviewed for accuracy, accessibility, grading, and policy before use.
+          </p>
         </div>
         <div className="settings-panel">
           <span className="panel-label">
@@ -1450,8 +1804,13 @@ function Editor({
   onRunValidation,
   onDownload,
   onDownloadPdf,
+  onDownloadSyllabusPdf,
   onDownloadAllQti,
   onExportQuizQti,
+  onExportQuizStudentPdf,
+  onExportQuizAnswerKeyPdf,
+  onDownloadAllQuizzesStudentPdf,
+  onDownloadAllQuizzesAnswerKeyPdf,
   exportError,
   lastDownloadName,
   onDuplicateModule,
@@ -1463,7 +1822,9 @@ function Editor({
   saveState,
   customThemes,
   canCreateCustomTheme,
-  onSaveCustomTheme
+  onSaveCustomTheme,
+  demoMode = false,
+  onExitDemo
 }: {
   course: CourseProject;
   activeTab: EditorTab;
@@ -1482,8 +1843,13 @@ function Editor({
   onRunValidation: () => void;
   onDownload: () => void;
   onDownloadPdf: () => void;
+  onDownloadSyllabusPdf: () => void;
   onDownloadAllQti: () => void;
   onExportQuizQti: (quiz: Quiz) => void;
+  onExportQuizStudentPdf: (quiz: Quiz) => void;
+  onExportQuizAnswerKeyPdf: (quiz: Quiz) => void;
+  onDownloadAllQuizzesStudentPdf: () => void;
+  onDownloadAllQuizzesAnswerKeyPdf: () => void;
   exportError: string | null;
   lastDownloadName: string | null;
   onDuplicateModule: (moduleId: string) => void;
@@ -1496,6 +1862,8 @@ function Editor({
   customThemes: Theme[];
   canCreateCustomTheme: boolean;
   onSaveCustomTheme: (input: CustomThemeInput) => Promise<{ ok: boolean; theme?: Theme; error?: string }>;
+  demoMode?: boolean;
+  onExitDemo?: () => void;
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
   const [revising, setRevising] = useState<RevisionMode | null>(null);
@@ -1539,6 +1907,17 @@ function Editor({
       </aside>
 
       <section className="editor-main">
+        {demoMode && (
+          <div className="demo-banner" role="note">
+            <span className="demo-banner-text">
+              <Sparkles size={15} /> You're exploring the <strong>RocketCourse demo</strong> — a pre-populated AI and
+              Modern Society course. No AI credits are used and edits here aren't saved.
+            </span>
+            <button className="ghost-button" onClick={onExitDemo}>
+              <Home size={15} /> Back to RocketCourse Home
+            </button>
+          </div>
+        )}
         <div className="editor-header">
           <div>
             <h1>{course.title}</h1>
@@ -1595,7 +1974,16 @@ function Editor({
           {activeTab === "Pages" && <PagesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Assignments" && <AssignmentsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Discussions" && <DiscussionsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Quizzes" && <QuizzesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} onExportQti={onExportQuizQti} />}
+          {activeTab === "Quizzes" && (
+            <QuizzesTab
+              course={course}
+              onUpdateCourse={onUpdateCourse}
+              onJumpToTab={setActiveTab}
+              onExportQti={onExportQuizQti}
+              onExportStudentPdf={onExportQuizStudentPdf}
+              onExportAnswerKeyPdf={onExportQuizAnswerKeyPdf}
+            />
+          )}
           {activeTab === "Rubrics" && <RubricsTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Gradebook Setup" && <GradebookTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Contact Hours" && <ContactHoursTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
@@ -1623,7 +2011,10 @@ function Editor({
               onRunValidation={onRunValidation}
               onDownload={onDownload}
               onDownloadPdf={onDownloadPdf}
+              onDownloadSyllabusPdf={onDownloadSyllabusPdf}
               onDownloadAllQti={onDownloadAllQti}
+              onDownloadAllQuizzesStudentPdf={onDownloadAllQuizzesStudentPdf}
+              onDownloadAllQuizzesAnswerKeyPdf={onDownloadAllQuizzesAnswerKeyPdf}
               onJumpToTab={setActiveTab}
             />
           )}
@@ -2641,6 +3032,23 @@ function EmptyState({ title, body }: { title: string; body: string }) {
       <h2>{title}</h2>
       <p>{body}</p>
     </div>
+  );
+}
+
+// Parse-status pill for an attached/pasted source on the Create page.
+function SourceStatusBadge({ status }: { status: SourceFile["status"] }) {
+  const map: Record<SourceFile["status"], { label: string; tone: string; icon: typeof CheckCircle2 }> = {
+    attached: { label: "Attached", tone: "muted", icon: FileText },
+    parsing: { label: "Parsing…", tone: "info", icon: Loader2 },
+    parsed: { label: "Parsed", tone: "ok", icon: CheckCircle2 },
+    "needs-review": { label: "Needs review", tone: "warn", icon: AlertTriangle },
+    failed: { label: "Failed to parse", tone: "danger", icon: AlertTriangle }
+  };
+  const { label, tone, icon: Icon } = map[status];
+  return (
+    <span className={`source-badge ${tone}`}>
+      <Icon size={12} className={status === "parsing" ? "spin" : ""} /> {label}
+    </span>
   );
 }
 

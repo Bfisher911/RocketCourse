@@ -101,7 +101,9 @@ describe("imscc XML well-formedness", () => {
 
     // Restoration is complete: the package is clean again.
     expect(await collectXmlParseErrors(zip)).toEqual([]);
-  });
+    // This test re-parses every XML file in the package once per corrupted path (O(n^2) XML
+    // parsing over a large sample course), so the default 5s timeout is too tight under load.
+  }, 30_000);
 
   it("sanitizes XML-forbidden control and surrogate characters in course content", async () => {
     const hostile = `Forbidden${NUL}${VTAB}${BELL}${UNIT_SEP}${LONE_SURROGATE} Content`;

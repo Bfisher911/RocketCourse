@@ -72,7 +72,10 @@ export function ExportTab({
   onRunValidation,
   onDownload,
   onDownloadPdf,
+  onDownloadSyllabusPdf,
   onDownloadAllQti,
+  onDownloadAllQuizzesStudentPdf,
+  onDownloadAllQuizzesAnswerKeyPdf,
   onJumpToTab
 }: {
   course: CourseProject;
@@ -88,7 +91,10 @@ export function ExportTab({
   onRunValidation: () => void;
   onDownload: () => void;
   onDownloadPdf: () => void;
+  onDownloadSyllabusPdf: () => void;
   onDownloadAllQti: () => void;
+  onDownloadAllQuizzesStudentPdf: () => void;
+  onDownloadAllQuizzesAnswerKeyPdf: () => void;
   onJumpToTab: (tab: EditorTab) => void;
 }) {
   const confidence = exportConfidence(validationReport, readiness);
@@ -220,6 +226,9 @@ export function ExportTab({
           <button type="button" className="secondary" onClick={onDownloadPdf} disabled={!subscriptionActive} title={subscriptionActive ? "Download a readable PDF copy of the whole course" : "Activate a plan to export"}>
             <FileText size={16} /> Download course PDF
           </button>
+          <button type="button" className="secondary" onClick={onDownloadSyllabusPdf} disabled={!subscriptionActive} title={subscriptionActive ? "Download a clean syllabus PDF (aligned with the Canvas syllabus page)" : "Activate a plan to export"}>
+            <FileText size={16} /> Syllabus PDF
+          </button>
           <button
             type="button"
             className="secondary"
@@ -228,6 +237,24 @@ export function ExportTab({
             title={course.quizzes.length === 0 ? "This course has no quizzes yet." : "Download all quizzes as one Canvas QTI .zip"}
           >
             <FileArchive size={16} /> Quizzes QTI ({course.quizzes.length})
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={onDownloadAllQuizzesStudentPdf}
+            disabled={!subscriptionActive || course.quizzes.length === 0}
+            title={course.quizzes.length === 0 ? "This course has no quizzes yet." : "Download printable student copies of every quiz (no answers)"}
+          >
+            <FileText size={16} /> Quiz PDFs ({course.quizzes.length})
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={onDownloadAllQuizzesAnswerKeyPdf}
+            disabled={!subscriptionActive || course.quizzes.length === 0}
+            title={course.quizzes.length === 0 ? "This course has no quizzes yet." : "Download the combined instructor answer key (all quizzes)"}
+          >
+            <ClipboardCheck size={16} /> Answer keys ({course.quizzes.length})
           </button>
           <button type="button" className="secondary" onClick={downloadReport} disabled={!validationReport}>
             <FileJson size={16} /> Download report

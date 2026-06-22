@@ -37,7 +37,7 @@ export interface PromptEvalScorecard {
   targetSummary: string;
 }
 
-export const courseForgePromptEvalRubric: PromptEvalCategory[] = [
+export const rocketCoursePromptEvalRubric: PromptEvalCategory[] = [
   { id: "specificity", label: "Specificity", description: "Course feels tailored to the discipline, level, learner audience, and module purpose.", targetMinimum: 4 },
   { id: "completeness", label: "Completeness", description: "Major Canvas course components are present with useful detail.", targetMinimum: 4 },
   { id: "instructionalUsefulness", label: "Instructional usefulness", description: "An instructor could teach from the draft after targeted edits.", targetMinimum: 4 },
@@ -82,7 +82,7 @@ const htmlCorpus = (course: CourseProject): string =>
 const countMatches = (value: string, pattern: RegExp): number => (value.match(pattern) ?? []).length;
 
 const scoreEntry = (id: PromptEvalCategoryId, score: number, evidence: string[]): PromptEvalCategoryScore => {
-  const category = courseForgePromptEvalRubric.find((item) => item.id === id);
+  const category = rocketCoursePromptEvalRubric.find((item) => item.id === id);
   if (!category) throw new Error(`Unknown prompt eval category: ${id}`);
   return { id, label: category.label, score: rounded(score), evidence };
 };

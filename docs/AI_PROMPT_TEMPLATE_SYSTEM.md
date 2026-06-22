@@ -1,15 +1,15 @@
-# CourseForge AI Prompt Template System
+# RocketCourse AI Prompt Template System
 
 ## Purpose
 
-CourseForge now has a versioned prompt-template layer for future server-side AI generation. The existing deterministic generator in `src/services/courseGenerator.ts` remains the browser-safe baseline, demo generator, fixture provider, and regression comparison source.
+RocketCourse now has a versioned prompt-template layer for future server-side AI generation. The existing deterministic generator in `src/services/courseGenerator.ts` remains the browser-safe baseline, demo generator, fixture provider, and regression comparison source.
 
 The prompt system is designed to generate a fully fledged Canvas course, not a thin outline. Templates require rich modules, student-facing lesson pages, assignments, discussions, quizzes, rubrics, syllabus, homepage, gradebook structure, contact-hour logic, resource placeholders, accessibility review, instructor-only materials, and revision actions.
 
 ## Files
 
 - `src/ai/promptTemplates/types.ts`: shared prompt-template and registry types.
-- `src/ai/promptTemplates/templateFactory.ts`: shared CourseForge instructions and the six improvement passes.
+- `src/ai/promptTemplates/templateFactory.ts`: shared RocketCourse instructions and the six improvement passes.
 - `src/ai/promptTemplates/qualityStandard.ts`: fully fledged course standard, anti-generic rules, and validation rules.
 - `src/ai/promptTemplates/*.ts`: stage templates for blueprint, modules, pages, assignments, discussions, quizzes, rubrics, syllabus, homepage, resources, contact hours, and revisions.
 - `src/ai/promptTemplates/registry.ts`: active version selection, lookup, comparison, and rollback helpers.

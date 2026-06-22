@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Copy, Download, FileQuestion, Filter, GraduationCap, GripVertical, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Copy, Download, FileQuestion, FileText, Filter, GraduationCap, GripVertical, Key, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CourseProject, PublishState, Quiz, QuizDifficulty, QuizQuestion, QuizQuestionType } from "../types";
 import { stripHtml } from "../utils/text";
@@ -25,6 +25,8 @@ interface QuizzesTabProps {
   onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
   onJumpToTab: (tab: "Modules" | "Gradebook Setup") => void;
   onExportQti: (quiz: Quiz) => void;
+  onExportStudentPdf: (quiz: Quiz) => void;
+  onExportAnswerKeyPdf: (quiz: Quiz) => void;
 }
 
 interface QuizSnapshot {
@@ -53,7 +55,7 @@ const questionTypeCounts = (quizzes: Quiz[]): string =>
 
 const issueLabel = (count: number): string => (count === 0 ? "Ready" : `${count} warning${count === 1 ? "" : "s"}`);
 
-export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti }: QuizzesTabProps) {
+export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, onExportStudentPdf, onExportAnswerKeyPdf }: QuizzesTabProps) {
   const validation = useMemo(() => validateQuizPlan(course), [course]);
   const [selectedQuizId, setSelectedQuizId] = useState(course.quizzes[0]?.id ?? "");
   const [selectedTemplate, setSelectedTemplate] = useState<QuizTemplateId>("concept-check");
@@ -186,6 +188,15 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti }:
         </div>
       </section>
 
+      <div className="quiz-disclaimer" role="note">
+        <AlertTriangle size={16} />
+        <p>
+          <strong>Review every quiz before publishing.</strong> AI- and template-generated questions and answer keys may
+          contain errors. Verify correct answers, distractors, and feedback — and adjust items for your textbook edition,
+          classroom context, policy, difficulty, and accessibility before students take the quiz.
+        </p>
+      </div>
+
       <section className="quiz-metric-grid" aria-label="Quiz summary">
         <div><strong>{course.quizzes.length}</strong><span>Total quizzes</span></div>
         <div><strong>{course.quizzes.reduce((sum, quiz) => sum + quiz.questions.length, 0)}</strong><span>Total questions</span></div>
@@ -235,6 +246,8 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti }:
               <button onClick={() => onJumpToTab("Gradebook Setup")}><ClipboardCheck size={15} /> Gradebook</button>
               <button onClick={() => onUpdateCourse((current) => duplicateQuiz(current, selectedQuiz.id))}><Copy size={15} /> Copy</button>
               <button onClick={() => onExportQti(selectedQuiz)} title="Download this quiz as a Canvas QTI .zip"><Download size={15} /> Export QTI</button>
+              <button onClick={() => onExportStudentPdf(selectedQuiz)} title="Download a printable student copy (no answers)"><FileText size={15} /> Student PDF</button>
+              <button onClick={() => onExportAnswerKeyPdf(selectedQuiz)} title="Download the instructor answer key PDF"><Key size={15} /> Answer key</button>
               <button className="danger" onClick={() => { pushSnapshot(selectedQuiz, "Deleted quiz"); onUpdateCourse((current) => deleteQuiz(current, selectedQuiz.id)); setSelectedQuizId(course.quizzes.find((quiz) => quiz.id !== selectedQuiz.id)?.id ?? ""); }}><Trash2 size={15} /> Delete</button>
             </div>
           </header>

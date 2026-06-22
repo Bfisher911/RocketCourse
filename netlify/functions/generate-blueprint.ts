@@ -45,14 +45,29 @@ export default async (request: Request): Promise<Response> => {
   if (!prompt.trim()) return json(400, { error: "A course prompt is required." });
 
   const template = getActivePromptTemplate("blueprint");
-  const sourceFiles = Array.isArray((settings as Record<string, unknown>).sourceFiles)
-    ? ((settings as Record<string, unknown>).sourceFiles as Array<{ name?: string }>).map((f) => f.name).filter(Boolean)
+  // The client appends extracted source text to the prompt, so the model already sees the content.
+  // Here we summarise the sources for the prompt and strip the bulky `text` from the settings JSON so
+  // the same content isn't sent twice.
+  const rawSources = Array.isArray((settings as Record<string, unknown>).sourceFiles)
+    ? ((settings as Record<string, unknown>).sourceFiles as Array<{ name?: string; status?: string; chars?: number }>)
     : [];
+  const settingsForPrompt = {
+    ...(settings as Record<string, unknown>),
+    sourceFiles: rawSources.map(({ name, status, chars }) => ({ name, status, chars }))
+  };
+  const parsedSources = rawSources.filter((f) => f.status === "parsed" || f.status === "needs-review");
+  const sourceNotes = parsedSources.length
+    ? `Instructor source materials are included in the course brief above; reflect them. Files: ${parsedSources
+        .map((f) => `${f.name ?? "source"} (${f.chars ?? 0} chars)`)
+        .join(", ")}`
+    : rawSources.length
+      ? `Instructor attached files that could not be parsed: ${rawSources.map((f) => f.name).filter(Boolean).join(", ")}`
+      : "None provided.";
   const userPrompt =
     fill(template.userPromptTemplate, {
       courseBriefJson: JSON.stringify({ prompt }, null, 2),
-      courseSettingsJson: JSON.stringify(settings, null, 2),
-      sourceNotes: sourceFiles.length ? `Instructor uploaded (names only): ${sourceFiles.join(", ")}` : "None provided."
+      courseSettingsJson: JSON.stringify(settingsForPrompt, null, 2),
+      sourceNotes
     }) + `\n\nReturn ONLY a JSON object with exactly this shape (no prose, no markdown):\n${BLUEPRINT_JSON_SHAPE}`;
 
   const messages = [

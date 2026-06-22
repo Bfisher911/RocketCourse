@@ -2,7 +2,7 @@
 
 ## Current Gap Audit
 
-CourseForge already generated a Canvas-oriented shell with Start Here, content modules, final module, instructor module, rubrics, outcomes, assignment groups, Canvas navigation defaults, printable guide assets, IMSCC export, and import scaffolding. The remaining gap was instructional depth: generated content still leaned toward structured placeholders rather than a teachable first draft.
+RocketCourse already generated a Canvas-oriented shell with Start Here, content modules, final module, instructor module, rubrics, outcomes, assignment groups, Canvas navigation defaults, printable guide assets, IMSCC export, and import scaffolding. The remaining gap was instructional depth: generated content still leaned toward structured placeholders rather than a teachable first draft.
 
 ## Loop 1 Improvements
 
@@ -51,7 +51,7 @@ CourseForge already generated a Canvas-oriented shell with Start Here, content m
 - Added explicit prompt stages for blueprint generation, module drafting, lesson pages, assignments, discussions, quizzes, rubrics, syllabus, homepage, resources, contact hours, and object-level revisions.
 - Added six prompt versions per stage, representing baseline, completeness, specificity, alignment, Canvas-readiness/editability, and regression/rollback passes.
 - Added a registry that centralizes active version selection and supports lookup, comparison, rollback targets, and override-based testing.
-- Added the CourseForge fully fledged course standard, anti-generic rules, and structured output validation expectations.
+- Added the RocketCourse fully fledged course standard, anti-generic rules, and structured output validation expectations.
 - Added multi-discipline fixture inputs and a deterministic eval harness under `src/ai/evals/`.
 - Kept real AI calls out of the browser. The default eval provider uses the deterministic generator until a server-side AI endpoint exists.
 

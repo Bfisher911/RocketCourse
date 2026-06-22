@@ -9456,3 +9456,398 @@ p {
 @media (max-width: 720px) {
   .topbar .account-email { display: none; }
 }
+
+/* ============================================================================
+   RocketCourse — public marketing + demo layer (About, Guides, Contact, Demo,
+   Legal, Footer, Tour). Reuses cosmic tokens; adds only what the new surfaces
+   need. Appended in the production-readiness pass.
+   ========================================================================== */
+
+/* Shared helpers -------------------------------------------------------------*/
+.muted-note {
+  color: var(--subtle);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.muted-note strong { color: var(--muted); }
+.link-inline {
+  background: none;
+  border: none;
+  color: var(--cyan);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link-inline:hover { color: var(--cyan-strong); }
+.link-inline:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
+
+/* About ---------------------------------------------------------------------*/
+.about-creator p,
+.about-research p,
+.about-audience p { max-width: 70ch; }
+.about-creator .muted-note { margin-top: var(--space-3); }
+
+/* Legal ---------------------------------------------------------------------*/
+.legal-body { max-width: 80ch; }
+.legal-body h2 {
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-2);
+  font-size: 1.18rem;
+}
+.legal-body p { color: var(--ink-dim); line-height: 1.65; margin: 0 0 var(--space-3); max-width: 80ch; }
+
+/* Guides — expandable detail cards + warnings -------------------------------*/
+.guide-detail {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+  margin: 0 0 var(--space-3);
+  overflow: hidden;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.guide-detail[open] { border-color: var(--line-strong); box-shadow: var(--shadow-card); }
+.guide-detail > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: var(--space-4) var(--space-5);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.04rem;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.guide-detail > summary::-webkit-details-marker { display: none; }
+.guide-detail > summary::before {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--grad-rail);
+  border: 1px solid var(--line-strong);
+  color: var(--cyan);
+  font-size: 1.1rem;
+  line-height: 1;
+  flex: none;
+}
+.guide-detail[open] > summary::before { content: "\2013"; }
+.guide-detail > summary:focus-visible { outline: none; box-shadow: var(--focus-ring-soft); }
+.guide-detail > *:not(summary) { padding: 0 var(--space-5) var(--space-2); }
+.guide-steps { margin: 0 0 var(--space-3); padding-left: var(--space-5); }
+.guide-steps li { margin: 0 0 8px; color: var(--ink-dim); line-height: 1.6; }
+.guide-steps li::marker { color: var(--cyan); font-weight: 700; }
+.guide-detail .guide-note,
+.guide-detail .guide-warning { margin: 0 var(--space-5) var(--space-4); }
+.guide-note,
+.guide-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.guide-note { background: rgba(34, 230, 255, 0.08); border: 1px solid rgba(34, 230, 255, 0.22); color: var(--ink-dim); }
+.guide-warning { background: rgba(255, 93, 115, 0.1); border: 1px solid rgba(255, 93, 115, 0.3); color: #ffd9df; }
+.guide-warning svg { color: var(--danger); flex: none; }
+.guide-note svg { color: var(--cyan); flex: none; }
+
+.guide-warnings {
+  background: rgba(255, 93, 115, 0.08);
+  border: 1px solid rgba(255, 93, 115, 0.28);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+}
+.guide-warnings h2 { display: flex; align-items: center; gap: 10px; }
+.guide-warnings h2 svg { color: var(--warning); }
+.guide-warnings ul { margin: var(--space-3) 0 0; padding-left: var(--space-5); }
+.guide-warnings li { margin: 0 0 10px; color: var(--ink-dim); line-height: 1.6; }
+.guide-warnings li::marker { color: var(--warning); }
+
+/* Contact form --------------------------------------------------------------*/
+.contact-panel { max-width: 760px; margin-inline: auto; }
+.contact-form-title { margin: 0 0 var(--space-4); }
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.contact-grid .contact-message { grid-column: 1 / -1; }
+.contact-form .field { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.contact-form textarea { min-height: 130px; resize: vertical; }
+.contact-checkbox {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: var(--space-4) 0 0;
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.contact-checkbox input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--cyan); flex: none; }
+.contact-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-5); }
+.contact-reassure { color: var(--subtle); font-size: 0.85rem; margin: var(--space-3) 0 0; }
+.field-error { color: var(--danger); font-size: 0.82rem; margin: 2px 0 0; display: flex; align-items: center; gap: 5px; }
+.contact-form .field input[aria-invalid="true"],
+.contact-form .field textarea[aria-invalid="true"],
+.contact-form .field select[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 2px rgba(255, 93, 115, 0.18); }
+.contact-success {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: rgba(75, 232, 168, 0.1);
+  border: 1px solid rgba(75, 232, 168, 0.32);
+  color: #c9ffe9;
+  border-radius: var(--radius);
+  padding: var(--space-5);
+}
+.contact-success svg { color: var(--success); flex: none; }
+.contact-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: rgba(255, 180, 61, 0.08);
+  border: 1px solid rgba(255, 180, 61, 0.3);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+  margin-top: var(--space-4);
+}
+.contact-fallback p { margin: 0; color: var(--ink-dim); display: flex; gap: 8px; align-items: center; }
+.contact-fallback svg { color: var(--warning); flex: none; }
+
+/* Demo intro ----------------------------------------------------------------*/
+.demo-intro-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin: var(--space-6) 0;
+}
+.demo-intro-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  box-shadow: var(--shadow-card);
+}
+.demo-intro-card.is { border-color: rgba(34, 230, 255, 0.32); }
+.demo-intro-card.not { border-color: rgba(199, 125, 255, 0.3); }
+.demo-intro-card h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 var(--space-3); font-size: 1.15rem; }
+.demo-intro-card.is h2 svg { color: var(--cyan); }
+.demo-intro-card.not h2 svg { color: var(--orchid); }
+.demo-intro-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.demo-intro-card li { display: flex; gap: 10px; align-items: flex-start; color: var(--ink-dim); line-height: 1.55; }
+.demo-intro-card.is li svg { color: var(--success); flex: none; margin-top: 3px; }
+.demo-intro-card.not li svg { color: var(--subtle); flex: none; margin-top: 3px; }
+.demo-intro-steps { margin: var(--space-6) 0; }
+.demo-intro-warning {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: rgba(255, 180, 61, 0.08);
+  border: 1px solid rgba(255, 180, 61, 0.32);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-5) 0;
+}
+.demo-intro-warning svg { color: var(--warning); flex: none; margin-top: 2px; }
+.demo-intro-warning p { margin: 0; color: var(--ink-dim); line-height: 1.6; }
+
+/* Demo banner (inside editor) ----------------------------------------------*/
+.demo-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  background: var(--grad-rail);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 10px var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.demo-banner-text { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-dim); font-size: 0.9rem; line-height: 1.45; }
+.demo-banner-text svg { color: var(--cyan); flex: none; }
+.demo-banner strong { color: var(--ink); }
+
+/* Demo tour (non-blocking guided walkthrough) -------------------------------*/
+.demo-tour {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 80;
+  width: min(540px, 92vw);
+  pointer-events: none;
+}
+.demo-tour-card {
+  pointer-events: auto;
+  background: var(--surface-solid);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow), var(--glow-plasma);
+  padding: var(--space-5);
+}
+.demo-tour-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.demo-tour-step { display: inline-flex; align-items: center; gap: 6px; color: var(--cyan); font-size: 0.82rem; font-weight: 600; }
+.demo-tour-close {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: 1px solid var(--line); color: var(--muted);
+  border-radius: var(--radius-pill); padding: 4px 10px; font-size: 0.8rem; cursor: pointer;
+}
+.demo-tour-close:hover { color: var(--ink); border-color: var(--line-strong); }
+.demo-tour-progress { height: 4px; border-radius: 999px; background: rgba(130, 146, 230, 0.18); margin: var(--space-3) 0; overflow: hidden; }
+.demo-tour-progress i { display: block; height: 100%; background: var(--grad-plasma); transition: width var(--dur) var(--ease); }
+.demo-tour-card h3 { margin: 0 0 6px; font-size: 1.1rem; }
+.demo-tour-card p { margin: 0; color: var(--ink-dim); line-height: 1.55; font-size: 0.94rem; }
+.demo-tour-actions { display: flex; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); }
+
+/* Public footer -------------------------------------------------------------*/
+.public-footer {
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  padding: var(--space-7) var(--space-6) var(--space-6);
+  margin-top: var(--space-8);
+}
+.public-footer-inner {
+  max-width: 1100px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+.public-footer-brand { display: flex; align-items: center; gap: 12px; }
+.public-footer-brand .brand-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 11px;
+  background: var(--grad-plasma); color: var(--on-accent);
+}
+.public-footer-brand strong { display: block; font-family: var(--font-display); color: var(--ink); }
+.public-footer-brand small { color: var(--subtle); }
+.public-footer-links { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.public-footer-links button {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font: inherit; font-size: 0.9rem; padding: 4px 2px;
+}
+.public-footer-links button:hover { color: var(--ink); }
+.public-footer-links button:focus-visible { outline: none; box-shadow: var(--focus-ring-soft); border-radius: 4px; }
+.public-footer-legal { max-width: 1100px; margin: var(--space-5) auto 0; border-top: 1px solid var(--line-soft); padding-top: var(--space-4); }
+.public-footer-legal p { margin: 0 0 6px; color: var(--subtle); font-size: 0.84rem; line-height: 1.55; }
+
+/* Responsive ----------------------------------------------------------------*/
+@media (max-width: 720px) {
+  .demo-intro-grid,
+  .contact-grid { grid-template-columns: 1fr; }
+  .public-footer-inner { flex-direction: column; align-items: flex-start; }
+  .demo-banner { flex-direction: column; align-items: flex-start; }
+  .demo-tour { bottom: 12px; }
+}
+
+/* ============================================================================
+   Create page — prompt/paste textareas + parsed-source list (Part 7).
+   The raw prompt textarea had no width set (defaulted to ~20 cols); these rules
+   make it fill the panel and style the parsed-source workflow.
+   ========================================================================== */
+.prompt-textarea,
+.paste-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  resize: vertical;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.prompt-textarea { min-height: 240px; font-size: 14.5px; line-height: 1.6; }
+.paste-textarea { min-height: 130px; font-size: 14px; line-height: 1.55; }
+.prompt-textarea::placeholder,
+.paste-textarea::placeholder { color: var(--subtle); }
+.prompt-textarea:focus,
+.paste-textarea:focus { outline: none; border-color: var(--line-strong); box-shadow: var(--focus-ring-soft); }
+
+.paste-source { margin-top: 18px; }
+.paste-source > label { display: block; margin-bottom: 6px; color: var(--ink); font-size: 15px; font-weight: 650; }
+.paste-source button { margin-top: 10px; }
+.privacy-note { display: flex; gap: 7px; align-items: flex-start; margin-top: 16px; }
+.privacy-note svg { color: var(--cyan); flex: none; margin-top: 1px; }
+
+/* Override the old inline-pill source list with a readable vertical list. */
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.source-item {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.source-item.parsing { border-color: rgba(34, 230, 255, 0.28); }
+.source-item.parsed { border-color: rgba(75, 232, 168, 0.28); }
+.source-item.needs-review { border-color: rgba(255, 180, 61, 0.34); }
+.source-item.failed { border-color: rgba(255, 93, 115, 0.34); }
+.source-item-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.source-item-name { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-dim); font-size: 13px; min-width: 0; }
+.source-item-name svg { color: var(--cyan); flex: none; }
+.source-item-name small { color: var(--subtle); flex: none; }
+.source-status-row { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.source-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: var(--radius-pill);
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+  border: 1px solid var(--line);
+}
+.source-badge.ok { background: rgba(75, 232, 168, 0.12); color: #aef3d6; border-color: rgba(75, 232, 168, 0.32); }
+.source-badge.info { background: rgba(34, 230, 255, 0.12); color: #b9f1ff; border-color: rgba(34, 230, 255, 0.32); }
+.source-badge.warn { background: rgba(255, 180, 61, 0.12); color: #ffe0a8; border-color: rgba(255, 180, 61, 0.34); }
+.source-badge.danger { background: rgba(255, 93, 115, 0.12); color: #ffd0d7; border-color: rgba(255, 93, 115, 0.34); }
+.source-badge.muted { background: rgba(130, 146, 230, 0.1); color: var(--muted); }
+.source-remove {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 7px;
+  background: none; border: 1px solid var(--line); color: var(--subtle);
+}
+.source-remove:hover { color: var(--danger); border-color: rgba(255, 93, 115, 0.4); }
+.source-meta { margin: 8px 0 0; font-size: 11.5px; color: var(--subtle); }
+.source-note { margin: 8px 0 0; font-size: 12px; color: var(--warning); line-height: 1.45; }
+.source-preview {
+  margin: 8px 0 0; padding: 8px 10px;
+  font-size: 12px; color: var(--ink-dim); line-height: 1.5;
+  background: rgba(8, 10, 28, 0.5); border-radius: var(--radius-sm);
+  max-height: 84px; overflow: hidden;
+}
+
+/* Prominent quiz review disclaimer (Part 8). */
+.quiz-disclaimer {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: rgba(255, 180, 61, 0.08);
+  border: 1px solid rgba(255, 180, 61, 0.34);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin: 0 0 18px;
+}
+.quiz-disclaimer svg { color: var(--warning); flex: none; margin-top: 2px; }
+.quiz-disclaimer p { margin: 0; color: var(--ink-dim); font-size: 13px; line-height: 1.55; }
+.quiz-disclaimer strong { color: var(--ink); }
