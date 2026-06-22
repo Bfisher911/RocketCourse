@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../data/themes";
 import { applyThemeToGeneratedContent, sampleProject } from "./courseGenerator";
-import { CALENDAR_HREF, SUCCESS_GUIDE_HREF, SYLLABUS_HREF } from "./homepageTemplates";
+import { BANNER_SRC, CALENDAR_HREF, SUCCESS_GUIDE_HREF, SYLLABUS_HREF } from "./homepageTemplates";
 import { buildImsccZip } from "./imsccExport";
 
 const HOMEPAGE_PATH = "wiki_content/homepage.html";
@@ -26,7 +26,11 @@ describe("homepage export", () => {
     expect(html).toContain(SUCCESS_GUIDE_HREF);
     expect(html).toContain(SYLLABUS_HREF);
     expect(html).toContain(CALENDAR_HREF);
-    expect(html).toContain("../web_resources/course-banner.svg");
+    expect(html).toContain(BANNER_SRC);
+    // These are Canvas substitution tokens, not relative ".html" paths — that is what makes
+    // the links and banner resolve once the cartridge is imported into a live course.
+    expect(html).toContain("$WIKI_REFERENCE$/pages/");
+    expect(html).toContain("$IMS-CC-FILEBASE$/course-banner.svg");
   });
 
   it("references a banner asset that is actually included in the package", async () => {

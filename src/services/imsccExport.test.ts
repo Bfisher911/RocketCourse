@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { defaultSettings } from "../data/defaultSettings";
 import { getTheme } from "../data/themes";
 import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./courseGenerator";
+import { CALENDAR_HREF } from "./homepageTemplates";
+import { PRINTABLE_HTML_HREF, PRINTABLE_PDF_HREF } from "./syllabusTemplates";
 import { buildCourseQualityReport } from "./courseQuality";
 import { buildImsccZip, generateImsccBlob, validateImsccZip } from "./imsccExport";
 import { importCanvasCourseFromImscc } from "./imsccImport";
@@ -61,6 +63,11 @@ describe("CourseForge export engine", () => {
       expect(page.bodyHtml).toContain("Key Terms");
       expect(page.bodyHtml).toContain("Common Misconception");
       expect(page.bodyHtml).toContain("Check Your Understanding");
+      // Enriched teaching content: defined key terms, a structured worked example, and why-it-matters.
+      expect(page.bodyHtml).toContain("Worked Example");
+      expect(page.bodyHtml).toContain("Why This Matters");
+      expect(page.bodyHtml).toContain("<strong>Stakeholder:</strong>");
+      expect(page.bodyHtml).toContain("<ol");
     });
   });
 
@@ -78,10 +85,26 @@ describe("CourseForge export engine", () => {
     expect(calendarPage?.bodyHtml).toContain("<table");
     expect(calendarPage?.bodyHtml).toContain("Set by instructor");
     expect(start?.items.some((item) => item.refId === calendarPage?.id && item.title === "Course Calendar and Workload Plan")).toBe(true);
-    expect(homepage?.bodyHtml).toContain("course-calendar-and-workload-plan.html");
-    expect(syllabus?.bodyHtml).toContain("course-calendar-and-workload-plan.html");
-    expect(studentGuide?.bodyHtml).toContain("course-calendar-and-workload-plan.html");
+    expect(homepage?.bodyHtml).toContain(CALENDAR_HREF);
+    expect(syllabus?.bodyHtml).toContain(CALENDAR_HREF);
+    expect(studentGuide?.bodyHtml).toContain(CALENDAR_HREF);
     expect(buildReadinessReport(sampleProject).checks.find((check) => check.id === "calendar-page")?.passed).toBe(true);
+  });
+
+  it("wires Previous/Next module navigation with resolvable Canvas wiki tokens", () => {
+    const overviews = sampleProject.pages.filter((page) => /overview/i.test(page.title) && /^module_\d+$/.test(page.moduleId ?? ""));
+    expect(overviews.length).toBeGreaterThan(1);
+    overviews.forEach((page) => {
+      expect(page.bodyHtml).toContain("Module Navigation");
+      expect(page.bodyHtml).toContain("$WIKI_REFERENCE$/pages/");
+    });
+    // First content module steps back to the Course Success Guide; the last steps forward to Modules.
+    expect(overviews[0].bodyHtml).toContain("Back to Course Success Guide");
+    expect(overviews[overviews.length - 1].bodyHtml).toContain("Continue to Modules and Final Project");
+    if (overviews.length >= 3) {
+      expect(overviews[1].bodyHtml).toContain("Previous:");
+      expect(overviews[1].bodyHtml).toContain("Next:");
+    }
   });
 
   it("creates resource placeholders without fabricating citations or URLs", () => {
@@ -251,6 +274,9 @@ describe("CourseForge export engine", () => {
     const printableHtml = await zip.file("web_resources/syllabus-printable.html")?.async("text");
 
     expect(report.valid).toBe(true);
+    // Every internal link/banner now uses a Canvas substitution token that resolves to a real
+    // object, so the package must carry zero broken-internal-link findings.
+    expect(report.issues.filter((issue) => issue.id.startsWith("broken-internal-link"))).toHaveLength(0);
     expect(report.packageName.endsWith(".imscc")).toBe(true);
     expect(report.files).toContain("imsmanifest.xml");
     expect(report.files).toContain("course_settings/canvas_export.txt");
@@ -273,8 +299,8 @@ describe("CourseForge export engine", () => {
     expect(report.files.some((file) => file.startsWith("wiki_content/"))).toBe(true);
     expect(moduleMeta).toContain("<title>Instructor Guide</title>");
     expect(moduleMeta).toContain("<workflow_state>unpublished</workflow_state>");
-    expect(syllabusHtml).toContain("../web_resources/syllabus-printable.html");
-    expect(syllabusHtml).toContain("../web_resources/syllabus-printable.pdf");
+    expect(syllabusHtml).toContain(PRINTABLE_HTML_HREF);
+    expect(syllabusHtml).toContain(PRINTABLE_PDF_HREF);
     expect(syllabusHtml).toContain(sampleProject.pages.find((page) => page.slug === "syllabus")?.bodyHtml);
     expect(printableHtml).toContain("<title>Printable Syllabus</title>");
     expect(printableHtml).toContain(sampleProject.title);
@@ -289,8 +315,10 @@ describe("CourseForge export engine", () => {
     const courseSettingsXml = (await zip.file("course_settings/course_settings.xml")?.async("text")) ?? "";
     const syllabusHtml = (await zip.file("course_settings/syllabus.html")?.async("text")) ?? "";
 
-    expect(bannerSvg).toContain(theme.soft);
+    // The banner is now a themed gradient (accent -> accentDark) rather than a flat soft fill.
     expect(bannerSvg).toContain(theme.accent);
+    expect(bannerSvg).toContain(theme.accentDark);
+    expect(bannerSvg).toContain("linearGradient");
     expect(bannerSvg).toContain(theme.bannerLabel);
     expect(courseSettingsXml).toContain(`<course_color>${theme.accent}</course_color>`);
     expect(syllabusHtml).toContain(theme.accentDark);

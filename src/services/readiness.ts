@@ -8,6 +8,8 @@ import { validatePagePlan } from "./pageBuilder";
 import { validateQuizPlan } from "./quizBuilder";
 import { validateRubricPlan } from "./rubricBuilder";
 import { validateSyllabus } from "./syllabusValidation";
+import { canvasRefTargets } from "./canvasLinks";
+import { CALENDAR_HREF, SUCCESS_GUIDE_HREF } from "./homepageTemplates";
 
 const check = (
   id: string,
@@ -194,16 +196,23 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const placeholderLinks = htmlBlocks(course).flatMap((block) => hrefsFrom(block.html).filter(isPlaceholderHref).map((href) => `${block.title}: ${href || "(empty)"}`));
   const pageTargetSet = pageTargets(course);
   const resourceTargetSet = resourceTargets(course);
+  // Canvas substitution tokens ($WIKI_REFERENCE$/..., $CANVAS_OBJECT_REFERENCE$/..., $IMS-CC-FILEBASE$/...)
+  // are how internal links actually resolve in an imported course; treat them as valid targets.
+  const tokenTargetSet = canvasRefTargets(course);
+  const normalizeHref = (href: string): string => href.split("#")[0].split("?")[0].replace(/^\.\//, "");
   const missingInternalLinks = htmlBlocks(course).flatMap((block) =>
     hrefsFrom(block.html)
       .filter((href) => !isPlaceholderHref(href))
       .filter((href) => !/^https?:\/\//i.test(href) && !/^mailto:/i.test(href))
       .filter((href) => !href.startsWith("#"))
-      .filter((href) => !pageTargetSet.has(href.replace(/^\.\//, "")) && !resourceTargetSet.has(href.replace(/^\.\//, "")))
+      .filter((href) => {
+        const normalized = normalizeHref(href);
+        return !pageTargetSet.has(normalized) && !resourceTargetSet.has(normalized) && !tokenTargetSet.has(normalized);
+      })
       .map((href) => `${block.title}: ${href}`)
   );
-  const homepageStartHereResolves = Boolean(homepage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes("course-success-guide.html")) && course.pages.some((page) => page.slug === "course-success-guide"));
-  const homepageCalendarResolves = Boolean(homepage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes("course-calendar-and-workload-plan.html")) && calendarPage);
+  const homepageStartHereResolves = Boolean(homepage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes(SUCCESS_GUIDE_HREF)) && course.pages.some((page) => page.slug === "course-success-guide"));
+  const homepageCalendarResolves = Boolean(homepage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes(CALENDAR_HREF)) && calendarPage);
   const syllabusPrintable = course.fileAssets.some((asset) => asset.path === "web_resources/syllabus-printable.pdf");
   const syllabusValidation = syllabus
     ? validateSyllabus(syllabus.bodyHtml, { knownTargets: new Set([...pageTargetSet, ...resourceTargetSet]), includeContactHours: course.settings.includeContactHours })

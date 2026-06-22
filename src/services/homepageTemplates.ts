@@ -15,14 +15,16 @@
 
 import type { HomepageContent, HomepageLink, HomepageState, Theme } from "../types";
 import { bestTextOn } from "../utils/color";
+import { fileRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
 
-// The canonical exported file names the homepage links to. Keeping them here means
-// every template and the default content agree, and the readiness checks that look
-// for these links keep passing.
-export const SYLLABUS_HREF = "syllabus.html";
-export const SUCCESS_GUIDE_HREF = "course-success-guide.html";
-export const CALENDAR_HREF = "course-calendar-and-workload-plan.html";
-export const BANNER_SRC = "../web_resources/course-banner.svg";
+// The canonical Canvas link tokens the homepage points at. These are NOT relative
+// ".html" paths — Canvas rewrites these tokens to live course URLs on import, so the
+// homepage buttons actually resolve in the imported course. Keeping them here means
+// every template, the default content, and the readiness checks stay in lockstep.
+export const SYLLABUS_HREF = wikiPageRef(WELL_KNOWN_PAGE_IDS.syllabus);
+export const SUCCESS_GUIDE_HREF = wikiPageRef(WELL_KNOWN_PAGE_IDS.successGuide);
+export const CALENDAR_HREF = wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar);
+export const BANNER_SRC = fileRef("course-banner.svg");
 
 export interface HomepageTemplateMeta {
   id: string;

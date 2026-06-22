@@ -1,9 +1,11 @@
 import type { Assignment, AssignmentGroup, ContactHourPlan, CourseOutcome, Discussion, Quiz, SyllabusContent, SyllabusState, Theme } from "../types";
 import { bestTextOn } from "../utils/color";
+import { fileRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
 
-export const PRINTABLE_HTML_HREF = "../web_resources/syllabus-printable.html";
-export const PRINTABLE_PDF_HREF = "../web_resources/syllabus-printable.pdf";
-export const CALENDAR_HREF = "course-calendar-and-workload-plan.html";
+// Canvas link tokens (not relative ".html") so syllabus links resolve in the imported course.
+export const PRINTABLE_HTML_HREF = fileRef("syllabus-printable.html");
+export const PRINTABLE_PDF_HREF = fileRef("syllabus-printable.pdf");
+export const CALENDAR_HREF = wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar);
 
 export interface SyllabusTemplateMeta {
   id: string;

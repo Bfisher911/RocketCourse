@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../data/themes";
-import { defaultHomepageContent, renderHomepage, type HomepageContext } from "./homepageTemplates";
+import { BANNER_SRC, CALENDAR_HREF, SUCCESS_GUIDE_HREF, SYLLABUS_HREF, defaultHomepageContent, renderHomepage, type HomepageContext } from "./homepageTemplates";
 import { validateHomepage } from "./homepageValidation";
 
 const context: HomepageContext = {
@@ -60,12 +60,12 @@ describe("validateHomepage", () => {
 
   it("requires a clear start path", () => {
     expect(statusOf("<h1>Welcome</h1><p>Nothing here.</p>", "start-path")).toBe("fail");
-    expect(statusOf('<h1>Welcome</h1><a href="course-success-guide.html">Start Here</a>', "start-path")).toBe("pass");
+    expect(statusOf(`<h1>Welcome</h1><a href="${SUCCESS_GUIDE_HREF}">Start Here</a>`, "start-path")).toBe("pass");
   });
 
   it("requires a syllabus link", () => {
     expect(statusOf("<h1>Welcome</h1><p>No syllabus.</p>", "syllabus-link")).toBe("fail");
-    expect(statusOf('<h1>Welcome</h1><a href="syllabus.html">Syllabus</a>', "syllabus-link")).toBe("pass");
+    expect(statusOf(`<h1>Welcome</h1><a href="${SYLLABUS_HREF}">Syllabus</a>`, "syllabus-link")).toBe("pass");
   });
 
   it("warns on vague link text", () => {
@@ -78,14 +78,14 @@ describe("validateHomepage", () => {
   });
 
   it("verifies internal links against known export targets when provided", () => {
-    const known = new Set(["syllabus.html", "course-success-guide.html", "course-calendar-and-workload-plan.html"]);
+    const known = new Set([SYLLABUS_HREF, SUCCESS_GUIDE_HREF, CALENDAR_HREF]);
     expect(statusOf(goodHtml, "internal-links", { knownTargets: known })).toBe("pass");
-    const broken = '<h1>Hi</h1><a href="course-success-guide.html">Start</a><a href="syllabus.html">S</a><a href="missing.html">Gone</a>';
+    const broken = `<h1>Hi</h1><a href="${SUCCESS_GUIDE_HREF}">Start</a><a href="${SYLLABUS_HREF}">S</a><a href="$WIKI_REFERENCE$/pages/page_missing">Gone</a>`;
     expect(statusOf(broken, "internal-links", { knownTargets: known })).toBe("warn");
   });
 
   it("warns when the banner path is wrong but passes when correct", () => {
     expect(statusOf('<h1>Hi</h1><img src="web_resources/course-banner.svg" alt="banner">', "banner-path")).toBe("warn");
-    expect(statusOf('<h1>Hi</h1><img src="../web_resources/course-banner.svg" alt="banner">', "banner-path")).toBe("pass");
+    expect(statusOf(`<h1>Hi</h1><img src="${BANNER_SRC}" alt="banner">`, "banner-path")).toBe("pass");
   });
 });

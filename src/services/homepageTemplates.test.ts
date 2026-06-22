@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getTheme, themes } from "../data/themes";
 import {
+  BANNER_SRC,
   CALENDAR_HREF,
   HOMEPAGE_TEMPLATES,
   SUCCESS_GUIDE_HREF,
@@ -57,7 +58,7 @@ describe("homepage templates", () => {
         const imgs = html.match(/<img\b[^>]*>/gi) ?? [];
         imgs.forEach((img) => expect(img).toMatch(/\salt="[^"]+"/i));
         if (/course-banner\.svg/i.test(html)) {
-          expect(html).toContain("../web_resources/course-banner.svg");
+          expect(html).toContain(BANNER_SRC);
         }
       });
 

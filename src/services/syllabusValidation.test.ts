@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../data/themes";
 import { sampleProject } from "./courseGenerator";
-import { PRINTABLE_HTML_HREF, PRINTABLE_PDF_HREF, renderSyllabus } from "./syllabusTemplates";
+import { CALENDAR_HREF, PRINTABLE_HTML_HREF, PRINTABLE_PDF_HREF, renderSyllabus } from "./syllabusTemplates";
 import { validateSyllabus } from "./syllabusValidation";
 
 const syllabusHtml = sampleProject.pages.find((page) => page.slug === "syllabus")?.bodyHtml ?? "";
 const knownTargets = new Set([
   PRINTABLE_HTML_HREF,
   PRINTABLE_PDF_HREF,
-  "course-calendar-and-workload-plan.html",
+  CALENDAR_HREF,
   "../web_resources/syllabus-printable.html",
   "../web_resources/syllabus-printable.pdf"
 ]);
@@ -52,10 +52,11 @@ describe("syllabus validation", () => {
   });
 
   it("warns when the printable copy link is missing or broken", () => {
-    const noPrintable = syllabusHtml.replace(/<a href="\.\.\/web_resources\/syllabus-printable\.(html|pdf)"[\s\S]*?<\/a>/g, "");
+    // Strip just the token URLs (split/join avoids escaping the token's regex-special "$").
+    const noPrintable = syllabusHtml.split(PRINTABLE_HTML_HREF).join("").split(PRINTABLE_PDF_HREF).join("");
     const brokenPrintable = syllabusHtml
-      .replace(/\.\.\/web_resources\/syllabus-printable\.html/g, "missing-syllabus-printable.html")
-      .replace(/\.\.\/web_resources\/syllabus-printable\.pdf/g, "missing-syllabus-printable.pdf");
+      .split(PRINTABLE_HTML_HREF).join("missing-syllabus-printable.html")
+      .split(PRINTABLE_PDF_HREF).join("missing-syllabus-printable.pdf");
 
     expect(validateSyllabus(noPrintable, { knownTargets }).checks.find((check) => check.id === "printable-link")?.status).toBe("warn");
     expect(validateSyllabus(brokenPrintable, { knownTargets: new Set() }).checks.find((check) => check.id === "printable-link")?.status).toBe("warn");

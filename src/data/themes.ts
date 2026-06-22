@@ -120,6 +120,86 @@ export const themes: Theme[] = [
     contrastText: "#0f172a",
     bannerLabel: "Strategic focus",
     contrastStatus: "pass"
+  },
+  // Gradient + pattern themes. The vivid colors live in `accent` (buttons); the gradient stops stay
+  // dark enough that white hero text clears WCAG large-text contrast at both ends.
+  {
+    id: "aurora",
+    name: "Aurora",
+    accent: "#7c3aed",
+    accentDark: "#5b21b6",
+    soft: "#f3e8ff",
+    contrastText: "#2e1065",
+    bannerLabel: "Aurora gradient",
+    contrastStatus: "pass",
+    gradientFrom: "#6d28d9",
+    gradientTo: "#4338ca",
+    pattern: "dots"
+  },
+  {
+    id: "sunrise-scholar",
+    name: "Sunrise Scholar",
+    accent: "#ea580c",
+    accentDark: "#9a3412",
+    soft: "#fff7ed",
+    contrastText: "#7c2d12",
+    bannerLabel: "Warm momentum",
+    contrastStatus: "pass",
+    gradientFrom: "#c2410c",
+    gradientTo: "#9a3412",
+    pattern: "diagonal"
+  },
+  {
+    id: "deep-ocean",
+    name: "Deep Ocean",
+    accent: "#0891b2",
+    accentDark: "#155e75",
+    soft: "#ecfeff",
+    contrastText: "#083344",
+    bannerLabel: "Calm depth",
+    contrastStatus: "pass",
+    gradientFrom: "#0f172a",
+    gradientTo: "#0e7490",
+    pattern: "grid"
+  },
+  {
+    id: "forest-path",
+    name: "Forest Path",
+    accent: "#15803d",
+    accentDark: "#14532d",
+    soft: "#f0fdf4",
+    contrastText: "#14532d",
+    bannerLabel: "Grounded growth",
+    contrastStatus: "pass",
+    gradientFrom: "#166534",
+    gradientTo: "#15803d",
+    pattern: "crosshatch"
+  },
+  {
+    id: "royal-press",
+    name: "Royal Press",
+    accent: "#9333ea",
+    accentDark: "#6b21a8",
+    soft: "#faf5ff",
+    contrastText: "#3b0764",
+    bannerLabel: "Editorial depth",
+    contrastStatus: "pass",
+    gradientFrom: "#6b21a8",
+    gradientTo: "#a21caf",
+    pattern: "diagonal"
+  },
+  {
+    id: "graphite-pro",
+    name: "Graphite Pro",
+    accent: "#0ea5e9",
+    accentDark: "#0369a1",
+    soft: "#f1f5f9",
+    contrastText: "#0f172a",
+    bannerLabel: "Minimal precision",
+    contrastStatus: "pass",
+    gradientFrom: "#1e293b",
+    gradientTo: "#334155",
+    pattern: "grid"
   }
 ];
 

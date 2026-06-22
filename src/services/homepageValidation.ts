@@ -253,7 +253,7 @@ export const validateHomepage = (html: string, options: HomepageValidationOption
         "banner-path",
         "Course banner path is correct",
         correct ? "pass" : "warn",
-        correct ? "Banner references ../web_resources/course-banner.svg (the included asset)." : `Banner src "${src}" should be ${BANNER_SRC} so it resolves from wiki_content/.`,
+        correct ? "Banner references the packaged course-banner.svg via the Canvas file token." : `Banner src "${src}" should be ${BANNER_SRC} so Canvas resolves it to the imported file.`,
         "recommended"
       )
     );

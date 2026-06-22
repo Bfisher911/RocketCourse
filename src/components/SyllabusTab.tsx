@@ -36,6 +36,7 @@ import {
   type SyllabusReviseAction
 } from "../services/syllabusTemplates";
 import { validateSyllabus, type SyllabusValidationResult } from "../services/syllabusValidation";
+import { canvasRefTargets } from "../services/canvasLinks";
 import { slugify, stripHtml } from "../utils/text";
 import { aiGenerateSyllabusContent } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
@@ -74,6 +75,7 @@ const knownTargetsFor = (course: CourseProject): Set<string> => {
     targets.add(`../${asset.path}`);
     targets.add(asset.fileName);
   });
+  canvasRefTargets(course).forEach((target) => targets.add(target));
   return targets;
 };
 

@@ -38,6 +38,7 @@ import {
 } from "./syllabusTemplates";
 import { buildThemedButton, buildThemedCallout, buildThemedCard, buildThemedSecondaryButton, buildThemedShell } from "./themeDesign";
 import { validateSyllabus } from "./syllabusValidation";
+import { fileRef, modulesIndexRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
 
 export interface GenerateCourseInput {
   prompt: string;
@@ -136,6 +137,8 @@ const shouldIncludeFinalMilestone = (settings: CourseSettings, moduleNumber: num
 };
 
 const listHtml = (items: string[]): string => `<ul style="margin: 10px 0 0 20px; padding: 0;">${items.map((item) => `<li style="margin: 6px 0;">${item}</li>`).join("")}</ul>`;
+
+const orderedListHtml = (items: string[]): string => `<ol style="margin: 10px 0 0 20px; padding: 0;">${items.map((item) => `<li style="margin: 6px 0;">${item}</li>`).join("")}</ol>`;
 
 const checklistHtml = (items: string[]): string =>
   `<ul style="list-style: none; margin: 10px 0 0; padding: 0;">${items
@@ -608,12 +611,12 @@ const buildSyllabusHtml = (
   canvasShell(
     `${title} Syllabus`,
     "Course expectations, grading structure, outcomes, support, and workload guidance.",
-    `${section("Printable Copy", `<p>${secondaryLink("../web_resources/syllabus-printable.pdf", "Download printable syllabus", theme)}</p><p>If the PDF preview is unavailable in Canvas, use the download link.</p>`, theme)}
+    `${section("Printable Copy", `<p>${secondaryLink(fileRef("syllabus-printable.pdf"), "Download printable syllabus", theme)}</p><p>If the PDF preview is unavailable in Canvas, use the download link.</p>`, theme)}
 ${section("Course Description", `<p>${description}</p>`, theme)}
 ${section("Course Learning Outcomes", listHtml(outcomes.map((outcome) => `<strong>${outcome.code}:</strong> ${outcome.text} <em>(${outcome.bloomLevel})</em>`)), theme)}
 ${section("Required and Optional Materials", checklistHtml(["Instructor will add required textbook chapters, OER sections, articles, videos, software, or open educational resources before publishing.", "Module resource pages identify where verified readings, media, or uploaded files should be added.", "Optional resources are marked clearly so students can prioritize required work."]), theme)}
 ${section("Grading Breakdown", listHtml(groups.map((group) => `${group.name}: ${group.weight}%`)), theme)}
-${section("Weekly Schedule", `<p>Dates should be adjusted to match the official term calendar before publishing. Avoid holidays and blackout dates when setting due dates.</p><p>${secondaryLink("course-calendar-and-workload-plan.html", "Open course calendar and workload plan", theme)}</p>${listHtml(scheduleRows)}`, theme)}
+${section("Weekly Schedule", `<p>Dates should be adjusted to match the official term calendar before publishing. Avoid holidays and blackout dates when setting due dates.</p><p>${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar), "Open course calendar and workload plan", theme)}</p>${listHtml(scheduleRows)}`, theme)}
 ${section("Participation and Communication", "<p>Students are expected to participate regularly, communicate respectfully, monitor announcements, and contact the instructor when barriers arise. Instructor should add response-time expectations, office hours, and preferred contact method.</p>", theme)}
 ${section("Late Work Policy", "<p>Instructor should add institution-specific late work rules, grace periods, extension procedures, and any assignment types that cannot be submitted late.</p>", theme)}
 ${section("Academic Integrity and AI Use", "<p>Institution academic integrity and acceptable AI-use policies should be inserted here before publication. If AI tools are permitted, students should disclose use, verify claims, and remain responsible for submitted work.</p>", theme)}
@@ -632,7 +635,7 @@ const buildStudentGuideHtml = (courseTitle: string, theme: Theme): string =>
 ${section("Where To Find Important Work", checklistHtml(["Syllabus: grading, workload, policies, and course outcomes.", "Course Calendar and Workload Plan: release dates, due dates, workload estimates, and pacing notes.", "Modules: the primary path for readings, pages, discussions, quizzes, and assignments.", "Grades: feedback and progress.", "Announcements: instructor updates and reminders."]), theme)}
 ${section("What Success Looks Like", checklistHtml(["You can explain each module's objectives in your own words.", "You use rubric language before submitting.", "You ask questions early when instructions feel unclear.", "You connect weekly work to the final project."]), theme)}
 ${callout("When You Feel Stuck", "<p>Return to the current module overview, reread the assignment rubric, post or send a specific question, and name exactly where you lost the thread.</p>", theme)}
-${section("First Steps", `<p>${buttonLink("syllabus.html", "Review the syllabus", theme)}${secondaryLink("course-calendar-and-workload-plan.html", "Open course calendar", theme)}${secondaryLink("course-navigation-guide.html", "Open navigation guide", theme)}</p>`, theme)}`,
+${section("First Steps", `<p>${buttonLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.syllabus), "Review the syllabus", theme)}${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar), "Open course calendar", theme)}${secondaryLink(modulesIndexRef(), "Go to Modules", theme)}</p>`, theme)}`,
     theme
   );
 
@@ -689,7 +692,7 @@ const buildInstructorGuideHtml = (courseTitle: string, navigation: CanvasNavigat
   canvasShell(
     "Instructor Guide",
     `Instructor-only implementation notes for ${courseTitle}.`,
-    `${section("Downloadable Version", `<p>${secondaryLink("../web_resources/instructor-guide.pdf", "Download instructor guide PDF", theme)}</p>`, theme)}
+    `${section("Downloadable Version", `<p>${secondaryLink(fileRef("instructor-guide.pdf"), "Download instructor guide PDF", theme)}</p>`, theme)}
 ${section("How To Run This Course", checklistHtml(["Import the .imscc into a clean Canvas shell when possible.", "Review Start Here, syllabus, all module overview pages, assignments, rubrics, and quizzes before publishing.", "Replace instructor placeholders, required materials, due dates, office hours, and institution policies.", "Publish only the modules and items that should be visible to students."]), theme)}
 ${section("Course Structure", "<p>The generated shell uses Start Here, sequenced content modules, a separate Final Project module, and this unpublished Instructor Guide module at the end.</p>", theme)}
 ${section("Before Publishing Checklist", checklistHtml(["Confirm the homepage Start Here button resolves.", "Review the Outcome and Assessment Alignment Map.", "Review gradebook assignment groups and weights.", "Check every graded item has an aligned outcome and rubric where appropriate.", "Open Modules as a student would and verify flow.", "Confirm the Instructor Guide module remains unpublished.", "Decide whether Assignments, Discussions, Quizzes, Pages, or Files should stay hidden from course navigation."]), theme)}
@@ -976,9 +979,9 @@ export const generateCourseProject = ({ prompt, settings }: GenerateCourseInput)
     makeFileAsset("asset_instructor_html", "web_resources/instructor-guide-printable.html", "Instructor guide printable HTML", "text/html", "other", generatedAt, "PDF-ready instructor guide HTML fallback.")
   ];
 
-  const homepageId = "page_homepage";
-  const syllabusId = "page_syllabus";
-  const studentGuideId = "page_course_success_guide";
+  const homepageId = WELL_KNOWN_PAGE_IDS.homepage;
+  const syllabusId = WELL_KNOWN_PAGE_IDS.syllabus;
+  const studentGuideId = WELL_KNOWN_PAGE_IDS.successGuide;
   const instructorGuideId = "page_instructor_guide";
   const syllabusContext: SyllabusContext = {
     title,
@@ -1087,6 +1090,25 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
     metadata: metadata(generatedAt)
   });
 
+  // Deterministic id of any content module's overview page, so a module can link to its
+  // neighbours' overviews for Previous/Next navigation. Must mirror the overviewPageId
+  // formula used inside the loop below.
+  const contentOverviewPageId = (i: number): string => id("page", `${i + 1}-${baseTopics[i] ?? `Applied Topic ${i + 1}`}-overview`);
+  // A themed Previous/Next bar built from real Canvas wiki tokens. The first module steps back to
+  // the Course Success Guide; the last steps forward to the Modules index (which holds the Final
+  // Project module), so every module has working forward/backward navigation in the imported course.
+  const moduleNavBar = (index: number): string => {
+    const previous =
+      index > 0
+        ? secondaryLink(wikiPageRef(contentOverviewPageId(index - 1)), `Previous: ${organizationLabel(mergedSettings, index)}`, theme)
+        : secondaryLink(wikiPageRef(studentGuideId), "Back to Course Success Guide", theme);
+    const next =
+      index < moduleCount - 1
+        ? buttonLink(wikiPageRef(contentOverviewPageId(index + 1)), `Next: ${organizationLabel(mergedSettings, index + 2)}`, theme)
+        : buttonLink(modulesIndexRef(), "Continue to Modules and Final Project", theme);
+    return `<p>${previous}${next}</p>`;
+  };
+
   for (let index = 0; index < moduleCount; index += 1) {
     const moduleNumber = index + 1;
     const moduleId = id("module", moduleNumber);
@@ -1129,7 +1151,8 @@ ${section("Module Learning Objectives", listHtml(moduleObjectives), theme)}
 ${section("Aligned Course Outcomes", outcomeBadges(outcomes, alignedOutcomeIds, theme), theme)}
 ${section("Learning Path", checklistHtml(["Read the resource page and note which sources require instructor replacement.", "Work through the mini-lecture and examples.", "Complete the practice activity before graded work.", "Use discussion, quiz, or assignment feedback to prepare for the module recap."]), theme)}
 ${section("Key Activities", "<p>Resources, lesson content, practice, instructor notes, discussion, knowledge check, and applied work are sequenced in Modules.</p>", theme)}
-${callout("Estimated Workload", `<p>Plan for approximately ${workloadHours} hours of student work in this module.</p>`, theme)}`,
+${callout("Estimated Workload", `<p>Plan for approximately ${workloadHours} hours of student work in this module.</p>`, theme)}
+${section("Module Navigation", moduleNavBar(index), theme)}`,
           theme
         ),
         moduleId,
@@ -1177,9 +1200,23 @@ ${callout("Accessibility Check", "<p>Instructor should confirm that videos inclu
         canvasShell(
           `${moduleTopic}: Lecture and Notes`,
           "Canvas-friendly lesson content, examples, misconception checks, and instructor-editable teaching notes.",
-          `${section("Mini-Lecture", `<p>${moduleTopic} asks students to connect course concepts to evidence, context, and decisions. In this module, students identify the vocabulary that helps them describe the issue, then practice using that vocabulary to interpret examples connected to ${topic.toLowerCase()}.</p><p>A useful way to approach the topic is to ask: What is happening, who is affected, what evidence supports the claim, and what choices become possible after we understand the context?</p>`, theme)}
-${section("Key Terms", listHtml([`${moduleTopic} vocabulary`, "Stakeholder", "Evidence", "Context", "Tradeoff", "Recommendation"]), theme)}
-${section("Worked Example", `<p>Consider a realistic case related to ${topic.toLowerCase()}. A strong analysis identifies the situation, names the people or systems affected, uses evidence from the resource page, and explains why the decision matters beyond personal opinion.</p>`, theme)}
+          `${section("Mini-Lecture", `<p>${moduleTopic} asks students to connect course concepts to evidence, context, and decisions. In this module, students identify the vocabulary that helps them describe the issue, then practice using that vocabulary to interpret examples connected to ${topic.toLowerCase()}.</p><p>Experts in this area rarely ask "what do I think?" first. They ask, in order: <em>What is actually happening? Who is affected? What evidence supports the claim? What becomes possible once we understand the context?</em> The rest of this page walks that sequence so you can reuse it on the graded work.</p>`, theme)}
+${section("Key Terms", `<p>Learn these well enough to use them in a sentence — the assignment and quiz both reward precise vocabulary.</p>${listHtml([
+            `<strong>${moduleTopic} vocabulary:</strong> the specific words this module uses to describe ${moduleTopic.toLowerCase()} precisely instead of in general terms.`,
+            "<strong>Stakeholder:</strong> any person, group, or system affected by a decision — naming stakeholders keeps your analysis grounded in real impact.",
+            "<strong>Evidence:</strong> verifiable data, sources, or observations used to support a claim, as opposed to personal opinion.",
+            "<strong>Context:</strong> the conditions and constraints that change how a situation should be interpreted.",
+            "<strong>Tradeoff:</strong> what is given up when one option is chosen over another; strong analysis makes tradeoffs explicit.",
+            "<strong>Recommendation:</strong> a defensible course of action that follows from the evidence and weighs the tradeoffs."
+          ])}`, theme)}
+${section("Worked Example", `<p>Here is the five-move method applied to a case connected to ${topic.toLowerCase()} — the same moves you will use on the assignment:</p>${orderedListHtml([
+            "<strong>Situation:</strong> state what is happening and when, in one or two sentences, before interpreting anything.",
+            "<strong>Stakeholders:</strong> name the people, groups, or systems affected, and note what each one stands to gain or lose.",
+            "<strong>Evidence:</strong> cite two or three specific items from the resource page and explain what each one shows.",
+            "<strong>Tradeoffs:</strong> make at least one tension between competing goals explicit instead of glossing over it.",
+            "<strong>Recommendation:</strong> state a clear, defensible decision and one sentence on why it follows from the evidence."
+          ])}<p style="margin: 12px 0 0;">Notice that opinion never appears on its own — every judgment is anchored to evidence and context.</p>`, theme)}
+${callout("Why This Matters", `<p>Advanced courses and employers expect graduates to move from opinion to evidence-based judgment. Practicing the five-move method on ${moduleTopic.toLowerCase()} now builds the exact habit you will use in this module's graded work, in the final project, and in professional decisions later.</p>`, theme)}
 ${callout("Common Misconception", `<p>A common mistake is treating ${moduleTopic.toLowerCase()} as a simple opinion question. Course work should move from opinion toward evidence, context, and reasoned judgment.</p>`, theme)}
 ${section("Check Your Understanding", checklistHtml(["Define one module term in your own words.", "Name one example that illustrates the concept.", "Explain one consequence or tradeoff.", "Write one question you still need answered."]), theme)}
 ${section("Instructor Teaching Notes", checklistHtml(["Replace the worked example with one from the discipline or local context.", "Add a short announcement that connects this lesson to the graded task.", "Watch for students who summarize sources without explaining why the evidence matters."]), theme)}`,
@@ -1367,7 +1404,8 @@ ${section("What To Carry Forward", `<p>This checkpoint should leave you with one
           `${section("What You Covered", `<p>You explored ${moduleTopic.toLowerCase()} and practiced applying course concepts in context.</p>`, theme)}
 ${section("You Should Now Be Able To", listHtml(moduleObjectives), theme)}
 ${section("Reflection Questions", checklistHtml(["What concept feels most useful now?", "What question remains unresolved?", "How does this module connect to your final project or professional context?"]), theme)}
-${callout("Coming Next", `<p>The next module extends this work into ${baseTopics[index + 1] ?? finalTitle.toLowerCase()}.</p>`, theme)}`,
+${callout("Coming Next", `<p>The next module extends this work into ${baseTopics[index + 1] ?? finalTitle.toLowerCase()}.</p>`, theme)}
+${section("Module Navigation", moduleNavBar(index), theme)}`,
           theme
         ),
         moduleId,
@@ -1527,7 +1565,7 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     metadata: metadata(generatedAt)
   });
 
-  const courseCalendarId = "page_course_calendar_workload_plan";
+  const courseCalendarId = WELL_KNOWN_PAGE_IDS.calendar;
   pages.push(
     makePage(
       courseCalendarId,

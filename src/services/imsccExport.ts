@@ -23,6 +23,8 @@ import { validatePagePlan } from "./pageBuilder";
 import { validateQuizPlan } from "./quizBuilder";
 import { validateRubricPlan } from "./rubricBuilder";
 import { buildReadinessReport } from "./readiness";
+import { buildBannerSvg } from "./themeDesign";
+import { canvasRefResolves, canvasRefTargets, isCanvasRef } from "./canvasLinks";
 import { collectXmlParseErrors, formatXmlParseError } from "./xmlWellFormed";
 
 const CANVAS_NAMESPACE = "http://canvas.instructure.com/xsd/cccv1p0";
@@ -85,16 +87,7 @@ const wrappedWikiPage = (page: CoursePage): string =>
     front_page: page.frontPage ? "true" : "false"
   });
 
-const createBannerSvg = (course: CourseProject): string => `<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="360" viewBox="0 0 1440 360" role="img" aria-labelledby="title desc">
-  <title id="title">${xml(course.title)} course banner</title>
-  <desc id="desc">Abstract banner using the ${xml(course.theme.name)} theme.</desc>
-  <rect width="1440" height="360" fill="${xml(course.theme.soft)}"/>
-  <path d="M0 280 C 260 220 410 315 650 245 S 1020 160 1440 235 L1440 360 L0 360 Z" fill="${xml(course.theme.accent)}" opacity="0.18"/>
-  <circle cx="1110" cy="120" r="74" fill="${xml(course.theme.accent)}" opacity="0.22"/>
-  <rect x="96" y="82" width="560" height="170" rx="18" fill="#ffffff" opacity="0.92"/>
-  <text x="132" y="150" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#111827">${xml(course.title)}</text>
-  <text x="132" y="200" font-family="Arial, sans-serif" font-size="24" fill="#374151">${xml(course.theme.bannerLabel)}</text>
-</svg>`;
+const createBannerSvg = (course: CourseProject): string => buildBannerSvg(course.title, course.theme);
 
 const createCourseTileSvg = (course: CourseProject): string => `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
   <title id="title">${xml(course.title)} course tile</title>
@@ -872,12 +865,22 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
 
   const knownPageTargets = pageLinkTargets(course);
   const knownResourceTargets = resourceLinkTargets(course);
+  // Canvas substitution tokens are the links that actually resolve in an imported course.
+  const knownTokenTargets = canvasRefTargets(course);
   htmlBlocks(course).forEach((block) => {
     hrefsFrom(block.html)
       .filter((href) => !placeholderHref(href) && !externalHref(href) && !href.startsWith("#"))
       .forEach((href) => {
         const normalized = normalizeHref(href);
-        if (normalized && !knownPageTargets.has(normalized) && !knownResourceTargets.has(normalized)) {
+        if (!normalized) return;
+        if (isCanvasRef(href)) {
+          // A Canvas token that doesn't resolve to a real object is a broken link in the imported course.
+          if (!canvasRefResolves(href, course)) {
+            warn(`broken-internal-link-${block.id}-${slugify(href).slice(0, 40)}`, `${block.title} links to a missing Canvas object: ${href}.`);
+          }
+          return;
+        }
+        if (!knownPageTargets.has(normalized) && !knownResourceTargets.has(normalized) && !knownTokenTargets.has(normalized)) {
           warn(`broken-internal-link-${block.id}-${slugify(href).slice(0, 40)}`, `${block.title} links to missing internal content or file: ${href}.`);
         }
       });

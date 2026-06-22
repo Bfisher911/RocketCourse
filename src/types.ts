@@ -134,6 +134,10 @@ export interface SourceFile {
   status: "attached" | "parsed";
 }
 
+// Subtle, Canvas-safe texture rendered as pure CSS gradients (no url() — Canvas's sanitizer
+// can strip url() in inline styles, but CSS gradient functions survive).
+export type ThemePattern = "none" | "dots" | "grid" | "diagonal" | "crosshatch";
+
 export interface Theme {
   id: string;
   name: string;
@@ -143,6 +147,11 @@ export interface Theme {
   contrastText: string;
   bannerLabel: string;
   contrastStatus: "pass" | "review";
+  // Optional visual richness. When omitted, heroes fall back to an accent→accentDark gradient
+  // and no pattern, so every existing/custom theme keeps working and simply gains a subtle hero.
+  gradientFrom?: string;
+  gradientTo?: string;
+  pattern?: ThemePattern;
 }
 
 export interface CourseOutcome {

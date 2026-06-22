@@ -30,9 +30,12 @@ import {
   renderHomepage,
   reviseHomepageContent,
   templateMeta,
+  BANNER_SRC,
   type HomepageReviseAction
 } from "../services/homepageTemplates";
 import { validateHomepage, type HomepageValidationResult } from "../services/homepageValidation";
+import { canvasRefTargets } from "../services/canvasLinks";
+import { buildBannerSvg } from "../services/themeDesign";
 import { slugify } from "../utils/text";
 import { aiGenerateHomepageContent } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
@@ -50,14 +53,16 @@ const newId = (prefix: string): string => `${prefix}_${Date.now().toString(36)}_
 // serve — so the live preview would show a broken image. For PREVIEW ONLY we swap that path for a
 // themed inline SVG that mirrors the exported banner. The stored/exported bodyHtml is untouched,
 // so the preview stays faithful to what Canvas will render while never showing a broken asset.
-const bannerDataUri = (course: CourseProject): string => {
-  const theme = course.theme;
-  const esc = (value: string): string => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='300' viewBox='0 0 1440 300'><rect width='1440' height='300' fill='${theme.soft}'/><path d='M0 235 C 260 185 410 275 650 210 S 1020 135 1440 200 L1440 300 L0 300 Z' fill='${theme.accent}' opacity='0.18'/><circle cx='1160' cy='105' r='66' fill='${theme.accent}' opacity='0.22'/><rect x='88' y='74' width='560' height='150' rx='16' fill='#ffffff' opacity='0.92'/><text x='122' y='144' font-family='Arial, sans-serif' font-size='38' font-weight='700' fill='#111827'>${esc(course.title)}</text><text x='122' y='188' font-family='Arial, sans-serif' font-size='22' fill='#374151'>${esc(theme.bannerLabel)}</text></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-};
+// Build the data URI from the SAME banner SVG the export writes, so the preview is faithful.
+const bannerDataUri = (course: CourseProject): string => `data:image/svg+xml,${encodeURIComponent(buildBannerSvg(course.title, course.theme))}`;
 
-const withPreviewAssets = (html: string, course: CourseProject): string => html.replace(/\.\.\/web_resources\/course-banner\.svg/g, bannerDataUri(course));
+// Swap the exported banner reference for a themed inline SVG in the preview. Handles the current
+// Canvas file token ($IMS-CC-FILEBASE$/course-banner.svg) and the legacy relative path that older
+// or imported homepages may still carry. split/join avoids escaping the token's regex-special "$".
+const withPreviewAssets = (html: string, course: CourseProject): string => {
+  const dataUri = bannerDataUri(course);
+  return html.split(BANNER_SRC).join(dataUri).split("../web_resources/course-banner.svg").join(dataUri);
+};
 
 const relativeTime = (iso?: string): string => {
   if (!iso) return "just now";
@@ -98,6 +103,7 @@ const knownTargetsFor = (course: CourseProject): Set<string> => {
     targets.add(`../${asset.path}`);
     targets.add(asset.fileName);
   });
+  canvasRefTargets(course).forEach((target) => targets.add(target));
   return targets;
 };
 

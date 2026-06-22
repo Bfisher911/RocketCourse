@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { themes } from "../data/themes";
+import { getTheme, themes } from "../data/themes";
 import type { Theme } from "../types";
-import { buildThemePreviewHtml, buildThemedButton, validateTheme, type ThemePreviewKind } from "./themeDesign";
+import {
+  buildBannerSvg,
+  buildThemePreviewHtml,
+  buildThemedButton,
+  buildThemedShell,
+  getThemeStyles,
+  heroBackgroundCss,
+  validateTheme,
+  type ThemePreviewKind
+} from "./themeDesign";
 
 const unsafeHtmlPattern = /<script|<style|\son[a-z]+\s*=|javascript:/i;
 
@@ -65,5 +74,39 @@ describe("theme design system", () => {
       expect(html, mode).toContain(themes[0].accent);
       expect(html, mode).toContain(themes[0].accentDark);
     });
+  });
+
+  it("ships the new gradient + pattern themes, all contrast-valid", () => {
+    const ids = ["aurora", "sunrise-scholar", "deep-ocean", "forest-path", "royal-press", "graphite-pro"];
+    ids.forEach((id) => {
+      const theme = getTheme(id);
+      expect(theme.id, id).toBe(id);
+      expect(theme.gradientFrom, id).toBeTruthy();
+      expect(theme.pattern, id).not.toBe("none");
+      const validation = validateTheme(theme);
+      expect(validation.status, id).toBe("pass");
+      expect(validation.warnings, id).toBe(0);
+    });
+  });
+
+  it("renders a Canvas-safe gradient hero with a pure-CSS pattern (no url())", () => {
+    const theme = getTheme("aurora");
+    const shell = buildThemedShell(theme, "Module 1: Foundations", "Start here", "<p>Body</p>");
+    expect(shell).toContain("linear-gradient");
+    expect(shell).not.toMatch(unsafeHtmlPattern);
+    // Patterns must be CSS gradients, never url() images — Canvas can strip url() in inline styles.
+    expect(shell).not.toContain("url(");
+    expect(heroBackgroundCss(getThemeStyles(theme))).toContain("radial-gradient");
+  });
+
+  it("builds one themed banner SVG (gradient + label) shared by export and preview", () => {
+    const theme = getTheme("deep-ocean");
+    const svg = buildBannerSvg("Marine Biology", theme);
+    expect(svg).toContain("<linearGradient");
+    expect(svg).toContain(theme.gradientFrom as string);
+    expect(svg).toContain(theme.gradientTo as string);
+    expect(svg).toContain("Marine Biology");
+    expect(svg).toContain(theme.bannerLabel);
+    expect(svg).not.toMatch(/<script|\son[a-z]+\s*=/i);
   });
 });
