@@ -35,6 +35,14 @@ const stripTrailing = (pathname: string): string => pathname.replace(/\/+$/, "")
 export function screenToPath(screen: Screen): string {
   // Integration is a family of pages sharing one screen; default to the hub.
   if (screen === "integration") return "/integration";
+  // Blog posts are a family of /blog/<slug> URLs; keep the current path when on one.
+  if (screen === "blogPost") {
+    const here = typeof window !== "undefined" ? window.location.pathname : "/blog";
+    return here.startsWith("/blog/") ? here : "/blog";
+  }
+  if (screen === "workspace") return "/workspace";
+  if (screen === "admin") return "/admin";
+  if (screen === "join") return "/join";
   const route = BY_SCREEN.get(screen);
   if (route) return route.path;
   return AUTH_PATHS[screen] ?? "/app";
@@ -47,6 +55,10 @@ export function pathToScreen(pathname: string): Screen {
   if (clean === "/login") return "login";
   if (clean === "/signup") return "signup";
   if (clean === "/integration" || clean.startsWith("/integration/")) return "integration";
+  if (clean.startsWith("/blog/")) return "blogPost";
+  if (clean === "/workspace") return "workspace";
+  if (clean === "/admin") return "admin";
+  if (clean === "/join") return "join";
   return "landing";
 }
 

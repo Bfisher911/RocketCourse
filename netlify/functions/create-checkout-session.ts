@@ -25,9 +25,9 @@ export default async (request: Request): Promise<Response> => {
   const user = await getAuthedUser(request);
   if (!user) return json(401, { error: "Sign in to start checkout." });
 
-  let body: { planKey?: string };
+  let body: { planKey?: string; workspaceName?: string };
   try {
-    body = (await request.json()) as { planKey?: string };
+    body = (await request.json()) as { planKey?: string; workspaceName?: string };
   } catch {
     return json(400, { error: "Body must be JSON: { planKey }." });
   }
@@ -37,6 +37,10 @@ export default async (request: Request): Promise<Response> => {
     return json(400, { error: "Unknown or non-self-serve planKey." });
   }
   const plan = getPlan(planKey);
+  const workspaceName =
+    typeof body.workspaceName === "string" && body.workspaceName.trim()
+      ? body.workspaceName.trim().slice(0, 80)
+      : undefined;
 
   const priceId = resolvePriceId(planKey);
   if (!priceId) {
@@ -69,6 +73,9 @@ export default async (request: Request): Promise<Response> => {
       await supabase.from("stripe_customers").upsert({ user_id: user.id, stripe_customer_id: customerId });
     }
 
+    const meta: Record<string, string> = { supabase_user_id: user.id, plan_key: planKey };
+    if (workspaceName) meta.workspace_name = workspaceName;
+
     const session = await stripe.checkout.sessions.create({
       mode: checkoutModeFor(plan),
       customer: customerId,
@@ -76,10 +83,10 @@ export default async (request: Request): Promise<Response> => {
       success_url: `${appUrl()}/?checkout=success`,
       cancel_url: `${appUrl()}/?checkout=cancel`,
       client_reference_id: user.id,
-      metadata: { supabase_user_id: user.id, plan_key: planKey },
+      metadata: meta,
       ...(checkoutModeFor(plan) === "subscription"
-        ? { subscription_data: { metadata: { supabase_user_id: user.id, plan_key: planKey } } }
-        : { payment_intent_data: { metadata: { supabase_user_id: user.id, plan_key: planKey } } })
+        ? { subscription_data: { metadata: meta } }
+        : { payment_intent_data: { metadata: meta } })
     });
 
     return json(200, { url: session.url });

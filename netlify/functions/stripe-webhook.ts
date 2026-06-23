@@ -9,6 +9,7 @@ import Stripe from "stripe";
 import { json } from "./_shared/http";
 import { getSupabaseAdmin } from "./_shared/supabaseAdmin";
 import { getStripe, resolvePriceId } from "./_shared/stripe";
+import { ensureWorkspaceForSubscription } from "./_shared/workspaceSync";
 import { getPlan, plans, type Plan, type PlanKey } from "../../src/data/plans";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -142,6 +143,18 @@ const handleSubscriptionEvent = async (sub: Stripe.Subscription, deleted = false
     periodStart: sub.current_period_start ? new Date(sub.current_period_start * 1000) : null,
     periodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
     cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end)
+  });
+
+  // Team-capable plans get a synced workspace; the purchaser becomes the Launchpad Admin.
+  // (No-op for individual plans.)
+  await ensureWorkspaceForSubscription({
+    userId,
+    planKey: plan.key,
+    status: deleted ? "canceled" : sub.status,
+    stripeCustomerId: customerId,
+    stripeSubscriptionId: sub.id,
+    seatQuantity: sub.items.data[0]?.quantity ?? null,
+    workspaceName: (sub.metadata?.workspace_name as string) ?? null
   });
 };
 

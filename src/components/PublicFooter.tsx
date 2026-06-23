@@ -1,4 +1,4 @@
-import { Rocket } from "lucide-react";
+import { LogoMark } from "./brand";
 import type { Screen } from "../types";
 
 // Shared footer for all public (pre-login) surfaces. Links cover the full public IA so users can
@@ -20,9 +20,7 @@ export function PublicFooter({ onNavigate }: { onNavigate: (screen: Screen) => v
     <footer className="public-footer" aria-label="Footer">
       <div className="public-footer-inner">
         <div className="public-footer-brand">
-          <span className="brand-mark">
-            <Rocket size={18} />
-          </span>
+          <LogoMark size={40} decorative />
           <div>
             <strong>RocketCourse</strong>
             <small>Canvas-first AI course builder</small>

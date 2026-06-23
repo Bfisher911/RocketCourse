@@ -9,7 +9,7 @@ declare const process: { env: Record<string, string | undefined> };
 
 // Netlify Functions run Node 20 (no native WebSocket); supabase-js's Realtime client construction
 // throws without one. Supply `ws` (Realtime is never used server-side).
-const realtime = { transport: WebSocket as unknown as typeof globalThis.WebSocket };
+const realtime = { transport: WebSocket };
 
 const url = (): string =>
   process.env.SUPABASE_URL?.trim() || process.env.VITE_SUPABASE_URL?.trim() || "";

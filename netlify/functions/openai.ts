@@ -69,7 +69,7 @@ export default async (request: Request): Promise<Response> => {
   // deterministic generators client-side (withFallback).
   const user = await getAuthedUser(request);
   if (!user) return json(401, { error: "Sign in with an active plan to use AI." });
-  const { decision } = await checkUserEntitlement(user.token, "revise_ai");
+  const { decision } = await checkUserEntitlement(user.token, "revise_ai", user.id);
   if (!decision.allowed) return json(403, { error: decision.reason, code: decision.code });
 
   let body: ChatRequestBody;

@@ -1,0 +1,474 @@
+/* ============================================================
+   RocketCourse — team + admin + blog surfaces.
+   Loaded after brand.css. Reuses the cosmic tokens; keeps the
+   control panels clean and readable (not a carnival cockpit).
+   ============================================================ */
+
+/* ---------- shared bits ---------- */
+.blog-muted {
+  color: var(--muted);
+}
+.ws-notice {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+}
+.ws-notice.ok {
+  background: rgba(75, 232, 168, 0.12);
+  border: 1px solid rgba(75, 232, 168, 0.4);
+  color: var(--ink);
+}
+
+.ws-admin input,
+.ws-admin select,
+.super-admin input,
+.super-admin select,
+.super-admin textarea,
+.blog-form input,
+.blog-form textarea,
+.blog-form select,
+.join-card input {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 14px;
+}
+.ws-admin input:focus,
+.ws-admin select:focus,
+.super-admin input:focus,
+.super-admin select:focus,
+.super-admin textarea:focus,
+.blog-form input:focus,
+.blog-form textarea:focus {
+  outline: none;
+  border-color: var(--rc-cyan);
+  box-shadow: var(--focus-ring-soft);
+}
+
+/* ---------- stat grids ---------- */
+.ws-stat-grid,
+.sa-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.ws-stat,
+.sa-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  background: var(--rc-card-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.ws-stat strong,
+.sa-stat strong {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1.1;
+}
+.ws-stat span,
+.sa-stat span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.ws-stat-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  margin-bottom: 4px;
+  color: var(--on-accent);
+}
+.ws-stat-icon.cyan { background: var(--cyan); }
+.ws-stat-icon.pink { background: var(--pink); }
+.ws-stat-icon.orange { background: var(--orange); color: #2a1500; }
+.ws-stat-icon.violet { background: var(--indigo); color: #fff; }
+
+/* ---------- tables ---------- */
+.ws-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+}
+.ws-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.ws-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--line);
+}
+.ws-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.ws-row-dim {
+  opacity: 0.55;
+}
+.ws-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ws-member strong {
+  display: block;
+  font-size: 14px;
+}
+.ws-member small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.ws-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.ws-role-tag {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.ws-role-tag.super {
+  color: var(--rc-cyan);
+  font-weight: 600;
+}
+
+/* status pills */
+.ws-status {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: capitalize;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+}
+.ws-status.active,
+.ws-status.published { background: rgba(75, 232, 168, 0.14); border-color: rgba(75, 232, 168, 0.4); color: #8ff0c8; }
+.ws-status.invited,
+.ws-status.pending,
+.ws-status.scheduled { background: rgba(255, 180, 61, 0.14); border-color: rgba(255, 180, 61, 0.4); color: #ffd089; }
+.ws-status.removed,
+.ws-status.archived,
+.ws-status.draft { background: rgba(255, 93, 115, 0.12); border-color: rgba(255, 93, 115, 0.35); color: #ff9fb0; }
+
+/* ---------- invite / join rows ---------- */
+.ws-invite-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ws-invite-row input[type="email"] {
+  flex: 1;
+  min-width: 200px;
+}
+.ws-link-out {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--rc-border-glow);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.ws-link-out code {
+  flex: 1;
+  min-width: 220px;
+  overflow-wrap: anywhere;
+  color: var(--cyan);
+  font-size: 12.5px;
+}
+.ws-invite-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ws-invite-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+}
+.ws-invite-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ---------- audit ---------- */
+.ws-audit {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.ws-audit li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+}
+.ws-audit-event {
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--ink);
+}
+.ws-audit-meta {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+/* ---------- super admin ---------- */
+.impersonation-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 180, 61, 0.16);
+  border: 1px solid rgba(255, 180, 61, 0.5);
+  color: var(--ink);
+  font-size: 13.5px;
+}
+.impersonation-banner .ghost-button {
+  margin-left: auto;
+}
+.sa-credit-form,
+.sa-discount-form {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--rc-border-glow);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+}
+.sa-credit-row,
+.sa-discount-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.sa-credit-row input[type="text"],
+.sa-credit-row input:not([type="number"]) {
+  flex: 1;
+  min-width: 200px;
+}
+.sa-credit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- join ---------- */
+.join-screen {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+.join-card {
+  max-width: 460px;
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+.join-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------- blog (public) ---------- */
+.blog-head {
+  margin-bottom: 28px;
+}
+.blog-head h1 {
+  margin: 8px 0 6px;
+}
+.blog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+.blog-card {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  background: var(--rc-card-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.blog-card:hover {
+  border-color: var(--rc-cyan);
+  transform: translateY(-2px);
+}
+.blog-card-cover {
+  height: 150px;
+  background-size: cover;
+  background-position: center;
+}
+.blog-card-cover--placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--grad-rail);
+}
+.blog-card-body {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+}
+.blog-card-body strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+.blog-card-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.blog-card-excerpt {
+  color: var(--ink-dim);
+  font-size: 14px;
+}
+.blog-back {
+  margin-bottom: 16px;
+}
+.blog-article {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.blog-article-cover {
+  height: 280px;
+  border-radius: var(--radius-lg);
+  background-size: cover;
+  background-position: center;
+  margin-bottom: 18px;
+}
+.blog-article h1 {
+  margin: 8px 0 18px;
+}
+.blog-preview-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 180, 61, 0.16);
+  border: 1px solid rgba(255, 180, 61, 0.5);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.blog-content {
+  color: var(--ink-dim);
+  line-height: 1.7;
+  font-size: 16px;
+}
+.blog-content h2 { font-family: var(--font-display); font-size: 26px; margin: 28px 0 10px; color: var(--ink); }
+.blog-content h3 { font-family: var(--font-display); font-size: 21px; margin: 22px 0 8px; color: var(--ink); }
+.blog-content h4 { font-size: 17px; margin: 18px 0 6px; color: var(--ink); }
+.blog-content p { margin: 0 0 16px; }
+.blog-content ul, .blog-content ol { margin: 0 0 16px; padding-left: 22px; }
+.blog-content li { margin: 4px 0; }
+.blog-content a { color: var(--cyan); }
+.blog-content code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-size: 14px; }
+.blog-content pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px; overflow-x: auto; margin: 0 0 16px; }
+.blog-content pre code { background: none; padding: 0; }
+.blog-content blockquote { border-left: 3px solid var(--rc-cyan); margin: 0 0 16px; padding: 4px 0 4px 16px; color: var(--ink); }
+.blog-content hr { border: none; border-top: 1px solid var(--line); margin: 24px 0; }
+
+/* ---------- blog manager ---------- */
+.blog-admin-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.blog-admin-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.blog-admin-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.blog-admin-title small {
+  color: var(--muted);
+}
+.blog-form {
+  display: grid;
+  gap: 14px;
+  margin: 8px 0;
+}
+.blog-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+.blog-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.blog-editor-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+@media (max-width: 640px) {
+  .blog-form-row {
+    grid-template-columns: 1fr;
+  }
+  .ws-audit-meta {
+    text-align: left;
+  }
+}

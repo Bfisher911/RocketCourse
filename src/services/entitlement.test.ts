@@ -160,6 +160,19 @@ describe("can() — usage limits", () => {
     expect(allows("generate_full_course", overridden, NOW)).toBe(true);
   });
 
+  it("adds granted credits on top of the plan limit (additive, not override)", () => {
+    // individual_semester: 15 exports. Used all 15, but +5 export credits → 5 remaining.
+    const exportCredited = sub({ planKey: "individual_semester", exportsUsed: 15, exportCredits: 5 });
+    expect(exportsRemaining(exportCredited)).toBe(5);
+    expect(allows("export", exportCredited, NOW)).toBe(true);
+    // 10 AI gens, all used, +3 credits → 3 remaining.
+    const aiCredited = sub({ planKey: "individual_semester", aiGenerationsUsed: 10, aiCredits: 3 });
+    expect(aiGenerationsRemaining(aiCredited)).toBe(3);
+    expect(allows("generate_full_course", aiCredited, NOW)).toBe(true);
+    // credits never make an unlimited plan finite
+    expect(exportsRemaining(sub({ planKey: "department_pilot", exportsUsed: 999, exportCredits: 10 }))).toBeNull();
+  });
+
   it("denies once an expired paid plan lapses even with credits left", () => {
     const expired = sub({ planKey: "individual_semester", currentPeriodEnd: past, aiGenerationsUsed: 0 });
     expect(can("generate_full_course", expired, NOW).code).toBe("no_active_subscription");

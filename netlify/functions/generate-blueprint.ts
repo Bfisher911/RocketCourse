@@ -29,7 +29,7 @@ export default async (request: Request): Promise<Response> => {
   if (!user) return json(401, { error: "Sign in to generate a blueprint." });
 
   // Server-side entitlement: the authoritative gate. Free/demo users are denied here.
-  const { decision } = await checkUserEntitlement(user.token, "generate_blueprint");
+  const { decision } = await checkUserEntitlement(user.token, "generate_blueprint", user.id);
   if (!decision.allowed) {
     return json(403, { error: decision.reason, code: decision.code });
   }

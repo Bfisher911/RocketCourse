@@ -18,7 +18,12 @@ export type Screen =
   | "intake"
   | "blueprint"
   | "progress"
-  | "editor";
+  | "editor"
+  | "blog"
+  | "blogPost"
+  | "workspace"
+  | "admin"
+  | "join";
 
 export type EditorTab =
   | "Overview"

@@ -25,12 +25,15 @@ import {
   Mail,
   MessageSquareText,
   MoveRight,
+  Newspaper,
   Palette,
   PanelLeft,
   PenLine,
   Plus,
   RefreshCw,
+  Rocket,
   RotateCcw,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -39,6 +42,12 @@ import {
   Wand2
 } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { BrandBadge, BrandHeader, BrandOrbitalAccent, LogoMark, LogoWordmark, RocketCourseLoader } from "./components/brand";
+import { usePlatformAccess, type UsePlatformAccess } from "./services/usePlatformAccess";
+import { PublicBlogIndex, PublicBlogPost } from "./components/blog/PublicBlog";
+import { JoinScreen } from "./components/admin/JoinScreen";
+import { WorkspaceAdminScreen } from "./components/admin/WorkspaceAdminScreen";
+import { SuperAdminScreen } from "./components/admin/SuperAdminScreen";
 import { AssignmentsTab } from "./components/AssignmentsTab";
 import { AuthScreen, type AuthScreenMode } from "./components/AuthScreen";
 import { applySeo, pathToScreen, screenToPath } from "./seo";
@@ -212,6 +221,13 @@ function App() {
   const [progressIndex, setProgressIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<EditorTab>("Overview");
   const auth = useAuthSession();
+  const access = usePlatformAccess(auth.session);
+  const adminWorkspaces = access.workspaces.filter((w) => w.myRole === "owner" || w.myRole === "admin");
+  const workspaceForAdmin =
+    (access.defaultWorkspaceId && adminWorkspaces.some((w) => w.id === access.defaultWorkspaceId)
+      ? access.defaultWorkspaceId
+      : adminWorkspaces[0]?.id ?? access.workspaces[0]?.id) ?? null;
+  const blogSlug = screen === "blogPost" ? decodeURIComponent(window.location.pathname.replace(/^\/blog\//, "")) : "";
   const [authMode, setAuthMode] = useState<AuthScreenMode>("login");
   // Real export entitlement, derived from the trusted subscription snapshot — no fake toggle.
   const subscriptionActive = auth.entitlement.canExport;
@@ -272,7 +288,7 @@ function App() {
   // leave the auth screens for the dashboard.
   useEffect(() => {
     if (auth.loading) return;
-    if (!auth.session && screen === "dashboard") {
+    if (!auth.session && (screen === "dashboard" || screen === "workspace" || screen === "admin")) {
       setAuthMode("login");
       setScreen("login");
     }
@@ -720,6 +736,7 @@ function App() {
         screen={screen}
         onNavigate={setScreen}
         auth={auth}
+        access={access}
         onSignIn={() => {
           setAuthMode("login");
           setScreen("login");
@@ -901,6 +918,59 @@ function App() {
       {screen === "editor" && demoActive && tourOpen && (
         <DemoTour onSetTab={setActiveTab} onClose={() => setTourOpen(false)} />
       )}
+
+      {screen === "blog" && (
+        <>
+          <PublicBlogIndex
+            onOpenPost={(slug) => {
+              window.history.pushState({}, "", `/blog/${slug}`);
+              setScreen("blogPost");
+            }}
+          />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {screen === "blogPost" && (
+        <>
+          <PublicBlogPost slug={blogSlug} onBack={() => setScreen("blog")} />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {screen === "join" && (
+        <JoinScreen
+          isAuthed={Boolean(auth.session)}
+          onSignIn={() => {
+            setAuthMode("login");
+            setScreen("login");
+          }}
+          onDone={() => setScreen(workspaceForAdmin ? "workspace" : "dashboard")}
+        />
+      )}
+      {screen === "workspace" &&
+        auth.session &&
+        (workspaceForAdmin ? (
+          <WorkspaceAdminScreen workspaceId={workspaceForAdmin} onOpenBilling={handleOpenBillingPortal} />
+        ) : (
+          <main className="page-shell">
+            <div className="empty-state">
+              <LogoMark size={48} decorative className="empty-state-mark" />
+              <h2>No workspace yet</h2>
+              <p>Purchase a Team plan to create a shared RocketCourse workspace with seats and members.</p>
+            </div>
+          </main>
+        ))}
+      {screen === "admin" &&
+        (access.isSuperAdmin && auth.session ? (
+          <SuperAdminScreen selfUserId={auth.session.user.id} />
+        ) : (
+          <main className="page-shell">
+            <div className="empty-state">
+              <ShieldAlert size={40} />
+              <h2>Not authorized</h2>
+              <p>This area is restricted to RocketCourse super admins.</p>
+            </div>
+          </main>
+        ))}
     </div>
   );
 }
@@ -909,12 +979,14 @@ function TopBar({
   screen,
   onNavigate,
   auth,
+  access,
   onSignIn,
   onDemo
 }: {
   screen: Screen;
   onNavigate: (screen: Screen) => void;
   auth: AuthSessionState;
+  access: UsePlatformAccess;
   onSignIn: () => void;
   onDemo: () => void;
 }) {
@@ -922,13 +994,7 @@ function TopBar({
   const cls = (active: boolean): string => (active ? "active" : "");
   return (
     <header className="topbar">
-      <button className="brand" onClick={() => onNavigate("landing")} aria-label="Open RocketCourse home page">
-        <span className="brand-mark">RC</span>
-        <span>
-          <strong>RocketCourse</strong>
-          <small>Canvas Builder</small>
-        </span>
-      </button>
+      <BrandHeader onClick={() => onNavigate("landing")} />
       <nav className="topnav" aria-label="Primary">
         <button className={cls(screen === "landing")} onClick={() => onNavigate("landing")}>
           <Home size={16} /> Home
@@ -948,6 +1014,9 @@ function TopBar({
         <button className={cls(screen === "contact")} onClick={() => onNavigate("contact")}>
           <Mail size={16} /> Contact
         </button>
+        <button className={cls(screen === "blog" || screen === "blogPost")} onClick={() => onNavigate("blog")}>
+          <Newspaper size={16} /> Blog
+        </button>
         {session && (
           <>
             <button className={cls(screen === "dashboard")} onClick={() => onNavigate("dashboard")}>
@@ -956,7 +1025,17 @@ function TopBar({
             <button className={cls(screen === "intake")} onClick={() => onNavigate("intake")}>
               <Wand2 size={16} /> Create
             </button>
+            {access.workspaces.some((w) => w.myRole === "owner" || w.myRole === "admin") && (
+              <button className={cls(screen === "workspace")} onClick={() => onNavigate("workspace")}>
+                <Rocket size={16} /> Launchpad
+              </button>
+            )}
           </>
+        )}
+        {access.isSuperAdmin && (
+          <button className={cls(screen === "admin")} onClick={() => onNavigate("admin")}>
+            <ShieldAlert size={16} /> Super Admin
+          </button>
         )}
       </nav>
       <div className="topbar-account">
@@ -1079,7 +1158,9 @@ function Landing({
   return (
     <main className="landing">
       <section className="landing-hero">
+        <BrandOrbitalAccent />
         <div className="landing-copy">
+          <LogoWordmark height={128} priority className="hero-logo" />
           <span className="hero-badge">
             <Sparkles size={15} /> Canvas-first course builder for instructors & designers
           </span>
@@ -1102,6 +1183,7 @@ function Landing({
               <CreditCard size={17} /> View pricing
             </button>
           </div>
+          <div className="rc-trail hero-trail" aria-hidden="true" />
           <div className="hero-meta">
             <span>
               <CheckCircle2 size={16} /> Canvas-native objects
@@ -1309,6 +1391,7 @@ function Dashboard({
     <main className="dashboard page-shell">
       <section className="page-heading">
         <div>
+          <BrandBadge className="dashboard-badge" />
           <h1>Dashboard</h1>
           <p>Your projects, exports, plan, and usage.</p>
         </div>
@@ -1386,7 +1469,7 @@ function Dashboard({
         </div>
       </section>
       {projects.length === 0 ? (
-        <EmptyState title="No courses yet" body="Create your first course to see it appear here with readiness and export status." />
+        <EmptyState title="No course projects yet" body="Start a new RocketCourse build to see it here with readiness and export status." />
       ) : (
         <section className="project-list" aria-label="Course projects">
           {projects.map((project) => {
@@ -1497,6 +1580,7 @@ function Intake({
           <span className="panel-label">
             <Wand2 size={14} /> Course brief
           </span>
+          <div className="rc-trail prompt-trail" aria-hidden="true" />
           <label htmlFor="prompt">Describe your course</label>
           <p className="prompt-hint">Plain language is fine — topic, audience, goals, tone, and anything you want emphasized.</p>
           <textarea id="prompt" className="prompt-textarea" value={prompt} onChange={(event) => onPromptChange(event.target.value)} placeholder="e.g. An 8-week undergraduate course on AI and Modern Society for non-majors. Emphasize ethics, real-world cases, and weekly discussion. Friendly, practical tone." />
@@ -1693,12 +1777,14 @@ function Intake({
     <main className="intake page-shell">
       <section className="page-heading intake-heading">
         <div>
+          <BrandBadge className="dashboard-badge" />
           <h1>Create a Course</h1>
           <p>
             {intakeMode === "quick"
               ? "Describe your course and generate. Open Advanced options only if you want to fine-tune."
               : "Walk through each part of your course design, one step at a time."}
           </p>
+          <p className="intake-brand-hint">Launch a course draft from your syllabus, notes, or idea.</p>
         </div>
         <div className="intake-controls">
           <div className="intake-mode-toggle" role="tablist" aria-label="Create mode">
@@ -1906,13 +1992,7 @@ function Progress({ progressIndex }: { progressIndex: number }) {
   return (
     <main className="progress page-shell">
       <section className="progress-card">
-        <div className="progress-orb" aria-hidden="true">
-          <span className="ring" />
-          <span className="ring inner" />
-          <span className="core">
-            <Sparkles size={22} />
-          </span>
-        </div>
+        <RocketCourseLoader size="lg" className="progress-loader" />
         <h1>Building your Canvas course</h1>
         <p>{progressSteps[Math.min(progressIndex, progressSteps.length - 1)]}</p>
         <div className="progress-track" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
@@ -2065,14 +2145,17 @@ function Editor({
           </div>
         )}
         <div className="editor-header">
-          <div>
-            <h1>{course.title}</h1>
+          <div className="editor-titlewrap">
+            <LogoMark size={34} decorative className="editor-mark" />
+            <div>
+              <h1>{course.title}</h1>
             <p>
               Structured Canvas course preview and editor
               {saveState === "saving" && <span className="save-chip saving"><Loader2 size={12} className="spin" /> Saving…</span>}
               {saveState === "saved" && <span className="save-chip saved"><CheckCircle2 size={12} /> Saved</span>}
               {saveState === "error" && <span className="save-chip error"><AlertTriangle size={12} /> Save failed</span>}
             </p>
+            </div>
           </div>
           {/* The Homepage tab has its own context-aware "Quick improvements" that edit the
               structured builder model, so the generic page-level revise toolbar is hidden there
@@ -3284,6 +3367,7 @@ function CollapsibleSection({
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="empty-state">
+      <LogoMark size={48} decorative className="empty-state-mark" />
       <h2>{title}</h2>
       <p>{body}</p>
     </div>

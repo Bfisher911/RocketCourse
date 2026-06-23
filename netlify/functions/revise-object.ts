@@ -35,12 +35,12 @@ export default async (request: Request): Promise<Response> => {
   const user = await getAuthedUser(request);
   if (!user) return json(401, { error: "Sign in to use AI revise." });
 
-  const { decision } = await checkUserEntitlement(user.token, "revise_ai");
+  const { decision } = await checkUserEntitlement(user.token, "revise_ai", user.id);
   if (!decision.allowed) return json(403, { error: decision.reason, code: decision.code });
 
   let body: { objectType?: string; title?: string; html?: string; mode?: string; context?: Record<string, unknown> };
   try {
-    body = await request.json();
+    body = (await request.json()) as typeof body;
   } catch {
     return json(400, { error: "Body must be JSON: { objectType, title, html, mode }." });
   }

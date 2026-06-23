@@ -17,6 +17,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useState } from "react";
+import { LogoMark } from "./brand";
 import type { CourseProject, EditorTab, ExportMode, ExportValidationReport, ReadinessReport } from "../types";
 import {
   buildImportChecklistText,
@@ -161,6 +162,13 @@ export function ExportTab({
           <p>
             RocketCourse builds a <strong>Canvas-oriented .imscc package</strong> in your browser and validates it locally. Canvas sandbox import is <strong>not verified</strong> — always test in a sandbox course before relying on it.
           </p>
+          <div className="rc-launch">
+            <LogoMark size={34} decorative />
+            <div className="rc-launch__text">
+              <strong>Ready for launch</strong>
+              <span>Validate locally, then export your Canvas-ready package.</span>
+            </div>
+          </div>
         </div>
         <div className={`overview-health ${heroTone}`}>
           {confidence.localValidation === "Passed" ? <CheckCircle2 size={20} /> : confidence.localValidation === "Blocked" ? <AlertTriangle size={20} /> : <Info size={20} />}

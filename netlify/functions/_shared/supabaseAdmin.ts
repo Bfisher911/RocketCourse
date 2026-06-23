@@ -20,7 +20,7 @@ export const getSupabaseAdmin = (): SupabaseClient => {
     auth: { persistSession: false, autoRefreshToken: false },
     // Netlify Functions run Node 20 (no native WebSocket); supply `ws` so supabase-js's Realtime
     // client construction doesn't throw. We never use Realtime server-side.
-    realtime: { transport: WebSocket as unknown as typeof globalThis.WebSocket }
+    realtime: { transport: WebSocket }
   });
   return cached;
 };

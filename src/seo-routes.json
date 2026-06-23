@@ -1,7 +1,7 @@
 {
   "siteOrigin": "https://thecourseforge.netlify.app",
   "siteName": "RocketCourse",
-  "defaultOgImage": "/og-image.svg",
+  "defaultOgImage": "/og-image.jpg",
   "routes": [
     {
       "screen": "landing",
@@ -12,6 +12,16 @@
       "keywords": "AI Canvas course builder, Canvas course generator, IMSCC export, instructional design tool, Canvas course shell, AI course creation",
       "h1": "Turn a course idea into an editable Canvas course",
       "intro": "RocketCourse generates a structured, fully editable Canvas course from a topic, syllabus, or existing export — then locally validates and exports a Canvas-ready .imscc package."
+    },
+    {
+      "screen": "blog",
+      "path": "/blog",
+      "index": true,
+      "title": "RocketCourse Blog — Canvas course design, AI & instructional design",
+      "description": "Guides, ideas, and updates on building better Canvas courses with AI — from the team behind RocketCourse.",
+      "keywords": "RocketCourse blog, Canvas course design, AI instructional design, course building tips",
+      "h1": "The RocketCourse Blog",
+      "intro": "Practical guides and ideas for designing better Canvas courses with AI."
     },
     {
       "screen": "pricing",

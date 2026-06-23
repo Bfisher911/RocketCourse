@@ -37,6 +37,12 @@ export interface EntitlementSubscription {
   /** Optional overrides of the plan's catalog limits (e.g. negotiated department caps). */
   exportsLimitOverride?: number | null;
   aiGenerationsLimitOverride?: number | null;
+  /**
+   * Additive credits from the usage_adjustments ledger (granted by a Super Admin). Added ON TOP of
+   * the (possibly overridden) plan limit — never rewrites usage history. Ignored for unlimited plans.
+   */
+  exportCredits?: number;
+  aiCredits?: number;
 }
 
 export type EntitlementAction =
@@ -93,11 +99,23 @@ export const isSubscriptionActive = (sub: EntitlementSubscription, now: Date = n
   return true;
 };
 
-const aiLimit = (plan: Plan, sub: EntitlementSubscription): number | null =>
+const aiBaseLimit = (plan: Plan, sub: EntitlementSubscription): number | null =>
   sub.aiGenerationsLimitOverride !== undefined ? sub.aiGenerationsLimitOverride : plan.aiGenerationsLimit;
 
-const exportLimit = (plan: Plan, sub: EntitlementSubscription): number | null =>
+const exportBaseLimit = (plan: Plan, sub: EntitlementSubscription): number | null =>
   sub.exportsLimitOverride !== undefined ? sub.exportsLimitOverride : plan.exportsLimit;
+
+/** Effective AI limit = base (plan or override) + granted credits. `null` stays unlimited. */
+const aiLimit = (plan: Plan, sub: EntitlementSubscription): number | null => {
+  const base = aiBaseLimit(plan, sub);
+  return base === null ? null : base + Math.max(0, sub.aiCredits ?? 0);
+};
+
+/** Effective export limit = base (plan or override) + granted credits. `null` stays unlimited. */
+const exportLimit = (plan: Plan, sub: EntitlementSubscription): number | null => {
+  const base = exportBaseLimit(plan, sub);
+  return base === null ? null : base + Math.max(0, sub.exportCredits ?? 0);
+};
 
 /** Remaining AI generations. `null` = unlimited. Never negative. */
 export const aiGenerationsRemaining = (sub: EntitlementSubscription): number | null => {
@@ -220,6 +238,9 @@ export interface EntitlementSummary {
   exportsUsed: number;
   exportsLimit: number | null;
   exportsRemaining: number | null;
+  /** Granted credits folded into the limits above (for honest "+N from credits" UI). */
+  exportCredits: number;
+  aiCredits: number;
   canCreateProject: boolean;
   canGenerate: boolean;
   canExport: boolean;
@@ -244,6 +265,8 @@ export const summarizeEntitlement = (
     exportsUsed: sub.exportsUsed ?? 0,
     exportsLimit: exportLimit(plan, sub),
     exportsRemaining: exportsRemaining(sub),
+    exportCredits: Math.max(0, sub.exportCredits ?? 0),
+    aiCredits: Math.max(0, sub.aiCredits ?? 0),
     canCreateProject: allows("create_project", sub, now),
     canGenerate: allows("generate_full_course", sub, now),
     canExport: allows("export", sub, now),
