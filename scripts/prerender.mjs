@@ -35,6 +35,21 @@ function setCanonical(html, href) {
   return html.replace("</head>", `    <link rel="canonical" href="${esc(href)}" />\n  </head>`);
 }
 
+// BreadcrumbList structured data: Home → [Integrations →] page. The leaf name is the short page
+// name (the title before the first em-dash/pipe). Skipped for the home page. CourseMagic ships none.
+function breadcrumbJsonLd(route) {
+  if (route.path === "/") return null;
+  const leaf = route.title.split(/\s[—|]\s/)[0].trim();
+  const crumbs = [{ name: "Home", url: origin + "/" }];
+  if (route.path.startsWith("/integration/")) crumbs.push({ name: "Integrations", url: origin + "/integration" });
+  crumbs.push({ name: leaf, url: origin + route.path });
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, name: crumb.name, item: crumb.url }))
+  };
+}
+
 function render(route) {
   const url = origin + (route.path === "/" ? "/" : route.path);
   let html = shell;
@@ -50,6 +65,11 @@ function render(route) {
   html = setMeta(html, "name", "twitter:description", route.description);
   html = setMeta(html, "name", "twitter:image", ogImage);
   html = setCanonical(html, url);
+
+  const breadcrumb = breadcrumbJsonLd(route);
+  if (breadcrumb) {
+    html = html.replace("</head>", `    <script type="application/ld+json">${JSON.stringify(breadcrumb)}</script>\n  </head>`);
+  }
 
   const links = seo.routes
     .filter((r) => r.index)
