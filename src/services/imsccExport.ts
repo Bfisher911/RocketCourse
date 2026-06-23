@@ -378,6 +378,11 @@ const itemContentType = (item: ModuleItem): string => {
   return "WikiPage";
 };
 
+// A module's release/unlock date comes from the generated schedule (set only when a term schedule
+// is configured). Written as Canvas <unlock_at> so modules release on schedule after import.
+const moduleReleaseAt = (course: CourseProject, module: CourseModule): string | undefined =>
+  course.schedule.find((entry) => entry.itemType === "module" && entry.moduleId === module.id)?.releaseAt;
+
 const createModuleMetaXml = (course: CourseProject): string => `<?xml version="1.0" encoding="UTF-8"?>
 <modules ${canvasSchemaAttrs}>
 ${course.modules
@@ -385,7 +390,8 @@ ${course.modules
     (module: CourseModule) => `  <module identifier="${xml(module.id)}">
     <title>${xml(module.title)}</title>
     <workflow_state>${workflowState(module.publishState)}</workflow_state>
-    <position>${module.order}</position>
+    <position>${module.order}</position>${moduleReleaseAt(course, module) ? `
+    <unlock_at>${xml(moduleReleaseAt(course, module) as string)}</unlock_at>` : ""}
     <items>
 ${module.items
   .map(
@@ -592,13 +598,13 @@ const createAssessmentMetaXml = (quiz: Quiz): string => `<?xml version="1.0" enc
   <title>${xml(quiz.title)}</title>
   <description>${xml(quiz.purpose)}</description>
   <workflow_state>${workflowState(quiz.publishState)}</workflow_state>
-  <shuffle_answers>false</shuffle_answers>
+  <shuffle_answers>${quiz.shuffleAnswers ? "true" : "false"}</shuffle_answers>
   <scoring_policy>keep_highest</scoring_policy>
   <hide_results></hide_results>
   <quiz_type>assignment</quiz_type>
   <points_possible>${quiz.points}</points_possible>
   ${quiz.dueAt ? `<due_at>${xml(quiz.dueAt)}</due_at>` : ""}
-  <allowed_attempts>1</allowed_attempts>
+  <allowed_attempts>${quiz.allowedAttempts ?? 1}</allowed_attempts>
   <one_question_at_a_time>false</one_question_at_a_time>
   <cant_go_back>false</cant_go_back>
   <available>true</available>

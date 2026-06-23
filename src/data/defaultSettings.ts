@@ -19,6 +19,7 @@ export const defaultSettings: CourseSettings = {
   quizFrequency: "weekly",
   quizQuestionsPerQuiz: 5,
   quizDifficulty: "balanced",
+  quizPurpose: "knowledge-check",
   discussionFrequency: "weekly",
   discussionStyle: "application",
   assignmentCadence: "major-milestones",

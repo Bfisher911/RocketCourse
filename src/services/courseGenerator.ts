@@ -30,6 +30,7 @@ import { escapeXml, nowIso, slugify } from "../utils/text";
 import { buildCourseQualityReport } from "./courseQuality";
 import { getOutcomeFramework } from "./outcomeFrameworks";
 import { getModulePattern, getStructureFramework } from "./courseDesignModels";
+import { getQuizPurpose } from "./quizPurposes";
 import { DEFAULT_TEMPLATE_ID, createHomepageState, defaultHomepageContent, renderHomepage, rethemeHomepageHtml } from "./homepageTemplates";
 import {
   chooseSyllabusTemplate,
@@ -1188,6 +1189,7 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
 
   const structureModel = getStructureFramework(mergedSettings.structureFramework);
   const patternModel = getModulePattern(mergedSettings.modulePattern);
+  const quizPurposeModel = getQuizPurpose(mergedSettings.quizPurpose);
 
   for (let index = 0; index < moduleCount; index += 1) {
     const moduleNumber = index + 1;
@@ -1228,7 +1230,7 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
       ["Practice Activity", "Page", readableDate(practiceDueAt), "Ungraded practice"]
     ];
     if (hasDiscussion) glanceRows.push(["Discussion", "Discussion", readableDate(discussionDueAt), "Graded"]);
-    if (hasQuiz) glanceRows.push(["Knowledge Check", "Quiz", readableDate(quizDueAt), "Graded"]);
+    if (hasQuiz) glanceRows.push([quizPurposeModel.titleWord, "Quiz", readableDate(quizDueAt), "Graded"]);
     if (hasAssignment) glanceRows.push(["Applied Assignment", "Assignment", readableDate(assignmentDueAt), "Graded"]);
     glanceRows.push(["Wrap-Up &amp; Reflection", "Page", "—", "Recap"]);
     const overviewPills = pillRow(
@@ -1394,11 +1396,11 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
       const questions = quizQuestions(quizId, moduleTopic, moduleId, alignedOutcomeIds, mergedSettings);
       quizzes.push({
         id: quizId,
-        title: `${moduleLabel} Knowledge Check`,
+        title: `${moduleLabel} ${quizPurposeModel.titleWord}`,
         moduleId,
         dueAt: quizDueAt,
         assignmentGroupId: "group_quizzes",
-        purpose: `Check understanding of ${moduleTopic}. Aligned outcomes: ${alignedOutcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.code).join(", ")}.`,
+        purpose: `${quizPurposeModel.framing(moduleTopic)} Aligned outcomes: ${alignedOutcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.code).join(", ")}.`,
         points: questions.reduce((sum, question) => sum + question.points, 0),
         alignedOutcomeIds,
         publishState: "published",
@@ -1406,7 +1408,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
         metadata: metadata(generatedAt),
         questions
       });
-      moduleItems.push(makeItem(id("item", quizId), "quiz", "Knowledge Check", quizId, moduleItems.length + 1, generatedAt));
+      moduleItems.push(makeItem(id("item", quizId), "quiz", quizPurposeModel.titleWord, quizId, moduleItems.length + 1, generatedAt));
       schedule.push({
         id: id("schedule", quizId),
         moduleId,

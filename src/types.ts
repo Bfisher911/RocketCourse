@@ -126,6 +126,8 @@ export interface CourseSettings {
   quizFrequency: "none" | "weekly" | "biweekly" | "module";
   quizQuestionsPerQuiz: number;
   quizDifficulty: QuizDifficulty;
+  /** Pedagogical purpose used to frame generated quizzes. */
+  quizPurpose: QuizPurposeKey;
   discussionFrequency: "none" | "weekly" | "biweekly" | "module";
   discussionStyle: DiscussionStyle;
   assignmentCadence: AssignmentCadence;
@@ -205,6 +207,10 @@ export type OutcomeFrameworkKey = "bloom" | "solo" | "knowledge" | "kolb";
 // framing only — the Canvas item graph is unchanged. See services/courseDesignModels.ts.
 export type StructureFrameworkKey = "linear" | "backward" | "spiral" | "thematic" | "competency";
 export type ModulePatternKey = "standard" | "addie" | "gagne" | "inquiry" | "conceptual";
+
+// Pedagogical purpose for generated quizzes — shapes the quiz title and description (which exports
+// as the Canvas/QTI quiz description). See services/quizPurposes.ts.
+export type QuizPurposeKey = "knowledge-check" | "pre-assessment" | "application" | "scenario" | "socratic" | "review";
 
 export interface CourseOutcome {
   id: string;
@@ -323,6 +329,10 @@ export interface Quiz {
   moduleId: string;
   dueAt?: string;
   assignmentGroupId: string;
+  /** Canvas allowed attempts (-1 = unlimited). Defaults to 1 on export when unset. */
+  allowedAttempts?: number;
+  /** Shuffle answer order in Canvas. Defaults to false on export when unset. */
+  shuffleAnswers?: boolean;
   points: number;
   questions: QuizQuestion[];
   alignedOutcomeIds: string[];
