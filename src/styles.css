@@ -346,9 +346,9 @@ p {
   z-index: 30;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   min-height: 70px;
-  padding: 0 28px;
+  padding: 0 24px;
   background: linear-gradient(180deg, rgba(8, 10, 28, 0.86), rgba(8, 10, 28, 0.66));
   border-bottom: 1px solid var(--line);
   backdrop-filter: var(--glass-blur);
@@ -399,16 +399,20 @@ p {
 
 .topnav {
   display: flex;
-  flex: 1;
-  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0; /* allow the nav to shrink instead of overflowing into the account area */
+  gap: 3px;
+  overflow-x: auto; /* if the links still don't fit, scroll them rather than overlap the account */
+  scrollbar-width: thin;
 }
 
 .topnav button {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 38px;
-  padding: 0 14px;
+  padding: 0 10px;
   color: var(--muted);
   background: transparent;
   border: 1px solid transparent;
@@ -8937,6 +8941,7 @@ p {
   align-items: center;
   gap: 12px;
   margin-left: auto;
+  flex-shrink: 0; /* keep the plan badge + account menu intact; never let the nav overlap it */
 }
 .plan-badge {
   display: inline-flex;
@@ -8967,7 +8972,7 @@ p {
 .account-email {
   font-size: 0.8rem;
   color: var(--muted);
-  max-width: 16ch;
+  max-width: 12ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
