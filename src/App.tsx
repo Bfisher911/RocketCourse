@@ -60,6 +60,7 @@ import { DemoIntro } from "./components/DemoIntro";
 import { DemoTour } from "./components/DemoTour";
 import { LegalPage } from "./components/LegalPage";
 import { IntegrationPage } from "./components/IntegrationPage";
+import { TransformTab } from "./components/TransformTab";
 import { PublicFooter } from "./components/PublicFooter";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
@@ -144,6 +145,7 @@ const editorTabs = [
   "Gradebook Setup",
   "Contact Hours",
   "Theme",
+  "Transform",
   "Export"
 ] as const;
 
@@ -2139,6 +2141,7 @@ function Editor({
               onSaveCustomTheme={onSaveCustomTheme}
             />
           )}
+          {activeTab === "Transform" && <TransformTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Export" && (
             <ExportTab
               course={course}

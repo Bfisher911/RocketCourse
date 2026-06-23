@@ -33,6 +33,7 @@ export type EditorTab =
   | "Gradebook Setup"
   | "Contact Hours"
   | "Theme"
+  | "Transform"
   | "Export";
 
 export type BuildMode = "vibe" | "guided" | "hybrid";
