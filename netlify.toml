@@ -10,3 +10,21 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# SPA fallback: prerendered marketing routes (dist/<path>/index.html) and real files are served
+# directly; any other path (e.g. the in-app /app screens) falls back to the client shell.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Keep the in-app screens out of the search index (their content lives behind navigation/auth).
+[[headers]]
+  for = "/app"
+  [headers.values]
+    X-Robots-Tag = "noindex"
+
+[[headers]]
+  for = "/app/*"
+  [headers.values]
+    X-Robots-Tag = "noindex"

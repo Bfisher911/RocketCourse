@@ -96,7 +96,7 @@ const contentModulePathGaps = (course: CourseProject): string[] =>
 // A measurable objective leads with an observable action verb (Bloom verbs included). Used as a
 // recommended signal — vague "students will understand things" objectives lack one.
 const MEASURABLE_VERB =
-  /\b(remember|understand|apply|analy[sz]e|evaluate|create|define|describe|explain|identify|list|compare|contrast|design|develop|demonstrate|implement|construct|interpret|assess|differentiate|calculate|illustrate|summari[sz]e|classify|examine|produce|formulate|critique|distinguish|outline|solve|predict|justify|organize|build|plan|measure|estimate)\b/i;
+  /\b(engage|reflect|conceptuali[sz]e|experiment|remember|understand|apply|analy[sz]e|evaluate|create|define|describe|explain|identify|list|compare|contrast|design|develop|demonstrate|implement|construct|interpret|assess|differentiate|calculate|illustrate|summari[sz]e|classify|examine|produce|formulate|critique|distinguish|outline|solve|predict|justify|organize|build|plan|measure|estimate)\b/i;
 
 // Every cross-object id reference, resolved against the objects that actually exist. Catches
 // dangling group/rubric/outcome/module references and module items whose type disagrees with
@@ -290,7 +290,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("objectives", "Learning objectives present", course.outcomes.length >= 3, `${course.outcomes.length} course outcomes.`),
     check("objective-quality", "Objectives are substantive and uniquely coded", weakObjectives.length === 0 && distinctOutcomeCodes, weakObjectives.length ? `${weakObjectives.length} outcome(s) have missing codes or thin text.` : distinctOutcomeCodes ? "Every outcome has a distinct code and substantive text." : "Outcome codes are duplicated."),
     check("objective-measurable", "Objectives use measurable action verbs", nonMeasurableObjectives.length === 0, nonMeasurableObjectives.length ? `${nonMeasurableObjectives.length} outcome(s) lack a measurable action verb.` : "Every outcome leads with a measurable action verb.", "recommended"),
-    check("bloom", "Bloom alignment present", course.outcomes.length > 0 && course.outcomes.every((outcome) => Boolean(outcome.bloomLevel)), "Each outcome includes a Bloom taxonomy level.", "recommended"),
+    check("bloom", "Outcome levels assigned", course.outcomes.length > 0 && course.outcomes.every((outcome) => Boolean(outcome.bloomLevel)), "Each outcome is tagged with a framework level (Bloom, SOLO, Dimensions of Knowledge, or Kolb).", "recommended"),
     check("required-modules", "Start, content, final, and instructor modules present", Boolean(startHere && finalModule && instructorModule && course.modules.some((module) => module.kind === "content")), `${course.modules.length} modules generated.`),
     check("module-not-empty", "No empty modules", emptyModules.length === 0, emptyModules.length ? `${emptyModules.map((module) => module.title).slice(0, 3).join(", ")} have no items.` : "Every module contains at least one item."),
     check("content-module-depth", "Content modules follow a full learning path", pathGaps.length === 0, pathGaps.length ? pathGaps.slice(0, 3).join("; ") : "Every content module includes overview, readings, lecture/practice, and recap items."),

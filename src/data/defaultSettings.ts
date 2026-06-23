@@ -29,6 +29,9 @@ export const defaultSettings: CourseSettings = {
   includeRubrics: true,
   includeObjectives: true,
   includeBloom: true,
+  outcomeFramework: "bloom",
+  structureFramework: "linear",
+  modulePattern: "standard",
   includeContactHours: true,
   accessibilityFocus: true,
   schedule: {

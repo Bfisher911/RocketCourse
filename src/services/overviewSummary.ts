@@ -12,15 +12,14 @@
 import type { Assignment, CourseModule, CourseOutcome, CourseProject, Discussion, EditorTab, Quiz, ReadinessCheck, ReadinessReport } from "../types";
 import { nowIso } from "../utils/text";
 import { buildReadinessReport } from "./readiness";
-
-// The standard Bloom's taxonomy levels, ordered from lower- to higher-order thinking. Offered in
-// the outcome editor; an outcome's stored level may differ and is preserved.
-export const BLOOM_LEVELS = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"] as const;
+import { getOutcomeFramework } from "./outcomeFrameworks";
 
 // A measurable outcome leads with an observable action verb. Kept in sync with the readiness
 // detector so the Overview "measurable language" signal matches the export readiness check.
+// Includes every framework's leading verbs (Bloom remember/understand…, Kolb engage/reflect/
+// conceptualize/experiment, etc.) so outcomes from any outcomeFramework are recognized as measurable.
 const MEASURABLE_VERB =
-  /^\s*(analy[sz]e|apply|argue|assess|build|calculate|categori[sz]e|classify|compare|compose|conduct|construct|create|critique|debate|defend|define|demonstrate|describe|design|develop|differentiate|distinguish|evaluate|examine|explain|formulate|generate|identify|illustrate|implement|integrate|interpret|investigate|justify|label|list|measure|model|name|organi[sz]e|outline|plan|predict|produce|propose|recommend|recogni[sz]e|relate|report|review|select|solve|summari[sz]e|synthesi[sz]e|test|translate|use)\b/i;
+  /^\s*(remember|understand|engage|reflect|conceptuali[sz]e|experiment|analy[sz]e|apply|argue|assess|build|calculate|categori[sz]e|classify|compare|compose|conduct|construct|create|critique|debate|defend|define|demonstrate|describe|design|develop|differentiate|distinguish|evaluate|examine|explain|formulate|generate|identify|illustrate|implement|integrate|interpret|investigate|justify|label|list|measure|model|name|organi[sz]e|outline|plan|predict|produce|propose|recommend|recogni[sz]e|relate|report|review|select|solve|summari[sz]e|synthesi[sz]e|test|translate|use)\b/i;
 
 // ---------------------------------------------------------------------------
 // Outcome alignment + orphan detection
@@ -65,6 +64,41 @@ export const orphanOutcomes = (course: CourseProject): CourseOutcome[] => course
 
 export const outcomeIsMeasurable = (outcome: CourseOutcome): boolean => MEASURABLE_VERB.test(outcome.text);
 
+// A human-readable tag derived from an outcome's text (e.g. "Analyze key marine biology concepts…"
+// → "analyze-marine-biology"). A display aid shown alongside the stable code; alignment stays
+// id-based, so tags may collide or change without breaking anything.
+const TAG_STOPWORDS = new Set([
+  "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "by", "from", "into", "at", "as", "that", "this", "these", "those",
+  "students", "student", "will", "be", "able", "end", "course", "key", "their", "its", "your", "you", "they", "them", "other",
+  "concepts", "practices", "implications", "contexts", "context", "academic", "applied", "various", "different", "using", "use",
+  "across", "within", "between", "about", "through", "over", "under", "more", "most", "real", "world", "skills", "ideas"
+]);
+
+export const outcomeTag = (outcome: Pick<CourseOutcome, "text" | "code">): string => {
+  const words = outcome.text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 1 && !TAG_STOPWORDS.has(word));
+  const slug = words.slice(0, 4).join("-");
+  return slug || (outcome.code ? outcome.code.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : "outcome");
+};
+
+export interface ModuleOutcomeRow {
+  module: CourseModule;
+  outcomes: CourseOutcome[];
+  /** A content module with no aligned outcome — a real alignment gap worth surfacing. */
+  isGap: boolean;
+}
+
+// Module-centric alignment: each module with the outcomes aligned to it. Mirrors the per-outcome
+// `outcomeAlignment` view from the module side so the Overview can show a glanceable matrix.
+export const moduleOutcomeMatrix = (course: CourseProject): ModuleOutcomeRow[] =>
+  course.modules.map((module) => {
+    const outcomes = course.outcomes.filter((outcome) => outcome.alignedModuleIds.includes(module.id));
+    return { module, outcomes, isGap: module.kind === "content" && outcomes.length === 0 };
+  });
+
 // ---------------------------------------------------------------------------
 // Outcome mutations (pure: course in, course out)
 // ---------------------------------------------------------------------------
@@ -85,11 +119,12 @@ const nextOutcomeCode = (course: CourseProject): string => {
 
 export const addOutcome = (course: CourseProject, options: { timestamp?: string; id?: string } = {}): CourseProject => {
   const timestamp = options.timestamp ?? nowIso();
+  const framework = getOutcomeFramework(course.settings.outcomeFramework);
   const outcome: CourseOutcome = {
     id: options.id ?? `outcome_${Date.now().toString(36)}`,
     code: nextOutcomeCode(course),
     text: "",
-    bloomLevel: BLOOM_LEVELS[1],
+    bloomLevel: framework.levels[Math.min(1, framework.levels.length - 1)].label,
     alignedModuleIds: []
   };
   return touchCourse({ ...course, outcomes: [...course.outcomes, outcome] }, timestamp);
@@ -290,6 +325,7 @@ const designFromReport = (report: ReadinessReport, id: string, label: string): D
 
 export const overviewDesignChecks = (course: CourseProject, report: ReadinessReport = buildReadinessReport(course)): DesignCheck[] => {
   const description = course.description.trim();
+  const framework = getOutcomeFramework(course.settings.outcomeFramework);
   const distinctBloom = new Set(course.outcomes.map((outcome) => outcome.bloomLevel).filter(Boolean)).size;
   const outcomesWithBloom = course.outcomes.filter((outcome) => Boolean(outcome.bloomLevel)).length;
   const contentModules = course.modules.filter((module) => module.kind === "content").length;
@@ -307,7 +343,7 @@ export const overviewDesignChecks = (course: CourseProject, report: ReadinessRep
     { id: "description", label: "Course has a clear description", status: descriptionStatus, detail: description ? `${description.length} characters of course description.` : "Add a student-facing course description.", tab: "Overview" },
     { id: "outcomes-present", label: "Learning outcomes exist", status: outcomesStatus, detail: `${course.outcomes.length} course outcome(s) defined.`, tab: "Overview" },
     designFromReport(report, "objective-measurable", "Outcomes use measurable language"),
-    { id: "bloom-variety", label: "Bloom levels are varied", status: bloomStatus, detail: `${distinctBloom} distinct Bloom level(s) across ${course.outcomes.length} outcome(s).`, tab: "Overview" },
+    { id: "bloom-variety", label: "Outcome levels are varied", status: bloomStatus, detail: `${distinctBloom} distinct level(s) across ${course.outcomes.length} outcome(s) (${framework.label}).`, tab: "Overview" },
     designFromReport(report, "orphaned-outcomes", "Every outcome is aligned"),
     { id: "module-count-length", label: "Module count fits course length", status: moduleCountStatus, detail: `${contentModules} content module(s) across ~${weeks} week(s).`, tab: "Modules" },
     designFromReport(report, "required-modules", "Start, content, final & instructor modules present"),
@@ -326,6 +362,7 @@ export interface OverviewModel {
   health: CourseHealthSummary;
   exportReadiness: ExportReadinessSummary;
   designChecks: DesignCheck[];
+  alignment: ModuleOutcomeRow[];
 }
 
 export const buildOverviewModel = (course: CourseProject): OverviewModel => {
@@ -334,6 +371,7 @@ export const buildOverviewModel = (course: CourseProject): OverviewModel => {
     structure: courseStructureSummary(course),
     health: courseHealthSummary(course, report),
     exportReadiness: exportReadinessSummary(course, report),
-    designChecks: overviewDesignChecks(course, report)
+    designChecks: overviewDesignChecks(course, report),
+    alignment: moduleOutcomeMatrix(course)
   };
 };

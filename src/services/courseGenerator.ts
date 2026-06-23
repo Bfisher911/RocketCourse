@@ -28,6 +28,8 @@ import type {
 } from "../types";
 import { escapeXml, nowIso, slugify } from "../utils/text";
 import { buildCourseQualityReport } from "./courseQuality";
+import { getOutcomeFramework } from "./outcomeFrameworks";
+import { getModulePattern, getStructureFramework } from "./courseDesignModels";
 import { DEFAULT_TEMPLATE_ID, createHomepageState, defaultHomepageContent, renderHomepage, rethemeHomepageHtml } from "./homepageTemplates";
 import {
   chooseSyllabusTemplate,
@@ -46,8 +48,6 @@ export interface GenerateCourseInput {
   prompt: string;
   settings: CourseSettings;
 }
-
-const bloomLevels = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
 
 const baseTopics = [
   "Foundations and Course Orientation",
@@ -1018,13 +1018,17 @@ export const generateCourseProject = ({ prompt, settings }: GenerateCourseInput)
     return `<strong>${moduleLabel}: ${moduleTopic}</strong> - release ${readableDate(releaseAt)}; ${activities.join(", ")}.`;
   });
 
-  const outcomes: CourseOutcome[] = Array.from({ length: 10 }, (_, index) => ({
-    id: id("outcome", index + 1),
-    code: `CLO ${index + 1}`,
-    text: `${bloomLevels[index % bloomLevels.length]} key ${topic.toLowerCase()} concepts, practices, and implications in academic and applied contexts.`,
-    bloomLevel: bloomLevels[index % bloomLevels.length],
-    alignedModuleIds: []
-  }));
+  const framework = getOutcomeFramework(mergedSettings.outcomeFramework);
+  const outcomes: CourseOutcome[] = Array.from({ length: 10 }, (_, index) => {
+    const level = framework.levels[index % framework.levels.length];
+    return {
+      id: id("outcome", index + 1),
+      code: `CLO ${index + 1}`,
+      text: `${level.verb} key ${topic.toLowerCase()} concepts, practices, and implications in academic and applied contexts.`,
+      bloomLevel: level.label,
+      alignedModuleIds: []
+    };
+  });
 
   const assignmentGroups: AssignmentGroup[] = [
     { id: "group_discussions", name: "Engagement and Discussions", weight: 20 },
@@ -1182,6 +1186,9 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
     return `<p>${previous}${next}</p>`;
   };
 
+  const structureModel = getStructureFramework(mergedSettings.structureFramework);
+  const patternModel = getModulePattern(mergedSettings.modulePattern);
+
   for (let index = 0; index < moduleCount; index += 1) {
     const moduleNumber = index + 1;
     const moduleId = id("module", moduleNumber);
@@ -1236,13 +1243,13 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
         canvasShell(
           `${moduleLabel}: ${moduleTopic}`,
           "Start here to understand the learning path, outcomes, activities, and expectations for this module.",
-          `${overviewPills}${callout("🚀 Mission briefing", `<p>Welcome to <strong>${moduleTopic}</strong> — your launch pad for this part of the course. Work through the module in order: each stop builds on the one before, moving you from new vocabulary to real examples to confident, evidence-based judgment.</p>`, theme)}
+          `${overviewPills}${callout("🚀 Mission briefing", `<p>Welcome to <strong>${moduleTopic}</strong> — your launch pad for this part of the course. Work through the module in order: each stop builds on the one before, moving you from new vocabulary to real examples to confident, evidence-based judgment.</p><p><em>${structureModel.approach}</em></p>`, theme)}
 ${callout("🧭 Keep this question as your North Star", `<p>As you move through the readings, lecture, and practice, keep asking: <em>What is actually happening, who is affected, what does the evidence show, and what becomes possible once we understand the context?</em></p>`, theme)}
 ${section("✅ What You Will Do", checklistHtml(["Review the module overview and required materials.", "Study the lecture/content page.", "Complete discussions, quizzes, and assignments shown in the module.", "Use the recap page to prepare for what comes next."]), theme)}
 ${section("Module Learning Objectives", listHtml(moduleObjectives), theme)}
 ${section("Aligned Course Outcomes", outcomeBadges(outcomes, alignedOutcomeIds, theme), theme)}
 ${section("Module at a Glance", tableHtml("Everything in this module and when it is due", ["Activity", "Type", "Due", "Counts toward grade"], glanceRows, theme), theme)}
-${section("Learning Path", checklistHtml(["Read the resource page and note which sources require instructor replacement.", "Work through the mini-lecture and examples.", "Complete the practice activity before graded work.", "Use discussion, quiz, or assignment feedback to prepare for the module recap."]), theme)}
+${section("Learning Path", checklistHtml(patternModel.steps), theme)}
 ${callout("Estimated Workload", `<p>Plan for approximately ${workloadHours} hours of student work in this module.</p>`, theme)}
 ${section("Module Navigation", moduleNavBar(index), theme)}`,
           theme

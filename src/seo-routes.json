@@ -1,0 +1,175 @@
+{
+  "siteOrigin": "https://thecourseforge.netlify.app",
+  "siteName": "RocketCourse",
+  "defaultOgImage": "/og-image.svg",
+  "routes": [
+    {
+      "screen": "landing",
+      "path": "/",
+      "index": true,
+      "title": "RocketCourse — AI Canvas Course Builder & IMSCC Export",
+      "description": "RocketCourse turns a topic, syllabus, or notes into a fully editable Canvas course — modules, pages, assignments, quizzes, rubrics, and gradebook — then validates and exports a Canvas-ready .imscc package.",
+      "keywords": "AI Canvas course builder, Canvas course generator, IMSCC export, instructional design tool, Canvas course shell, AI course creation",
+      "h1": "Turn a course idea into an editable Canvas course",
+      "intro": "RocketCourse generates a structured, fully editable Canvas course from a topic, syllabus, or existing export — then locally validates and exports a Canvas-ready .imscc package."
+    },
+    {
+      "screen": "pricing",
+      "path": "/pricing",
+      "index": true,
+      "title": "Pricing — RocketCourse AI Canvas Course Builder",
+      "description": "Simple plans for instructors, instructional designers, and departments. Explore the full builder and export a real Canvas .imscc package free — upgrade for AI generation and private exports.",
+      "keywords": "RocketCourse pricing, AI Canvas course builder pricing, instructional design tool plans",
+      "h1": "Plans for instructors, designers, and departments",
+      "intro": "Try the full builder and a real Canvas .imscc export for free. Upgrade for AI course generation and private exports for instructors, designers, and whole departments."
+    },
+    {
+      "screen": "about",
+      "path": "/about",
+      "index": true,
+      "title": "About RocketCourse — Built for Canvas Course Design",
+      "description": "RocketCourse is an AI Canvas course builder made by an educator, for educators and instructional designers. Generate a structured, editable Canvas course and export a validated .imscc package.",
+      "keywords": "about RocketCourse, AI instructional design, Canvas course builder for educators",
+      "h1": "An AI Canvas course builder by an educator, for educators",
+      "intro": "RocketCourse helps instructors and instructional designers turn a course idea, syllabus, or existing Canvas export into a polished, fully editable Canvas course — with honest, local validation before export."
+    },
+    {
+      "screen": "guides",
+      "path": "/guides",
+      "index": true,
+      "title": "Guides — How to Build & Export a Canvas Course | RocketCourse",
+      "description": "Step-by-step guides: start a Canvas course from scratch, improve an existing one, import a Canvas export, generate quizzes, and export a Canvas-ready .imscc package.",
+      "keywords": "how to build a Canvas course, Canvas IMSCC export guide, import Canvas course, generate Canvas quizzes",
+      "h1": "Guides for building and exporting Canvas courses",
+      "intro": "Practical, step-by-step guides for starting a course from scratch, improving an existing one, importing a Canvas export, generating quizzes, and exporting a Canvas-ready .imscc package."
+    },
+    {
+      "screen": "contact",
+      "path": "/contact",
+      "index": true,
+      "title": "Contact RocketCourse",
+      "description": "Questions about RocketCourse, a demo for your department, or institutional plans for your campus? Get in touch with the RocketCourse team.",
+      "keywords": "contact RocketCourse, RocketCourse demo, institutional Canvas course builder",
+      "h1": "Get in touch",
+      "intro": "Questions about RocketCourse, a demo for your department, or institutional plans? Send us a message and we'll get back to you."
+    },
+    {
+      "screen": "demo",
+      "path": "/demo",
+      "index": true,
+      "title": "Live Demo — Explore a Sample Canvas Course | RocketCourse",
+      "description": "Explore a pre-built sample Canvas course in RocketCourse — edit pages, quizzes, and rubrics, and export a real .imscc package. No account or AI credits needed.",
+      "keywords": "RocketCourse demo, Canvas course builder demo, sample Canvas course, free IMSCC export",
+      "h1": "Explore a sample Canvas course",
+      "intro": "Walk through a pre-populated sample Canvas course — edit pages, quizzes, and rubrics, see the readiness score, and export a real .imscc package. No account or AI credits required."
+    },
+    {
+      "screen": "terms",
+      "path": "/terms",
+      "index": true,
+      "title": "Terms of Service — RocketCourse",
+      "description": "The terms of service for using RocketCourse, the AI Canvas course builder.",
+      "h1": "Terms of Service",
+      "intro": "The terms that govern your use of RocketCourse."
+    },
+    {
+      "screen": "privacy",
+      "path": "/privacy",
+      "index": true,
+      "title": "Privacy Policy — RocketCourse",
+      "description": "How RocketCourse handles your data, course content, and privacy.",
+      "h1": "Privacy Policy",
+      "intro": "How RocketCourse handles your data, your course content, and your privacy."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration",
+      "index": true,
+      "title": "LMS Integrations — Export AI Courses to Canvas, Moodle & More | RocketCourse",
+      "description": "RocketCourse builds a structured course and exports a validated package you import into Canvas, Moodle, Blackboard, Brightspace, and Schoology — plus standards-based Common Cartridge (IMSCC) and QTI quiz export.",
+      "keywords": "LMS course builder, export course to Canvas, Common Cartridge export, AI course builder for any LMS",
+      "h1": "Export your AI-built course to any LMS",
+      "intro": "Generate a structured course with AI, then export a validated package you can import into Canvas, Moodle, Blackboard, Brightspace, Schoology, and more."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration/canvas",
+      "index": true,
+      "title": "Canvas Course Builder — AI Course Generator & IMSCC Export | RocketCourse",
+      "description": "Generate a complete Canvas course with AI and export a validated .imscc Common Cartridge — modules, pages, assignments, QTI quizzes, rubrics, and gradebook. Free to try.",
+      "keywords": "Canvas course builder, AI Canvas course generator, Canvas IMSCC export, import course into Canvas, Canvas Common Cartridge",
+      "h1": "AI Canvas course builder & IMSCC export",
+      "intro": "RocketCourse generates a structured Canvas course from a topic or syllabus and exports a validated .imscc package you import straight into Canvas."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration/moodle",
+      "index": true,
+      "title": "Moodle Course Builder — AI Course Generator & Common Cartridge Export | RocketCourse",
+      "description": "Build a course with AI and export an IMS Common Cartridge you import into Moodle — modules, pages, and quizzes included. Free to try.",
+      "keywords": "Moodle course builder, AI Moodle course generator, Moodle Common Cartridge import, import course into Moodle",
+      "h1": "AI Moodle course builder & Common Cartridge export",
+      "intro": "RocketCourse generates a structured course and exports a Common Cartridge package you import directly into Moodle."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration/blackboard",
+      "index": true,
+      "title": "Blackboard Course Builder — AI Generator & Common Cartridge Export | RocketCourse",
+      "description": "Generate a course with AI and export a Common Cartridge package you import into Blackboard Learn — modules, pages, tests, and rubrics. Free to try.",
+      "keywords": "Blackboard course builder, AI Blackboard course generator, Blackboard Common Cartridge import, import course into Blackboard",
+      "h1": "AI Blackboard course builder & Common Cartridge export",
+      "intro": "RocketCourse generates a structured course and exports a Common Cartridge package you import into Blackboard Learn."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration/brightspace",
+      "index": true,
+      "title": "Brightspace (D2L) Course Builder — AI Generator & Common Cartridge Export | RocketCourse",
+      "description": "Generate a course with AI and export a Common Cartridge package you import into D2L Brightspace — modules, content, and quizzes. Free to try.",
+      "keywords": "Brightspace course builder, D2L course builder, AI Brightspace course generator, import course into Brightspace",
+      "h1": "AI Brightspace (D2L) course builder & Common Cartridge export",
+      "intro": "RocketCourse generates a structured course and exports a Common Cartridge package you import into D2L Brightspace."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration/schoology",
+      "index": true,
+      "title": "Schoology Course Builder — AI Generator & Common Cartridge Export | RocketCourse",
+      "description": "Generate a course with AI and export a Common Cartridge package you import into Schoology — materials and assessments included. Free to try.",
+      "keywords": "Schoology course builder, AI Schoology course generator, Schoology Common Cartridge import, import course into Schoology",
+      "h1": "AI Schoology course builder & Common Cartridge export",
+      "intro": "RocketCourse generates a structured course and exports a Common Cartridge package you import into Schoology."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration/google-classroom",
+      "index": true,
+      "title": "Google Classroom Course Builder — AI Generated Materials | RocketCourse",
+      "description": "Generate course pages, a syllabus, and QTI/printable quizzes with AI to add to Google Classroom. Free to try.",
+      "keywords": "Google Classroom course builder, AI course materials for Google Classroom, Google Classroom quizzes",
+      "h1": "AI course materials for Google Classroom",
+      "intro": "Google Classroom doesn't import Common Cartridge, so RocketCourse gives you ready-to-paste pages, a syllabus, and exportable quizzes to add to Classroom."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration/common-cartridge",
+      "index": true,
+      "title": "Common Cartridge (IMSCC) Export — AI Course Builder | RocketCourse",
+      "description": "RocketCourse exports IMS Common Cartridge (.imscc) — the standard for moving modules, pages, QTI quizzes, rubrics, and gradebook between Canvas, Moodle, Blackboard, and more.",
+      "keywords": "Common Cartridge export, IMSCC export, IMS Common Cartridge course builder, .imscc generator",
+      "h1": "Common Cartridge (IMSCC) export, built and validated",
+      "intro": "RocketCourse builds a Canvas-flavored IMS Common Cartridge with modules, pages, assignments, QTI quizzes, rubrics, outcomes, and gradebook groups — validated locally before you download."
+    },
+    {
+      "screen": "integration",
+      "path": "/integration/qti",
+      "index": true,
+      "title": "QTI Quiz Export — AI Quiz Generator | RocketCourse",
+      "description": "RocketCourse exports Canvas-compatible QTI quizzes — multiple-choice, true/false, fill-in-the-blank, and essay — that import cleanly into LMS quiz tools. Free to try.",
+      "keywords": "QTI quiz export, QTI generator, Canvas QTI import, LMS quiz export, AI quiz generator",
+      "h1": "Standards-based QTI quiz export",
+      "intro": "RocketCourse exports Canvas-compatible QTI so your multiple-choice, true/false, fill-in-the-blank, and essay questions import cleanly into LMS quiz tools."
+    }
+  ]
+}

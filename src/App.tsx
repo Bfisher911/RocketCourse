@@ -41,6 +41,7 @@ import {
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { AssignmentsTab } from "./components/AssignmentsTab";
 import { AuthScreen, type AuthScreenMode } from "./components/AuthScreen";
+import { applySeo, pathToScreen, screenToPath } from "./seo";
 import { ContactHoursTab } from "./components/ContactHoursTab";
 import { DiscussionsTab } from "./components/DiscussionsTab";
 import { ExportTab } from "./components/ExportTab";
@@ -58,6 +59,7 @@ import { ContactPage } from "./components/ContactPage";
 import { DemoIntro } from "./components/DemoIntro";
 import { DemoTour } from "./components/DemoTour";
 import { LegalPage } from "./components/LegalPage";
+import { IntegrationPage } from "./components/IntegrationPage";
 import { PublicFooter } from "./components/PublicFooter";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
@@ -199,7 +201,7 @@ const lengthPresetWeeks: Record<CourseSettings["courseLengthPreset"], number> = 
 };
 
 function App() {
-  const [screen, setScreen] = useState<Screen>("landing");
+  const [screen, setScreen] = useState<Screen>(() => pathToScreen(window.location.pathname));
   const [projects, setProjects] = useState<CourseProject[]>([sampleProject]);
   const [course, setCourse] = useState<CourseProject>(sampleProject);
   const [settings, setSettings] = useState<CourseSettings>(defaultSettings);
@@ -288,6 +290,26 @@ function App() {
     }
     window.history.replaceState({}, "", window.location.pathname);
   }, [auth.session]);
+
+  // Keep the URL + document head in sync with the active screen so marketing pages have real,
+  // shareable, indexable URLs and correct per-page SEO. In-app screens collapse to /app.
+  useEffect(() => {
+    applySeo(screen);
+    const current = window.location.pathname.replace(/\/+$/, "") || "/";
+    // Integration is a family of /integration/<lms> URLs reached by full navigation; keep the
+    // current path rather than collapsing every one of them to the hub.
+    const desired = screen === "integration" ? current : screenToPath(screen);
+    if (current !== (desired.replace(/\/+$/, "") || "/")) {
+      window.history.pushState({ screen }, "", desired);
+    }
+  }, [screen]);
+
+  // Back/forward buttons: restore the screen from the URL.
+  useEffect(() => {
+    const onPopState = () => setScreen(pathToScreen(window.location.pathname));
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   // Load the signed-in user's saved projects from Supabase (replacing the local sample list).
   useEffect(() => {
@@ -757,6 +779,15 @@ function App() {
       {(screen === "terms" || screen === "privacy") && (
         <>
           <LegalPage kind={screen} onContact={() => setScreen("contact")} />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {screen === "integration" && (
+        <>
+          <IntegrationPage
+            onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
+            onTryDemo={() => setScreen("demo")}
+          />
           <PublicFooter onNavigate={setScreen} />
         </>
       )}
@@ -1564,6 +1595,27 @@ function Intake({
                 onChange={(value) => onSettingsChange("organizationPattern", value as CourseSettings["organizationPattern"])}
               />
               <Select label="Theme" value={settings.themeId} options={themes.map((theme) => theme.id)} labels={themes.reduce<Record<string, string>>((map, theme) => ({ ...map, [theme.id]: theme.name }), {})} onChange={(value) => onSettingsChange("themeId", value)} />
+              <Select
+                label="Outcome framework"
+                value={settings.outcomeFramework}
+                options={["bloom", "solo", "knowledge", "kolb"]}
+                labels={{ bloom: "Bloom's Taxonomy", solo: "SOLO Taxonomy", knowledge: "Dimensions of Knowledge", kolb: "Kolb's Cycle" }}
+                onChange={(value) => onSettingsChange("outcomeFramework", value as CourseSettings["outcomeFramework"])}
+              />
+              <Select
+                label="Course structure"
+                value={settings.structureFramework}
+                options={["linear", "backward", "spiral", "thematic", "competency"]}
+                labels={{ linear: "Subject-centred (linear)", backward: "Backward design (UbD)", spiral: "Spiral", thematic: "Thematic", competency: "Competency-based" }}
+                onChange={(value) => onSettingsChange("structureFramework", value as CourseSettings["structureFramework"])}
+              />
+              <Select
+                label="Module pattern"
+                value={settings.modulePattern}
+                options={["standard", "addie", "gagne", "inquiry", "conceptual"]}
+                labels={{ standard: "Standard learning path", addie: "ADDIE", gagne: "Gagné's Nine Events", inquiry: "Inquiry-based", conceptual: "Conceptual framework" }}
+                onChange={(value) => onSettingsChange("modulePattern", value as CourseSettings["modulePattern"])}
+              />
             </div>
   );
 
@@ -1585,7 +1637,7 @@ function Intake({
               <Toggle label="Final project" checked={settings.finalProject} onChange={(value) => onSettingsChange("finalProject", value)} />
               <Toggle label="Scaffold final project" checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />
               <Toggle label="Rubrics" checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
-              <Toggle label="Bloom alignment" checked={settings.includeBloom} onChange={(value) => onSettingsChange("includeBloom", value)} />
+              <Toggle label="Outcome level tags" checked={settings.includeBloom} onChange={(value) => onSettingsChange("includeBloom", value)} />
               <Toggle label="Workload/contact hours" checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
               <Toggle label="Accessibility emphasis" checked={settings.accessibilityFocus} onChange={(value) => onSettingsChange("accessibilityFocus", value)} />
               <Toggle label="Module image hooks" checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />

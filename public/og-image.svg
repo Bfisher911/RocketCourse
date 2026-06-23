@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="RocketCourse — AI Canvas Course Builder">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="0.55" stop-color="#141a36"/>
+      <stop offset="1" stop-color="#1b1140"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.8" cy="0.2" r="0.8">
+      <stop offset="0" stop-color="#7c5cff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#7c5cff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <circle cx="980" cy="140" r="3" fill="#ffffff" opacity="0.7"/>
+  <circle cx="1080" cy="240" r="2" fill="#ffffff" opacity="0.5"/>
+  <circle cx="160" cy="120" r="2" fill="#ffffff" opacity="0.5"/>
+  <circle cx="240" cy="500" r="2.5" fill="#ffffff" opacity="0.6"/>
+  <g transform="translate(90,250)">
+    <text font-family="'Space Grotesk', 'Inter', system-ui, sans-serif" font-size="34" fill="url(#accent)" font-weight="700" letter-spacing="2">ROCKETCOURSE</text>
+    <text y="90" font-family="'Space Grotesk', 'Inter', system-ui, sans-serif" font-size="72" fill="#ffffff" font-weight="700">Turn a course idea into an</text>
+    <text y="172" font-family="'Space Grotesk', 'Inter', system-ui, sans-serif" font-size="72" font-weight="700" fill="url(#accent)">editable Canvas course.</text>
+    <text y="250" font-family="'Inter', system-ui, sans-serif" font-size="30" fill="#c7d0f0">AI course builder · local validation · Canvas-ready .imscc export</text>
+  </g>
+  <rect x="0" y="618" width="1200" height="12" fill="url(#accent)"/>
+</svg>

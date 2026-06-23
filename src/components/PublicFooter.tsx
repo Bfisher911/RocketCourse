@@ -34,6 +34,7 @@ export function PublicFooter({ onNavigate }: { onNavigate: (screen: Screen) => v
               {link.label}
             </button>
           ))}
+          <a href="/integration">Integrations</a>
         </nav>
       </div>
       <div className="public-footer-legal">

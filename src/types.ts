@@ -11,6 +11,7 @@ export type Screen =
   | "demo"
   | "terms"
   | "privacy"
+  | "integration"
   | "login"
   | "signup"
   | "dashboard"
@@ -135,6 +136,12 @@ export interface CourseSettings {
   includeRubrics: boolean;
   includeObjectives: boolean;
   includeBloom: boolean;
+  /** Pedagogical framework used to frame learning outcomes (Bloom, SOLO, Dimensions of Knowledge, Kolb). */
+  outcomeFramework: OutcomeFrameworkKey;
+  /** Course-level instructional-design framework (sequencing/framing of the whole course). */
+  structureFramework: StructureFrameworkKey;
+  /** Per-module instructional pattern (how each module's learning path is structured). */
+  modulePattern: ModulePatternKey;
   includeContactHours: boolean;
   accessibilityFocus: boolean;
   schedule: ScheduleSettings;
@@ -188,10 +195,22 @@ export interface Theme {
   motif?: ThemeMotif;
 }
 
+// The instructional-design framework an outcome set is built against. Outcome levels are stored as
+// free text on CourseOutcome.bloomLevel; this key drives which level vocabulary the generator and
+// editor offer. See services/outcomeFrameworks.ts.
+export type OutcomeFrameworkKey = "bloom" | "solo" | "knowledge" | "kolb";
+
+// Course-level instructional-design framework (how the whole course is sequenced/framed) and the
+// per-module instructional pattern (how each module's learning path is structured). Drive generated
+// framing only — the Canvas item graph is unchanged. See services/courseDesignModels.ts.
+export type StructureFrameworkKey = "linear" | "backward" | "spiral" | "thematic" | "competency";
+export type ModulePatternKey = "standard" | "addie" | "gagne" | "inquiry" | "conceptual";
+
 export interface CourseOutcome {
   id: string;
   code: string;
   text: string;
+  /** Framework level/dimension label (e.g. Bloom "Analyze", SOLO "Relational", Kolb "Reflective Observation"). */
   bloomLevel: string;
   alignedModuleIds: string[];
 }

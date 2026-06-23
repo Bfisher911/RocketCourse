@@ -23,7 +23,6 @@ import {
 import { useMemo, useState } from "react";
 import type { CourseOutcome, CourseProject, EditorTab } from "../types";
 import {
-  BLOOM_LEVELS,
   addOutcome,
   buildOverviewModel,
   deleteOutcome,
@@ -31,9 +30,11 @@ import {
   moveOutcome,
   outcomeAlignment,
   outcomeIsMeasurable,
+  outcomeTag,
   updateOutcome,
   type DesignCheckStatus
 } from "../services/overviewSummary";
+import { getOutcomeFramework } from "../services/outcomeFrameworks";
 import { aiGenerateCourseOverview } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
@@ -71,7 +72,7 @@ export function OverviewTab({
     );
   };
 
-  const { structure, health, exportReadiness, designChecks } = model;
+  const { structure, health, exportReadiness, designChecks, alignment } = model;
   const orphanCount = exportReadiness.orphanedOutcomes;
 
   const structureTiles: Array<{ label: string; value: number; tab: EditorTab; icon: typeof BookOpen }> = [
@@ -290,6 +291,7 @@ export function OverviewTab({
               const alignment = outcomeAlignment(course, outcome.id);
               const orphan = isOrphanOutcome(course, outcome);
               const measurable = outcomeIsMeasurable(outcome);
+              const levelOptions = getOutcomeFramework(course.settings.outcomeFramework).levels.map((level) => level.label);
               return (
                 <article className={`outcome-row ${orphan ? "orphan" : ""}`} key={outcome.id}>
                   <div className="outcome-row-head">
@@ -302,11 +304,11 @@ export function OverviewTab({
                     <select
                       className="outcome-bloom"
                       value={outcome.bloomLevel}
-                      aria-label="Bloom level"
+                      aria-label="Outcome level"
                       onChange={(event) => onUpdateCourse((current) => updateOutcome(current, outcome.id, { bloomLevel: event.target.value }))}
                     >
-                      {!BLOOM_LEVELS.includes(outcome.bloomLevel as (typeof BLOOM_LEVELS)[number]) && outcome.bloomLevel && <option value={outcome.bloomLevel}>{outcome.bloomLevel}</option>}
-                      {BLOOM_LEVELS.map((level) => (
+                      {!levelOptions.includes(outcome.bloomLevel) && outcome.bloomLevel && <option value={outcome.bloomLevel}>{outcome.bloomLevel}</option>}
+                      {levelOptions.map((level) => (
                         <option key={level} value={level}>
                           {level}
                         </option>
@@ -341,6 +343,9 @@ export function OverviewTab({
                   />
 
                   <div className="outcome-align">
+                    <span className="outcome-chip outcome-tag" title={`Tag for ${outcome.code || "this outcome"} — a human-readable label; alignment uses the code`}>
+                      {outcomeTag(outcome)}
+                    </span>
                     {orphan && (
                       <span className="outcome-chip danger">
                         <AlertTriangle size={12} /> Orphaned
@@ -375,6 +380,39 @@ export function OverviewTab({
                 </article>
               );
             })}
+          </div>
+        )}
+      </section>
+
+      <section className="overview-card" aria-label="Module and outcome alignment">
+        <header className="overview-card-head">
+          <span className="hp-eyebrow">
+            <Target size={14} /> Module ↔ outcome alignment
+          </span>
+          <span className="overview-pill ok">{course.modules.length} modules · {course.outcomes.length} outcomes</span>
+        </header>
+        {course.outcomes.length === 0 ? (
+          <p className="overview-empty">Add outcomes to see how each module aligns to them.</p>
+        ) : (
+          <div className="alignment-matrix">
+            {alignment.map((row) => (
+              <div className={`alignment-row ${row.isGap ? "gap" : ""}`} key={row.module.id}>
+                <div className="alignment-module">
+                  <strong>{row.module.title}</strong>
+                </div>
+                <div className="alignment-outcomes">
+                  {row.outcomes.length === 0 ? (
+                    <span className={`outcome-chip ${row.isGap ? "warn" : ""}`}>{row.isGap ? "No aligned outcome" : "—"}</span>
+                  ) : (
+                    row.outcomes.map((outcome) => (
+                      <span className="outcome-chip outcome-tag" key={outcome.id} title={`${outcome.code}: ${outcome.text}`}>
+                        {outcomeTag(outcome)}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
