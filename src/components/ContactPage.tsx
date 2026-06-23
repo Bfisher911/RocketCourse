@@ -189,7 +189,7 @@ export function ContactPage() {
   const submitDisabled = sending || status === "success";
 
   return (
-    <main className="contact page-shell">
+    <main id="main-content" tabIndex={-1} className="contact page-shell">
       <section className="page-heading">
         <div>
           <span className="section-eyebrow">

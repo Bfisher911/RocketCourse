@@ -137,7 +137,7 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
   };
 
   return (
-    <main className="page-shell super-admin">
+    <main id="main-content" tabIndex={-1} className="page-shell super-admin">
       {impersonating && (
         <div className="impersonation-banner" role="status">
           <Eye size={16} /> Viewing as <strong>{impersonating.email}</strong> (read-only, audited)

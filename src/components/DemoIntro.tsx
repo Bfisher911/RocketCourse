@@ -37,7 +37,7 @@ export function DemoIntro({
   onBackHome: () => void;
 }) {
   return (
-    <main className="demo-intro page-shell" aria-labelledby="demo-intro-heading">
+    <main id="main-content" tabIndex={-1} className="demo-intro page-shell" aria-labelledby="demo-intro-heading">
       <section className="page-heading">
         <div>
           <span className="section-eyebrow">

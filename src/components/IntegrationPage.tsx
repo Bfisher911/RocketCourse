@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Layers, Rocket, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, Layers, Rocket, Sparkles } from "lucide-react";
 import { INTEGRATIONS, getIntegration, integrationSlugFromPath } from "../data/integrations";
 import { routeForPath } from "../seo";
 
@@ -28,7 +28,7 @@ export function IntegrationPage({ onStartBuilding, onTryDemo }: { onStartBuildin
   // Hub: /integration
   if (!entry) {
     return (
-      <main className="integration page-shell">
+      <main id="main-content" tabIndex={-1} className="integration page-shell">
         <section className="page-heading">
           <div>
             <span className="section-eyebrow">
@@ -46,8 +46,19 @@ export function IntegrationPage({ onStartBuilding, onTryDemo }: { onStartBuildin
           <h2>Learning management systems</h2>
           <div className="integration-grid">
             {lmsEntries.map((item) => (
-              <a key={item.slug} className="integration-card" href={`/integration/${item.slug}`}>
-                <strong>{item.name}</strong>
+              <a
+                key={item.slug}
+                className={`integration-card${item.comingSoon ? " is-soon" : ""}`}
+                href={`/integration/${item.slug}`}
+              >
+                <span className="integration-card-head">
+                  <strong>{item.name}</strong>
+                  {item.comingSoon && (
+                    <span className="integration-soon">
+                      <Clock size={12} /> Coming soon
+                    </span>
+                  )}
+                </span>
                 <span>{item.tagline}</span>
                 <ArrowRight size={15} />
               </a>
@@ -87,7 +98,7 @@ export function IntegrationPage({ onStartBuilding, onTryDemo }: { onStartBuildin
   // Specific LMS or format page: /integration/<slug>
   const otherLms = lmsEntries.filter((item) => item.slug !== entry.slug);
   return (
-    <main className="integration page-shell">
+    <main id="main-content" tabIndex={-1} className="integration page-shell">
       <section className="page-heading">
         <div>
           <span className="section-eyebrow">
@@ -97,6 +108,17 @@ export function IntegrationPage({ onStartBuilding, onTryDemo }: { onStartBuildin
           <p>{route?.intro ?? entry.blurb}</p>
         </div>
       </section>
+
+      {entry.comingSoon && (
+        <div className="integration-soon-banner" role="note">
+          <Clock size={18} />
+          <p>
+            <strong>{entry.name} support is coming soon.</strong> Canvas is the verified, supported LMS today.
+            RocketCourse can already export a Common Cartridge that {entry.name} can import, but we have not yet
+            verified that path end to end, so treat it as experimental and test in a sandbox course first.
+          </p>
+        </div>
+      )}
 
       <section className="landing-section">
         <h2>What is {entry.name}?</h2>

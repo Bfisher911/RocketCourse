@@ -732,6 +732,7 @@ function App() {
 
   return (
     <div className="app">
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <TopBar
         screen={screen}
         onNavigate={setScreen}
@@ -951,7 +952,7 @@ function App() {
         (workspaceForAdmin ? (
           <WorkspaceAdminScreen workspaceId={workspaceForAdmin} onOpenBilling={handleOpenBillingPortal} />
         ) : (
-          <main className="page-shell">
+          <main id="main-content" tabIndex={-1} className="page-shell">
             <div className="empty-state">
               <LogoMark size={48} decorative className="empty-state-mark" />
               <h2>No workspace yet</h2>
@@ -963,7 +964,7 @@ function App() {
         (access.isSuperAdmin && auth.session ? (
           <SuperAdminScreen selfUserId={auth.session.user.id} />
         ) : (
-          <main className="page-shell">
+          <main id="main-content" tabIndex={-1} className="page-shell">
             <div className="empty-state">
               <ShieldAlert size={40} />
               <h2>Not authorized</h2>
@@ -1156,7 +1157,7 @@ function Landing({
   onGuides: () => void;
 }) {
   return (
-    <main className="landing">
+    <main id="main-content" tabIndex={-1} className="landing">
       <section className="landing-hero">
         <BrandOrbitalAccent />
         <div className="landing-copy">
@@ -1380,7 +1381,7 @@ function Dashboard({
     }
   };
   return (
-    <main className="dashboard page-shell">
+    <main id="main-content" tabIndex={-1} className="dashboard page-shell">
       <section className="page-heading">
         <div>
           <BrandBadge className="dashboard-badge" />
@@ -1766,7 +1767,7 @@ function Intake({
   const lastStep = guidedSteps.length - 1;
 
   return (
-    <main className="intake page-shell">
+    <main id="main-content" tabIndex={-1} className="intake page-shell">
       <section className="page-heading intake-heading">
         <div>
           <BrandBadge className="dashboard-badge" />
@@ -1871,7 +1872,7 @@ function BlueprintReview({
   onBack: () => void;
 }) {
   return (
-    <main className="blueprint page-shell">
+    <main id="main-content" tabIndex={-1} className="blueprint page-shell">
       <section className="page-heading">
         <div>
           <span className="section-eyebrow">
@@ -1982,7 +1983,7 @@ function BlueprintReview({
 function Progress({ progressIndex }: { progressIndex: number }) {
   const percent = Math.min(100, Math.round(((progressIndex + 1) / progressSteps.length) * 100));
   return (
-    <main className="progress page-shell">
+    <main id="main-content" tabIndex={-1} className="progress page-shell">
       <section className="progress-card">
         <RocketCourseLoader size="lg" className="progress-loader" />
         <h1>Building your Canvas course</h1>
@@ -2102,7 +2103,7 @@ function Editor({
   };
 
   return (
-    <main className="editor-shell">
+    <main id="main-content" tabIndex={-1} className="editor-shell">
       <aside className="editor-rail" aria-label="Course navigation">
         <div className="rail-section">
           <strong>{course.title}</strong>

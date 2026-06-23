@@ -29,7 +29,7 @@ export function AboutPage({
   onContact: () => void;
 }) {
   return (
-    <main className="about page-shell">
+    <main id="main-content" tabIndex={-1} className="about page-shell">
       <section className="page-heading" aria-labelledby="about-title">
         <div>
           <span className="section-eyebrow">

@@ -62,7 +62,7 @@ export function AuthScreen({
   };
 
   return (
-    <main className="auth-screen page-shell">
+    <main id="main-content" tabIndex={-1} className="auth-screen page-shell">
       <section className="auth-card">
         <span className="section-eyebrow">
           <ShieldCheck size={14} /> {isSignup ? "Create your account" : "Welcome back"}

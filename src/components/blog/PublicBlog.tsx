@@ -26,7 +26,7 @@ export function PublicBlogIndex({ onOpenPost }: { onOpenPost: (slug: string) => 
   }, []);
 
   return (
-    <main className="page-shell blog-index">
+    <main id="main-content" tabIndex={-1} className="page-shell blog-index">
       <header className="blog-head">
         <span className="hp-eyebrow">
           <Newspaper size={14} /> RocketCourse Blog
@@ -104,7 +104,7 @@ export function PublicBlogPost({ slug, onBack }: { slug: string; onBack: () => v
   }, [slug]);
 
   return (
-    <main className="page-shell blog-post">
+    <main id="main-content" tabIndex={-1} className="page-shell blog-post">
       <button type="button" className="ghost-button blog-back" onClick={onBack}>
         <ArrowLeft size={15} /> All posts
       </button>

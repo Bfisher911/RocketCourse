@@ -128,7 +128,7 @@ export function WorkspaceAdminScreen({
 
   if (error && !data) {
     return (
-      <main className="page-shell">
+      <main id="main-content" tabIndex={-1} className="page-shell">
         <div className="empty-state">
           <AlertTriangle size={36} />
           <h2>Couldn't load this workspace</h2>
@@ -139,7 +139,7 @@ export function WorkspaceAdminScreen({
   }
   if (!data) {
     return (
-      <main className="page-shell">
+      <main id="main-content" tabIndex={-1} className="page-shell">
         <p className="blog-muted">Loading workspace…</p>
       </main>
     );
@@ -149,7 +149,7 @@ export function WorkspaceAdminScreen({
   const activeMembers = members.filter((m) => m.status === "active");
 
   return (
-    <main className="page-shell ws-admin">
+    <main id="main-content" tabIndex={-1} className="page-shell ws-admin">
       <section className="page-heading">
         <div>
           <BrandBadge label="Launchpad" className="dashboard-badge" />

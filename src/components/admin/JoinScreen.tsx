@@ -39,7 +39,7 @@ export function JoinScreen({
   };
 
   return (
-    <main className="page-shell join-screen">
+    <main id="main-content" tabIndex={-1} className="page-shell join-screen">
       <section className="overview-card join-card">
         <LogoMark size={56} decorative />
         <h1>Join a RocketCourse workspace</h1>

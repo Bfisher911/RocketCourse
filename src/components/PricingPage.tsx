@@ -34,7 +34,7 @@ export function PricingPage({
   const sales = contactSalesPlans();
 
   return (
-    <main className="pricing page-shell">
+    <main id="main-content" tabIndex={-1} className="pricing page-shell">
       <section className="page-heading pricing-heading">
         <div>
           <span className="section-eyebrow">

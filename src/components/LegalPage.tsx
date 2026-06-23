@@ -10,7 +10,7 @@ export function LegalPage({ kind, onContact }: { kind: "terms" | "privacy"; onCo
 
 function Terms({ onContact }: { onContact: () => void }) {
   return (
-    <main className="legal page-shell" aria-labelledby="terms-heading">
+    <main id="main-content" tabIndex={-1} className="legal page-shell" aria-labelledby="terms-heading">
       <section className="page-heading">
         <div>
           <span className="section-eyebrow">
@@ -72,7 +72,7 @@ function Terms({ onContact }: { onContact: () => void }) {
 
 function Privacy({ onContact }: { onContact: () => void }) {
   return (
-    <main className="legal page-shell" aria-labelledby="privacy-heading">
+    <main id="main-content" tabIndex={-1} className="legal page-shell" aria-labelledby="privacy-heading">
       <section className="page-heading">
         <div>
           <span className="section-eyebrow">

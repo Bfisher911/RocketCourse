@@ -30,7 +30,7 @@ export function GuidesPage({
   onStartBuilding: () => void;
 }) {
   return (
-    <main className="guides page-shell">
+    <main id="main-content" tabIndex={-1} className="guides page-shell">
       <section className="page-heading">
         <div>
           <span className="section-eyebrow">

@@ -2037,6 +2037,9 @@ p {
 
 .assignment-list {
   display: grid;
+  position: sticky;
+  top: 90px;
+  align-self: start;
   gap: 10px;
   max-height: 78vh;
   overflow: auto;
@@ -2547,6 +2550,9 @@ p {
 
 .discussion-list {
   display: grid;
+  position: sticky;
+  top: 90px;
+  align-self: start;
   gap: 10px;
   max-height: 78vh;
   overflow: auto;
@@ -3085,6 +3091,9 @@ p {
 
 .quiz-list {
   display: grid;
+  position: sticky;
+  top: 90px;
+  align-self: start;
   gap: 10px;
   max-height: 78vh;
   overflow: auto;
@@ -3659,6 +3668,9 @@ p {
 
 .rubric-list {
   display: grid;
+  position: sticky;
+  top: 90px;
+  align-self: start;
   gap: 10px;
   max-height: 78vh;
   overflow: auto;
@@ -4087,6 +4099,9 @@ p {
 
 .page-list {
   display: grid;
+  position: sticky;
+  top: 90px;
+  align-self: start;
   gap: 10px;
   max-height: 78vh;
   overflow: auto;
@@ -5334,6 +5349,13 @@ p {
   align-items: start;
 }
 
+/* Pin the theme preview so it stays beside the (taller) template library instead of stranding a void. */
+.theme-preview-panel {
+  position: sticky;
+  top: 90px;
+  align-self: start;
+}
+
 .theme-library-panel header,
 .theme-preview-panel header,
 .theme-check-panel header {
@@ -6550,6 +6572,9 @@ p {
 
 .hp-validation,
 .hp-snapshots {
+  position: sticky;
+  top: 90px;
+  align-self: start;
   padding: 18px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -7045,9 +7070,11 @@ p {
   .assignment-list,
   .discussion-list,
   .quiz-list,
-  .rubric-list {
+  .rubric-list,
+  .page-list {
     max-height: none;
     padding-right: 0;
+    position: static;
   }
 
   .page-layout {
@@ -10337,3 +10364,109 @@ p {
   }
 }
 
+/* Skip-to-content link (WCAG 2.4.1). Off-screen until focused, then it drops in
+   above the sticky top bar so keyboard users can jump past the nav. */
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -64px;
+  z-index: 1000;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: var(--ink);
+  border: 1px solid var(--rc-cyan);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: top var(--dur) var(--ease);
+}
+.skip-link:focus-visible,
+.skip-link:focus {
+  top: 12px;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Integrations: "Coming soon" on non-Canvas LMS (Canvas is the live LMS; export
+   formats stay live). Selectors are .integration-card-scoped so they outweigh the
+   generic `.integration-card span` rule. */
+.integration-card .integration-card-head {
+  grid-column: 1 / 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 15px;
+  color: var(--ink);
+}
+.integration-card .integration-soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 180, 61, 0.16);
+  border: 1px solid rgba(255, 180, 61, 0.4);
+  color: #ffd089;
+  font-size: 11px;
+  font-weight: 600;
+}
+.integration-card .integration-soon svg {
+  color: #ffd089;
+  flex: none;
+}
+.integration-card.is-soon {
+  opacity: 0.94;
+}
+.integration-soon-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: rgba(255, 180, 61, 0.1);
+  border: 1px solid rgba(255, 180, 61, 0.35);
+}
+.integration-soon-banner svg {
+  color: #ffd089;
+  flex: none;
+  margin-top: 2px;
+}
+.integration-soon-banner p {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+
+/* Pin the detail/preview panels so they follow the (taller) editor column instead of
+   stranding a void beside it. They revert to static once the 3-pane layout collapses to
+   full-width (<=1400px for the list editors, <=900px for the module planner). */
+.assignment-preview-panel,
+.discussion-preview-panel,
+.quiz-preview-panel,
+.rubric-preview-panel,
+.page-preview-panel,
+.module-preview-panel {
+  position: sticky;
+  top: 90px;
+  align-self: start;
+}
+@media (max-width: 1400px) {
+  .assignment-preview-panel,
+  .discussion-preview-panel,
+  .quiz-preview-panel,
+  .rubric-preview-panel,
+  .page-preview-panel {
+    position: static;
+  }
+}
+@media (max-width: 900px) {
+  .module-preview-panel {
+    position: static;
+  }
+}

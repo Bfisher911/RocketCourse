@@ -10,6 +10,11 @@ export interface IntegrationEntry {
   blurb: string;
   /** "How RocketCourse exports to <name>" — concrete, honest steps. */
   steps: string[];
+  /**
+   * Not yet officially supported / verified. Canvas is the live LMS; the other LMS targets
+   * are shown as "Coming soon". Export formats (Common Cartridge, QTI) are current and stay live.
+   */
+  comingSoon?: boolean;
 }
 
 export const INTEGRATIONS: IntegrationEntry[] = [
@@ -31,6 +36,7 @@ export const INTEGRATIONS: IntegrationEntry[] = [
     slug: "moodle",
     name: "Moodle",
     kind: "lms",
+    comingSoon: true,
     tagline: "Build a course and import it into Moodle.",
     blurb:
       "Moodle is a widely used open-source LMS. RocketCourse exports an IMS Common Cartridge package that Moodle can import, bringing your modules, pages, and quizzes across.",
@@ -45,6 +51,7 @@ export const INTEGRATIONS: IntegrationEntry[] = [
     slug: "blackboard",
     name: "Blackboard",
     kind: "lms",
+    comingSoon: true,
     tagline: "Export a Common Cartridge for Blackboard Learn.",
     blurb:
       "Blackboard Learn is a virtual learning environment used by universities worldwide. RocketCourse exports an IMS Common Cartridge package that Blackboard Learn can import.",
@@ -59,6 +66,7 @@ export const INTEGRATIONS: IntegrationEntry[] = [
     slug: "brightspace",
     name: "Brightspace (D2L)",
     kind: "lms",
+    comingSoon: true,
     tagline: "Import an AI-built course into D2L Brightspace.",
     blurb:
       "Brightspace by D2L is a cloud LMS used in higher ed and K-12. RocketCourse exports an IMS Common Cartridge package Brightspace can import.",
@@ -73,6 +81,7 @@ export const INTEGRATIONS: IntegrationEntry[] = [
     slug: "schoology",
     name: "Schoology",
     kind: "lms",
+    comingSoon: true,
     tagline: "Bring a structured course into Schoology.",
     blurb:
       "Schoology is a K-12 learning management system. RocketCourse exports an IMS Common Cartridge package that Schoology can import as course materials.",
@@ -87,6 +96,7 @@ export const INTEGRATIONS: IntegrationEntry[] = [
     slug: "google-classroom",
     name: "Google Classroom",
     kind: "lms",
+    comingSoon: true,
     tagline: "Use generated materials in Google Classroom.",
     blurb:
       "Google Classroom is a lightweight LMS for K-12 and beyond. It does not import Common Cartridge directly, so RocketCourse gives you exportable, ready-to-paste materials — pages, syllabus, and QTI/printable quizzes — to add to Classroom.",
