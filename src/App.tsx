@@ -71,7 +71,8 @@ import { defaultSettings } from "./data/defaultSettings";
 import type { Plan, PlanKey } from "./data/plans";
 import { plans } from "./data/plans";
 import { themes } from "./data/themes";
-import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } from "./services/courseGenerator";
+import { applyThemeToGeneratedContent, applyVisualTemplate, generateCourseProject, sampleProject } from "./services/courseGenerator";
+import { visualTemplates, visualTemplateForThemeId } from "./data/visualTemplates";
 import { buildCourseQualityReport } from "./services/courseQuality";
 import { generateAllQuizzesQtiBlob, generateImsccBlob, generateQuizQtiBlob } from "./services/imsccExport";
 import { coursePdfFileName, generateCoursePdfBlob } from "./services/coursePdf";
@@ -2872,6 +2873,14 @@ function ThemeTab({
     setRefreshNotice("Theme styling refreshed. Template-generated content was recolored, builder pages received snapshots, and manually edited objects were preserved where possible.");
   };
 
+  const activeTemplateId = course.settings.visualTemplateId ?? visualTemplateForThemeId(course.theme.id)?.id;
+  const applyTemplate = (template: (typeof visualTemplates)[number]): void => {
+    // One move: swap the curated theme, point homepage/syllabus at the template layouts, and re-theme
+    // all generated content so previews + export reflect the look immediately.
+    onUpdateCourse((current) => applyVisualTemplate(current, template));
+    setRefreshNotice(`Applied the ${template.name} visual template — homepage, syllabus, module cards, and the export banner were restyled. Manually edited objects were preserved where possible.`);
+  };
+
   return (
     <div className="theme-system">
       <section className="theme-summary-card">
@@ -2901,6 +2910,53 @@ function ThemeTab({
         <ThemeSwatch label="Contrast text" value={styles.contrastText} />
         <ThemeSwatch label="Button text" value={styles.onAccent} />
       </div>
+
+      <section className="template-gallery-panel" aria-label="Visual template gallery">
+        <header className="template-gallery-head">
+          <div>
+            <span className="hp-eyebrow"><Sparkles size={14} /> Visual template gallery</span>
+            <h2>Pick a complete course look</h2>
+            <p>Each template bundles a palette, gradient hero, decorative motif, typography, and section-card style — plus matching homepage and syllabus layouts. Apply any look to any course; you can still fine-tune colors below.</p>
+          </div>
+        </header>
+        <div className="template-gallery-grid">
+          {visualTemplates.map((template) => {
+            const ts = getThemeStyles(template.theme);
+            const isActive = activeTemplateId === template.id;
+            return (
+              <article key={template.id} className={`template-card ${isActive ? "active" : ""}`}>
+                <div
+                  className="template-card-thumb"
+                  style={{ background: `linear-gradient(135deg, ${ts.gradientFrom} 0%, ${ts.gradientTo} 100%)` }}
+                  aria-hidden="true"
+                >
+                  <span className="template-card-chip" style={{ fontFamily: ts.font, color: ts.accentDark }}>{template.shortName}</span>
+                  <span className="template-card-swatches">
+                    <i style={{ background: template.theme.accent }} />
+                    <i style={{ background: template.theme.soft }} />
+                    <i style={{ background: ts.gradientTo }} />
+                  </span>
+                </div>
+                <div className="template-card-body">
+                  <strong style={{ fontFamily: ts.font }}>{template.name}</strong>
+                  <p>{template.description}</p>
+                  <span className="template-card-bestfor">Best for: {template.bestFor}</span>
+                </div>
+                <div className="template-card-actions">
+                  <button
+                    type="button"
+                    className={isActive ? "secondary" : "primary"}
+                    onClick={() => applyTemplate(template)}
+                    aria-pressed={isActive}
+                  >
+                    {isActive ? <><CheckCircle2 size={15} /> Applied</> : <>Apply template</>}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="theme-workbench">
         <section className="theme-library-panel">

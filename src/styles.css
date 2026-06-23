@@ -10097,3 +10097,146 @@ p {
 .tab-body .field input,
 .tab-body .field select,
 .tab-body .field textarea { width: 100%; }
+
+/* ============================================================
+   RocketCourse — visual template gallery + editor layout hardening (2026)
+   Appended last so these rules win over earlier definitions.
+   ============================================================ */
+
+/* --- Visual template gallery (Theme tab) --- */
+.template-gallery-panel {
+  margin: 0 0 20px;
+  padding: 20px 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+.template-gallery-head { margin: 0 0 16px; }
+.template-gallery-head h2 { margin: 6px 0 4px; }
+.template-gallery-head p { margin: 0; color: var(--muted); max-width: 84ch; }
+.template-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr));
+  gap: 16px;
+}
+.template-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.template-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+.template-card.active { border-color: #22e6ff; box-shadow: 0 0 0 2px rgba(34, 230, 255, 0.45); }
+.template-card-thumb {
+  position: relative;
+  height: 96px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+.template-card-chip {
+  display: inline-block;
+  max-width: 68%;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  font-weight: 800;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.template-card-swatches { display: inline-flex; gap: 5px; flex: none; }
+.template-card-swatches i { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.6); }
+.template-card-body { padding: 12px 14px 4px; min-width: 0; flex: 1 1 auto; }
+.template-card-body strong { display: block; font-size: 15px; margin: 0 0 4px; color: var(--ink, #e8ecff); overflow-wrap: anywhere; }
+.template-card-body p { margin: 0 0 8px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.template-card-bestfor { font-size: 12px; color: var(--muted); font-weight: 600; }
+.template-card-actions { padding: 10px 14px 14px; }
+.template-card-actions button { width: 100%; justify-content: center; }
+
+/* --- Editor layout hardening --- */
+/* Form grids now fit the ACTUAL editor-panel width (2 cols when the column is narrow, 1 when tight)
+   instead of a fixed 3 that crunched inputs into unreadable slivers in the middle split column.
+   Container-responsive via auto-fit, so it works regardless of viewport math. */
+.assignment-form-grid,
+.discussion-form-grid,
+.quiz-form-grid,
+.page-form-grid,
+.quiz-question-grid,
+.quiz-feedback-grid,
+.rubric-criterion-grid,
+.rubric-level-grid,
+.module-card-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 184px), 1fr));
+}
+
+/* Theme workbench + support grids: allow true shrink (was minmax(280px,…) which could overflow). */
+.theme-workbench { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); }
+.theme-support-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+@media (max-width: 1280px) {
+  .theme-workbench { grid-template-columns: 1fr; }
+}
+
+/* Inline badges/pills never force a list card or row wider than its column. */
+.assignment-list-card span,
+.discussion-list-card span,
+.quiz-list-card span,
+.page-list-card span,
+.assignment-export-map span,
+.discussion-export-map span,
+.quiz-export-map span { max-width: 100%; }
+
+/* Long generated HTML / titles wrap; preview panes keep their own scroll and never exceed the column. */
+.canvas-preview,
+.assignment-canvas-preview,
+.discussion-canvas-preview,
+.quiz-canvas-preview,
+.rubric-canvas-preview { max-width: 100%; overflow: auto; }
+.canvas-preview * { max-width: 100%; }
+
+/* Split editors (Pages/Assignments/Discussions/Quizzes/Rubrics): drop the preview BELOW the editor
+   at laptop widths so the editor column gets real room — the 3-col split squeezed it to ~240px at
+   1440. minmax(0,…) lets tracks shrink instead of overflowing the editor-main column. >1600px keeps
+   the roomy 3-col. */
+@media (max-width: 1600px) {
+  .assignment-layout,
+  .discussion-layout,
+  .quiz-layout,
+  .rubric-layout,
+  .page-layout {
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  }
+  .assignment-preview-panel,
+  .discussion-preview-panel,
+  .quiz-preview-panel,
+  .rubric-preview-panel,
+  .page-preview-panel {
+    grid-column: 1 / -1;
+  }
+  .assignment-preview-sticky,
+  .discussion-preview-sticky,
+  .quiz-preview-sticky,
+  .rubric-preview-sticky,
+  .page-preview-sticky {
+    position: static;
+  }
+}
+@media (max-width: 1080px) {
+  .assignment-layout,
+  .discussion-layout,
+  .quiz-layout,
+  .rubric-layout,
+  .page-layout,
+  .module-planner-layout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,4 +1,5 @@
 import type { Theme } from "../types";
+import { visualTemplateThemes } from "./visualTemplates";
 
 export const themes: Theme[] = [
   {
@@ -290,5 +291,7 @@ export const themes: Theme[] = [
   }
 ];
 
+// Resolve any theme id — the displayed color themes OR a visual-template's curated theme — so
+// generated content always renders with the right palette. Falls back to the default theme.
 export const getTheme = (themeId: string): Theme =>
-  themes.find((theme) => theme.id === themeId) ?? themes[0];
+  themes.find((theme) => theme.id === themeId) ?? visualTemplateThemes.find((theme) => theme.id === themeId) ?? themes[0];

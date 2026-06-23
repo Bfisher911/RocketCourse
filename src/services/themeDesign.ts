@@ -1,4 +1,4 @@
-import type { Theme, ThemeMotif, ThemePattern } from "../types";
+import type { Theme, ThemeCardStyle, ThemeFont, ThemeHeroStyle, ThemeMotif, ThemePattern } from "../types";
 import { bestTextOn, contrastRatio, withAlpha } from "../utils/color";
 import { escapeXml } from "../utils/text";
 
@@ -21,7 +21,25 @@ export interface ThemeStyles {
   pattern: ThemePattern;
   motif: ThemeMotif;
   onGradient: string;
+  font: string;
+  heroStyle: ThemeHeroStyle;
+  cardStyle: ThemeCardStyle;
 }
+
+// Canvas-safe system font stacks (no @font-face / web fonts). "sans" matches the legacy look exactly,
+// so any theme without a fontFamily renders identically to before.
+const fontStack = (font: ThemeFont | undefined): string => {
+  switch (font) {
+    case "serif":
+      return "Georgia, 'Times New Roman', Cambria, serif";
+    case "mono":
+      return "'DejaVu Sans Mono', 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace";
+    case "rounded":
+      return "'Trebuchet MS', 'Segoe UI', 'Lato', Verdana, sans-serif";
+    default:
+      return "'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+  }
+};
 
 // Pick #ffffff or #0b1020 — whichever keeps the WORST contrast across both gradient stops highest —
 // so hero text stays readable no matter where it sits over the gradient.
@@ -116,7 +134,10 @@ export const getThemeStyles = (theme: Theme): ThemeStyles => {
     gradientTo,
     pattern: theme.pattern ?? "none",
     motif: theme.motif ?? "none",
-    onGradient: textForGradient(gradientFrom, gradientTo)
+    onGradient: textForGradient(gradientFrom, gradientTo),
+    font: fontStack(theme.fontFamily),
+    heroStyle: theme.heroStyle ?? "banner",
+    cardStyle: theme.cardStyle ?? "elevated"
   };
 };
 
@@ -224,8 +245,8 @@ export const buildBannerSvg = (title: string, theme: Theme): string => {
   ${pattern.rect}
   ${motifBannerArt(styles.motif)}
   <rect x="96" y="92" width="640" height="176" rx="18" fill="#ffffff" opacity="0.94"/>
-  <text x="132" y="166" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#111827">${escapeXml(title)}</text>
-  <text x="132" y="214" font-family="Arial, sans-serif" font-size="24" fill="#374151">${escapeXml(theme.bannerLabel)}</text>
+  <text x="132" y="166" font-family="${styles.font}" font-size="44" font-weight="700" fill="#111827">${escapeXml(title)}</text>
+  <text x="132" y="214" font-family="${styles.font}" font-size="24" fill="#374151">${escapeXml(theme.bannerLabel)}</text>
 </svg>`;
 };
 
@@ -266,52 +287,92 @@ export const validateTheme = (theme: Theme): ThemeValidationResult => {
   };
 };
 
-// Shared font stack — Lato (Canvas's UI font) with safe fallbacks; no @font-face/url().
-const FONT = "'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 const SHADOW_SM = "0 1px 2px rgba(15,23,42,0.04), 0 4px 14px rgba(15,23,42,0.06)";
 const SHADOW_MD = "0 10px 26px rgba(15,23,42,0.10)";
 
 export const buildThemedButton = (theme: Theme, label: string, href: string): string => {
   const styles = getThemeStyles(theme);
-  return `<a href="${escAttr(safeHref(href))}" style="display: inline-block; margin: 10px 12px 6px 0; padding: 13px 22px; border-radius: 10px; background: linear-gradient(135deg, ${styles.accent} 0%, ${styles.accentDark} 100%); color: ${styles.onAccent}; text-decoration: none; font-weight: 800; font-family: ${FONT}; box-shadow: 0 8px 18px ${withAlpha(styles.accentDark, 0.32)};">${escHtml(label)} <span aria-hidden="true" style="opacity: 0.8;">&rarr;</span></a>`;
+  return `<a href="${escAttr(safeHref(href))}" style="display: inline-block; margin: 10px 12px 6px 0; padding: 13px 22px; border-radius: 10px; background: linear-gradient(135deg, ${styles.accent} 0%, ${styles.accentDark} 100%); color: ${styles.onAccent}; text-decoration: none; font-weight: 800; font-family: ${styles.font}; box-shadow: 0 8px 18px ${withAlpha(styles.accentDark, 0.32)};">${escHtml(label)} <span aria-hidden="true" style="opacity: 0.8;">&rarr;</span></a>`;
 };
 
 export const buildThemedSecondaryButton = (theme: Theme, label: string, href: string): string => {
   const styles = getThemeStyles(theme);
-  return `<a href="${escAttr(safeHref(href))}" style="display: inline-block; margin: 10px 12px 6px 0; padding: 12px 20px; border-radius: 10px; background: #ffffff; border: 2px solid ${styles.accent}; color: ${styles.accentDark}; text-decoration: none; font-weight: 800; font-family: ${FONT}; box-shadow: ${SHADOW_SM};">${escHtml(label)}</a>`;
+  return `<a href="${escAttr(safeHref(href))}" style="display: inline-block; margin: 10px 12px 6px 0; padding: 12px 20px; border-radius: 10px; background: #ffffff; border: 2px solid ${styles.accent}; color: ${styles.accentDark}; text-decoration: none; font-weight: 800; font-family: ${styles.font}; box-shadow: ${SHADOW_SM};">${escHtml(label)}</a>`;
 };
 
 export const buildThemedCallout = (theme: Theme, title: string, body: string): string => {
   const styles = getThemeStyles(theme);
   return `<div style="margin: 20px 0; padding: 18px 20px; border-left: 6px solid ${styles.accent}; background: linear-gradient(135deg, ${styles.soft} 0%, ${withAlpha(styles.accent, 0.06)} 100%); border-radius: 12px; box-shadow: ${SHADOW_SM};">
-  <h3 style="margin: 0 0 8px; color: ${styles.accentDark}; font-size: 17px; font-weight: 800; font-family: ${FONT};">${escHtml(title)}</h3>
+  <h3 style="margin: 0 0 8px; color: ${styles.accentDark}; font-size: 17px; font-weight: 800; font-family: ${styles.font};">${escHtml(title)}</h3>
   ${body}
 </div>`.trim();
 };
 
 export const buildThemedCard = (theme: Theme, title: string, body: string): string => {
   const styles = getThemeStyles(theme);
-  return `<section style="margin: 22px 0; background: #ffffff; border: 1px solid ${styles.border}; border-radius: 16px; box-shadow: ${SHADOW_SM}; overflow: hidden;">
+  const swatch = `<span style="display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); vertical-align: middle; margin-right: 11px;"></span>`;
+  const heading = (margin: string): string =>
+    `<h2 style="margin: ${margin}; color: ${styles.accentDark}; font-size: 22px; font-weight: 800; font-family: ${styles.font};">${swatch}${escHtml(title)}</h2>`;
+  // Card personality per template. All inline-style + Canvas-safe; "elevated" is the legacy look.
+  switch (styles.cardStyle) {
+    case "outline":
+      return `<section style="margin: 22px 0; background: #ffffff; border: 2px solid ${styles.accent}; border-radius: 14px; padding: 22px 26px;">
+  ${heading("0 0 14px")}
+  ${body}
+</section>`.trim();
+    case "accent-bar":
+      return `<section style="margin: 22px 0; background: #ffffff; border: 1px solid ${styles.border}; border-left: 6px solid ${styles.accent}; border-radius: 12px; box-shadow: ${SHADOW_SM}; padding: 22px 26px;">
+  ${heading("0 0 14px")}
+  ${body}
+</section>`.trim();
+    case "soft-fill":
+      return `<section style="margin: 22px 0; background: linear-gradient(135deg, ${styles.soft} 0%, ${withAlpha(styles.accent, 0.08)} 100%); border: 1px solid ${withAlpha(styles.accent, 0.28)}; border-radius: 16px; padding: 22px 26px;">
+  ${heading("0 0 14px")}
+  ${body}
+</section>`.trim();
+    default:
+      return `<section style="margin: 22px 0; background: #ffffff; border: 1px solid ${styles.border}; border-radius: 16px; box-shadow: ${SHADOW_SM}; overflow: hidden;">
   <div style="height: 6px; background: linear-gradient(90deg, ${styles.accent} 0%, ${styles.accentDark} 100%);"></div>
   <div style="padding: 22px 26px;">
-    <h2 style="margin: 0 0 14px; color: ${styles.accentDark}; font-size: 22px; font-weight: 800; font-family: ${FONT};"><span style="display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); vertical-align: middle; margin-right: 11px;"></span>${escHtml(title)}</h2>
+    ${heading("0 0 14px")}
     ${body}
   </div>
 </section>`.trim();
+  }
 };
 
 export const buildThemedShell = (theme: Theme, title: string, subtitle: string, body: string): string => {
   const styles = getThemeStyles(theme);
-  const underline = withAlpha(styles.onGradient === "#ffffff" ? "#ffffff" : "#0b1020", 0.55);
-  return `<div style="font-family: ${FONT}; color: ${styles.canvasText}; line-height: 1.65;">
-  <div style="position: relative; overflow: hidden; margin: 0 0 24px; padding: 36px 34px; ${heroBackgroundCss(styles)} border-radius: 18px; color: ${styles.onGradient}; box-shadow: ${SHADOW_MD};">
-    <div style="display: inline-block; margin: 0 0 16px; padding: 6px 14px; border-radius: 999px; background: ${withAlpha(styles.onGradient === "#ffffff" ? "#ffffff" : "#0b1020", 0.18)}; color: ${styles.onGradient}; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>
-    <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 34px; line-height: 1.15; font-weight: 900;">${escHtml(title)}</h1>
-    <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: 0 0 14px;"></div>
-    <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.96; font-size: 17px; max-width: 62ch;">${escHtml(subtitle)}</p>
-  </div>
-  ${body}
-</div>`.trim();
+  const onInk = styles.onGradient === "#ffffff" ? "#ffffff" : "#0b1020";
+  const underline = withAlpha(onInk, 0.55);
+  const eyebrow = `<div style="display: inline-block; margin: 0 0 16px; padding: 6px 14px; border-radius: 999px; background: ${withAlpha(onInk, 0.18)}; color: ${styles.onGradient}; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>`;
+  const wrap = (hero: string): string =>
+    `<div style="font-family: ${styles.font}; color: ${styles.canvasText}; line-height: 1.65;">${hero}${body}</div>`.trim();
+
+  // "minimal": flat soft panel with a thin accent top rule and dark text — no gradient. Distinct, calm.
+  if (styles.heroStyle === "minimal") {
+    return wrap(`<div style="margin: 0 0 24px; background: ${styles.soft}; border: 1px solid ${withAlpha(styles.accent, 0.3)}; border-top: 5px solid ${styles.accent}; border-radius: 14px; padding: 30px 32px;">
+    <div style="margin: 0 0 12px; color: ${styles.accentDark}; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>
+    <h1 style="margin: 0 0 10px; color: ${styles.accentDark}; font-size: 34px; line-height: 1.15; font-weight: 900;">${escHtml(title)}</h1>
+    <p style="margin: 0; color: ${styles.contrastText}; font-size: 17px; max-width: 62ch;">${escHtml(subtitle)}</p>
+  </div>`);
+  }
+
+  const pad = styles.heroStyle === "stage" ? "52px 40px" : "36px 34px";
+  const h1Size = styles.heroStyle === "stage" ? "42px" : "34px";
+  const center = styles.heroStyle === "spotlight";
+  const align = center ? "text-align: center;" : "";
+  const underlineMargin = center ? "0 auto 14px" : "0 0 14px";
+  const leftBar = styles.heroStyle === "split" ? `border-left: 8px solid ${underline};` : "";
+  // "split" leads with the accent bar instead of the pill eyebrow.
+  const eyebrowBlock = styles.heroStyle === "split" ? "" : eyebrow;
+  const hero = `<div style="position: relative; overflow: hidden; margin: 0 0 24px; padding: ${pad}; ${leftBar} ${heroBackgroundCss(styles)} border-radius: 18px; color: ${styles.onGradient}; box-shadow: ${SHADOW_MD}; ${align}">
+    ${eyebrowBlock}
+    <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: ${h1Size}; line-height: 1.14; font-weight: 900;">${escHtml(title)}</h1>
+    <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: ${underlineMargin};"></div>
+    <p style="margin: ${center ? "0 auto" : "0"}; color: ${styles.onGradient}; opacity: 0.96; font-size: 17px; max-width: 62ch;">${escHtml(subtitle)}</p>
+  </div>`;
+  return wrap(hero);
 };
 
 // ---- Extended visual kit (Canvas-safe inline HTML) -------------------------
@@ -323,7 +384,7 @@ export const buildThemedChips = (theme: Theme, items: string[]): string => {
   const chips = items
     .map(
       (item) =>
-        `<span style="display: inline-block; margin: 0 9px 9px 0; padding: 7px 15px; border-radius: 999px; background: ${withAlpha(styles.accent, 0.1)}; border: 1px solid ${withAlpha(styles.accent, 0.4)}; color: ${styles.accentDark}; font-size: 13px; font-weight: 700; font-family: ${FONT};">${escHtml(item)}</span>`
+        `<span style="display: inline-block; margin: 0 9px 9px 0; padding: 7px 15px; border-radius: 999px; background: ${withAlpha(styles.accent, 0.1)}; border: 1px solid ${withAlpha(styles.accent, 0.4)}; color: ${styles.accentDark}; font-size: 13px; font-weight: 700; font-family: ${styles.font};">${escHtml(item)}</span>`
     )
     .join("");
   return `<p style="margin: 0 0 18px;">${chips}</p>`;
@@ -354,8 +415,9 @@ const noteStyle = (theme: Theme, variant: NoteVariant): { bg: string; border: st
 /** A typed callout (key term, example, misconception, check, instructor note, tip) with an icon. */
 export const buildThemedNote = (theme: Theme, variant: NoteVariant, title: string, body: string): string => {
   const note = noteStyle(theme, variant);
+  const styles = getThemeStyles(theme);
   return `<div style="margin: 18px 0; padding: 16px 18px 16px 20px; border: 1px solid ${note.border}; border-left: 5px solid ${note.fg}; background: ${note.bg}; border-radius: 12px; box-shadow: ${SHADOW_SM};">
-  <h3 style="margin: 0 0 8px; color: ${note.fg}; font-weight: 800; font-size: 16px; font-family: ${FONT};"><span aria-hidden="true" style="margin-right: 8px;">${note.emoji}</span>${escHtml(title)}</h3>
+  <h3 style="margin: 0 0 8px; color: ${note.fg}; font-weight: 800; font-size: 16px; font-family: ${styles.font};"><span aria-hidden="true" style="margin-right: 8px;">${note.emoji}</span>${escHtml(title)}</h3>
   <div style="color: #374151;">${body}</div>
 </div>`.trim();
 };
@@ -364,7 +426,7 @@ export const buildThemedNote = (theme: Theme, variant: NoteVariant, title: strin
 export const buildThemedTable = (theme: Theme, caption: string, headers: string[], rows: string[][]): string => {
   const styles = getThemeStyles(theme);
   const head = headers
-    .map((header) => `<th scope="col" style="text-align: left; padding: 12px 15px; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); color: ${styles.onAccent}; font-weight: 800; border: none; font-family: ${FONT};">${escHtml(header)}</th>`)
+    .map((header) => `<th scope="col" style="text-align: left; padding: 12px 15px; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); color: ${styles.onAccent}; font-weight: 800; border: none; font-family: ${styles.font};">${escHtml(header)}</th>`)
     .join("");
   const body = rows
     .map(
@@ -374,9 +436,9 @@ export const buildThemedTable = (theme: Theme, caption: string, headers: string[
           .join("")}</tr>`
     )
     .join("");
-  const cap = caption ? `<caption style="caption-side: top; text-align: left; margin: 0 0 10px; color: ${styles.accentDark}; font-weight: 800; font-family: ${FONT};">${escHtml(caption)}</caption>` : "";
+  const cap = caption ? `<caption style="caption-side: top; text-align: left; margin: 0 0 10px; color: ${styles.accentDark}; font-weight: 800; font-family: ${styles.font};">${escHtml(caption)}</caption>` : "";
   return `<div style="margin: 18px 0; border: 1px solid ${styles.border}; border-radius: 14px; overflow: hidden; box-shadow: ${SHADOW_SM};">
-  <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-family: ${FONT};">${cap}
+  <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-family: ${styles.font};">${cap}
     <thead><tr>${head}</tr></thead>
     <tbody>${body}</tbody>
   </table>
@@ -396,7 +458,7 @@ export const buildThemedSteps = (theme: Theme, steps: Array<{ title: string; bod
     .map(
       (step, index) =>
         `<div style="margin: 0 0 12px; padding: 16px 18px; background: #ffffff; border: 1px solid ${styles.border}; border-radius: 13px; box-shadow: ${SHADOW_SM};">
-    <span style="display: inline-block; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); color: ${styles.onAccent}; text-align: center; line-height: 32px; font-weight: 800; vertical-align: middle; margin-right: 12px; font-family: ${FONT};">${index + 1}</span><strong style="color: ${styles.accentDark}; font-size: 16px; font-family: ${FONT};">${escHtml(step.title)}</strong>
+    <span style="display: inline-block; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); color: ${styles.onAccent}; text-align: center; line-height: 32px; font-weight: 800; vertical-align: middle; margin-right: 12px; font-family: ${styles.font};">${index + 1}</span><strong style="color: ${styles.accentDark}; font-size: 16px; font-family: ${styles.font};">${escHtml(step.title)}</strong>
     <div style="margin: 10px 0 0; color: #374151;">${step.body}</div>
   </div>`
     )
@@ -411,7 +473,7 @@ export const buildThemedColumns = (theme: Theme, cards: Array<{ title: string; b
     .map(
       (card) =>
         `<div style="display: inline-block; width: 48%; min-width: 230px; vertical-align: top; margin: 0 1% 16px 0; box-sizing: border-box; font-size: 15px; padding: 18px 20px; background: #ffffff; border: 1px solid ${styles.border}; border-radius: 14px; box-shadow: ${SHADOW_SM};">
-    ${card.emoji ? `<div aria-hidden="true" style="font-size: 24px; line-height: 1; margin: 0 0 8px;">${card.emoji}</div>` : ""}<div style="font-weight: 800; color: ${styles.accentDark}; font-size: 16px; margin: 0 0 6px; font-family: ${FONT};">${escHtml(card.title)}</div>
+    ${card.emoji ? `<div aria-hidden="true" style="font-size: 24px; line-height: 1; margin: 0 0 8px;">${card.emoji}</div>` : ""}<div style="font-weight: 800; color: ${styles.accentDark}; font-size: 16px; margin: 0 0 6px; font-family: ${styles.font};">${escHtml(card.title)}</div>
     <div style="color: #374151;">${card.body}</div>
   </div>`
     )
@@ -475,7 +537,7 @@ export const buildThemePreviewHtml = (theme: Theme, kind: ThemePreviewKind, cour
   const bannerImg = `<img src="data:image/svg+xml;utf8,${encodeURIComponent(buildBannerSvg(courseTitle, theme))}" alt="${escAttr(courseTitle)} banner" style="display: block; width: 100%; height: auto; border-radius: 12px; margin: 0 0 18px;"/>`;
 
   if (kind === "homepage") {
-    return `<div style="font-family: ${FONT};">${bannerImg}${buildThemedShell(
+    return `<div style="font-family: ${styles.font};">${bannerImg}${buildThemedShell(
       theme,
       `${courseTitle} Homepage`,
       "Welcome students into a clear Canvas course path.",

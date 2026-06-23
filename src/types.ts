@@ -122,6 +122,8 @@ export interface CourseSettings {
   customOrganizationLabel: string;
   moduleCount: number;
   themeId: string;
+  /** Selected visual template preset id (see data/visualTemplates.ts). Optional + back-compatible. */
+  visualTemplateId?: string;
   tone: string;
   assignmentTypes: string[];
   quizFrequency: "none" | "weekly" | "biweekly" | "module";
@@ -180,6 +182,16 @@ export type ThemePattern = "none" | "dots" | "grid" | "diagonal" | "crosshatch";
 // glassware, botanical leaves, architectural blueprint, ocean waves.
 export type ThemeMotif = "none" | "cosmic" | "circuit" | "lab" | "botanical" | "blueprint" | "wave";
 
+// Typography personality for a visual template. Maps to Canvas-safe system font stacks in
+// themeDesign.ts (no @font-face / web fonts). "sans" is the default and matches the legacy look.
+export type ThemeFont = "sans" | "serif" | "mono" | "rounded";
+
+// Hero (page banner block) treatment. "banner" is the legacy left-aligned gradient hero.
+export type ThemeHeroStyle = "banner" | "spotlight" | "split" | "stage" | "minimal";
+
+// Section-card treatment. "elevated" is the legacy top-bar shadowed card.
+export type ThemeCardStyle = "elevated" | "outline" | "accent-bar" | "soft-fill";
+
 export interface Theme {
   id: string;
   name: string;
@@ -196,6 +208,27 @@ export interface Theme {
   pattern?: ThemePattern;
   /** Decorative illustration motif drawn into the banner (cosmic, circuit, lab, …). */
   motif?: ThemeMotif;
+  // Visual-template personality. Optional + back-compatible: unset = legacy sans/banner/elevated.
+  fontFamily?: ThemeFont;
+  heroStyle?: ThemeHeroStyle;
+  cardStyle?: ThemeCardStyle;
+}
+
+// A cohesive, named visual template a user can apply to ANY course. It bundles a curated theme
+// (palette + gradient + pattern + motif + typography + hero/card personality) with matching
+// homepage and syllabus layout templates, so applying one preset restyles the whole course.
+export interface VisualTemplate {
+  id: string;
+  name: string;
+  shortName: string;
+  description: string;
+  bestFor: string;
+  /** The curated, export-safe theme this template applies (drives banner, hero, cards, palette). */
+  theme: Theme;
+  /** Homepage layout template id (see HOMEPAGE_TEMPLATES). */
+  homepageTemplateId: string;
+  /** Syllabus layout template id (see SYLLABUS_TEMPLATES). */
+  syllabusTemplateId: string;
 }
 
 // The instructional-design framework an outcome set is built against. Outcome levels are stored as

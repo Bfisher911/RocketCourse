@@ -24,7 +24,8 @@ import type {
   QuizQuestion,
   Rubric,
   RubricCriterion,
-  Theme
+  Theme,
+  VisualTemplate
 } from "../types";
 import { escapeXml, nowIso, slugify } from "../utils/text";
 import { buildCourseQualityReport } from "./courseQuality";
@@ -48,6 +49,9 @@ import { fileRef, modulesIndexRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./ca
 export interface GenerateCourseInput {
   prompt: string;
   settings: CourseSettings;
+  /** Use this exact theme instead of resolving settings.themeId — needed for custom/visual-template
+   * themes that aren't in the base registry, so regenerated content gets the right palette. */
+  themeOverride?: Theme;
 }
 
 const baseTopics = [
@@ -985,7 +989,7 @@ const buildHomepage = (settings: CourseSettings, title: string, moduleCount: num
   return { html: renderHomepage(DEFAULT_TEMPLATE_ID, content, theme), content };
 };
 
-export const generateCourseProject = ({ prompt, settings }: GenerateCourseInput): CourseProject => {
+export const generateCourseProject = ({ prompt, settings, themeOverride }: GenerateCourseInput): CourseProject => {
   const generatedAt = nowIso();
   const mergedSettings: CourseSettings = {
     ...defaultSettings,
@@ -994,7 +998,7 @@ export const generateCourseProject = ({ prompt, settings }: GenerateCourseInput)
     imageSettings: { ...defaultSettings.imageSettings, ...settings.imageSettings } as CourseImageSettings
   };
   const title = titleFromPrompt(prompt, mergedSettings.title);
-  const theme = getTheme(mergedSettings.themeId);
+  const theme = themeOverride ?? getTheme(mergedSettings.themeId);
   const moduleCount = Math.max(1, Math.min(18, mergedSettings.moduleCount || mergedSettings.lengthWeeks || 12));
   const finalTitle = finalModuleTitle(mergedSettings);
   const projectId = `course_${slugify(title)}`;
@@ -1815,7 +1819,8 @@ export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme
   const refreshedAt = nowIso();
   const regenerated = generateCourseProject({
     prompt: course.prompt,
-    settings: { ...course.settings, themeId: theme.id }
+    settings: { ...course.settings, themeId: theme.id },
+    themeOverride: theme
   });
 
   const keepEdited = <T extends { id: string; status: string }>(generatedItems: T[], currentItems: T[]): T[] =>
@@ -1894,6 +1899,20 @@ export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme
     : themedCourse;
 
   return { ...finalCourse, quality: buildCourseQualityReport(finalCourse) };
+};
+
+// Apply a named visual template: swap in its curated theme, point the homepage + syllabus builders at
+// the template's matching layouts, record the selection, then re-theme all generated content so the
+// editor previews, homepage, syllabus, module/page cards, and exports reflect the new look at once.
+export const applyVisualTemplate = (course: CourseProject, template: VisualTemplate): CourseProject => {
+  const staged: CourseProject = {
+    ...course,
+    theme: template.theme,
+    settings: { ...course.settings, themeId: template.theme.id, visualTemplateId: template.id },
+    homepage: course.homepage ? { ...course.homepage, templateId: template.homepageTemplateId } : course.homepage,
+    syllabus: course.syllabus ? { ...course.syllabus, templateId: template.syllabusTemplateId } : course.syllabus
+  };
+  return applyThemeToGeneratedContent(staged, template.theme);
 };
 
 export const sampleProject = generateCourseProject({
