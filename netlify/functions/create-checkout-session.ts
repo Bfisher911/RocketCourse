@@ -80,6 +80,9 @@ export default async (request: Request): Promise<Response> => {
       mode: checkoutModeFor(plan),
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
+      // Let buyers apply a Super-Admin-created promotion code at checkout. Without this, the
+      // discount codes created in the admin would be created in Stripe but never redeemable.
+      allow_promotion_codes: true,
       success_url: `${appUrl()}/?checkout=success`,
       cancel_url: `${appUrl()}/?checkout=cancel`,
       client_reference_id: user.id,

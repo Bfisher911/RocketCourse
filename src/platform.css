@@ -294,6 +294,139 @@
   gap: 8px;
 }
 
+/* paused / past-due status pill (used by discount codes + the workspace table) */
+.ws-status.past_due,
+.ws-status.paused { background: rgba(255, 180, 61, 0.12); border-color: rgba(255, 180, 61, 0.35); color: #ffd089; }
+.ws-status.expired { background: rgba(255, 93, 115, 0.12); border-color: rgba(255, 93, 115, 0.35); color: #ff9fb0; }
+
+/* ---------- discount manager ---------- */
+.sa-discount-new {
+  margin-top: 14px;
+}
+.sa-discount-builder {
+  margin-top: 14px;
+  padding: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--rc-border-glow);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 12px;
+}
+.sa-discount-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.sa-discount-grid label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.sa-discount-grid label span {
+  font-weight: 600;
+}
+.sa-discount-grid input,
+.sa-discount-grid select,
+.sa-discount-grid textarea {
+  width: 100%;
+}
+.sa-discount-notes {
+  grid-column: 1 / -1;
+}
+.sa-discount-table code {
+  color: var(--cyan);
+  font-size: 12.5px;
+}
+.sa-discount-campaign {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.sa-discount-window {
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.sa-discount-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.sa-discount-actions .ghost-button {
+  padding: 5px 8px;
+}
+.sa-discount-history-row > td {
+  background: var(--surface-2);
+}
+.sa-discount-history {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.sa-discount-check {
+  grid-column: 1 / -1;
+  flex-direction: row !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sa-discount-check input {
+  width: auto !important;
+}
+
+/* ---------- campaigns manager ---------- */
+.sa-campaign-name {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.sa-campaign-name:hover strong {
+  color: var(--cyan);
+}
+.sa-campaign-dash {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.sa-campaign-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 0 10px;
+}
+.sa-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  flex: 1;
+  min-width: 220px;
+}
+.sa-search input {
+  border: none;
+  background: none;
+  flex: 1;
+  padding: 8px 0;
+}
+.sa-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 /* ---------- join ---------- */
 .join-screen {
   display: grid;

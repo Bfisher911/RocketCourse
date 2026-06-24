@@ -71,6 +71,8 @@ import { LegalPage } from "./components/LegalPage";
 import { IntegrationPage } from "./components/IntegrationPage";
 import { TransformTab } from "./components/TransformTab";
 import { PublicFooter } from "./components/PublicFooter";
+import { CampaignBanner } from "./components/CampaignBanner";
+import { ProductWalkthrough } from "./components/ProductWalkthrough";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
@@ -1086,24 +1088,6 @@ function DevPlanSwitcher({ auth }: { auth: AuthSessionState }) {
   );
 }
 
-const howItWorks = [
-  {
-    icon: Wand2,
-    title: "Prompt & configure",
-    body: "Describe your course, then set level, length, modules, assessments, and schedule. Start fresh or upload a syllabus or an existing Canvas .imscc export."
-  },
-  {
-    icon: Sparkles,
-    title: "Generate & edit",
-    body: "RocketCourse builds modules, pages, assignments, discussions, quizzes, and rubrics as native Canvas objects you can edit, reorder, and refine."
-  },
-  {
-    icon: FileArchive,
-    title: "Validate & export",
-    body: "Check readiness and instructional quality, then download a locally validated, Canvas-oriented .imscc package to import and verify in a Canvas sandbox."
-  }
-] as const;
-
 const landingFeatures = [
   {
     icon: BookOpen,
@@ -1218,6 +1202,8 @@ function Landing({
         </section>
       </section>
 
+      <CampaignBanner placements={["homepage_hero", "homepage_banner"]} />
+
       <section className="landing-section" aria-labelledby="problem-heading">
         <h2 id="problem-heading">The blank Canvas shell is where courses stall</h2>
         <p>
@@ -1269,20 +1255,7 @@ function Landing({
         </p>
       </section>
 
-      <section className="landing-section" aria-labelledby="how-heading">
-        <h2 id="how-heading">From prompt to Canvas package in three steps</h2>
-        <p>A guided, calm flow that keeps you in control of every object before anything is exported.</p>
-        <div className="how-grid">
-          {howItWorks.map((step, index) => (
-            <article className="step-card" key={step.title}>
-              <span className="step-line" />
-              <span className="step-index">{index + 1}</span>
-              <h3>{step.title}</h3>
-              <p>{step.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <ProductWalkthrough onTryDemo={onTryDemo} onGuides={onGuides} onStart={onStart} />
 
       <section className="landing-section" aria-labelledby="features-heading">
         <h2 id="features-heading">Everything a Canvas course needs, structured for you</h2>

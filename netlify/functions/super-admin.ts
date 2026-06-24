@@ -7,7 +7,21 @@
 import { json } from "./_shared/http";
 import { getSupabaseAdmin } from "./_shared/supabaseAdmin";
 import { createAuditLog, requireSuperAdmin } from "./_shared/guards";
-import { getStripe } from "./_shared/stripe";
+import {
+  buildTestCheckoutLink,
+  createDiscountCode,
+  duplicateDiscount,
+  setDiscountStatus,
+  syncDiscounts
+} from "./_shared/discounts";
+import {
+  createCampaign,
+  setCampaignStatus,
+  setSignupStatus,
+  updateCampaign
+} from "./_shared/campaignsAdmin";
+import type { DiscountInput } from "../../src/billing/discountValidation";
+import type { CampaignInput } from "../../src/services/campaigns";
 
 export default async (request: Request): Promise<Response> => {
   if (request.method !== "POST") return json(405, { error: "Method not allowed." });
@@ -81,98 +95,108 @@ export default async (request: Request): Promise<Response> => {
       return json(200, { ok: true });
     }
 
-    // ---- Stripe discount codes (server-side only) ----
+    // ---- Stripe discount codes (server-side only; validation + Stripe in _shared/discounts) ----
     case "createDiscount": {
-      const name = String(body.name ?? "").trim() || "RocketCourse discount";
-      const percentOff = body.percentOff !== undefined && body.percentOff !== null ? Number(body.percentOff) : null;
-      const amountOff = body.amountOff !== undefined && body.amountOff !== null ? Math.floor(Number(body.amountOff)) : null;
-      const currency = body.currency ? String(body.currency).toLowerCase() : "usd";
-      const duration = ["once", "repeating", "forever"].includes(String(body.duration)) ? String(body.duration) : "once";
-      const durationInMonths = Number(body.durationInMonths);
-      const maxRedemptions = Number.isFinite(Number(body.maxRedemptions)) && Number(body.maxRedemptions) > 0 ? Math.floor(Number(body.maxRedemptions)) : null;
-      const code = body.code ? String(body.code).trim().toUpperCase().slice(0, 40) : undefined;
-
-      if (percentOff === null && amountOff === null) {
-        return json(400, { error: "Provide either percentOff or amountOff." });
-      }
-      if (percentOff !== null && (percentOff <= 0 || percentOff > 100)) {
-        return json(400, { error: "percentOff must be between 1 and 100." });
-      }
-
-      let stripe: ReturnType<typeof getStripe>;
-      try {
-        stripe = getStripe();
-      } catch (error) {
-        return json(503, { error: error instanceof Error ? error.message : "Stripe is not configured." });
-      }
-
-      try {
-        const couponParams: Record<string, unknown> = { name, duration };
-        if (percentOff !== null) couponParams.percent_off = percentOff;
-        if (amountOff !== null) {
-          couponParams.amount_off = amountOff;
-          couponParams.currency = currency;
-        }
-        if (duration === "repeating" && Number.isFinite(durationInMonths) && durationInMonths > 0) {
-          couponParams.duration_in_months = Math.floor(durationInMonths);
-        }
-        if (maxRedemptions) couponParams.max_redemptions = maxRedemptions;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const coupon = await stripe.coupons.create(couponParams as any);
-
-        const promoParams: Record<string, unknown> = { coupon: coupon.id };
-        if (code) promoParams.code = code;
-        if (maxRedemptions) promoParams.max_redemptions = maxRedemptions;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const promo = await stripe.promotionCodes.create(promoParams as any);
-
-        const { data, error } = await admin
-          .from("discount_code_records")
-          .insert({
-            stripe_coupon_id: coupon.id,
-            stripe_promotion_code_id: promo.id,
-            code: promo.code,
-            name,
-            percent_off: percentOff,
-            amount_off: amountOff,
-            currency: amountOff !== null ? currency : null,
-            duration,
-            max_redemptions: maxRedemptions,
-            active: true,
-            created_by: actor.id,
-            metadata: {}
-          })
-          .select("id")
-          .single();
-        if (error) return json(500, { error: error.message });
-        await audit("discount_code_created", "discount_code", promo.code, { percentOff, amountOff, duration });
-        return json(200, { ok: true, id: data?.id, code: promo.code, stripeCouponId: coupon.id });
-      } catch (error) {
-        return json(502, { error: error instanceof Error ? error.message : "Stripe could not create the discount." });
-      }
+      const input = body as unknown as DiscountInput;
+      const result = await createDiscountCode(actor.id, input);
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("discount_code_created", "discount_code", result.code ?? null, {
+        discountType: input.discountType,
+        appliesToPlan: input.appliesToPlan ?? "all",
+        campaignName: input.campaignName ?? null
+      });
+      return json(200, { ok: true, id: result.id, code: result.code, stripeCouponId: result.couponId, status: result.status });
     }
 
+    case "updateDiscountStatus": {
+      const recordId = String(body.recordId ?? "");
+      const status = String(body.status ?? "");
+      if (!recordId) return json(400, { error: "recordId is required." });
+      if (!["draft", "active", "paused", "expired", "archived"].includes(status)) {
+        return json(400, { error: "Invalid status." });
+      }
+      const result = await setDiscountStatus(recordId, status as "draft" | "active" | "paused" | "expired" | "archived");
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("discount_code_status_changed", "discount_code", result.code ?? recordId, { status });
+      return json(200, { ok: true, warning: result.warning });
+    }
+
+    // Back-compat alias for the old "Deactivate" button → archive.
     case "deactivateDiscount": {
       const recordId = String(body.recordId ?? "");
       if (!recordId) return json(400, { error: "recordId is required." });
-      const { data: record } = await admin
-        .from("discount_code_records")
-        .select("id,stripe_promotion_code_id,code")
-        .eq("id", recordId)
-        .maybeSingle();
-      if (!record) return json(404, { error: "Discount record not found." });
-      try {
-        if (record.stripe_promotion_code_id) {
-          await getStripe().promotionCodes.update(record.stripe_promotion_code_id as string, { active: false });
-        }
-      } catch (error) {
-        // Reflect locally even if Stripe call fails, but report it.
-        await admin.from("discount_code_records").update({ active: false }).eq("id", recordId);
-        await audit("discount_code_deactivated", "discount_code", record.code as string, { stripeError: true });
-        return json(200, { ok: true, warning: error instanceof Error ? error.message : "Stripe update failed; deactivated locally." });
+      const result = await setDiscountStatus(recordId, "archived");
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("discount_code_deactivated", "discount_code", result.code ?? recordId);
+      return json(200, { ok: true, warning: result.warning });
+    }
+
+    case "duplicateDiscount": {
+      const recordId = String(body.recordId ?? "");
+      if (!recordId) return json(400, { error: "recordId is required." });
+      const result = await duplicateDiscount(actor.id, recordId);
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("discount_code_duplicated", "discount_code", result.code ?? null, { from: recordId });
+      return json(200, { ok: true, id: result.id, code: result.code });
+    }
+
+    case "syncDiscounts": {
+      const result = await syncDiscounts();
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("discount_codes_synced", "discount_code", null, { synced: result.synced });
+      return json(200, { ok: true, synced: result.synced });
+    }
+
+    case "testDiscountCheckout": {
+      const recordId = String(body.recordId ?? "");
+      const planKey = String(body.planKey ?? "");
+      if (!recordId || !planKey) return json(400, { error: "recordId and planKey are required." });
+      const result = await buildTestCheckoutLink(recordId, planKey);
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("discount_test_checkout", "discount_code", result.code ?? recordId, { planKey });
+      return json(200, { ok: true, url: result.url });
+    }
+
+    // ---- Pilot campaigns ----
+    case "createCampaign": {
+      const result = await createCampaign(actor.id, body as unknown as CampaignInput);
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("campaign_created", "campaign", result.id ?? null, { name: body.name, type: body.type });
+      return json(200, { ok: true, id: result.id, slug: result.slug });
+    }
+
+    case "updateCampaign": {
+      const campaignId = String(body.campaignId ?? "");
+      if (!campaignId) return json(400, { error: "campaignId is required." });
+      const result = await updateCampaign(campaignId, body as unknown as CampaignInput);
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("campaign_updated", "campaign", campaignId, {});
+      return json(200, { ok: true, id: campaignId, slug: result.slug });
+    }
+
+    case "setCampaignStatus": {
+      const campaignId = String(body.campaignId ?? "");
+      const status = String(body.status ?? "");
+      if (!campaignId) return json(400, { error: "campaignId is required." });
+      if (!["draft", "active", "paused", "ended", "archived"].includes(status)) {
+        return json(400, { error: "Invalid campaign status." });
       }
-      await admin.from("discount_code_records").update({ active: false }).eq("id", recordId);
-      await audit("discount_code_deactivated", "discount_code", record.code as string);
+      const result = await setCampaignStatus(campaignId, status as "draft" | "active" | "paused" | "ended" | "archived");
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("campaign_status_changed", "campaign", campaignId, { status });
+      return json(200, { ok: true });
+    }
+
+    case "setSignupStatus": {
+      const signupId = String(body.signupId ?? "");
+      const status = String(body.status ?? "");
+      if (!signupId) return json(400, { error: "signupId is required." });
+      if (!["pending", "approved", "rejected", "waitlisted", "converted"].includes(status)) {
+        return json(400, { error: "Invalid signup status." });
+      }
+      const result = await setSignupStatus(signupId, status as "pending" | "approved" | "rejected" | "waitlisted" | "converted");
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("campaign_signup_status_changed", "campaign_signup", signupId, { status });
       return json(200, { ok: true });
     }
 

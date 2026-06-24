@@ -8,6 +8,7 @@ import { getSupabaseClient, supabaseConfig } from "./supabaseClient";
 import { getSession } from "../auth/authClient";
 import { isBootstrapSuperAdminEmail } from "../data/platform";
 import { getPlan, type PlanKey } from "../data/plans";
+import { SAMPLE_CAMPAIGN, type Campaign } from "./campaigns";
 import type { WorkspaceRole } from "./workspaceRoles";
 
 const isLocal = (): boolean => !supabaseConfig.isConfigured;
@@ -301,33 +302,245 @@ export interface DiscountRow {
   id: string;
   code: string | null;
   name: string | null;
+  campaignName: string | null;
   percentOff: number | null;
   amountOff: number | null;
+  currency: string | null;
   duration: string | null;
+  durationInMonths: number | null;
+  status: string;
   active: boolean;
+  visibility: string | null;
+  appliesToPlan: string | null;
+  appliesToInterval: string | null;
   maxRedemptions: number | null;
+  timesRedeemed: number;
+  perCustomerLimit: number | null;
+  startsAt: string | null;
+  expiresAt: string | null;
+  notes: string | null;
   createdAt: string;
+  updatedAt: string | null;
+  createdByEmail: string | null;
   stripeCouponId: string | null;
+  stripePromotionCodeId: string | null;
 }
 
 export const loadDiscounts = async (): Promise<DiscountRow[]> => {
   if (isLocal()) return [];
   const client = await getSupabaseClient();
   if (!client) return [];
-  const { data } = await client
-    .from("discount_code_records")
-    .select("id,code,name,percent_off,amount_off,duration,active,max_redemptions,created_at,stripe_coupon_id")
-    .order("created_at", { ascending: false });
+  const [{ data }, { data: profiles }] = await Promise.all([
+    client
+      .from("discount_code_records")
+      .select(
+        "id,code,name,campaign_name,percent_off,amount_off,currency,duration,duration_in_months,status,active,visibility,applies_to_plan,applies_to_interval,max_redemptions,times_redeemed,per_customer_limit,starts_at,expires_at,notes,created_at,updated_at,created_by,stripe_coupon_id,stripe_promotion_code_id"
+      )
+      .order("created_at", { ascending: false }),
+    client.from("profiles").select("id,email")
+  ]);
+  const emailById = new Map((profiles ?? []).map((p) => [p.id as string, p.email as string]));
   return (data ?? []).map((d) => ({
     id: d.id as string,
     code: (d.code as string) ?? null,
     name: (d.name as string) ?? null,
+    campaignName: (d.campaign_name as string) ?? null,
     percentOff: (d.percent_off as number) ?? null,
     amountOff: (d.amount_off as number) ?? null,
+    currency: (d.currency as string) ?? null,
     duration: (d.duration as string) ?? null,
+    durationInMonths: (d.duration_in_months as number) ?? null,
+    status: (d.status as string) ?? (d.active ? "active" : "archived"),
     active: Boolean(d.active),
+    visibility: (d.visibility as string) ?? null,
+    appliesToPlan: (d.applies_to_plan as string) ?? null,
+    appliesToInterval: (d.applies_to_interval as string) ?? null,
     maxRedemptions: (d.max_redemptions as number) ?? null,
+    timesRedeemed: (d.times_redeemed as number) ?? 0,
+    perCustomerLimit: (d.per_customer_limit as number) ?? null,
+    startsAt: (d.starts_at as string) ?? null,
+    expiresAt: (d.expires_at as string) ?? null,
+    notes: (d.notes as string) ?? null,
     createdAt: d.created_at as string,
-    stripeCouponId: (d.stripe_coupon_id as string) ?? null
+    updatedAt: (d.updated_at as string) ?? null,
+    createdByEmail: emailById.get(d.created_by as string) ?? null,
+    stripeCouponId: (d.stripe_coupon_id as string) ?? null,
+    stripePromotionCodeId: (d.stripe_promotion_code_id as string) ?? null
+  }));
+};
+
+export interface DiscountRedemptionRow {
+  id: string;
+  code: string | null;
+  discountRecordId: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  amountDiscountedCents: number | null;
+  currency: string | null;
+  redeemedAt: string;
+}
+
+export const loadDiscountRedemptions = async (recordId?: string): Promise<DiscountRedemptionRow[]> => {
+  if (isLocal()) return [];
+  const client = await getSupabaseClient();
+  if (!client) return [];
+  let query = client
+    .from("discount_redemptions")
+    .select("id,code,discount_record_id,stripe_customer_id,stripe_subscription_id,amount_discounted_cents,currency,redeemed_at")
+    .order("redeemed_at", { ascending: false })
+    .limit(200);
+  if (recordId) query = query.eq("discount_record_id", recordId);
+  const { data } = await query;
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    code: (r.code as string) ?? null,
+    discountRecordId: (r.discount_record_id as string) ?? null,
+    stripeCustomerId: (r.stripe_customer_id as string) ?? null,
+    stripeSubscriptionId: (r.stripe_subscription_id as string) ?? null,
+    amountDiscountedCents: (r.amount_discounted_cents as number) ?? null,
+    currency: (r.currency as string) ?? null,
+    redeemedAt: r.redeemed_at as string
+  }));
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// Pilot campaigns
+// ──────────────────────────────────────────────────────────────────────────
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const mapCampaign = (c: any): Campaign => ({
+  id: c.id as string,
+  name: c.name as string,
+  slug: (c.slug as string) ?? null,
+  type: c.type as Campaign["type"],
+  headline: (c.headline as string) ?? null,
+  description: (c.description as string) ?? null,
+  ctaText: (c.cta_text as string) ?? "Request access",
+  status: c.status as Campaign["status"],
+  placement: c.placement as Campaign["placement"],
+  startsAt: (c.starts_at as string) ?? null,
+  endsAt: (c.ends_at as string) ?? null,
+  maxSignups: (c.max_signups as number) ?? null,
+  whenFull: (c.when_full as Campaign["whenFull"]) ?? "waitlist",
+  requireApproval: Boolean(c.require_approval),
+  discountRecordId: (c.discount_record_id as string) ?? null,
+  planKey: (c.plan_key as string) ?? null,
+  webinarUrl: (c.webinar_url as string) ?? null,
+  tutorialAt: (c.tutorial_at as string) ?? null,
+  audienceLabel: (c.audience_label as string) ?? null,
+  confirmationMessage: (c.confirmation_message as string) ?? null
+});
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** Public: active, in-window campaigns for the marketing site (with PII-free signup counts). */
+export const loadActiveCampaigns = async (): Promise<Campaign[]> => {
+  if (isLocal()) return [SAMPLE_CAMPAIGN];
+  const client = await getSupabaseClient();
+  if (!client) return [];
+  const { data } = await client
+    .from("campaigns")
+    .select(
+      "id,name,slug,type,headline,description,cta_text,status,placement,starts_at,ends_at,max_signups,when_full,require_approval,discount_record_id,plan_key,webinar_url,tutorial_at,audience_label,confirmation_message"
+    )
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
+  const campaigns = (data ?? []).map(mapCampaign);
+  // Best-effort signup counts via the safe RPC (drives "spots left"). Failure → leave undefined.
+  await Promise.all(
+    campaigns.map(async (c) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: count } = await (client as any).rpc("campaign_signup_count", { p_campaign: c.id });
+        if (typeof count === "number") c.signupCount = count;
+      } catch {
+        /* ignore */
+      }
+    })
+  );
+  return campaigns;
+};
+
+export interface CampaignSignupResult {
+  ok: boolean;
+  outcome?: "open" | "waitlist" | "closed";
+  message?: string;
+  discountCode?: string | null;
+  webinarUrl?: string | null;
+  already?: boolean;
+}
+
+/** Public: submit a campaign signup. In local-dev, returns a safe simulated confirmation. */
+export const submitCampaignSignup = async (payload: Record<string, unknown>): Promise<CampaignSignupResult> => {
+  if (isLocal()) {
+    return {
+      ok: true,
+      outcome: "open",
+      message: SAMPLE_CAMPAIGN.confirmationMessage ?? "Thanks for signing up!",
+      webinarUrl: SAMPLE_CAMPAIGN.webinarUrl,
+      discountCode: "ROCKET-DEMO"
+    };
+  }
+  return callFunction<CampaignSignupResult>("campaign-signup", payload);
+};
+
+/** Super admin: every campaign (any status) with its signup count. */
+export const loadCampaigns = async (): Promise<Campaign[]> => {
+  if (isLocal()) return [SAMPLE_CAMPAIGN];
+  const client = await getSupabaseClient();
+  if (!client) return [];
+  const [{ data }, { data: signups }] = await Promise.all([
+    client
+      .from("campaigns")
+      .select(
+        "id,name,slug,type,headline,description,cta_text,status,placement,starts_at,ends_at,max_signups,when_full,require_approval,discount_record_id,plan_key,webinar_url,tutorial_at,audience_label,confirmation_message,created_at"
+      )
+      .order("created_at", { ascending: false }),
+    client.from("campaign_signups").select("campaign_id,status")
+  ]);
+  const counts = new Map<string, number>();
+  for (const s of signups ?? []) {
+    if (s.status !== "rejected") counts.set(s.campaign_id as string, (counts.get(s.campaign_id as string) ?? 0) + 1);
+  }
+  return (data ?? []).map((c) => ({ ...mapCampaign(c), signupCount: counts.get(c.id as string) ?? 0 }));
+};
+
+export interface CampaignSignupRow {
+  id: string;
+  campaignId: string;
+  name: string | null;
+  email: string;
+  institution: string | null;
+  role: string | null;
+  notes: string | null;
+  status: string;
+  isWaitlisted: boolean;
+  referralSource: string | null;
+  discountCode: string | null;
+  createdAt: string;
+}
+
+export const loadCampaignSignups = async (campaignId?: string): Promise<CampaignSignupRow[]> => {
+  if (isLocal()) return [];
+  const client = await getSupabaseClient();
+  if (!client) return [];
+  let query = client
+    .from("campaign_signups")
+    .select("id,campaign_id,name,email,institution,role,notes,status,is_waitlisted,referral_source,discount_code,created_at")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (campaignId) query = query.eq("campaign_id", campaignId);
+  const { data } = await query;
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    campaignId: r.campaign_id as string,
+    name: (r.name as string) ?? null,
+    email: r.email as string,
+    institution: (r.institution as string) ?? null,
+    role: (r.role as string) ?? null,
+    notes: (r.notes as string) ?? null,
+    status: r.status as string,
+    isWaitlisted: Boolean(r.is_waitlisted),
+    referralSource: (r.referral_source as string) ?? null,
+    discountCode: (r.discount_code as string) ?? null,
+    createdAt: r.created_at as string
   }));
 };

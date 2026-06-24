@@ -6,21 +6,32 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
+  Archive,
   BadgePercent,
   Building2,
   Coins,
+  Copy,
+  ExternalLink,
   Eye,
+  FlaskConical,
   Gauge,
+  History,
   Loader2,
+  Megaphone,
   Newspaper,
+  Pause,
+  Play,
+  RefreshCw,
   ShieldAlert,
   UserX,
   Users
 } from "lucide-react";
 import { BrandBadge } from "../brand";
 import { BlogManager } from "./BlogManager";
+import { CampaignsManager } from "./CampaignsManager";
 import {
   loadAuditLog,
+  loadDiscountRedemptions,
   loadDiscounts,
   loadSuperOverview,
   loadUsersDirectory,
@@ -29,17 +40,20 @@ import {
   type AuditRow,
   type DirectoryUser,
   type DirectoryWorkspace,
+  type DiscountRedemptionRow,
   type DiscountRow,
   type SuperOverview
 } from "../../services/platformClient";
+import { selfServePlans } from "../../data/plans";
 
-type Tab = "overview" | "workspaces" | "users" | "costs" | "discounts" | "blog" | "audit";
+type Tab = "overview" | "workspaces" | "users" | "costs" | "discounts" | "campaigns" | "blog" | "audit";
 const TABS: { key: Tab; label: string; icon: typeof Gauge }[] = [
   { key: "overview", label: "Overview", icon: Gauge },
   { key: "workspaces", label: "Workspaces", icon: Building2 },
   { key: "users", label: "Users", icon: Users },
   { key: "costs", label: "Usage & Cost", icon: Activity },
   { key: "discounts", label: "Discounts", icon: BadgePercent },
+  { key: "campaigns", label: "Campaigns", icon: Megaphone },
   { key: "blog", label: "Blog", icon: Newspaper },
   { key: "audit", label: "Audit log", icon: ShieldAlert }
 ];
@@ -151,7 +165,7 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
         <div>
           <BrandBadge label="Mission Control" className="dashboard-badge" />
           <h1>Super Admin</h1>
-          <p>Platform analytics, workspaces, users, costs, discounts, and the blog.</p>
+          <p>Platform analytics, workspaces, users, costs, discounts, pilot campaigns, and the blog.</p>
         </div>
       </section>
 
@@ -297,6 +311,8 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
 
       {tab === "discounts" && <DiscountManager discounts={discounts} onChanged={refresh} />}
 
+      {tab === "campaigns" && <CampaignsManager />}
+
       {tab === "blog" && <BlogManager />}
 
       {tab === "audit" && (
@@ -321,84 +337,366 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
   );
 }
 
-function DiscountManager({ discounts, onChanged }: { discounts: DiscountRow[]; onChanged: () => void }) {
+const STATUS_TONE: Record<string, string> = {
+  active: "active",
+  draft: "invited",
+  paused: "past_due",
+  expired: "removed",
+  archived: "removed"
+};
+
+const discountAmountLabel = (d: DiscountRow): string => {
+  if (d.percentOff !== null) return `${d.percentOff}% off`;
+  if (d.amountOff !== null) return `${(d.amountOff / 100).toFixed(2)} ${(d.currency ?? "usd").toUpperCase()} off`;
+  return "—";
+};
+
+const durationLabel = (d: DiscountRow): string => {
+  if (d.duration === "repeating") return `repeating · ${d.durationInMonths ?? "?"} mo`;
+  return d.duration ?? "—";
+};
+
+const dateShort = (iso: string | null): string => (iso ? new Date(iso).toLocaleDateString() : "—");
+
+function DiscountCreateForm({ onChanged }: { onChanged: () => void }) {
+  const plans = selfServePlans();
+  const [campaignName, setCampaignName] = useState("");
   const [name, setName] = useState("");
-  const [percentOff, setPercentOff] = useState(20);
   const [code, setCode] = useState("");
+  const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
+  const [percentOff, setPercentOff] = useState(20);
+  const [amountOff, setAmountOff] = useState(10);
+  const [currency, setCurrency] = useState("usd");
   const [duration, setDuration] = useState("once");
+  const [durationInMonths, setDurationInMonths] = useState(3);
+  const [maxRedemptions, setMaxRedemptions] = useState("");
+  const [perCustomerLimit, setPerCustomerLimit] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [appliesToPlan, setAppliesToPlan] = useState("all");
+  const [appliesToInterval, setAppliesToInterval] = useState("all");
+  const [visibility, setVisibility] = useState("public");
+  const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await superAdminAction("createDiscount", {
+        campaignName: campaignName || undefined,
+        name,
+        code: code || undefined,
+        discountType,
+        percentOff: discountType === "percent" ? percentOff : undefined,
+        amountOff: discountType === "amount" ? amountOff : undefined,
+        currency,
+        duration,
+        durationInMonths,
+        maxRedemptions: maxRedemptions || undefined,
+        perCustomerLimit: perCustomerLimit || undefined,
+        startsAt: startsAt || undefined,
+        endsAt: endsAt || undefined,
+        appliesToPlan,
+        appliesToInterval,
+        visibility,
+        notes: notes || undefined
+      });
+      setName("");
+      setCode("");
+      setCampaignName("");
+      setNotes("");
+      onChanged();
+      setOpen(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button type="button" className="primary sa-discount-new" onClick={() => setOpen(true)}>
+        <BadgePercent size={14} /> New discount code
+      </button>
+    );
+  }
+
+  return (
+    <div className="sa-discount-builder">
+      <div className="sa-discount-grid">
+        <label>
+          <span>Campaign name (optional)</span>
+          <input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} placeholder="Fall 2026 pilot" />
+        </label>
+        <label>
+          <span>Internal name</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Launch 20" />
+        </label>
+        <label>
+          <span>Public code (optional)</span>
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="auto-generated if blank" />
+        </label>
+        <label>
+          <span>Discount type</span>
+          <select value={discountType} onChange={(e) => setDiscountType(e.target.value as "percent" | "amount")}>
+            <option value="percent">Percentage off</option>
+            <option value="amount">Fixed amount off</option>
+          </select>
+        </label>
+        {discountType === "percent" ? (
+          <label>
+            <span>Percent off (1–100)</span>
+            <input type="number" min={1} max={100} value={percentOff} onChange={(e) => setPercentOff(Number(e.target.value))} />
+          </label>
+        ) : (
+          <>
+            <label>
+              <span>Amount off (in dollars)</span>
+              <input type="number" min={1} value={amountOff} onChange={(e) => setAmountOff(Number(e.target.value))} />
+            </label>
+            <label>
+              <span>Currency</span>
+              <input value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={3} placeholder="usd" />
+            </label>
+          </>
+        )}
+        <label>
+          <span>Duration</span>
+          <select value={duration} onChange={(e) => setDuration(e.target.value)}>
+            <option value="once">Once</option>
+            <option value="forever">Forever</option>
+            <option value="repeating">Repeating</option>
+          </select>
+        </label>
+        {duration === "repeating" && (
+          <label>
+            <span>Repeating months</span>
+            <input type="number" min={1} value={durationInMonths} onChange={(e) => setDurationInMonths(Number(e.target.value))} />
+          </label>
+        )}
+        <label>
+          <span>Max total redemptions</span>
+          <input type="number" min={1} value={maxRedemptions} onChange={(e) => setMaxRedemptions(e.target.value)} placeholder="unlimited" />
+        </label>
+        <label>
+          <span>Per-customer limit</span>
+          <input type="number" min={1} value={perCustomerLimit} onChange={(e) => setPerCustomerLimit(e.target.value)} placeholder="none" />
+        </label>
+        <label>
+          <span>Valid from</span>
+          <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+        </label>
+        <label>
+          <span>Valid until</span>
+          <input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+        </label>
+        <label>
+          <span>Applies to plan</span>
+          <select value={appliesToPlan} onChange={(e) => setAppliesToPlan(e.target.value)}>
+            <option value="all">All plans</option>
+            {plans.map((p) => (
+              <option key={p.key} value={p.key}>{p.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Applies to interval</span>
+          <select value={appliesToInterval} onChange={(e) => setAppliesToInterval(e.target.value)}>
+            <option value="all">All intervals</option>
+            <option value="month">Monthly</option>
+            <option value="year">Annual</option>
+            <option value="one_time">One-time (semester)</option>
+          </select>
+        </label>
+        <label>
+          <span>Visibility</span>
+          <select value={visibility} onChange={(e) => setVisibility(e.target.value)}>
+            <option value="public">Public</option>
+            <option value="private">Private</option>
+            <option value="campaign">Campaign-linked</option>
+          </select>
+        </label>
+        <label className="sa-discount-notes">
+          <span>Notes (internal)</span>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+        </label>
+      </div>
+      {error && <p className="intake-ai-error">{error}</p>}
+      <div className="sa-credit-actions">
+        <button type="button" className="primary" disabled={busy || !name.trim()} onClick={submit}>
+          {busy ? <Loader2 size={14} className="spin" /> : <BadgePercent size={14} />} Create in Stripe
+        </button>
+        <button type="button" className="ghost-button" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function DiscountManager({ discounts, onChanged }: { discounts: DiscountRow[]; onChanged: () => void }) {
+  const plans = selfServePlans();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const [history, setHistory] = useState<DiscountRedemptionRow[]>([]);
+
+  const run = async (id: string, action: string, params: Record<string, unknown>) => {
+    setBusyId(id);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await superAdminAction(action, params);
+      if ((res as { url?: string }).url) {
+        window.open((res as { url: string }).url, "_blank", "noopener");
+      }
+      if ((res as { warning?: string }).warning) setNotice((res as { warning: string }).warning);
+      onChanged();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const viewHistory = async (id: string) => {
+    if (historyFor === id) {
+      setHistoryFor(null);
+      return;
+    }
+    setHistoryFor(id);
+    setHistory(await loadDiscountRedemptions(id));
+  };
 
   return (
     <section className="overview-card">
       <header className="overview-card-head">
-        <span className="hp-eyebrow"><BadgePercent size={14} /> Discount codes (Stripe)</span>
-      </header>
-      <div className="sa-discount-form">
-        <input placeholder="Name (e.g. Launch 20)" value={name} onChange={(e) => setName(e.target.value)} />
-        <input type="number" min={1} max={100} value={percentOff} onChange={(e) => setPercentOff(Number(e.target.value))} aria-label="Percent off" />
-        <input placeholder="CODE (optional)" value={code} onChange={(e) => setCode(e.target.value)} />
-        <select value={duration} onChange={(e) => setDuration(e.target.value)}>
-          <option value="once">Once</option>
-          <option value="forever">Forever</option>
-          <option value="repeating">Repeating</option>
-        </select>
-        <button
-          type="button"
-          className="primary"
-          disabled={busy || !name.trim()}
-          onClick={async () => {
-            setBusy(true);
-            setError(null);
-            try {
-              await superAdminAction("createDiscount", { name, percentOff, code: code || undefined, duration });
-              setName("");
-              setCode("");
-              onChanged();
-            } catch (e) {
-              setError((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? <Loader2 size={14} className="spin" /> : <BadgePercent size={14} />} Create code
+        <span className="hp-eyebrow"><BadgePercent size={14} /> Discount codes (Stripe-backed)</span>
+        <button type="button" className="ghost-button" onClick={() => void run("__all__", "syncDiscounts", {})}>
+          <RefreshCw size={13} /> Sync from Stripe
         </button>
-      </div>
+      </header>
+
+      <DiscountCreateForm onChanged={onChanged} />
+
+      {notice && <p className="ws-notice ok">{notice}</p>}
       {error && <p className="intake-ai-error">{error}</p>}
+
       <div className="ws-table-wrap">
-        <table className="ws-table">
+        <table className="ws-table sa-discount-table">
           <thead>
-            <tr><th>Code</th><th>Name</th><th>Off</th><th>Duration</th><th>Status</th><th /></tr>
+            <tr>
+              <th>Code</th><th>Discount</th><th>Duration</th><th>Plan / interval</th>
+              <th>Redeemed</th><th>Status</th><th>Window</th><th>Created by</th><th />
+            </tr>
           </thead>
           <tbody>
             {discounts.map((d) => (
-              <tr key={d.id}>
-                <td><code>{d.code ?? "—"}</code></td>
-                <td>{d.name ?? "—"}</td>
-                <td>{d.percentOff !== null ? `${d.percentOff}%` : d.amountOff !== null ? `$${(d.amountOff / 100).toFixed(2)}` : "—"}</td>
-                <td>{d.duration ?? "—"}</td>
-                <td>{d.active ? <span className="ws-status active">active</span> : <span className="ws-status removed">inactive</span>}</td>
-                <td className="ws-actions">
-                  {d.active && (
-                    <button
-                      type="button"
-                      className="ghost-button danger"
-                      onClick={async () => {
-                        await superAdminAction("deactivateDiscount", { recordId: d.id });
-                        onChanged();
-                      }}
-                    >
-                      Deactivate
-                    </button>
-                  )}
-                </td>
-              </tr>
+              <DiscountRowView
+                key={d.id}
+                d={d}
+                plans={plans}
+                busy={busyId === d.id}
+                onAction={run}
+                onHistory={viewHistory}
+                historyOpen={historyFor === d.id}
+                history={history}
+              />
             ))}
-            {discounts.length === 0 && <tr><td colSpan={6} className="blog-muted">No discount codes yet.</td></tr>}
+            {discounts.length === 0 && <tr><td colSpan={9} className="blog-muted">No discount codes yet. Create one above — it’s created in Stripe and applies at checkout.</td></tr>}
           </tbody>
         </table>
       </div>
     </section>
+  );
+}
+
+function DiscountRowView({
+  d,
+  plans,
+  busy,
+  onAction,
+  onHistory,
+  historyOpen,
+  history
+}: {
+  d: DiscountRow;
+  plans: ReturnType<typeof selfServePlans>;
+  busy: boolean;
+  onAction: (id: string, action: string, params: Record<string, unknown>) => void;
+  onHistory: (id: string) => void;
+  historyOpen: boolean;
+  history: DiscountRedemptionRow[];
+}) {
+  const testPlan = (d.appliesToPlan && plans.some((p) => p.key === d.appliesToPlan) ? d.appliesToPlan : plans[0]?.key) ?? "team";
+  const stripeUrl = d.stripePromotionCodeId ? `https://dashboard.stripe.com/promotion_codes/${d.stripePromotionCodeId}` : null;
+
+  return (
+    <>
+      <tr>
+        <td><code>{d.code ?? "—"}</code>{d.campaignName && <small className="sa-discount-campaign">{d.campaignName}</small>}</td>
+        <td>{discountAmountLabel(d)}</td>
+        <td>{durationLabel(d)}</td>
+        <td>{d.appliesToPlan ?? "all"}{d.appliesToInterval ? ` / ${d.appliesToInterval}` : ""}</td>
+        <td>{d.timesRedeemed}{d.maxRedemptions ? ` / ${d.maxRedemptions}` : ""}</td>
+        <td><span className={`ws-status ${STATUS_TONE[d.status] ?? "active"}`}>{d.status}</span></td>
+        <td className="sa-discount-window">{dateShort(d.startsAt)} – {dateShort(d.expiresAt)}</td>
+        <td>{d.createdByEmail ?? "—"}</td>
+        <td className="ws-actions sa-discount-actions">
+          {busy && <Loader2 size={13} className="spin" />}
+          {d.status !== "active" && d.status !== "archived" && (
+            <button type="button" className="ghost-button" title="Activate" onClick={() => onAction(d.id, "updateDiscountStatus", { recordId: d.id, status: "active" })}>
+              <Play size={13} /> Activate
+            </button>
+          )}
+          {d.status === "active" && (
+            <button type="button" className="ghost-button" title="Pause" onClick={() => onAction(d.id, "updateDiscountStatus", { recordId: d.id, status: "paused" })}>
+              <Pause size={13} /> Pause
+            </button>
+          )}
+          <button type="button" className="ghost-button" title="Duplicate" onClick={() => onAction(d.id, "duplicateDiscount", { recordId: d.id })}>
+            <Copy size={13} />
+          </button>
+          <button type="button" className="ghost-button" title="Test checkout link" onClick={() => onAction(d.id, "testDiscountCheckout", { recordId: d.id, planKey: testPlan })}>
+            <FlaskConical size={13} />
+          </button>
+          <button type="button" className="ghost-button" title="Redemption history" onClick={() => onHistory(d.id)}>
+            <History size={13} />
+          </button>
+          {stripeUrl && (
+            <a className="ghost-button" href={stripeUrl} target="_blank" rel="noopener noreferrer" title="Open in Stripe">
+              <ExternalLink size={13} />
+            </a>
+          )}
+          {d.status !== "archived" && (
+            <button type="button" className="ghost-button danger" title="Archive" onClick={() => onAction(d.id, "updateDiscountStatus", { recordId: d.id, status: "archived" })}>
+              <Archive size={13} />
+            </button>
+          )}
+        </td>
+      </tr>
+      {historyOpen && (
+        <tr className="sa-discount-history-row">
+          <td colSpan={9}>
+            <strong>Redemption history</strong>
+            {history.length === 0 ? (
+              <p className="blog-muted">No redemptions recorded yet.</p>
+            ) : (
+              <ul className="sa-discount-history">
+                {history.map((r) => (
+                  <li key={r.id}>
+                    {new Date(r.redeemedAt).toLocaleString()} · {r.stripeCustomerId ?? "customer"} ·{" "}
+                    {r.amountDiscountedCents !== null ? `${(r.amountDiscountedCents / 100).toFixed(2)} ${(r.currency ?? "usd").toUpperCase()} off` : "—"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
