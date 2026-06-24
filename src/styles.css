@@ -434,6 +434,44 @@ p {
   box-shadow: inset 0 -2px 0 0 var(--cyan);
 }
 
+/* Post-login product nav: Dashboard + Create are the main actions, so set them apart from the
+   marketing links with a divider and stronger styling. Create is the primary call to action. */
+.topnav-product {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-right: 10px;
+  padding-right: 12px;
+  border-right: 1px solid var(--line);
+}
+.topnav-product button.nav-emph {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line);
+}
+.topnav-product button.nav-emph:hover,
+.topnav-product button.nav-emph.active {
+  background: rgba(34, 230, 255, 0.14);
+  border-color: rgba(34, 230, 255, 0.35);
+  color: var(--ink);
+}
+.topnav-product button.nav-cta {
+  color: #ffffff;
+  background: var(--grad-plasma, linear-gradient(135deg, var(--indigo), var(--cyan)));
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(106, 91, 255, 0.32);
+}
+.topnav-product button.nav-cta:hover {
+  color: #ffffff;
+  filter: brightness(1.06);
+  background: var(--grad-plasma, linear-gradient(135deg, var(--indigo), var(--cyan)));
+}
+.topnav-product button.nav-cta.active {
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(106, 91, 255, 0.32), inset 0 -2px 0 0 rgba(255, 255, 255, 0.5);
+}
+
 .subscription {
   display: inline-flex;
   align-items: center;
@@ -1681,6 +1719,16 @@ p {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
+}
+
+/* Helper text under intake fields (Holidays, Blackout dates, academic calendar paste). */
+.field-hint {
+  display: block;
+  margin: 6px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
 }
 
 .field input,
@@ -9638,6 +9686,20 @@ p {
   background: rgba(255, 93, 115, 0.08);
   color: var(--danger);
   font-size: 0.86rem;
+}
+/* Recoverable revise error (the guard kept the previous content). Sits under the AI toolbar row. */
+.revise-error {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 180, 61, 0.4);
+  background: rgba(255, 180, 61, 0.1);
+  color: #ffd089;
+  font-size: 0.82rem;
 }
 .blueprint-actions {
   display: flex;

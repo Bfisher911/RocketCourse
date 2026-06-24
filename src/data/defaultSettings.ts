@@ -41,6 +41,7 @@ export const defaultSettings: CourseSettings = {
     weeklyPattern: ["Monday", "Wednesday"],
     holidays: [],
     blackoutDates: [],
+    academicCalendar: "",
     preferredDueDay: 0,
     preferredDueTime: "23:59",
     moduleReleaseDay: 1,

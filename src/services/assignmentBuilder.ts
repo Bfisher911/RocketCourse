@@ -1,6 +1,8 @@
 import type { Assignment, CourseModule, CourseOutcome, CourseProject, ModuleItem, ObjectMetadata, Rubric } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
 import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
+import { getThemeStyles } from "./themeDesign";
+import { withAlpha } from "../utils/color";
 
 export type AssignmentTemplateId =
   | "essay-paper"
@@ -162,7 +164,12 @@ const paragraph = (value: string): string => `<p>${escapeHtml(value)}</p>`;
 
 const list = (items: string[]): string => `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 
-const section = (title: string, body: string): string => `<h2>${escapeHtml(title)}</h2>${body}`;
+// Themed section heading (accent color + subtle underline) so generated assignments pick up the
+// course theme and look polished. Canvas-safe inline style only.
+const themedSection = (course: CourseProject, heading: string, body: string): string => {
+  const styles = getThemeStyles(course.theme);
+  return `<h2 style="color: ${styles.accentDark}; font-size: 19px; font-weight: 800; margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 2px solid ${withAlpha(styles.accent, 0.35)}; font-family: ${styles.font};">${escapeHtml(heading)}</h2>${body}`;
+};
 
 const touchedMetadata = (metadata: ObjectMetadata | undefined, timestamp: string): ObjectMetadata => ({
   createdAt: metadata?.createdAt ?? timestamp,
@@ -291,6 +298,7 @@ export const buildAssignmentTemplateHtml = (templateId: AssignmentTemplateId, co
   const alignedOutcomeIds = assignment?.alignedOutcomeIds.length ? assignment.alignedOutcomeIds : course.outcomes.slice(0, 2).map((outcome) => outcome.id);
   const rubric = assignment?.rubricId ? course.rubrics.find((candidate) => candidate.id === assignment.rubricId) : undefined;
   const title = assignment?.title?.trim() || template.name;
+  const section = (heading: string, body: string): string => themedSection(course, heading, body);
 
   return [
     `<div style="${assignmentThemeStyle(course)}"><h2 style="margin-top: 0;">${escapeHtml(title)}</h2>${paragraph(`This ${template.name.toLowerCase()} belongs in ${moduleTitle}. Review local due dates, point values, and policy language before publishing.`)}</div>`,
@@ -311,6 +319,7 @@ export const buildAssignmentTemplateHtml = (templateId: AssignmentTemplateId, co
 export const reviseAssignmentInstructions = (assignment: Assignment, course: CourseProject, action: AssignmentReviseAction): string => {
   const existing = assignment.descriptionHtml.trim();
   const outcomeText = outcomeLabels(course.outcomes, assignment.alignedOutcomeIds);
+  const section = (heading: string, body: string): string => themedSection(course, heading, body);
   const snippets: Record<AssignmentReviseAction, string> = {
     clarity: section("Instructor Clarity Check", list(["Make the audience, task, deliverables, format, and grading path visible before students begin.", "Replace any local placeholders with exact dates, policies, examples, or file requirements."])),
     examples: section("Additional Examples", list(["Strong submissions use a specific case, source, dataset, artifact, or scenario rather than a broad topic.", "Strong explanations name what the evidence shows and why it matters for the course outcome."])),

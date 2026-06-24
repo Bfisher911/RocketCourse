@@ -483,22 +483,24 @@ describe("RocketCourse export engine", () => {
     expect(report.issues.some((issue) => issue.id.startsWith("broken-internal-link") && issue.severity === "warning")).toBe(true);
   });
 
-  it("fails validation when module item locations drift from their content objects", async () => {
+  it("auto-repairs module item / object drift so export still produces a valid package", async () => {
     const sourceModule = sampleProject.modules.find((module) => module.items.some((item) => item.type === "assignment"));
     const assignmentItem = sourceModule?.items.find((item) => item.type === "assignment");
     const targetModule = sampleProject.modules.find((module) => module.id !== sourceModule?.id && module.kind === "content");
     expect(sourceModule).toBeDefined();
     expect(assignmentItem).toBeDefined();
     expect(targetModule).toBeDefined();
-    const brokenProject = {
+    // Drift the assignment's moduleId away from the module its item actually lives in.
+    const driftedProject = {
       ...sampleProject,
       assignments: sampleProject.assignments.map((assignment) => (assignment.id === assignmentItem?.refId ? { ...assignment, moduleId: targetModule!.id } : assignment))
     };
-    const zip = await buildImsccZip(brokenProject);
-    const report = await validateImsccZip(brokenProject, zip);
+    const zip = await buildImsccZip(driftedProject);
+    const report = await validateImsccZip(driftedProject, zip);
 
-    expect(report.valid).toBe(false);
-    expect(report.issues.some((issue) => issue.id.startsWith("module-object-alignment-"))).toBe(true);
+    // The export path repairs the drift (re-syncs the assignment to the module it appears in), so the
+    // package no longer carries an alignment error. Readiness still flags drift for the user separately.
+    expect(report.issues.some((issue) => issue.id.startsWith("module-object-alignment-"))).toBe(false);
   });
 
   it("recovers Canvas module metadata when importing an imscc package", async () => {

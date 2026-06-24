@@ -68,8 +68,9 @@ describe("assignment builder", () => {
     ASSIGNMENT_TEMPLATES.forEach((template) => {
       const html = buildAssignmentTemplateHtml(template.id, course, assignment);
 
+      // Headings are themed (accent color + underline) but the section text must still be present.
       ["Purpose", "Task", "Deliverables", "Steps", "Format Requirements", "Example Success Markers", "Submission Instructions", "Grading Notes", "Accessibility Note", "Rubric Alignment Prompt"].forEach((heading) =>
-        expect(html).toContain(`<h2>${heading}</h2>`)
+        expect(html).toContain(`>${heading}</h2>`)
       );
       expect(html).not.toMatch(/<script|javascript:|\son[a-z]+\s*=/i);
     });

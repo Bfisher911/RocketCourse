@@ -481,6 +481,149 @@ export const buildThemedColumns = (theme: Theme, cards: Array<{ title: string; b
   return `<div style="margin: 16px 0; font-size: 0;">${items}</div>`;
 };
 
+// ---- Specialized course-object cards (Canvas-safe, theme-driven, no JS) -----
+// Shared bits so every card reads consistently.
+const cardLabel = (styles: ThemeStyles, label: string, emoji: string): string =>
+  `<div style="font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: ${styles.accentDark}; margin: 0 0 5px; font-family: ${styles.font};"><span aria-hidden="true" style="margin-right: 7px;">${emoji}</span>${escHtml(label)}</div>`;
+
+const cardBlock = (styles: ThemeStyles, label: string, emoji: string, value: string | undefined): string =>
+  value && value.trim() ? `<div style="margin: 0 0 14px;">${cardLabel(styles, label, emoji)}<p style="margin: 0; color: #374151;">${escHtml(value)}</p></div>` : "";
+
+const metaPills = (styles: ThemeStyles, items: string[]): string =>
+  items.length
+    ? `<div style="margin: 0 0 14px;">${items
+        .map(
+          (item) =>
+            `<span style="display: inline-block; margin: 0 8px 6px 0; padding: 5px 12px; border-radius: 999px; background: ${withAlpha(styles.accent, 0.1)}; border: 1px solid ${withAlpha(styles.accent, 0.32)}; color: ${styles.accentDark}; font-size: 12.5px; font-weight: 700; font-family: ${styles.font};">${escHtml(item)}</span>`
+        )
+        .join("")}</div>`
+    : "";
+
+const objectCard = (styles: ThemeStyles, metaItems: string[], blocks: string): string =>
+  `<section style="margin: 22px 0; background: #ffffff; border: 1px solid ${styles.border}; border-left: 6px solid ${styles.accent}; border-radius: 14px; box-shadow: ${SHADOW_SM}; padding: 20px 24px; font-family: ${styles.font}; line-height: 1.6;">${metaPills(styles, metaItems)}${blocks}</section>`;
+
+/** A row of learning-objective badges (pill chips with a check icon). */
+export const buildObjectiveBadges = (theme: Theme, objectives: string[]): string => {
+  const styles = getThemeStyles(theme);
+  const items = objectives.filter((objective) => objective && objective.trim());
+  if (!items.length) return "";
+  const badges = items
+    .map(
+      (objective) =>
+        `<span style="display: inline-block; margin: 0 8px 8px 0; padding: 8px 14px 8px 12px; border-radius: 999px; background: ${withAlpha(styles.accent, 0.1)}; border: 1px solid ${withAlpha(styles.accent, 0.4)}; color: ${styles.accentDark}; font-size: 13px; font-weight: 700; font-family: ${styles.font};"><span aria-hidden="true" style="margin-right: 7px;">&#10003;</span>${escHtml(objective)}</span>`
+    )
+    .join("");
+  return `<div style="margin: 14px 0;">${badges}</div>`;
+};
+
+export interface AssignmentCardFields {
+  purpose?: string;
+  task?: string;
+  deliverable?: string;
+  successCriteria?: string;
+  dueLabel?: string;
+  points?: number;
+  estimatedHours?: number;
+}
+
+/** Assignment card: due/points/time meta + purpose, task, deliverable, success criteria. */
+export const buildAssignmentCard = (theme: Theme, fields: AssignmentCardFields): string => {
+  const styles = getThemeStyles(theme);
+  const meta: string[] = [];
+  if (fields.dueLabel) meta.push(`Due: ${fields.dueLabel}`);
+  if (typeof fields.points === "number") meta.push(`${fields.points} pts`);
+  if (typeof fields.estimatedHours === "number" && fields.estimatedHours > 0) meta.push(`~${fields.estimatedHours} hr`);
+  const blocks = [
+    cardBlock(styles, "Purpose", "&#127919;", fields.purpose),
+    cardBlock(styles, "Your task", "&#128221;", fields.task),
+    cardBlock(styles, "Deliverable", "&#128228;", fields.deliverable),
+    cardBlock(styles, "Success criteria", "&#9989;", fields.successCriteria)
+  ].join("");
+  return objectCard(styles, meta, blocks);
+};
+
+export interface DiscussionCardFields {
+  prompt?: string;
+  preparation?: string;
+  replyExpectations?: string;
+  gradingCriteria?: string;
+  dueLabel?: string;
+  points?: number;
+}
+
+/** Discussion card: prompt, preparation, reply expectations, grading criteria. */
+export const buildDiscussionCard = (theme: Theme, fields: DiscussionCardFields): string => {
+  const styles = getThemeStyles(theme);
+  const meta: string[] = [];
+  if (fields.dueLabel) meta.push(`Due: ${fields.dueLabel}`);
+  if (typeof fields.points === "number") meta.push(`${fields.points} pts`);
+  const blocks = [
+    cardBlock(styles, "Prompt", "&#128172;", fields.prompt),
+    cardBlock(styles, "Prepare", "&#128218;", fields.preparation),
+    cardBlock(styles, "Reply expectations", "&#128101;", fields.replyExpectations),
+    cardBlock(styles, "Graded on", "&#9989;", fields.gradingCriteria)
+  ].join("");
+  return objectCard(styles, meta, blocks);
+};
+
+export interface QuizCardFields {
+  purpose?: string;
+  format?: string;
+  preparation?: string;
+  estimatedMinutes?: number;
+  points?: number;
+  integrityNote?: string;
+}
+
+/** Quiz card: purpose, format, preparation tips, estimated time, integrity note. */
+export const buildQuizCard = (theme: Theme, fields: QuizCardFields): string => {
+  const styles = getThemeStyles(theme);
+  const meta: string[] = [];
+  if (typeof fields.estimatedMinutes === "number" && fields.estimatedMinutes > 0) meta.push(`~${fields.estimatedMinutes} min`);
+  if (typeof fields.points === "number") meta.push(`${fields.points} pts`);
+  const blocks = [
+    cardBlock(styles, "Purpose", "&#127919;", fields.purpose),
+    cardBlock(styles, "Format", "&#128203;", fields.format),
+    cardBlock(styles, "How to prepare", "&#128218;", fields.preparation),
+    cardBlock(styles, "Academic integrity", "&#128274;", fields.integrityNote)
+  ].join("");
+  return objectCard(styles, meta, blocks);
+};
+
+/** Workload breakdown tiles: a big number + label per category (reading, writing, practice…). */
+export const buildWorkloadTiles = (theme: Theme, tiles: Array<{ label: string; value: string; sub?: string }>): string => {
+  const styles = getThemeStyles(theme);
+  if (!tiles.length) return "";
+  const items = tiles
+    .map(
+      (tile) =>
+        `<div style="display: inline-block; width: 31%; min-width: 150px; vertical-align: top; margin: 0 1% 14px 0; box-sizing: border-box; padding: 16px 18px; background: linear-gradient(135deg, ${styles.soft} 0%, ${withAlpha(styles.accent, 0.06)} 100%); border: 1px solid ${withAlpha(styles.accent, 0.28)}; border-radius: 14px;">
+    <div style="font-size: 26px; font-weight: 900; color: ${styles.accentDark}; font-family: ${styles.font};">${escHtml(tile.value)}</div>
+    <div style="font-size: 13px; font-weight: 700; color: #374151; margin: 4px 0 0; font-family: ${styles.font};">${escHtml(tile.label)}</div>
+    ${tile.sub ? `<div style="font-size: 12px; color: #6b7280; margin: 3px 0 0;">${escHtml(tile.sub)}</div>` : ""}
+  </div>`
+    )
+    .join("");
+  return `<div style="margin: 16px 0; font-size: 0;">${items}</div>`;
+};
+
+/** Module roadmap / weekly rhythm strip: numbered stops with a label + sublabel. */
+export const buildModuleRoadmap = (theme: Theme, stops: Array<{ label: string; sub?: string }>): string => {
+  const styles = getThemeStyles(theme);
+  if (!stops.length) return "";
+  const items = stops
+    .map(
+      (stop, index) =>
+        `<div style="display: inline-block; vertical-align: top; width: 24%; min-width: 130px; margin: 0 1% 12px 0; box-sizing: border-box; text-align: center;">
+    <span style="display: inline-block; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); color: ${styles.onAccent}; line-height: 34px; font-weight: 800; font-family: ${styles.font};">${index + 1}</span>
+    <div style="font-size: 13.5px; font-weight: 700; color: ${styles.accentDark}; margin: 7px 0 0; font-family: ${styles.font};">${escHtml(stop.label)}</div>
+    ${stop.sub ? `<div style="font-size: 12px; color: #6b7280; margin: 2px 0 0;">${escHtml(stop.sub)}</div>` : ""}
+  </div>`
+    )
+    .join("");
+  return `<div style="margin: 18px 0; font-size: 0;">${items}</div>`;
+};
+
 const sampleTable = (theme: Theme): string => {
   const styles = getThemeStyles(theme);
   return `<table style="width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px;">

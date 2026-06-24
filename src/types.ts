@@ -108,6 +108,8 @@ export interface ScheduleSettings {
   weeklyPattern: string[];
   holidays: string[];
   blackoutDates: string[];
+  /** Optional pasted school academic calendar (raw multi-line text) used as generation context. */
+  academicCalendar?: string;
   preferredDueDay: number;
   preferredDueTime: string;
   moduleReleaseDay: number;

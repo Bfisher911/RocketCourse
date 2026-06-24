@@ -9,6 +9,7 @@ import { reviseCourseObject } from "./objectRevision";
 import { rebalanceWeights } from "./gradebookSummary";
 import { orphanOutcomes } from "./overviewSummary";
 import { buildReadinessReport } from "./readiness";
+import { repairCourse, unrepairableIssues } from "./courseRepair";
 
 export interface TransformResult {
   course: CourseProject;
@@ -82,7 +83,12 @@ export const polishCourse = (course: CourseProject): TransformResult => {
 export const makeCourseExportReady = (course: CourseProject): TransformResult => {
   const timestamp = nowIso();
   const summary: string[] = [];
-  let next = course;
+
+  // 0. Structural repair first (dangling refs, moduleId drift, broken rubric links, slugs, quiz
+  //    question integrity, weights). This is the same repair the export path runs.
+  const repaired = repairCourse(course);
+  let next = repaired.course;
+  summary.push(...repaired.repairs);
 
   // a. Align orphaned outcomes to content modules (round-robin), clearing the orphan warning.
   const orphans = orphanOutcomes(next);
@@ -109,7 +115,10 @@ export const makeCourseExportReady = (course: CourseProject): TransformResult =>
     summary.push("Rebalanced assignment-group weights to total 100%.");
   }
 
-  // c. Report remaining required blockers honestly.
+  // c. Surface issues repair can't auto-fix (need human content, e.g. a quiz with no questions).
+  summary.push(...unrepairableIssues(next));
+
+  // d. Report remaining required blockers honestly.
   const blockers = buildReadinessReport(next).checks.filter((check) => !check.passed && check.severity === "required");
   if (blockers.length) {
     summary.push(`${blockers.length} blocker(s) still need manual attention: ${blockers.slice(0, 3).map((check) => check.label).join("; ")}.`);

@@ -24,6 +24,7 @@ import { validatePagePlan } from "./pageBuilder";
 import { validateQuizPlan } from "./quizBuilder";
 import { validateRubricPlan } from "./rubricBuilder";
 import { buildReadinessReport } from "./readiness";
+import { repairCourse } from "./courseRepair";
 import { buildBannerSvg } from "./themeDesign";
 import { canvasRefResolves, canvasRefTargets, isCanvasRef } from "./canvasLinks";
 import { collectXmlParseErrors, formatXmlParseError } from "./xmlWellFormed";
@@ -741,7 +742,10 @@ const printableHtml = (title: string, bodyHtml: string): string =>
     { printable: "true" }
   );
 
-export const buildImsccZip = async (course: CourseProject): Promise<JSZip> => {
+export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
+  // Safety net: repair structural corruption (dangling refs, moduleId drift, weights, slugs) before
+  // building so a messy editing session can never produce a broken package. Idempotent.
+  const { course } = repairCourse(input);
   const zip = new JSZip();
   const syllabusPage = course.pages.find((page) => page.slug === "syllabus");
   const instructorGuidePage = course.pages.find((page) => page.slug === "instructor-guide");
@@ -842,7 +846,9 @@ const isBlockedDate = (iso: string | undefined, blockedDates: Set<string>): bool
   return Boolean(value && blockedDates.has(value));
 };
 
-export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promise<ExportValidationReport> => {
+export const validateImsccZip = async (input: CourseProject, zip: JSZip): Promise<ExportValidationReport> => {
+  // Validate against the same repaired course the package was built from (repair is deterministic).
+  const { course } = repairCourse(input);
   const files = Object.keys(zip.files).filter((path) => !zip.files[path].dir).sort();
   const issues: ExportValidationIssue[] = [];
   const readiness = buildReadinessReport(course);
@@ -886,8 +892,12 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
     if (!zip.file(assignmentSettingsPath(assignment))) fail(`missing-assignment-settings-${assignment.id}`, `Missing assignment settings for ${assignment.title}.`);
     if (!groupIds.has(assignment.assignmentGroupId)) fail(`assignment-group-${assignment.id}`, `${assignment.title} references a missing assignment group.`);
     activeGroupUse.set(assignment.assignmentGroupId, (activeGroupUse.get(assignment.assignmentGroupId) ?? 0) + 1);
-    if (!assignment.rubricId || !rubricIds.has(assignment.rubricId)) fail(`assignment-rubric-${assignment.id}`, `${assignment.title} is missing a valid rubric reference.`);
-    if (assignment.alignedOutcomeIds.length === 0 || assignment.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId))) fail(`assignment-outcomes-${assignment.id}`, `${assignment.title} is missing valid outcome alignment.`);
+    // A DANGLING rubric/outcome reference (points at something deleted) is a broken package → error.
+    // An ABSENT rubric/outcome is valid for Canvas import → warning (so deleting one never blocks export).
+    if (assignment.rubricId && !rubricIds.has(assignment.rubricId)) fail(`assignment-rubric-${assignment.id}`, `${assignment.title} references a rubric that no longer exists.`);
+    else if (!assignment.rubricId && course.rubrics.length > 0) warn(`assignment-rubric-missing-${assignment.id}`, `${assignment.title} is graded without a rubric.`);
+    if (assignment.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId))) fail(`assignment-outcomes-${assignment.id}`, `${assignment.title} aligns to an outcome that no longer exists.`);
+    else if (assignment.alignedOutcomeIds.length === 0) warn(`assignment-outcomes-${assignment.id}`, `${assignment.title} has no outcome alignment.`);
     validateDueDate(assignment.id, assignment.title, assignment.dueAt);
   });
 
@@ -897,8 +907,10 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
     if (discussion.points > 0) {
       if (!groupIds.has(discussion.assignmentGroupId)) fail(`discussion-group-${discussion.id}`, `${discussion.title} references a missing assignment group.`);
       activeGroupUse.set(discussion.assignmentGroupId, (activeGroupUse.get(discussion.assignmentGroupId) ?? 0) + 1);
-      if (!discussion.rubricId || !rubricIds.has(discussion.rubricId)) fail(`discussion-rubric-${discussion.id}`, `${discussion.title} is missing a valid rubric reference.`);
-      if (discussion.alignedOutcomeIds.length === 0 || discussion.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId))) fail(`discussion-outcomes-${discussion.id}`, `${discussion.title} is missing valid outcome alignment.`);
+      if (discussion.rubricId && !rubricIds.has(discussion.rubricId)) fail(`discussion-rubric-${discussion.id}`, `${discussion.title} references a rubric that no longer exists.`);
+      else if (!discussion.rubricId && course.rubrics.length > 0) warn(`discussion-rubric-missing-${discussion.id}`, `${discussion.title} is graded without a rubric.`);
+      if (discussion.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId))) fail(`discussion-outcomes-${discussion.id}`, `${discussion.title} aligns to an outcome that no longer exists.`);
+      else if (discussion.alignedOutcomeIds.length === 0) warn(`discussion-outcomes-${discussion.id}`, `${discussion.title} has no outcome alignment.`);
       validateDueDate(discussion.id, discussion.title, discussion.dueAt);
     }
   });

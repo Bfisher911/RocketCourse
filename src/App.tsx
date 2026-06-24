@@ -113,6 +113,8 @@ import {
 import { reviseCourseObject, type RevisionMode } from "./services/objectRevision";
 import { listProjects, persistenceEnabled, saveProject } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
+import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
+import { validateRevisionCandidate } from "./services/revisionGuard";
 import { buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
 import type {
   CourseModule,
@@ -265,7 +267,10 @@ function App() {
   useEffect(() => {
     if (screen !== "progress") return;
     if (progressIndex >= progressSteps.length) {
-      const base = generateCourseProject({ prompt: augmentPromptWithSources(prompt, settings.sourceFiles), settings });
+      const base = generateCourseProject({
+        prompt: augmentPromptWithSources(prompt, settings.sourceFiles) + buildScheduleContext(settings.schedule),
+        settings
+      });
       // The generator derives its id from the title slug, so two courses with the same title (or a
       // generation that falls back to the default title) collide with the public sample. Give every
       // generated project a unique id so it persists as its own row and never shadows the sample.
@@ -411,7 +416,10 @@ function App() {
     setAiBusy(true);
     setAiError(null);
     try {
-      const result = await generateBlueprint(augmentPromptWithSources(prompt, settings.sourceFiles), settings);
+      const result = await generateBlueprint(
+        augmentPromptWithSources(prompt, settings.sourceFiles) + buildScheduleContext(settings.schedule),
+        settings
+      );
       setBlueprint(result);
       setScreen("blueprint");
     } catch (error) {
@@ -591,6 +599,9 @@ function App() {
           futureProvider: "server-side-ai"
         }
       });
+      // Transaction guard: never replace good content with empty/unsafe output. Keep the old object.
+      const check = validateRevisionCandidate(result.value);
+      if (!check.ok) throw new Error(check.reason);
       updateCourse((current) => ({
         ...current,
         assignments: current.assignments.map((item) =>
@@ -613,6 +624,8 @@ function App() {
         futureProvider: "server-side-ai"
       }
     });
+    const check = validateRevisionCandidate(result.value);
+    if (!check.ok) throw new Error(check.reason);
     updateCourse((current) => ({
       ...current,
       pages: current.pages.map((page) => (page.id === targetPage.id ? { ...page, bodyHtml: result.value, status: "edited", metadata: editMetadata() } : page))
@@ -999,6 +1012,21 @@ function TopBar({
     <header className="topbar">
       <BrandHeader onClick={() => onNavigate("landing")} />
       <nav className="topnav" aria-label="Primary">
+        {session && (
+          <div className="topnav-product" role="group" aria-label="Your workspace">
+            <button className={`nav-emph ${cls(screen === "dashboard")}`} onClick={() => onNavigate("dashboard")}>
+              <LayoutDashboard size={16} /> Dashboard
+            </button>
+            <button className={`nav-cta ${cls(screen === "intake")}`} onClick={() => onNavigate("intake")}>
+              <Wand2 size={16} /> Create
+            </button>
+            {access.workspaces.some((w) => w.myRole === "owner" || w.myRole === "admin") && (
+              <button className={`nav-emph ${cls(screen === "workspace")}`} onClick={() => onNavigate("workspace")}>
+                <Rocket size={16} /> Launchpad
+              </button>
+            )}
+          </div>
+        )}
         <button className={cls(screen === "landing")} onClick={() => onNavigate("landing")}>
           <Home size={16} /> Home
         </button>
@@ -1020,21 +1048,6 @@ function TopBar({
         <button className={cls(screen === "blog" || screen === "blogPost")} onClick={() => onNavigate("blog")}>
           <Newspaper size={16} /> Blog
         </button>
-        {session && (
-          <>
-            <button className={cls(screen === "dashboard")} onClick={() => onNavigate("dashboard")}>
-              <LayoutDashboard size={16} /> Dashboard
-            </button>
-            <button className={cls(screen === "intake")} onClick={() => onNavigate("intake")}>
-              <Wand2 size={16} /> Create
-            </button>
-            {access.workspaces.some((w) => w.myRole === "owner" || w.myRole === "admin") && (
-              <button className={cls(screen === "workspace")} onClick={() => onNavigate("workspace")}>
-                <Rocket size={16} /> Launchpad
-              </button>
-            )}
-          </>
-        )}
         {access.isSuperAdmin && (
           <button className={cls(screen === "admin")} onClick={() => onNavigate("admin")}>
             <ShieldAlert size={16} /> Super Admin
@@ -1472,14 +1485,6 @@ function Dashboard({
   );
 }
 
-const joinDateList = (values: string[]): string => values.join(", ");
-
-const parseDateList = (value: string): string[] =>
-  value
-    .split(/[\n,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
 function Intake({
   prompt,
   settings,
@@ -1512,9 +1517,10 @@ function Intake({
   onUpgrade: () => void;
 }) {
   const [pasteText, setPasteText] = useState("");
-  // Quick mode keeps the page calm (essentials visible, advanced settings collapsed); Guided mode
-  // walks through one step at a time. Both expose the full settings — just at different paces.
-  const [intakeMode, setIntakeMode] = useState<"quick" | "guided">("quick");
+  // Guided mode (the default) walks through one step at a time — a calm wizard for most users.
+  // Quick build stays available for experienced users who want every setting on one page. Both
+  // expose the full settings — just at different paces.
+  const [intakeMode, setIntakeMode] = useState<"quick" | "guided">("guided");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [guidedStep, setGuidedStep] = useState(0);
   const toggleSection = (key: string): void => setOpenSections((current) => ({ ...current, [key]: !current[key] }));
@@ -1715,8 +1721,28 @@ function Intake({
                 onChange={(value) => updateSchedule("meetingCadence", value as CourseSettings["schedule"]["meetingCadence"])}
               />
             </div>
-            <TextArea label="Holidays" value={joinDateList(settings.schedule.holidays)} onChange={(value) => updateSchedule("holidays", parseDateList(value))} compact rows={2} />
-            <TextArea label="Blackout dates" value={joinDateList(settings.schedule.blackoutDates)} onChange={(value) => updateSchedule("blackoutDates", parseDateList(value))} compact rows={2} />
+            <ListTextArea
+              label="Holidays"
+              helper="One per line or comma-separated. Press Enter for a new line — e.g. Thanksgiving Break, Spring Break."
+              value={settings.schedule.holidays}
+              onChange={(value) => updateSchedule("holidays", value)}
+            />
+            <ListTextArea
+              label="Blackout dates"
+              helper="Dates to keep clear of due dates. One per line or comma-separated — paste freely."
+              value={settings.schedule.blackoutDates}
+              onChange={(value) => updateSchedule("blackoutDates", value)}
+            />
+            <TextArea
+              label="Paste your school academic calendar (optional)"
+              value={settings.schedule.academicCalendar ?? ""}
+              onChange={(value) => updateSchedule("academicCalendar", value)}
+              rows={5}
+            />
+            <p className="field-hint">
+              Paste a term calendar here and RocketCourse uses it as context to avoid holidays, breaks, exam periods, and
+              blackout dates when scheduling. Multi-line text, spacing, and line breaks are preserved.
+            </p>
             <Toggle label="Allow dates outside term" checked={settings.schedule.allowDueDatesOutsideTerm} onChange={(value) => updateSchedule("allowDueDatesOutsideTerm", value)} />
     </>
   );
@@ -1754,11 +1780,11 @@ function Intake({
         </div>
         <div className="intake-controls">
           <div className="intake-mode-toggle" role="tablist" aria-label="Create mode">
-            <button role="tab" aria-selected={intakeMode === "quick"} className={intakeMode === "quick" ? "active" : ""} onClick={() => setIntakeMode("quick")}>
-              <Wand2 size={15} /> Quick build
-            </button>
             <button role="tab" aria-selected={intakeMode === "guided"} className={intakeMode === "guided" ? "active" : ""} onClick={() => { setIntakeMode("guided"); setGuidedStep(0); }}>
               <ListChecks size={15} /> Guided steps
+            </button>
+            <button role="tab" aria-selected={intakeMode === "quick"} className={intakeMode === "quick" ? "active" : ""} onClick={() => setIntakeMode("quick")}>
+              <Wand2 size={15} /> Quick build
             </button>
           </div>
           {intakeMode === "quick" && generateButton}
@@ -2059,6 +2085,7 @@ function Editor({
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
   const [revising, setRevising] = useState<RevisionMode | null>(null);
+  const [reviseError, setReviseError] = useState<string | null>(null);
 
   useEffect(() => {
     const active = tabsRef.current?.querySelector<HTMLButtonElement>("button.active");
@@ -2068,8 +2095,12 @@ function Editor({
   const runRevise = async (mode: RevisionMode): Promise<void> => {
     if (revising) return;
     setRevising(mode);
+    setReviseError(null);
     try {
       await onRevise(mode);
+    } catch (error) {
+      // Recoverable: the guard kept the previous content. Tell the user, don't crash the editor.
+      setReviseError(error instanceof Error ? error.message : "The revision couldn't be applied. Your content was kept.");
     } finally {
       setRevising(null);
     }
@@ -2138,6 +2169,11 @@ function Editor({
                   {revising === mode ? <Loader2 size={15} className="spin" /> : <Icon size={15} />} {label}
                 </button>
               ))}
+              {reviseError && (
+                <p className="revise-error" role="status">
+                  <AlertTriangle size={14} /> {reviseError}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -3266,6 +3302,41 @@ function TextArea({
     <label className="field">
       <span>{label}</span>
       <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+// A multi-line list field (Holidays / Blackout dates) whose EDITABLE text is held locally and
+// decoupled from the parsed array. This is the fix for the long-standing bug where pressing Enter,
+// typing a trailing space, or pasting a multi-line list was stripped on every keystroke (the field
+// used to re-derive its value from the parsed array each render). The parsed array is kept in sync
+// for scheduling/generation; the visible text is whatever the user typed or pasted.
+function ListTextArea({
+  label,
+  value,
+  onChange,
+  helper,
+  rows = 3
+}: {
+  label: string;
+  value: string[];
+  onChange: (value: string[]) => void;
+  helper?: string;
+  rows?: number;
+}) {
+  const [draft, setDraft] = useState(() => seedDateList(value));
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <textarea
+        rows={rows}
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          onChange(parseDateList(event.target.value));
+        }}
+      />
+      {helper && <small className="field-hint">{helper}</small>}
     </label>
   );
 }
