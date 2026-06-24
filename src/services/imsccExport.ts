@@ -1081,9 +1081,16 @@ export const validateImsccZip = async (input: CourseProject, zip: JSZip): Promis
   const errorCount = issues.filter((issue) => issue.severity === "error").length;
   const warningCount = issues.filter((issue) => issue.severity === "warning").length;
 
+  // Errors are blocking and dominate the score (18 each). Warnings are advisory — a package
+  // with zero errors still imports — so their penalty is capped (max 30 total). Without the
+  // cap, a perfectly valid course with many minor warnings (e.g. unresolved external links)
+  // would read as "passed (score 0)", which is alarming and contradictory. With it, a valid
+  // package never scores below 70; errors are what pull it down.
+  const WARNING_PENALTY_CAP = 30;
+
   return {
     valid: errorCount === 0,
-    score: Math.max(0, 100 - errorCount * 18 - warningCount * 5),
+    score: Math.max(0, 100 - errorCount * 18 - Math.min(warningCount * 5, WARNING_PENALTY_CAP)),
     packageName: `${slugify(course.title)}.imscc`,
     checkedAt: new Date().toISOString(),
     issues,

@@ -40,6 +40,7 @@ import { slugify } from "../utils/text";
 import { aiGenerateHomepageContent } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
+import { ReadinessRing } from "./ReadinessRing";
 import type { CourseProject, HomepageContent, HomepageLink, HomepageSnapshot, HomepageState } from "../types";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
@@ -515,21 +516,16 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
 // ---------------------------------------------------------------------------
 
 function ScoreRing({ score, failures, warnings }: { score: number; failures: number; warnings: number }) {
-  const radius = 26;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - score / 100);
-  const tone = failures ? "danger" : warnings ? "warn" : "ok";
   return (
-    <div className={`hp-score-ring ${tone}`} aria-label={`Homepage readiness ${score} out of 100`}>
-      <svg viewBox="0 0 64 64" width="72" height="72">
-        <circle cx="32" cy="32" r={radius} className="hp-ring-track" />
-        <circle cx="32" cy="32" r={radius} className="hp-ring-fill" strokeDasharray={circumference} strokeDashoffset={offset} transform="rotate(-90 32 32)" />
-      </svg>
-      <div className="hp-score-num">
-        <strong>{score}</strong>
-        <small>ready</small>
-      </div>
-    </div>
+    <ReadinessRing
+      score={score}
+      size={72}
+      tone="auto"
+      failures={failures}
+      warnings={warnings}
+      caption="ready"
+      ariaLabel={`Homepage readiness ${score} out of 100`}
+    />
   );
 }
 

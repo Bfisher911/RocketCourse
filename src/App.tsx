@@ -7,6 +7,9 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  FlaskConical,
+  LogOut,
+  Wallet,
   ChevronRight,
   ClipboardCheck,
   Clock,
@@ -43,6 +46,7 @@ import {
 } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { BrandBadge, BrandHeader, BrandOrbitalAccent, LogoMark, LogoWordmark, RocketCourseLoader } from "./components/brand";
+import { ReadinessRing } from "./components/ReadinessRing";
 import { usePlatformAccess, type UsePlatformAccess } from "./services/usePlatformAccess";
 import { PublicBlogIndex, PublicBlogPost } from "./components/blog/PublicBlog";
 import { JoinScreen } from "./components/admin/JoinScreen";
@@ -73,6 +77,7 @@ import { TransformTab } from "./components/TransformTab";
 import { PublicFooter } from "./components/PublicFooter";
 import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
+import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
@@ -758,6 +763,7 @@ function App() {
           setScreen("login");
         }}
         onDemo={() => setScreen("demo")}
+        onManageBilling={handleOpenBillingPortal}
       />
 
       {screen === "landing" && (
@@ -997,7 +1003,8 @@ function TopBar({
   auth,
   access,
   onSignIn,
-  onDemo
+  onDemo,
+  onManageBilling
 }: {
   screen: Screen;
   onNavigate: (screen: Screen) => void;
@@ -1005,6 +1012,7 @@ function TopBar({
   access: UsePlatformAccess;
   onSignIn: () => void;
   onDemo: () => void;
+  onManageBilling: () => void;
 }) {
   const { session, entitlement } = auth;
   const cls = (active: boolean): string => (active ? "active" : "");
@@ -1056,21 +1064,7 @@ function TopBar({
       </nav>
       <div className="topbar-account">
         {session ? (
-          <>
-            <span className={`plan-badge ${entitlement.active ? "active" : "free"}`} title={`Plan: ${entitlement.planName}`}>
-              {entitlement.active ? <CheckCircle2 size={14} /> : <Lock size={14} />}
-              {entitlement.planName}
-            </span>
-            {auth.authMode === "local" && <DevPlanSwitcher auth={auth} />}
-            <div className="account-menu">
-              <span className="account-email" title={session.user.email}>
-                {session.user.email}
-              </span>
-              <button className="ghost-button" onClick={() => void auth.signOut().then(() => onNavigate("landing"))}>
-                Sign out
-              </button>
-            </div>
-          </>
+          <ProfileMenu auth={auth} onNavigate={onNavigate} onManageBilling={onManageBilling} />
         ) : (
           <button className="signin-button" onClick={onSignIn}>
             <User size={15} /> Sign in
@@ -1078,6 +1072,127 @@ function TopBar({
         )}
       </div>
     </header>
+  );
+}
+
+// Account/profile dropdown in the app shell. Surfaces plan status, billing, and plan changes. When
+// real auth + Stripe are configured (authMode === "supabase"), "Manage billing" opens the REAL
+// Stripe customer portal and "Change plan" goes to pricing/checkout. In local-dev mode there is no
+// Stripe, so the panel honestly shows a clearly-labeled "simulated plan" dev control instead.
+function ProfileMenu({
+  auth,
+  onNavigate,
+  onManageBilling
+}: {
+  auth: AuthSessionState;
+  onNavigate: (screen: Screen) => void;
+  onManageBilling: () => void;
+}) {
+  const { session, entitlement } = auth;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const email = session?.user.email ?? "";
+  const name = session?.user.fullName?.trim() || email;
+  const initial = (name || "?").charAt(0).toUpperCase();
+  const isLocal = auth.authMode === "local";
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (event: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const go = (action: () => void): void => {
+    setOpen(false);
+    action();
+  };
+
+  return (
+    <div className="profile-menu" ref={ref}>
+      <button
+        type="button"
+        className="profile-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="profile-avatar" aria-hidden="true">{initial}</span>
+        <span className="profile-trigger-meta">
+          <strong>{name.length > 22 ? `${name.slice(0, 21)}…` : name}</strong>
+          <em className={entitlement.active ? "ok" : ""}>{entitlement.planName}</em>
+        </span>
+        <ChevronDown size={15} className={`profile-chev ${open ? "up" : ""}`} aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div className="profile-panel" role="menu" aria-label="Account">
+          <div className="profile-head">
+            <span className="profile-avatar lg" aria-hidden="true">{initial}</span>
+            <div>
+              <strong>{name}</strong>
+              {email && name !== email && <small>{email}</small>}
+            </div>
+          </div>
+
+          <div className="profile-plan">
+            <div className="profile-plan-row">
+              <span>Current plan</span>
+              <span className={`plan-badge ${entitlement.active ? "active" : "free"}`}>
+                {entitlement.active ? <CheckCircle2 size={13} /> : <Lock size={13} />} {entitlement.planName}
+              </span>
+            </div>
+            <p className="profile-plan-note">
+              {entitlement.active
+                ? "Your plan is active. Manage billing, invoices, or change your plan below."
+                : "You're on the free preview. Upgrade to unlock AI generation and private exports."}
+            </p>
+          </div>
+
+          <div className="profile-actions">
+            <button type="button" role="menuitem" onClick={() => go(() => onNavigate("dashboard"))}>
+              <LayoutDashboard size={15} /> Dashboard
+            </button>
+            <button type="button" role="menuitem" onClick={() => go(() => onNavigate("pricing"))}>
+              <CreditCard size={15} /> {entitlement.active ? "Change plan" : "Upgrade plan"}
+            </button>
+            {!isLocal && (
+              <button type="button" role="menuitem" onClick={() => go(onManageBilling)}>
+                <Wallet size={15} /> Manage billing &amp; invoices
+              </button>
+            )}
+          </div>
+
+          {isLocal && (
+            <div className="profile-dev">
+              <span className="profile-dev-label">
+                <FlaskConical size={12} /> Demo / dev controls
+              </span>
+              <DevPlanSwitcher auth={auth} />
+              <small>Local mode: plan is simulated. Real billing connects when Supabase + Stripe are configured.</small>
+            </div>
+          )}
+
+          <button
+            type="button"
+            role="menuitem"
+            className="profile-signout"
+            onClick={() => go(() => void auth.signOut().then(() => onNavigate("landing")))}
+          >
+            <LogOut size={15} /> Sign out
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1153,12 +1268,43 @@ function Landing({
   onTryDemo: () => void;
   onGuides: () => void;
 }) {
+  // Scroll-reveal: fade + rise landing sections into view as the user scrolls. Progressive
+  // enhancement (the .reveal-ready / .reveal classes are added by JS, so no-JS keeps content
+  // visible), and fully disabled under prefers-reduced-motion.
+  useEffect(() => {
+    const root = document.querySelector(".landing");
+    if (!root) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduce || typeof IntersectionObserver === "undefined") return;
+    const els = Array.from(root.querySelectorAll<HTMLElement>(".landing-section, .landing-cta"));
+    els.forEach((el) => el.classList.add("reveal"));
+    root.classList.add("reveal-ready");
+    const obs = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("reveal-in");
+            obs.unobserve(entry.target);
+          }
+        }),
+      { threshold: 0.12, rootMargin: "0px 0px -6% 0px" }
+    );
+    els.forEach((el) => {
+      if (el.getBoundingClientRect().top < window.innerHeight * 0.92) el.classList.add("reveal-in");
+      else obs.observe(el);
+    });
+    return () => {
+      obs.disconnect();
+      root.classList.remove("reveal-ready");
+    };
+  }, []);
+
   return (
     <main id="main-content" tabIndex={-1} className="landing">
       <section className="landing-hero">
         <BrandOrbitalAccent />
         <div className="landing-copy">
-          <LogoWordmark height={128} priority className="hero-logo" />
+          <LogoWordmark height={116} priority className="hero-logo" />
           <span className="hero-badge">
             <Sparkles size={15} /> Canvas-first course builder for instructors & designers
           </span>
@@ -1193,24 +1339,67 @@ function Landing({
             </span>
           </div>
         </div>
-        <section className="product-preview" aria-label="RocketCourse workflow preview">
-          <div className="preview-header">
-            <span>AI and Modern Society</span>
-            <strong>Readiness 94%</strong>
+        <section className="product-preview cockpit" aria-label="Preview of a course being built in RocketCourse">
+          <div className="cockpit-chrome" aria-hidden="true">
+            <span className="cockpit-light" />
+            <span className="cockpit-light" />
+            <span className="cockpit-light" />
+            <span className="cockpit-omni">
+              <Lock size={11} /> rocketcourse.app/course/ai-and-modern-society
+            </span>
           </div>
-          <div className="preview-grid">
-            <div>
-              <h2>Canvas-native structure</h2>
-              <p>Homepage, syllabus, Start Here, modules, pages, assignments, discussions, quizzes, rubrics, and gradebook groups.</p>
+
+          <div className="cockpit-top">
+            <div className="cockpit-course">
+              <span className="cockpit-eyebrow">Course workspace</span>
+              <strong>AI and Modern Society</strong>
+              <span className="cockpit-sub">Editable · ready to export</span>
             </div>
-            <div>
-              <h2>Editable before export</h2>
-              <p>Revise a page, reorder a module, or adjust workload without rebuilding the whole course.</p>
+            <ReadinessRing score={94} size={56} unit="%" ariaLabel="Course readiness score: 94 percent" />
+          </div>
+
+          <div className="cockpit-main">
+            <nav className="cockpit-rail" aria-hidden="true">
+              <span className="cockpit-tab is-active"><LayoutDashboard size={15} /> Overview</span>
+              <span className="cockpit-tab"><FileText size={15} /> Syllabus</span>
+              <span className="cockpit-tab"><Layers size={15} /> Modules</span>
+              <span className="cockpit-tab"><PenLine size={15} /> Assignments</span>
+              <span className="cockpit-tab"><ListChecks size={15} /> Quizzes</span>
+              <span className="cockpit-tab"><ArrowDownToLine size={15} /> Export</span>
+            </nav>
+
+            <div className="cockpit-panel" aria-hidden="true">
+              <div className="cockpit-row">
+                <span className="cockpit-ix">01</span>
+                <span className="cockpit-name">Foundations of AI</span>
+                <span className="cockpit-pill ok"><Check size={11} /> Ready</span>
+                <span className="cockpit-meter"><i style={{ width: "100%" }} /></span>
+              </div>
+              <div className="cockpit-row">
+                <span className="cockpit-ix">02</span>
+                <span className="cockpit-name">Data, Models &amp; Society</span>
+                <span className="cockpit-pill ok"><Check size={11} /> Ready</span>
+                <span className="cockpit-meter"><i style={{ width: "96%" }} /></span>
+              </div>
+              <div className="cockpit-row">
+                <span className="cockpit-ix">03</span>
+                <span className="cockpit-name">Bias, Fairness &amp; Ethics</span>
+                <span className="cockpit-pill info">In review</span>
+                <span className="cockpit-meter"><i style={{ width: "78%" }} /></span>
+              </div>
+              <div className="cockpit-row">
+                <span className="cockpit-ix">04</span>
+                <span className="cockpit-name">AI in the Wild</span>
+                <span className="cockpit-pill draft">Draft</span>
+                <span className="cockpit-meter"><i style={{ width: "54%" }} /></span>
+              </div>
             </div>
-            <div>
-              <h2>IMSCC package check</h2>
-              <p>Manifest, module metadata, references, HTML, and package files are validated before download.</p>
-            </div>
+          </div>
+
+          <div className="cockpit-foot" aria-hidden="true">
+            <span><Layers size={13} /> 12 modules</span>
+            <span><FileText size={13} /> 34 pages</span>
+            <span><ShieldCheck size={13} /> IMSCC validated</span>
           </div>
         </section>
       </section>
@@ -1835,7 +2024,10 @@ function Intake({
             <h2 className="guided-step-title">
               Step {guidedStep + 1} of {guidedSteps.length}: {guidedSteps[guidedStep].title}
             </h2>
-            <div className="guided-step-fields">{guidedSteps[guidedStep].node}</div>
+            <div className={`guided-step-content ${guidedStep > 0 ? "with-blueprint" : ""}`}>
+              <div className="guided-step-fields">{guidedSteps[guidedStep].node}</div>
+              {guidedStep > 0 && <CourseBlueprintPreview settings={settings} />}
+            </div>
             <div className="guided-nav">
               <button className="secondary" onClick={() => setGuidedStep((value) => Math.max(0, value - 1))} disabled={guidedStep === 0}>
                 <ArrowLeft size={15} /> Back
@@ -3187,9 +3379,7 @@ function ReadinessPanel({
   });
   return (
     <div className="readiness-card">
-      <div className="score-ring" style={{ "--score": readiness.score } as CSSProperties} role="img" aria-label={`Course readiness ${readiness.score} percent`}>
-        <span>{readiness.score}</span>
-      </div>
+      <ReadinessRing score={readiness.score} size={96} className="readiness-ring" ariaLabel={`Course readiness ${readiness.score} percent`} />
       <h2>Course Readiness</h2>
       <p>{readiness.blockers === 0 ? "Ready for local package validation." : `${readiness.blockers} required ${readiness.blockers === 1 ? "check needs" : "checks need"} attention.`}</p>
       <div className="export-status">

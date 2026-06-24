@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { LogoMark } from "./brand";
+import { ReadinessRing } from "./ReadinessRing";
 import type { CourseProject, EditorTab, ExportMode, ExportValidationReport, ReadinessReport } from "../types";
 import {
   buildImportChecklistText,
@@ -170,10 +171,16 @@ export function ExportTab({
             </div>
           </div>
         </div>
-        <div className={`overview-health ${heroTone}`}>
-          {confidence.localValidation === "Passed" ? <CheckCircle2 size={20} /> : confidence.localValidation === "Blocked" ? <AlertTriangle size={20} /> : <Info size={20} />}
-          <strong>{confidence.packageScore !== null ? `${confidence.packageScore}%` : "—"}</strong>
-          <span>{confidence.localValidation}</span>
+        <div className={`export-health ${heroTone}`}>
+          <ReadinessRing
+            score={confidence.courseScore}
+            size={92}
+            tone={confidence.courseScore >= 90 ? "ok" : confidence.courseScore >= 70 ? "warn" : "danger"}
+            caption="ready"
+            ariaLabel={`Course readiness ${confidence.courseScore} percent`}
+          />
+          <strong>{confidence.localValidation}</strong>
+          <span>Local validation</span>
         </div>
       </section>
 
@@ -224,16 +231,23 @@ export function ExportTab({
         </div>
         {exportMode !== "full" && <p className="overview-empty">This mode validates dependencies for the selection, but the browser-only package still includes supporting metadata, outcomes, rubrics, files, and module references so Canvas has context.</p>}
 
-        <div className="export-actions">
+        <div className="export-actions export-actions-primary">
           <button type="button" className="secondary" onClick={onRunValidation} disabled={isExporting}>
             {isExporting ? <Loader2 size={16} className="spin" /> : <Play size={16} />} Run local validation
           </button>
           <button type="button" className="primary" onClick={onDownload} disabled={isExporting || !subscriptionActive || !confidence.downloadable} title={!confidence.downloadable ? "Run validation and resolve blocking issues first." : "Download the .imscc package"}>
             <Download size={16} /> Download .imscc
           </button>
-          <button type="button" className="secondary" onClick={onDownloadPdf} disabled={!subscriptionActive} title={subscriptionActive ? "Download a readable PDF copy of the whole course" : "Activate a plan to export"}>
-            <FileText size={16} /> Download course PDF
-          </button>
+        </div>
+
+        <div className="export-other">
+          <span className="export-other-label">
+            <FileText size={13} /> Other exports &amp; reports
+          </span>
+          <div className="export-actions">
+            <button type="button" className="secondary" onClick={onDownloadPdf} disabled={!subscriptionActive} title={subscriptionActive ? "Download a readable PDF copy of the whole course" : "Activate a plan to export"}>
+              <FileText size={16} /> Download course PDF
+            </button>
           <button type="button" className="secondary" onClick={onDownloadSyllabusPdf} disabled={!subscriptionActive} title={subscriptionActive ? "Download a clean syllabus PDF (aligned with the Canvas syllabus page)" : "Activate a plan to export"}>
             <FileText size={16} /> Syllabus PDF
           </button>
@@ -270,6 +284,7 @@ export function ExportTab({
           <button type="button" className="secondary" onClick={() => void copyChecklist()}>
             <Copy size={16} /> {copyState}
           </button>
+          </div>
         </div>
 
         {isExporting && (

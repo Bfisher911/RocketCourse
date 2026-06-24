@@ -483,6 +483,27 @@ describe("RocketCourse export engine", () => {
     expect(report.issues.some((issue) => issue.id.startsWith("broken-internal-link") && issue.severity === "warning")).toBe(true);
   });
 
+  it("caps the warning penalty so a valid, importable package never scores near zero", async () => {
+    // Many advisory warnings (unresolved internal links) but zero blocking errors.
+    const brokenLinks = Array.from({ length: 20 }, (_, index) => `<a href="missing-${index}.html">Broken link ${index}</a>`).join(" ");
+    const warnedProject = {
+      ...sampleProject,
+      pages: sampleProject.pages.map((page) => (page.frontPage ? { ...page, bodyHtml: `${page.bodyHtml}<p>${brokenLinks}</p>` } : page))
+    };
+    const zip = await buildImsccZip(warnedProject);
+    const report = await validateImsccZip(warnedProject, zip);
+
+    const errorCount = report.issues.filter((issue) => issue.severity === "error").length;
+    const warningCount = report.issues.filter((issue) => issue.severity === "warning").length;
+
+    // No errors → the package imports. A pile of advisory warnings must not collapse the score:
+    // the warning penalty is capped, so a valid package floors at 70 rather than "passed (score 0)".
+    expect(errorCount).toBe(0);
+    expect(warningCount).toBeGreaterThanOrEqual(10);
+    expect(report.valid).toBe(true);
+    expect(report.score).toBeGreaterThanOrEqual(70);
+  });
+
   it("auto-repairs module item / object drift so export still produces a valid package", async () => {
     const sourceModule = sampleProject.modules.find((module) => module.items.some((item) => item.type === "assignment"));
     const assignmentItem = sourceModule?.items.find((item) => item.type === "assignment");

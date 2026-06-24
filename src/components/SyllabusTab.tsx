@@ -41,6 +41,7 @@ import { slugify, stripHtml } from "../utils/text";
 import { aiGenerateSyllabusContent } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
+import { ReadinessRing } from "./ReadinessRing";
 import type { CourseProject, SyllabusContent, SyllabusSnapshot, SyllabusState } from "../types";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
@@ -518,21 +519,16 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
 }
 
 function ScoreRing({ score, failures, warnings, label }: { score: number; failures: number; warnings: number; label: string }) {
-  const radius = 26;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - score / 100);
-  const tone = failures ? "danger" : warnings ? "warn" : "ok";
   return (
-    <div className={`hp-score-ring ${tone}`} aria-label={`${label} readiness ${score} out of 100`}>
-      <svg viewBox="0 0 64 64" width="72" height="72">
-        <circle cx="32" cy="32" r={radius} className="hp-ring-track" />
-        <circle cx="32" cy="32" r={radius} className="hp-ring-fill" strokeDasharray={circumference} strokeDashoffset={offset} transform="rotate(-90 32 32)" />
-      </svg>
-      <div className="hp-score-num">
-        <strong>{score}</strong>
-        <small>ready</small>
-      </div>
-    </div>
+    <ReadinessRing
+      score={score}
+      size={72}
+      tone="auto"
+      failures={failures}
+      warnings={warnings}
+      caption="ready"
+      ariaLabel={`${label} readiness ${score} out of 100`}
+    />
   );
 }
 
