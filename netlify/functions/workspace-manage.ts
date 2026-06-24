@@ -8,6 +8,8 @@ import { getSupabaseAdmin } from "./_shared/supabaseAdmin";
 import { appUrl } from "./_shared/stripe";
 import { createAuditLog, requireWorkspaceAdmin } from "./_shared/guards";
 import { generateToken, hashToken } from "./_shared/tokens";
+import { sendEmail } from "./_shared/email";
+import { buildInviteEmail } from "../../src/services/inviteEmail";
 import {
   ASSIGNABLE_ROLES,
   wouldOrphanWorkspace,
@@ -37,6 +39,36 @@ const loadMembers = async (workspaceId: string): Promise<MemberRow[]> => {
 
 const inviteLink = (token: string): string => `${appUrl()}/join?invite=${token}`;
 const joinLinkUrl = (token: string): string => `${appUrl()}/join?link=${token}`;
+
+const workspaceName = async (workspaceId: string): Promise<string> => {
+  const { data } = await getSupabaseAdmin().from("workspaces").select("name").eq("id", workspaceId).maybeSingle();
+  return (data?.name as string) ?? "your team workspace";
+};
+
+/** Email the invite (no-op-safe: returns false when RESEND_API_KEY is unset). */
+const emailInvite = async (params: {
+  to: string;
+  workspaceId: string;
+  inviterEmail: string;
+  role: string;
+  token: string;
+}): Promise<boolean> => {
+  const content = buildInviteEmail({
+    workspaceName: await workspaceName(params.workspaceId),
+    inviterEmail: params.inviterEmail,
+    role: params.role,
+    inviteLink: inviteLink(params.token),
+    expiresInDays: INVITE_TTL_DAYS
+  });
+  const result = await sendEmail({
+    to: params.to,
+    subject: content.subject,
+    html: content.html,
+    text: content.text,
+    replyTo: params.inviterEmail
+  });
+  return result.sent;
+};
 
 export default async (request: Request): Promise<Response> => {
   if (request.method !== "POST") return json(405, { error: "Method not allowed." });
@@ -85,8 +117,9 @@ export default async (request: Request): Promise<Response> => {
         created_by: actor.id
       });
       if (error) return json(500, { error: error.message });
-      await audit("member_invited", "workspace_invite", email, { role });
-      return json(200, { ok: true, email, role, inviteLink: inviteLink(token) });
+      const emailed = await emailInvite({ to: email, workspaceId, inviterEmail: actor.email, role, token });
+      await audit("member_invited", "workspace_invite", email, { role, emailed });
+      return json(200, { ok: true, email, role, inviteLink: inviteLink(token), emailed });
     }
 
     case "resendInvite": {
@@ -108,8 +141,15 @@ export default async (request: Request): Promise<Response> => {
           expires_at: new Date(Date.now() + INVITE_TTL_DAYS * 86_400_000).toISOString()
         })
         .eq("id", inviteId);
-      await audit("member_invited", "workspace_invite", existing.email as string, { role: existing.role, resent: true });
-      return json(200, { ok: true, inviteLink: inviteLink(token) });
+      const emailed = await emailInvite({
+        to: existing.email as string,
+        workspaceId,
+        inviterEmail: actor.email,
+        role: existing.role as string,
+        token
+      });
+      await audit("member_invited", "workspace_invite", existing.email as string, { role: existing.role, resent: true, emailed });
+      return json(200, { ok: true, inviteLink: inviteLink(token), emailed });
     }
 
     case "revokeInvite": {

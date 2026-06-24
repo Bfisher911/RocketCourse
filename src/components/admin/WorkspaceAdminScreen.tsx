@@ -91,6 +91,7 @@ export function WorkspaceAdminScreen({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [linkEmailed, setLinkEmailed] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<InviteRole>("member");
@@ -214,9 +215,12 @@ export function WorkspaceAdminScreen({
               className="primary"
               disabled={busy || !inviteEmail.includes("@")}
               onClick={async () => {
-                const res = await act("invite", { email: inviteEmail, role: inviteRole }, "Invite created.");
+                const target = inviteEmail;
+                const res = await act("invite", { email: inviteEmail, role: inviteRole });
                 if (res?.inviteLink) {
                   setGeneratedLink(res.inviteLink as string);
+                  setLinkEmailed(Boolean(res.emailed));
+                  setNotice(res.emailed ? `Invite emailed to ${target}.` : "Invite created — share the link below.");
                   setInviteEmail("");
                 }
               }}
@@ -226,7 +230,7 @@ export function WorkspaceAdminScreen({
           </div>
           {generatedLink && (
             <div className="ws-link-out">
-              <span>Share this invite link (email delivery isn't configured yet):</span>
+              <span>{linkEmailed ? "Invite emailed. You can also share this link directly:" : "Share this link directly:"}</span>
               <code>{generatedLink}</code>
               <button type="button" className="ghost-button" onClick={() => copy(generatedLink)}>
                 <Copy size={14} /> Copy
@@ -323,8 +327,12 @@ export function WorkspaceAdminScreen({
                     className="ghost-button"
                     disabled={busy}
                     onClick={async () => {
-                      const res = await act("resendInvite", { inviteId: inv.id }, "Invite link refreshed.");
-                      if (res?.inviteLink) setGeneratedLink(res.inviteLink as string);
+                      const res = await act("resendInvite", { inviteId: inv.id });
+                      if (res?.inviteLink) {
+                        setGeneratedLink(res.inviteLink as string);
+                        setLinkEmailed(Boolean(res.emailed));
+                        setNotice(res.emailed ? `Invite re-emailed to ${inv.email}.` : "Invite link refreshed — share it below.");
+                      }
                     }}
                   >
                     <RefreshCw size={13} /> Resend
@@ -356,7 +364,10 @@ export function WorkspaceAdminScreen({
               disabled={busy}
               onClick={async () => {
                 const res = await act("createJoinLink", { defaultRole: linkRole }, "Join link created.");
-                if (res?.joinLink) setGeneratedLink(res.joinLink as string);
+                if (res?.joinLink) {
+                  setGeneratedLink(res.joinLink as string);
+                  setLinkEmailed(false);
+                }
               }}
             >
               <Link2 size={15} /> Create join link
