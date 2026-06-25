@@ -1732,6 +1732,17 @@ p {
   border: 1px solid var(--line-strong);
   color: var(--cyan);
 }
+/* When the glyph carries the themed course tile, let the image fill it cleanly. */
+.project-glyph.project-tile {
+  background: none;
+  border: none;
+  overflow: hidden;
+}
+.project-glyph.project-tile img {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+}
 
 .project-row strong {
   display: block;
@@ -10139,6 +10150,7 @@ p {
 .save-chip.saving { background: rgba(34, 230, 255, 0.1); color: var(--cyan); }
 .save-chip.saved { background: rgba(75, 232, 168, 0.12); color: var(--success); }
 .save-chip.error { background: rgba(255, 93, 115, 0.12); color: var(--danger); }
+.save-chip.ai-spend { background: rgba(168, 130, 255, 0.14); color: var(--violet, #a882ff); cursor: default; }
 
 /* ============================================================
    AI Blueprint review

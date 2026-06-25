@@ -81,6 +81,9 @@ import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
+import { recordCourseAiSpend } from "./services/aiSpendMeter";
+import type { ChatCompletionCost } from "./services/openaiClient";
+import { AiSpendBadge } from "./components/AiSpendBadge";
 import { buildThemeFromCustom, customThemesEnabled, listCustomThemes, saveCustomTheme, type CustomThemeInput } from "./services/customThemes";
 import { openBillingPortal, startCheckout } from "./billing/checkout";
 import { defaultSettings } from "./data/defaultSettings";
@@ -120,7 +123,7 @@ import { listProjects, persistenceEnabled, saveProject } from "./services/projec
 import { buildReadinessReport } from "./services/readiness";
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
 import { validateRevisionCandidate } from "./services/revisionGuard";
-import { buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
+import { buildCourseTileSvg, buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
 import type {
   CourseModule,
   CoursePage,
@@ -250,6 +253,8 @@ function App() {
   const [exportMode, setExportMode] = useState<ExportMode>(sampleProject.exportMode);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [blueprint, setBlueprint] = useState<CourseBlueprint | null>(null);
+  // Blueprint is priced before the course exists; stash its cost and attribute it on approval.
+  const blueprintCostRef = useRef<ChatCompletionCost | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [customThemes, setCustomThemes] = useState<Theme[]>([]);
@@ -425,7 +430,8 @@ function App() {
         augmentPromptWithSources(prompt, settings.sourceFiles) + buildScheduleContext(settings.schedule),
         settings
       );
-      setBlueprint(result);
+      setBlueprint(result.blueprint);
+      blueprintCostRef.current = result.cost;
       setScreen("blueprint");
     } catch (error) {
       setAiError(error instanceof Error ? error.message : "Blueprint generation failed.");
@@ -438,6 +444,9 @@ function App() {
   const approveBlueprint = (): void => {
     if (!blueprint) return;
     const generated = buildCourseFromBlueprint(blueprint, settings, prompt);
+    // Attribute the blueprint's real cost to the course now that it has an id.
+    recordCourseAiSpend(generated.id, blueprintCostRef.current);
+    blueprintCostRef.current = null;
     setCourse(generated);
     setProjects((current) => [generated, ...current.filter((project) => project.id !== generated.id)]);
     setValidationReport(null);
@@ -601,7 +610,8 @@ function App() {
         context: {
           outcomeCodes: assignment.alignedOutcomeIds.map((outcomeId) => course.outcomes.find((outcome) => outcome.id === outcomeId)?.code ?? outcomeId),
           moduleTitle: course.modules.find((module) => module.id === assignment.moduleId)?.title,
-          futureProvider: "server-side-ai"
+          futureProvider: "server-side-ai",
+          courseId: course.id
         }
       });
       // Transaction guard: never replace good content with empty/unsafe output. Keep the old object.
@@ -626,7 +636,8 @@ function App() {
       context: {
         outcomeCodes: course.outcomes.slice(0, 3).map((outcome) => outcome.code),
         moduleTitle: course.modules.find((module) => module.id === targetPage.moduleId)?.title,
-        futureProvider: "server-side-ai"
+        futureProvider: "server-side-ai",
+        courseId: course.id
       }
     });
     const check = validateRevisionCandidate(result.value);
@@ -1645,8 +1656,16 @@ function Dashboard({
             return (
               <button key={project.id} className="project-row" onClick={() => onOpen(project)}>
                 <span className="project-main">
-                  <span className="project-glyph" aria-hidden="true">
-                    <BookOpen size={20} />
+                  <span className="project-glyph project-tile" aria-hidden="true">
+                    {project.theme ? (
+                      <img
+                        src={`data:image/svg+xml;utf8,${encodeURIComponent(buildCourseTileSvg(project.title, project.theme))}`}
+                        alt=""
+                        style={{ display: "block", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <BookOpen size={20} />
+                    )}
                   </span>
                   <span>
                     <strong>{project.title}</strong>
@@ -2343,6 +2362,7 @@ function Editor({
               {saveState === "saving" && <span className="save-chip saving"><Loader2 size={12} className="spin" /> Saving…</span>}
               {saveState === "saved" && <span className="save-chip saved"><CheckCircle2 size={12} /> Saved</span>}
               {saveState === "error" && <span className="save-chip error"><AlertTriangle size={12} /> Save failed</span>}
+              <AiSpendBadge courseId={course.id} />
             </p>
             </div>
           </div>

@@ -48,6 +48,7 @@ export const aiGeneratePageBody = (course: CourseProject, page: CoursePage): Pro
     async () => {
       const json = await generateJson<{ bodyHtml?: unknown }>({
         stage: "lessonPageDraft",
+        courseId: course.id,
         context: {
           blueprintJson: buildBlueprintContext(course),
           pageRequestJson: { title: page.title, module: moduleTitle(course, page.moduleId) }
@@ -70,6 +71,7 @@ export const aiGenerateAssignmentDescription = (course: CourseProject, assignmen
     async () => {
       const json = await generateJson<{ descriptionHtml?: unknown }>({
         stage: "assignmentDraft",
+        courseId: course.id,
         context: {
           blueprintJson: buildBlueprintContext(course),
           moduleDraftJson: { title: moduleTitle(course, assignment.moduleId) },
@@ -99,6 +101,7 @@ export const aiGenerateDiscussionPrompt = (course: CourseProject, discussion: Di
     async () => {
       const json = await generateJson<{ promptHtml?: unknown }>({
         stage: "discussionDraft",
+        courseId: course.id,
         context: {
           blueprintJson: buildBlueprintContext(course),
           discussionRequestJson: {
@@ -159,6 +162,7 @@ export const aiGenerateQuizQuestions = (course: CourseProject, quiz: Quiz): Prom
     async () => {
       const json = await generateJson<{ questions?: unknown }>({
         stage: "quizDraft",
+        courseId: course.id,
         context: {
           blueprintJson: buildBlueprintContext(course),
           quizRequestJson: {
@@ -218,6 +222,7 @@ export const aiGenerateRubricCriteria = (course: CourseProject, rubric: Rubric):
     async () => {
       const json = await generateJson<{ criteria?: unknown }>({
         stage: "rubricDraft",
+        courseId: course.id,
         context: {
           blueprintJson: buildBlueprintContext(course),
           rubricRequestJson: { title: rubric.title, outcomes: outcomeTexts(course, rubric.alignedOutcomeIds) }
@@ -241,6 +246,7 @@ export const aiGenerateHomepageContent = (course: CourseProject, current: Homepa
     async () => {
       const json = await generateJson<Record<string, unknown>>({
         stage: "homepageDraft",
+        courseId: course.id,
         context: {
           blueprintJson: buildBlueprintContext(course),
           navigationJson: course.navigation.map((item) => ({ label: item.label, visible: item.visible })),
@@ -271,6 +277,7 @@ export const aiGenerateSyllabusContent = (course: CourseProject, current: Syllab
     async () => {
       const json = await generateJson<Record<string, unknown>>({
         stage: "syllabusDraft",
+        courseId: course.id,
         context: { blueprintJson: buildBlueprintContext(course) },
         outputContract:
           'Return {"courseDescription": string, "communicationExpectations": string, "lateWorkPolicy": string, "academicIntegrityPolicy": string, "aiUsePolicy": string, "learningOutcomes": string[], "requiredMaterials": string[]}.'
@@ -302,6 +309,7 @@ export const aiGenerateCourseOverview = (course: CourseProject): Promise<AiResul
     async () => {
       const json = await generateJson<{ description?: unknown; outcomes?: unknown }>({
         stage: "blueprint",
+        courseId: course.id,
         context: { blueprintJson: buildBlueprintContext(course) },
         outputContract: 'Return {"description": "<2-4 sentence course description>", "outcomes": ["<measurable outcome>", ...]}.'
       });
@@ -320,6 +328,7 @@ export const aiGenerateContactHoursJustification = (course: CourseProject): Prom
     async () => {
       const json = await generateJson<{ justification?: unknown }>({
         stage: "contactHourDraft",
+        courseId: course.id,
         context: {
           blueprintJson: buildBlueprintContext(course),
           contactHoursJson: course.contactHours

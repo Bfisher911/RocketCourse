@@ -14,6 +14,7 @@ import {
 } from "../../../src/services/entitlement";
 import type { PlanKey } from "../../../src/data/plans";
 import { loadCredits, resolveEffectiveSubscription } from "./workspaceEntitlement";
+import { computeUsageCost, type CostBreakdown, type TokenUsage } from "./aiPricing";
 
 export const loadUserSubscription = async (token: string, userId?: string): Promise<EntitlementSubscription> => {
   try {
@@ -57,19 +58,38 @@ export const checkUserEntitlement = async (
   return { decision: can(action, subscription), subscription };
 };
 
+export interface RecordAiUsageMeta {
+  model?: string;
+  promptSnapshot?: string;
+  /** OpenAI `usage` from the chat completion; priced + persisted so spend is measured, not guessed. */
+  usage?: TokenUsage | null;
+  /** App-level course id (CourseProject.id) so spend can be grouped per course in usage_events. */
+  courseId?: string;
+  /**
+   * Whether this call counts against the plan's ai_generations quota. Defaults to true so existing
+   * metered routes (blueprint, revise) are unchanged. The generic builder proxy passes false: those
+   * clicks are logged for cost telemetry but, as today, do not decrement the AI-generation allowance.
+   */
+  meter?: boolean;
+}
+
 /**
- * Best-effort: increment AI-generation usage on the EFFECTIVE subscription row (own or shared team
- * row) + log a job + usage event. Silently skips if the service role isn't configured.
+ * Best-effort: price the call from its token usage, log a job + usage event with real tokens/cost
+ * (queryable per course via usage_events.metadata.courseId), and — when metered — increment the
+ * EFFECTIVE subscription's ai_generations_used. Always returns the computed cost (even if the DB
+ * write is skipped because the service role isn't configured) so callers can echo it to the client.
  */
 export const recordAiUsage = async (
   userId: string,
   jobType: string,
-  meta: { model?: string; promptSnapshot?: string } = {}
-): Promise<void> => {
+  meta: RecordAiUsageMeta = {}
+): Promise<CostBreakdown> => {
+  const cost = computeUsageCost(meta.model, meta.usage);
+  const hasUsage = Boolean(meta.usage);
   try {
     const admin = getSupabaseAdmin();
     const eff = await resolveEffectiveSubscription(userId);
-    if (eff.rowId) {
+    if (meta.meter !== false && eff.rowId) {
       const { data } = await admin
         .from("subscriptions")
         .select("id,ai_generations_used")
@@ -88,13 +108,31 @@ export const recordAiUsage = async (
       job_type: jobType,
       status: "completed",
       model: meta.model,
+      input_tokens: hasUsage ? cost.inputTokens : null,
+      output_tokens: hasUsage ? cost.outputTokens : null,
+      estimated_cost_cents: hasUsage ? cost.costCents : null,
       prompt_snapshot: meta.promptSnapshot,
       completed_at: new Date().toISOString()
     });
-    await admin
-      .from("usage_events")
-      .insert({ user_id: userId, workspace_id: eff.workspaceId, event_type: "ai_generation", units: 1, metadata: { jobType } });
+    await admin.from("usage_events").insert({
+      user_id: userId,
+      workspace_id: eff.workspaceId,
+      event_type: "ai_generation",
+      units: 1,
+      metadata: {
+        jobType,
+        model: meta.model ?? null,
+        courseId: meta.courseId ?? null,
+        metered: meta.meter !== false,
+        inputTokens: cost.inputTokens,
+        outputTokens: cost.outputTokens,
+        totalTokens: cost.totalTokens,
+        costUsd: cost.costUsd,
+        costMicroUsd: cost.costMicroUsd
+      }
+    });
   } catch {
     // Service role not configured yet — generation still succeeds; usage tracking lights up later.
   }
+  return cost;
 };

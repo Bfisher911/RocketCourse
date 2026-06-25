@@ -10,6 +10,8 @@ export interface ReviseCourseObjectInput {
     outcomeCodes: string[];
     moduleTitle?: string;
     futureProvider: "server-side-ai";
+    /** Telemetry: course id so revise spend is grouped per course server-side. */
+    courseId?: string;
   };
 }
 

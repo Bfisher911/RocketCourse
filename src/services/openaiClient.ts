@@ -17,6 +17,10 @@ export interface ChatCompletionRequest {
   maxTokens?: number;
   /** Passed through to OpenAI, e.g. { type: "json_object" } for JSON-mode output. */
   responseFormat?: Record<string, unknown>;
+  /** Telemetry: which builder stage is spending the tokens (logged server-side, e.g. "quizDraft"). */
+  jobType?: string;
+  /** Telemetry: CourseProject id, so spend can be grouped per course. */
+  courseId?: string;
   /** Allows the caller to cancel the request (e.g. on unmount). */
   signal?: AbortSignal;
 }
@@ -27,11 +31,23 @@ export interface ChatCompletionUsage {
   total_tokens?: number;
 }
 
+/** Server-computed spend for the call (priced from usage). Echoed back for live cost display. */
+export interface ChatCompletionCost {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costUsd: number;
+  costMicroUsd: number;
+  costCents: number;
+}
+
 export interface ChatCompletionResult {
   content: string;
   model: string;
   finishReason: string | null;
   usage: ChatCompletionUsage | null;
+  cost?: ChatCompletionCost | null;
 }
 
 export const OPENAI_PROXY_ENDPOINT = "/.netlify/functions/openai";

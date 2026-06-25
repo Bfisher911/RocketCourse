@@ -92,3 +92,73 @@ export const darken = (value: string, amount: number): string => {
       .padStart(2, "0");
   return `#${channel(rgb.r)}${channel(rgb.g)}${channel(rgb.b)}`;
 };
+
+const toHexChannel = (n: number): string =>
+  Math.round(Math.max(0, Math.min(255, n)))
+    .toString(16)
+    .padStart(2, "0");
+
+/** `#rrggbb` from an Rgb. */
+export const rgbToHex = ({ r, g, b }: Rgb): string => `#${toHexChannel(r)}${toHexChannel(g)}${toHexChannel(b)}`;
+
+/** Mix a color toward white by `amount` (0–1) — the lighten counterpart to `darken`. */
+export const lighten = (value: string, amount: number): string => {
+  const rgb = parseHex(value);
+  if (!rgb) return value;
+  const t = Math.max(0, Math.min(1, amount));
+  return rgbToHex({ r: rgb.r + (255 - rgb.r) * t, g: rgb.g + (255 - rgb.g) * t, b: rgb.b + (255 - rgb.b) * t });
+};
+
+/** Linear blend of two colors. `t=0` → a, `t=1` → b. Falls back to `a` if either can't be parsed. */
+export const mix = (a: string, b: string, t: number): string => {
+  const ca = parseHex(a);
+  const cb = parseHex(b);
+  if (!ca || !cb) return a;
+  const k = Math.max(0, Math.min(1, t));
+  return rgbToHex({ r: ca.r + (cb.r - ca.r) * k, g: ca.g + (cb.g - ca.g) * k, b: ca.b + (cb.b - ca.b) * k });
+};
+
+const rgbToHsl = ({ r, g, b }: Rgb): { h: number; s: number; l: number } => {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+  else if (max === gn) h = ((bn - rn) / d + 2) / 6;
+  else h = ((rn - gn) / d + 4) / 6;
+  return { h: h * 360, s, l };
+};
+
+const hslToRgb = (h: number, s: number, l: number): Rgb => {
+  const hue = ((h % 360) + 360) % 360 / 360;
+  if (s === 0) return { r: l * 255, g: l * 255, b: l * 255 };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const channel = (t: number): number => {
+    let tc = t;
+    if (tc < 0) tc += 1;
+    if (tc > 1) tc -= 1;
+    if (tc < 1 / 6) return p + (q - p) * 6 * tc;
+    if (tc < 1 / 2) return q;
+    if (tc < 2 / 3) return p + (q - p) * (2 / 3 - tc) * 6;
+    return p;
+  };
+  return { r: channel(hue + 1 / 3) * 255, g: channel(hue) * 255, b: channel(hue - 1 / 3) * 255 };
+};
+
+/**
+ * Rotate a color's hue by `degrees` while preserving saturation + lightness. Used to give each
+ * module a sibling-but-distinct accent (Module 3 ≠ Module 7) without leaving the theme's color world.
+ */
+export const shiftHue = (value: string, degrees: number): string => {
+  const rgb = parseHex(value);
+  if (!rgb) return value;
+  const { h, s, l } = rgbToHsl(rgb);
+  return rgbToHex(hslToRgb(h + degrees, s, l));
+};

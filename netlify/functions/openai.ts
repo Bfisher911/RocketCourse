@@ -10,7 +10,7 @@
 declare const process: { env: Record<string, string | undefined> };
 
 import { getAuthedUser } from "./_shared/http";
-import { checkUserEntitlement } from "./_shared/userEntitlement";
+import { checkUserEntitlement, recordAiUsage } from "./_shared/userEntitlement";
 
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const DEFAULT_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
@@ -29,6 +29,10 @@ interface ChatRequestBody {
   temperature?: unknown;
   maxTokens?: unknown;
   responseFormat?: unknown;
+  /** Optional telemetry: which builder stage spent these tokens (e.g. "quizDraft"). */
+  jobType?: unknown;
+  /** Optional telemetry: the CourseProject id, so spend can be grouped per course. */
+  courseId?: unknown;
 }
 
 const json = (status: number, body: Record<string, unknown>): Response =>
@@ -122,11 +126,23 @@ export default async (request: Request): Promise<Response> => {
       return json(openaiResponse.status, { error: message });
     }
 
+    // Log real token usage + cost (per builder stage + course). meter:false preserves today's
+    // behavior — builder "Generate with AI" clicks are measured for spend but don't burn the quota.
+    const jobType = typeof body.jobType === "string" && body.jobType.trim() ? body.jobType.trim() : "builder";
+    const courseId = typeof body.courseId === "string" && body.courseId.trim() ? body.courseId.trim() : undefined;
+    const cost = await recordAiUsage(user.id, jobType, {
+      model: payload?.model ?? model,
+      usage: payload?.usage ?? null,
+      courseId,
+      meter: false
+    });
+
     return json(200, {
       content: payload?.choices?.[0]?.message?.content ?? "",
       model: payload?.model ?? model,
       finishReason: payload?.choices?.[0]?.finish_reason ?? null,
-      usage: payload?.usage ?? null
+      usage: payload?.usage ?? null,
+      cost
     });
   } catch (error) {
     const aborted = error instanceof Error && error.name === "AbortError";

@@ -42,6 +42,7 @@ import {
   type SyllabusContext
 } from "./syllabusTemplates";
 import { buildThemedButton, buildThemedCallout, buildThemedCard, buildThemedNote, buildThemedSecondaryButton, buildThemedShell } from "./themeDesign";
+import { buildBloomPyramid, buildCourseMap, buildGradeWeightDonut } from "./themeDataViz";
 import { bestTextOn, withAlpha } from "../utils/color";
 import { validateSyllabus } from "./syllabusValidation";
 import { fileRef, modulesIndexRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
@@ -854,10 +855,37 @@ const buildAlignmentMapHtml = (
   const headChrome =
     "text-align: left; padding: 9px; border: 1px solid #dbe4f0; background: #f8fafc;";
 
+  // Visual overview: grade-weight donut + Bloom pyramid + module→outcome map, all rendered as
+  // inline SVG/HTML (Canvas-safe) from the same alignment data the table below itemizes.
+  const outcomeCodeById = new Map(outcomes.map((outcome) => [outcome.id, outcome.code]));
+  const allOutcomeCodes = outcomes.map((outcome) => outcome.code);
+  const moduleAlignment = modules.map((module) => {
+    const ids = new Set<string>();
+    [...assignments, ...discussions, ...quizzes]
+      .filter((item) => item.moduleId === module.id)
+      .forEach((item) => (item.alignedOutcomeIds ?? []).forEach((outcomeId) => ids.add(outcomeId)));
+    return { title: module.title, outcomeCodes: [...ids].map((outcomeId) => outcomeCodeById.get(outcomeId) ?? outcomeId) };
+  });
+  const bloomOrder = ["create", "evaluate", "analyze", "apply", "understand", "remember"];
+  const bloomCounts = new Map<string, number>();
+  outcomes.forEach((outcome) => {
+    const level = (outcome.bloomLevel ?? "").toLowerCase();
+    const key = bloomOrder.find((band) => level.includes(band));
+    if (key) bloomCounts.set(key, (bloomCounts.get(key) ?? 0) + 1);
+  });
+  const bloomTiers = bloomOrder
+    .filter((band) => bloomCounts.has(band))
+    .map((band) => ({ label: band[0].toUpperCase() + band.slice(1), count: bloomCounts.get(band) }));
+  const visualOverview = `<div style="font-size: 0;"><div style="display: inline-block; width: 49%; min-width: 240px; vertical-align: top; margin-right: 1%; font-size: 14px;">${buildGradeWeightDonut(
+    theme,
+    assignmentGroups.map((group) => ({ name: group.name, weight: group.weight }))
+  )}</div><div style="display: inline-block; width: 49%; min-width: 240px; vertical-align: top; font-size: 14px;">${buildBloomPyramid(theme, bloomTiers)}</div></div>${buildCourseMap(theme, moduleAlignment, allOutcomeCodes)}`;
+
   return canvasShell(
     "Outcome and Assessment Alignment Map",
     `Instructor-only alignment evidence for ${courseTitle}.`,
-    `${section("How To Review This Map", checklistHtml(["Confirm each course outcome matches the official course record.", "Check that every outcome appears in modules, graded work, and rubrics.", "Edit generic language before publishing when local accreditation, program, or department outcomes require exact wording.", "Use this map during quality review before importing or publishing the Canvas shell."]), theme)}
+    `${section("Visual Overview", visualOverview, theme)}
+${section("How To Review This Map", checklistHtml(["Confirm each course outcome matches the official course record.", "Check that every outcome appears in modules, graded work, and rubrics.", "Edit generic language before publishing when local accreditation, program, or department outcomes require exact wording.", "Use this map during quality review before importing or publishing the Canvas shell."]), theme)}
 ${section(
   "Outcome Alignment Table",
   `<div style="overflow-x: auto;">
@@ -1241,6 +1269,25 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
       [`~${workloadHours} hrs of work`, `${alignedOutcomeIds.length} aligned outcomes`, `${glanceRows.length} activities`, `${[hasDiscussion, hasQuiz, hasAssignment].filter(Boolean).length} graded`],
       theme
     );
+    // Per-module header image (opt-in via imageSettings.moduleHeaderImages). Mirrors the homepage
+    // banner pattern: an SVG written to web_resources + referenced with a Canvas file token. The SVG
+    // itself is generated at export time (imsccExport) from this same module number/title.
+    let moduleHeaderImg = "";
+    if (mergedSettings.imageSettings.moduleHeaderImages) {
+      const headerFile = `module-${moduleNumber}-header.svg`;
+      fileAssets.push(
+        makeFileAsset(
+          `asset_module_${moduleNumber}_header`,
+          `web_resources/${headerFile}`,
+          `${moduleLabel} header image`,
+          "image/svg+xml",
+          "other",
+          generatedAt,
+          "Per-module themed header banner (module-number monogram + motif + rotated accent)."
+        )
+      );
+      moduleHeaderImg = `<p style="margin: 0 0 18px;"><img src="${fileRef(headerFile)}" alt="${escapeXml(`${moduleLabel}: ${moduleTopic} header`)}" style="display: block; width: 100%; height: auto; border-radius: 14px;" /></p>`;
+    }
     pages.push(
       makePage(
         overviewPageId,
@@ -1249,7 +1296,7 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
         canvasShell(
           `${moduleLabel}: ${moduleTopic}`,
           "Start here to understand the learning path, outcomes, activities, and expectations for this module.",
-          `${overviewPills}${callout("🚀 Mission briefing", `<p>Welcome to <strong>${moduleTopic}</strong> — your launch pad for this part of the course. Work through the module in order: each stop builds on the one before, moving you from new vocabulary to real examples to confident, evidence-based judgment.</p><p><em>${structureModel.approach}</em></p>`, theme)}
+          `${moduleHeaderImg}${overviewPills}${callout("🚀 Mission briefing", `<p>Welcome to <strong>${moduleTopic}</strong> — your launch pad for this part of the course. Work through the module in order: each stop builds on the one before, moving you from new vocabulary to real examples to confident, evidence-based judgment.</p><p><em>${structureModel.approach}</em></p>`, theme)}
 ${callout("🧭 Keep this question as your North Star", `<p>As you move through the readings, lecture, and practice, keep asking: <em>What is actually happening, who is affected, what does the evidence show, and what becomes possible once we understand the context?</em></p>`, theme)}
 ${section("✅ What You Will Do", checklistHtml(["Review the module overview and required materials.", "Study the lecture/content page.", "Complete discussions, quizzes, and assignments shown in the module.", "Use the recap page to prepare for what comes next."]), theme)}
 ${section("Module Learning Objectives", listHtml(moduleObjectives), theme)}

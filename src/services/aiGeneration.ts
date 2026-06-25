@@ -7,6 +7,8 @@ import { getSupabaseClient } from "./supabaseClient";
 import { generateCourseProject } from "./courseGenerator";
 import { withFallback, type AiResult } from "./aiAssist";
 import { reviseCourseObject, type ReviseCourseObjectInput } from "./objectRevision";
+import { recordCourseAiSpend } from "./aiSpendMeter";
+import type { ChatCompletionCost } from "./openaiClient";
 import type { CourseBlueprint } from "../ai/blueprint";
 import type { CourseProject, CourseSettings } from "../types";
 
@@ -38,18 +40,31 @@ export const reviseHtmlWithAi = async (input: ReviseCourseObjectInput): Promise<
           title: input.title,
           html: input.html,
           mode: input.mode,
-          context: { outcomeCodes: input.context.outcomeCodes, moduleTitle: input.context.moduleTitle }
+          context: {
+            outcomeCodes: input.context.outcomeCodes,
+            moduleTitle: input.context.moduleTitle,
+            courseId: input.context.courseId
+          }
         })
       });
-      const data = (await response.json().catch(() => null)) as { html?: string; error?: string } | null;
+      const data = (await response.json().catch(() => null)) as
+        | { html?: string; cost?: ChatCompletionCost | null; error?: string }
+        | null;
       if (!response.ok || !data?.html) throw new Error(data?.error ?? `AI revise failed (${response.status}).`);
+      recordCourseAiSpend(input.context.courseId, data.cost);
       return data.html;
     },
     () => reviseCourseObject(input).html
   );
 
+export interface BlueprintResult {
+  blueprint: CourseBlueprint;
+  /** Server-priced cost of the blueprint call; attributed to the course once it's built + has an id. */
+  cost: ChatCompletionCost | null;
+}
+
 /** Request an AI-generated blueprint. Throws with a friendly message on auth/entitlement/AI errors. */
-export const generateBlueprint = async (prompt: string, settings: CourseSettings): Promise<CourseBlueprint> => {
+export const generateBlueprint = async (prompt: string, settings: CourseSettings): Promise<BlueprintResult> => {
   const token = await accessToken();
   if (!token) throw new Error("Please sign in to generate with AI.");
 
@@ -66,11 +81,13 @@ export const generateBlueprint = async (prompt: string, settings: CourseSettings
     );
   }
 
-  const data = (await response.json().catch(() => null)) as { blueprint?: CourseBlueprint; error?: string } | null;
+  const data = (await response.json().catch(() => null)) as
+    | { blueprint?: CourseBlueprint; cost?: ChatCompletionCost | null; error?: string }
+    | null;
   if (!response.ok || !data?.blueprint) {
     throw new Error(data?.error ?? `AI request failed (${response.status}).`);
   }
-  return data.blueprint;
+  return { blueprint: data.blueprint, cost: data.cost ?? null };
 };
 
 /**

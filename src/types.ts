@@ -182,22 +182,71 @@ export interface SourceFile {
 
 // Subtle, Canvas-safe texture rendered as pure CSS gradients (no url() — Canvas's sanitizer
 // can strip url() in inline styles, but CSS gradient functions survive).
-export type ThemePattern = "none" | "dots" | "grid" | "diagonal" | "crosshatch";
+export type ThemePattern =
+  | "none"
+  | "dots"
+  | "grid"
+  | "diagonal"
+  | "crosshatch"
+  | "topographic"
+  | "hexagon"
+  | "isometric"
+  | "concentric"
+  | "halftone"
+  | "graphpaper"
+  | "musicstaff";
 
 // A decorative illustration motif rendered into the course banner SVG (and theme preview), giving a
 // theme a recognizable visual identity beyond color — cosmic stars/planets, tech circuits, lab
-// glassware, botanical leaves, architectural blueprint, ocean waves.
-export type ThemeMotif = "none" | "cosmic" | "circuit" | "lab" | "botanical" | "blueprint" | "wave";
+// glassware, botanical leaves, architectural blueprint, ocean waves, plus discipline motifs for the
+// humanities, music, math, geography, engineering, CS, law, history, and chemistry/biology.
+export type ThemeMotif =
+  | "none"
+  | "cosmic"
+  | "circuit"
+  | "lab"
+  | "botanical"
+  | "blueprint"
+  | "wave"
+  | "manuscript"
+  | "staff"
+  | "geometry"
+  | "globe"
+  | "gears"
+  | "terminal"
+  | "scales"
+  | "timeline"
+  | "molecule"
+  | "helix";
 
 // Typography personality for a visual template. Maps to Canvas-safe system font stacks in
 // themeDesign.ts (no @font-face / web fonts). "sans" is the default and matches the legacy look.
 export type ThemeFont = "sans" | "serif" | "mono" | "rounded";
 
 // Hero (page banner block) treatment. "banner" is the legacy left-aligned gradient hero.
-export type ThemeHeroStyle = "banner" | "spotlight" | "split" | "stage" | "minimal";
+export type ThemeHeroStyle =
+  | "banner"
+  | "spotlight"
+  | "split"
+  | "stage"
+  | "minimal"
+  | "ticket"
+  | "postcard"
+  | "console"
+  | "editorial"
+  | "medallion";
 
 // Section-card treatment. "elevated" is the legacy top-bar shadowed card.
-export type ThemeCardStyle = "elevated" | "outline" | "accent-bar" | "soft-fill";
+export type ThemeCardStyle =
+  | "elevated"
+  | "outline"
+  | "accent-bar"
+  | "soft-fill"
+  | "folder-tab"
+  | "index-card"
+  | "notch"
+  | "matted"
+  | "gradient-edge";
 
 export interface Theme {
   id: string;

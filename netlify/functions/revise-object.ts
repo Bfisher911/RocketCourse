@@ -92,8 +92,13 @@ export default async (request: Request): Promise<Response> => {
     }
     if (!revised.trim()) return json(502, { error: "Model returned no revised HTML." });
 
-    await recordAiUsage(user.id, `revise_${mode}`, { model: payload?.model ?? MODEL });
-    return json(200, { html: revised, model: payload?.model ?? MODEL });
+    const courseId = typeof body.context?.courseId === "string" ? (body.context.courseId as string) : undefined;
+    const cost = await recordAiUsage(user.id, `revise_${mode}`, {
+      model: payload?.model ?? MODEL,
+      usage: payload?.usage ?? null,
+      courseId
+    });
+    return json(200, { html: revised, model: payload?.model ?? MODEL, cost });
   } catch (error) {
     const aborted = error instanceof Error && error.name === "AbortError";
     return json(aborted ? 504 : 502, { error: aborted ? "AI request timed out." : "Failed to reach the AI service." });

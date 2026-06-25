@@ -4,7 +4,8 @@
 // No-ops gracefully in local-dev mode (no Supabase) — the theme still applies in-session.
 
 import { getSupabaseClient, supabaseConfig } from "./supabaseClient";
-import { darken, meetsAaNormal } from "../utils/color";
+import { meetsAaNormal } from "../utils/color";
+import { derivePalette } from "./themePalette";
 import type { Theme } from "../types";
 
 export interface CustomThemeInput {
@@ -30,18 +31,29 @@ const slugify = (value: string): string =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 32) || "theme";
 
-/** Derive a complete, valid app Theme from the friendly custom inputs. Pure + deterministic. */
+/**
+ * Derive a complete, valid app Theme from the friendly custom inputs. Pure + deterministic.
+ * Palette intelligence (themePalette) turns the single primary color into a harmonious gradient +
+ * darker accent, so a school/brand color picks up the same hero/card richness as the built-in
+ * presets instead of a flat accent. The instructor's chosen background/text colors are respected.
+ */
 export const buildThemeFromCustom = (input: CustomThemeInput): Theme => {
   const accent = input.primaryColor;
+  const palette = derivePalette(accent);
   return {
     id: `custom_${slugify(input.name)}`,
     name: input.name.trim() || "Custom theme",
     accent,
-    accentDark: darken(accent, 0.22),
+    accentDark: palette.accentDark,
     soft: input.backgroundColor,
     contrastText: input.textColor,
     bannerLabel: (input.institutionName || input.name).trim() || "Custom theme",
-    contrastStatus: meetsAaNormal(input.textColor, input.backgroundColor) ? "pass" : "review"
+    contrastStatus: meetsAaNormal(input.textColor, input.backgroundColor) ? "pass" : "review",
+    // Give custom themes a real two-stop hero gradient + a tasteful default hero/card personality.
+    gradientFrom: accent,
+    gradientTo: palette.shades[2],
+    heroStyle: "banner",
+    cardStyle: "accent-bar"
   };
 };
 

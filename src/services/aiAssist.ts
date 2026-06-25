@@ -9,6 +9,7 @@
 import { getActivePromptTemplate, type PromptTemplateStage } from "../ai/promptTemplates";
 import type { CourseProject } from "../types";
 import { buildChatMessages, requestChatCompletion } from "./openaiClient";
+import { recordCourseAiSpend } from "./aiSpendMeter";
 
 export type AiSource = "ai" | "deterministic";
 
@@ -57,6 +58,10 @@ export interface GenerateJsonArgs {
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
+  /** Telemetry: course id so the server can group spend per course. */
+  courseId?: string;
+  /** Telemetry: override the logged job type (defaults to the stage). */
+  jobType?: string;
 }
 
 /**
@@ -74,8 +79,14 @@ export const generateJson = async <T>(args: GenerateJsonArgs): Promise<T> => {
     temperature: args.temperature ?? 0.5,
     maxTokens: args.maxTokens,
     responseFormat: { type: "json_object" },
+    jobType: args.jobType ?? args.stage,
+    courseId: args.courseId,
     signal: args.signal
   });
+
+  // Tally real spend the moment the (priced) reply lands — even if the JSON below fails to parse,
+  // the tokens were spent, so the live badge must reflect them.
+  recordCourseAiSpend(args.courseId, result.cost);
 
   const trimmed = result.content.trim();
   if (!trimmed) throw new Error("AI returned an empty response.");

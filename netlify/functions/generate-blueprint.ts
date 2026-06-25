@@ -97,9 +97,13 @@ export default async (request: Request): Promise<Response> => {
       return json(502, { error: `Model returned invalid blueprint JSON: ${error instanceof Error ? error.message : "parse error"}` });
     }
 
-    await recordAiUsage(user.id, "blueprint", { model: payload?.model ?? MODEL, promptSnapshot: prompt.slice(0, 500) });
+    const cost = await recordAiUsage(user.id, "blueprint", {
+      model: payload?.model ?? MODEL,
+      promptSnapshot: prompt.slice(0, 500),
+      usage: payload?.usage ?? null
+    });
 
-    return json(200, { blueprint, model: payload?.model ?? MODEL, usage: payload?.usage ?? null });
+    return json(200, { blueprint, model: payload?.model ?? MODEL, usage: payload?.usage ?? null, cost });
   } catch (error) {
     const aborted = error instanceof Error && error.name === "AbortError";
     return json(aborted ? 504 : 502, { error: aborted ? "AI request timed out." : "Failed to reach the AI service." });
