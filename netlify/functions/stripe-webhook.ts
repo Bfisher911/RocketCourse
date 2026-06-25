@@ -10,6 +10,7 @@ import { json } from "./_shared/http";
 import { getSupabaseAdmin } from "./_shared/supabaseAdmin";
 import { getStripe, resolvePriceId } from "./_shared/stripe";
 import { ensureWorkspaceForSubscription } from "./_shared/workspaceSync";
+import { markReferredConverted } from "./_shared/referrals";
 import { resolveSeatCount } from "../../src/billing/stripeParams";
 import { getPlan, plans, type Plan, type PlanKey } from "../../src/data/plans";
 
@@ -152,6 +153,15 @@ const handleCheckoutCompleted = async (session: Stripe.Checkout.Session): Promis
   if (!userId) return;
 
   await recordRedemption(session, userId);
+
+  // Best-effort: if this paying customer came from a campaign waitlist, mark them converted and
+  // advance any inbound referral to `paid`. Fully isolated — never affects the billing writes below.
+  try {
+    const email = session.customer_details?.email ?? session.customer_email ?? null;
+    if (email) await markReferredConverted(supabase(), email);
+  } catch {
+    /* never let referral bookkeeping disrupt the webhook */
+  }
 
   // One-time payment (semester pass): no Stripe subscription object — we own the period window.
   if (session.mode === "payment") {

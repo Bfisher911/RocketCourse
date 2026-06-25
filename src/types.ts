@@ -11,6 +11,7 @@ export type Screen =
   | "demo"
   | "terms"
   | "privacy"
+  | "foundingCohort"
   | "integration"
   | "login"
   | "signup"

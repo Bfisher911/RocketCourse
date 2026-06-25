@@ -73,6 +73,7 @@ import { DemoIntro } from "./components/DemoIntro";
 import { DemoTour } from "./components/DemoTour";
 import { LegalPage } from "./components/LegalPage";
 import { IntegrationPage } from "./components/IntegrationPage";
+import { FoundingCohortPage } from "./components/FoundingCohortPage";
 import { TransformTab } from "./components/TransformTab";
 import { PublicFooter } from "./components/PublicFooter";
 import { CampaignBanner } from "./components/CampaignBanner";
@@ -786,6 +787,7 @@ function App() {
             onPricing={() => setScreen("pricing")}
             onTryDemo={() => setScreen("demo")}
             onGuides={() => setScreen("guides")}
+            onFoundingCohort={() => setScreen("foundingCohort")}
           />
           <PublicFooter onNavigate={setScreen} />
         </>
@@ -839,6 +841,15 @@ function App() {
       {screen === "integration" && (
         <>
           <IntegrationPage
+            onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
+            onTryDemo={() => setScreen("demo")}
+          />
+          <PublicFooter onNavigate={setScreen} />
+        </>
+      )}
+      {screen === "foundingCohort" && (
+        <>
+          <FoundingCohortPage
             onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
             onTryDemo={() => setScreen("demo")}
           />
@@ -1272,13 +1283,15 @@ function Landing({
   onDashboard,
   onPricing,
   onTryDemo,
-  onGuides
+  onGuides,
+  onFoundingCohort
 }: {
   onStart: () => void;
   onDashboard: () => void;
   onPricing: () => void;
   onTryDemo: () => void;
   onGuides: () => void;
+  onFoundingCohort: () => void;
 }) {
   // Scroll-reveal: fade + rise landing sections into view as the user scrolls. Progressive
   // enhancement (the .reveal-ready / .reveal classes are added by JS, so no-JS keeps content
@@ -1316,6 +1329,13 @@ function Landing({
       <section className="landing-hero">
         <BrandOrbitalAccent />
         <div className="landing-copy">
+          <button type="button" className="founding-ribbon" onClick={onFoundingCohort}>
+            <span className="founding-ribbon__tag">
+              <Rocket size={13} /> Founding Cohort
+            </span>
+            <span className="founding-ribbon__text">40% off your first 3 months + a live AI course-building workshop</span>
+            <ArrowRight size={14} className="founding-ribbon__arrow" />
+          </button>
           <LogoWordmark height={116} priority className="hero-logo" />
           <span className="hero-badge">
             <Sparkles size={15} /> Canvas-first course builder for instructors & designers
@@ -1330,6 +1350,9 @@ function Landing({
           <div className="hero-actions">
             <button className="primary" onClick={onStart}>
               <Sparkles size={18} /> Build your first course
+            </button>
+            <button className="secondary" onClick={onFoundingCohort}>
+              <Rocket size={17} /> Join the Founding Cohort
             </button>
             <button className="secondary" onClick={onTryDemo}>
               <PanelLeft size={17} /> Try the demo

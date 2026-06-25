@@ -15,10 +15,16 @@ import {
   syncDiscounts
 } from "./_shared/discounts";
 import {
+  assignSignupPromo,
   createCampaign,
+  isPipelineStage,
+  isReferralEventStatus,
   setCampaignStatus,
+  setReferralStatus,
+  setSignupPipeline,
   setSignupStatus,
-  updateCampaign
+  updateCampaign,
+  type PipelineStage
 } from "./_shared/campaignsAdmin";
 import type { DiscountInput } from "../../src/billing/discountValidation";
 import type { CampaignInput } from "../../src/services/campaigns";
@@ -197,6 +203,56 @@ export default async (request: Request): Promise<Response> => {
       const result = await setSignupStatus(signupId, status as "pending" | "approved" | "rejected" | "waitlisted" | "converted");
       if (!result.ok) return json(result.status ?? 400, { error: result.error });
       await audit("campaign_signup_status_changed", "campaign_signup", signupId, { status });
+      return json(200, { ok: true });
+    }
+
+    // ---- Waitlist CRM: pipeline stage + private admin notes ----
+    case "setSignupPipeline": {
+      const signupId = String(body.signupId ?? "");
+      if (!signupId) return json(400, { error: "signupId is required." });
+      const stageRaw = body.pipelineStage === undefined ? undefined : String(body.pipelineStage);
+      if (stageRaw !== undefined && !isPipelineStage(stageRaw)) return json(400, { error: "Invalid pipeline stage." });
+      const result = await setSignupPipeline(signupId, {
+        pipelineStage: stageRaw as PipelineStage | undefined,
+        adminNotes: body.adminNotes === undefined ? undefined : String(body.adminNotes ?? "")
+      });
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("campaign_signup_pipeline_changed", "campaign_signup", signupId, { stage: stageRaw ?? null });
+      return json(200, { ok: true });
+    }
+
+    // ---- Manually assign a Stripe promotion code to a waitlist entry ----
+    case "assignSignupPromo": {
+      const signupId = String(body.signupId ?? "");
+      if (!signupId) return json(400, { error: "signupId is required." });
+      const result = await assignSignupPromo(signupId, body.promoCode === null ? null : String(body.promoCode ?? ""));
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("campaign_signup_promo_assigned", "campaign_signup", signupId, { promoCode: body.promoCode ?? null });
+      return json(200, { ok: true });
+    }
+
+    // ---- Advance a referral event's status ----
+    case "setReferralStatus": {
+      const eventId = String(body.eventId ?? "");
+      const status = String(body.status ?? "");
+      if (!eventId) return json(400, { error: "eventId is required." });
+      if (!isReferralEventStatus(status)) return json(400, { error: "Invalid referral status." });
+      const result = await setReferralStatus(
+        eventId,
+        status as "pending_signup" | "signed_up" | "paid" | "rewarded" | "disqualified"
+      );
+      if (!result.ok) return json(result.status ?? 400, { error: result.error });
+      await audit("referral_status_changed", "referral_event", eventId, { status });
+      return json(200, { ok: true });
+    }
+
+    // ---- Audit a waitlist export (PII leaves the system; record who/what/when) ----
+    case "logWaitlistExport": {
+      const campaignId = String(body.campaignId ?? "") || null;
+      const format = String(body.format ?? "csv");
+      const segment = String(body.segment ?? "all");
+      const count = Math.max(0, Math.floor(Number(body.count) || 0));
+      await audit("waitlist_exported", "campaign", campaignId, { format, segment, count });
       return json(200, { ok: true });
     }
 

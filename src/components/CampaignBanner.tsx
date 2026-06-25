@@ -12,16 +12,22 @@ import {
 } from "../services/platformClient";
 import { remainingSlots, type Campaign, type CampaignPlacement } from "../services/campaigns";
 
+// Returns the unified UTM shape the signup function expects ({ source, medium, ... }), stripping the
+// "utm_" prefix from the query params.
 const readUtm = (): Record<string, string> => {
   if (typeof window === "undefined") return {};
   const params = new URLSearchParams(window.location.search);
   const utm: Record<string, string> = {};
   for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"]) {
     const v = params.get(key);
-    if (v) utm[key] = v;
+    if (v) utm[key.replace("utm_", "")] = v;
   }
   return utm;
 };
+
+// The Founding Cohort has its own dedicated landing page (/founding-cohort) with a richer form, so it
+// is not also rendered as an inline banner card here (avoids two competing signup CTAs on the homepage).
+const DEDICATED_PAGE_SLUGS = new Set(["founding-cohort"]);
 
 export function CampaignBanner({ placements }: { placements: CampaignPlacement[] }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -38,7 +44,10 @@ export function CampaignBanner({ placements }: { placements: CampaignPlacement[]
     };
   }, []);
 
-  const matching = useMemo(() => campaigns.filter((c) => placements.includes(c.placement)), [campaigns, placements]);
+  const matching = useMemo(
+    () => campaigns.filter((c) => placements.includes(c.placement) && !(c.slug && DEDICATED_PAGE_SLUGS.has(c.slug))),
+    [campaigns, placements]
+  );
   if (matching.length === 0) return null;
 
   return (

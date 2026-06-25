@@ -8,7 +8,7 @@ import { getSupabaseClient, supabaseConfig } from "./supabaseClient";
 import { getSession } from "../auth/authClient";
 import { isBootstrapSuperAdminEmail } from "../data/platform";
 import { getPlan, type PlanKey } from "../data/plans";
-import { SAMPLE_CAMPAIGN, type Campaign } from "./campaigns";
+import { FOUNDING_COHORT_SAMPLE, SAMPLE_CAMPAIGN, type Campaign } from "./campaigns";
 import type { WorkspaceRole } from "./workspaceRoles";
 
 const isLocal = (): boolean => !supabaseConfig.isConfigured;
@@ -427,9 +427,34 @@ const mapCampaign = (c: any): Campaign => ({
   webinarUrl: (c.webinar_url as string) ?? null,
   tutorialAt: (c.tutorial_at as string) ?? null,
   audienceLabel: (c.audience_label as string) ?? null,
-  confirmationMessage: (c.confirmation_message as string) ?? null
+  confirmationMessage: (c.confirmation_message as string) ?? null,
+  subheadline: (c.subheadline as string) ?? null,
+  offerSummary: (c.offer_summary as string) ?? null,
+  discountPercent: (c.discount_percent as number) ?? null,
+  discountDuration: (c.discount_duration as string) ?? null,
+  discountDurationMonths: (c.discount_duration_months as number) ?? null,
+  annualDiscountPercent: (c.annual_discount_percent as number) ?? null,
+  stripeCouponId: (c.stripe_coupon_id as string) ?? null,
+  stripePromotionCodeId: (c.stripe_promotion_code_id as string) ?? null,
+  webinarTitle: (c.webinar_title as string) ?? null,
+  webinarDescription: (c.webinar_description as string) ?? null,
+  webinarAt: (c.webinar_at as string) ?? null,
+  webinarCapacity: (c.webinar_capacity as number) ?? null,
+  webinarRsvpStatus: (c.webinar_rsvp_status as Campaign["webinarRsvpStatus"]) ?? "open",
+  referralRewardSummary: (c.referral_reward_summary as string) ?? null,
+  referralThreshold: (c.referral_threshold as number) ?? null,
+  referralRewardMonths: (c.referral_reward_months as number) ?? null,
+  referralReferredDiscountPercent: (c.referral_referred_discount_percent as number) ?? null
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+// Column list shared by the public + admin campaign reads (kept in one place so they never drift).
+const CAMPAIGN_COLUMNS =
+  "id,name,slug,type,headline,subheadline,description,cta_text,status,placement,starts_at,ends_at," +
+  "max_signups,when_full,require_approval,discount_record_id,plan_key,webinar_url,tutorial_at,audience_label," +
+  "confirmation_message,offer_summary,discount_percent,discount_duration,discount_duration_months,annual_discount_percent," +
+  "stripe_coupon_id,stripe_promotion_code_id,webinar_title,webinar_description,webinar_at,webinar_capacity,webinar_rsvp_status," +
+  "referral_reward_summary,referral_threshold,referral_reward_months,referral_referred_discount_percent";
 
 /** Public: active, in-window campaigns for the marketing site (with PII-free signup counts). */
 export const loadActiveCampaigns = async (): Promise<Campaign[]> => {
@@ -438,9 +463,7 @@ export const loadActiveCampaigns = async (): Promise<Campaign[]> => {
   if (!client) return [];
   const { data } = await client
     .from("campaigns")
-    .select(
-      "id,name,slug,type,headline,description,cta_text,status,placement,starts_at,ends_at,max_signups,when_full,require_approval,discount_record_id,plan_key,webinar_url,tutorial_at,audience_label,confirmation_message"
-    )
+    .select(CAMPAIGN_COLUMNS)
     .eq("status", "active")
     .order("created_at", { ascending: false });
   const campaigns = (data ?? []).map(mapCampaign);
@@ -461,25 +484,59 @@ export const loadActiveCampaigns = async (): Promise<Campaign[]> => {
 
 export interface CampaignSignupResult {
   ok: boolean;
+  id?: string;
   outcome?: "open" | "waitlist" | "closed";
+  status?: string;
   message?: string;
   discountCode?: string | null;
+  referralCode?: string | null;
   webinarUrl?: string | null;
+  tutorialAt?: string | null;
+  emailSent?: boolean;
   already?: boolean;
 }
 
-/** Public: submit a campaign signup. In local-dev, returns a safe simulated confirmation. */
+/** Public: submit a campaign / waitlist signup. In local-dev, returns a safe simulated confirmation. */
 export const submitCampaignSignup = async (payload: Record<string, unknown>): Promise<CampaignSignupResult> => {
   if (isLocal()) {
+    // Deterministic-looking demo code derived from the email so the success state feels real offline.
+    const email = String(payload.email ?? "").toLowerCase();
+    const suffix = email.replace(/[^a-z0-9]/g, "").slice(0, 6).toUpperCase().padEnd(6, "X");
     return {
       ok: true,
       outcome: "open",
-      message: SAMPLE_CAMPAIGN.confirmationMessage ?? "Thanks for signing up!",
-      webinarUrl: SAMPLE_CAMPAIGN.webinarUrl,
-      discountCode: "ROCKET-DEMO"
+      status: "approved",
+      message: FOUNDING_COHORT_SAMPLE.confirmationMessage ?? "Thanks for joining!",
+      webinarUrl: FOUNDING_COHORT_SAMPLE.webinarUrl,
+      discountCode: "FOUNDING40",
+      referralCode: `RC-${suffix}`
     };
   }
   return callFunction<CampaignSignupResult>("campaign-signup", payload);
+};
+
+/** Alias with a waitlist-oriented name for the dedicated landing page. */
+export const submitWaitlist = submitCampaignSignup;
+
+/**
+ * Public: load a single campaign by slug for a dedicated landing page (e.g. /founding-cohort).
+ * Local-dev returns the built-in Founding Cohort sample so the page is fully demo-able offline.
+ */
+export const loadFoundingCohort = async (slug = "founding-cohort"): Promise<Campaign | null> => {
+  if (isLocal()) return slug === "founding-cohort" ? FOUNDING_COHORT_SAMPLE : null;
+  const client = await getSupabaseClient();
+  if (!client) return null;
+  const { data } = await client.from("campaigns").select(CAMPAIGN_COLUMNS).eq("slug", slug).eq("status", "active").maybeSingle();
+  if (!data) return null;
+  const campaign = mapCampaign(data);
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: count } = await (client as any).rpc("campaign_signup_count", { p_campaign: campaign.id });
+    if (typeof count === "number") campaign.signupCount = count;
+  } catch {
+    /* ignore */
+  }
+  return campaign;
 };
 
 /** Super admin: every campaign (any status) with its signup count. */
@@ -490,9 +547,7 @@ export const loadCampaigns = async (): Promise<Campaign[]> => {
   const [{ data }, { data: signups }] = await Promise.all([
     client
       .from("campaigns")
-      .select(
-        "id,name,slug,type,headline,description,cta_text,status,placement,starts_at,ends_at,max_signups,when_full,require_approval,discount_record_id,plan_key,webinar_url,tutorial_at,audience_label,confirmation_message,created_at"
-      )
+      .select(`${CAMPAIGN_COLUMNS},created_at`)
       .order("created_at", { ascending: false }),
     client.from("campaign_signups").select("campaign_id,status")
   ]);
@@ -506,41 +561,117 @@ export const loadCampaigns = async (): Promise<Campaign[]> => {
 export interface CampaignSignupRow {
   id: string;
   campaignId: string;
+  firstName: string | null;
+  lastName: string | null;
   name: string | null;
   email: string;
   institution: string | null;
   role: string | null;
+  courseArea: string | null;
+  primaryUseCase: string | null;
+  painPoint: string | null;
   notes: string | null;
   status: string;
+  pipelineStage: string | null;
   isWaitlisted: boolean;
+  wantsWebinarSeat: boolean;
+  consentToEmail: boolean;
   referralSource: string | null;
+  referralCodeUsed: string | null;
+  assignedReferralCode: string | null;
+  assignedStripePromoCode: string | null;
   discountCode: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  landingPagePath: string | null;
+  adminNotes: string | null;
   createdAt: string;
 }
+
+const SIGNUP_COLUMNS =
+  "id,campaign_id,first_name,last_name,name,email,institution,role,course_area,primary_use_case,pain_point,notes," +
+  "status,pipeline_stage,is_waitlisted,wants_webinar_seat,consent_to_email,referral_source,referral_code_used," +
+  "assigned_referral_code,assigned_stripe_promo_code,discount_code,utm_source,utm_medium,utm_campaign,utm_content," +
+  "utm_term,landing_page_path,admin_notes,created_at";
 
 export const loadCampaignSignups = async (campaignId?: string): Promise<CampaignSignupRow[]> => {
   if (isLocal()) return [];
   const client = await getSupabaseClient();
   if (!client) return [];
+  let query = client.from("campaign_signups").select(SIGNUP_COLUMNS).order("created_at", { ascending: false }).limit(5000);
+  if (campaignId) query = query.eq("campaign_id", campaignId);
+  const { data } = await query;
+  // The select string is a const (not a literal) so supabase-js can't infer the row type; the
+  // columns are known and the shape is mapped explicitly below.
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+  return rows.map((r) => ({
+    id: r.id as string,
+    campaignId: r.campaign_id as string,
+    firstName: (r.first_name as string) ?? null,
+    lastName: (r.last_name as string) ?? null,
+    name: (r.name as string) ?? null,
+    email: r.email as string,
+    institution: (r.institution as string) ?? null,
+    role: (r.role as string) ?? null,
+    courseArea: (r.course_area as string) ?? null,
+    primaryUseCase: (r.primary_use_case as string) ?? null,
+    painPoint: (r.pain_point as string) ?? null,
+    notes: (r.notes as string) ?? null,
+    status: r.status as string,
+    pipelineStage: (r.pipeline_stage as string) ?? null,
+    isWaitlisted: Boolean(r.is_waitlisted),
+    wantsWebinarSeat: Boolean(r.wants_webinar_seat),
+    consentToEmail: Boolean(r.consent_to_email),
+    referralSource: (r.referral_source as string) ?? null,
+    referralCodeUsed: (r.referral_code_used as string) ?? null,
+    assignedReferralCode: (r.assigned_referral_code as string) ?? null,
+    assignedStripePromoCode: (r.assigned_stripe_promo_code as string) ?? null,
+    discountCode: (r.discount_code as string) ?? null,
+    utmSource: (r.utm_source as string) ?? null,
+    utmMedium: (r.utm_medium as string) ?? null,
+    utmCampaign: (r.utm_campaign as string) ?? null,
+    utmContent: (r.utm_content as string) ?? null,
+    utmTerm: (r.utm_term as string) ?? null,
+    landingPagePath: (r.landing_page_path as string) ?? null,
+    adminNotes: (r.admin_notes as string) ?? null,
+    createdAt: r.created_at as string
+  }));
+};
+
+export interface ReferralEventRow {
+  id: string;
+  campaignId: string;
+  code: string | null;
+  referrerSignupId: string | null;
+  referredSignupId: string | null;
+  referredEmail: string | null;
+  status: string;
+  createdAt: string;
+}
+
+/** Super admin: referral events (the referral graph) for a campaign or all campaigns. */
+export const loadReferralEvents = async (campaignId?: string): Promise<ReferralEventRow[]> => {
+  if (isLocal()) return [];
+  const client = await getSupabaseClient();
+  if (!client) return [];
   let query = client
-    .from("campaign_signups")
-    .select("id,campaign_id,name,email,institution,role,notes,status,is_waitlisted,referral_source,discount_code,created_at")
+    .from("referral_events")
+    .select("id,campaign_id,code,referrer_signup_id,referred_signup_id,referred_email,status,created_at")
     .order("created_at", { ascending: false })
-    .limit(1000);
+    .limit(5000);
   if (campaignId) query = query.eq("campaign_id", campaignId);
   const { data } = await query;
   return (data ?? []).map((r) => ({
     id: r.id as string,
     campaignId: r.campaign_id as string,
-    name: (r.name as string) ?? null,
-    email: r.email as string,
-    institution: (r.institution as string) ?? null,
-    role: (r.role as string) ?? null,
-    notes: (r.notes as string) ?? null,
+    code: (r.code as string) ?? null,
+    referrerSignupId: (r.referrer_signup_id as string) ?? null,
+    referredSignupId: (r.referred_signup_id as string) ?? null,
+    referredEmail: (r.referred_email as string) ?? null,
     status: r.status as string,
-    isWaitlisted: Boolean(r.is_waitlisted),
-    referralSource: (r.referral_source as string) ?? null,
-    discountCode: (r.discount_code as string) ?? null,
     createdAt: r.created_at as string
   }));
 };

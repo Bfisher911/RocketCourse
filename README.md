@@ -22,6 +22,56 @@ A full public surface, viewable without an account:
 - **About**, **Guides** — product story and how-to content.
 - **Contact** — an inquiry form (see below).
 - **Demo** — the separated no-account sample (see below).
+- **Founding Cohort** (`/founding-cohort`) — the launch campaign landing page (see below).
+
+## Founding Cohort campaign funnel (`/founding-cohort`)
+
+A dedicated, conversion-focused launch landing page plus the campaign/waitlist/referral backend
+behind it. Everything visible on the page is driven by the campaign record, so the Super Admin edits
+copy, the offer, the webinar, and the referral reward without a deploy.
+
+- **Landing page** (`src/components/FoundingCohortPage.tsx`) — full-screen cosmic hero (stars,
+  nebula, orbital paths, a scroll-reactive Canvas course-shell), an offer section (40% off 3 months /
+  30% annual, all configurable), a webinar section, and a rich waitlist form. All motion respects
+  `prefers-reduced-motion`; every input has a real `<label>`; CTAs are keyboard accessible. The page
+  is registered in `src/seo-routes.json`, so the existing prerender + SEO pipeline gives it correct
+  per-URL metadata and a sitemap entry — no React Router needed.
+- **Waitlist** — captured by the public `campaign-signup` Netlify Function (service role). It enforces
+  the signup cap / waitlist switch server-side, dedupes on `(campaign_id, lower(email))`, mints a
+  personal referral code, attributes an inbound referral (self-referral-guarded), audit-logs, and
+  sends a **best-effort welcome email** (Resend via `_shared/email.ts`; builder in
+  `src/services/campaignEmail.ts`, degrades silently when `RESEND_API_KEY` is unset).
+- **Referrals** — `referral_codes` + `referral_events` tables; pure rules in `src/services/referrals.ts`
+  (code generation, self-referral guard, reward thresholds). Each signup gets a copyable referral link
+  on the success screen. Lifecycle: a signup creates a `signed_up` event; when the referred user later
+  pays, the **Stripe webhook** advances it to `paid` and marks the waitlist entry `converted`
+  (best-effort, isolated from billing); the referrer's free-month reward is granted from Super Admin
+  (`rewarded`) so money never moves automatically.
+- **Super Admin → Campaigns & waitlist** (`src/components/admin/CampaignsManager.tsx`) — create/edit
+  campaigns (incl. offer, webinar, and referral-reward config), then filter/search/segment the
+  waitlist, set pipeline stage + notes, assign a Stripe promo code, and export the current view as
+  **CSV or XLSX** (every export is audit-logged). Segments: All, Webinar RSVPs, Instructors,
+  Instructional designers, Department/admin buyers, High-intent, Referral signups. Campaign edits and
+  exports are recorded in `audit_events`.
+
+**Data model & seed:** `supabase/migrations/0010_founding_cohort_waitlist.sql` (extends
+`campaign_signups` + `campaigns`, adds `referral_codes` + `referral_events`, RLS) and
+`0011_seed_founding_cohort.sql` (seeds the active **RocketCourse Founding Cohort** campaign,
+idempotently). Stripe coupon/promotion codes are intentionally left null at seed time — create them
+server-side from the Super Admin and link via the campaign's discount record.
+
+**Go-live checklist** (no new env vars are required — it reuses the existing Supabase/Stripe/Resend
+config in `.env.example`):
+
+1. Apply migrations through `0011` to your Supabase project.
+2. Confirm the seeded campaign exists and is `active` (or edit it in Super Admin).
+3. (Optional) Create the 40%/3-month coupon + promotion code from Super Admin and link it to the
+   campaign so a code is issued on signup.
+4. (Optional) Set the webinar date/time, capacity, and link in the campaign editor.
+5. Verify a signup end-to-end with `netlify dev` (the Function needs the service role key).
+
+Offline/local-dev (no Supabase) renders the page from a built-in sample and simulates signup so the
+funnel is fully demo-able without a backend.
 
 ## Public demo flow (no account, no AI credits)
 
@@ -86,8 +136,10 @@ form **gracefully falls back to a prefilled mailto link** — no email is sent s
 ```bash
 npm install
 netlify dev --offline   # full stack (app + functions) at http://localhost:8888
-npm run build           # tsc + vite production build
-npm test                # vitest (342+ tests)
+npm run build           # tsc + vite production build + prerender
+npm test                # vitest (580+ tests)
+npm run typecheck       # strict TS across the app + Netlify functions
+npm run lint            # dependency-free static checks (no leaked secrets / focused tests / debugger)
 ```
 
 > Use **`netlify dev`** (not plain `vite`) so the `/.netlify/functions/*` AI / Stripe / contact

@@ -5,7 +5,8 @@ import {
   isValidEmail,
   remainingSlots,
   slugifyCampaign,
-  validateCampaignInput
+  validateCampaignInput,
+  validateWaitlistInput
 } from "./campaigns";
 
 describe("campaignSignupState", () => {
@@ -97,5 +98,81 @@ describe("validateCampaignInput", () => {
   it("requires a discount for a limited_discount campaign", () => {
     expect(validateCampaignInput({ name: "First 50", type: "limited_discount" }).ok).toBe(false);
     expect(validateCampaignInput({ name: "First 50", type: "limited_discount", discountRecordId: "abc" }).ok).toBe(true);
+  });
+
+  it("normalizes the marketing offer + webinar + referral config", () => {
+    const v = validateCampaignInput({
+      name: "Founding Cohort",
+      discountPercent: "40",
+      discountDuration: "repeating",
+      discountDurationMonths: "3",
+      annualDiscountPercent: 30,
+      webinarRsvpStatus: "open",
+      webinarCapacity: "100",
+      referralThreshold: 3,
+      referralRewardMonths: 1,
+      referralReferredDiscountPercent: 10
+    });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.value.discountPercent).toBe(40);
+    expect(v.value.discountDuration).toBe("repeating");
+    expect(v.value.discountDurationMonths).toBe(3);
+    expect(v.value.annualDiscountPercent).toBe(30);
+    expect(v.value.webinarRsvpStatus).toBe("open");
+    expect(v.value.referralThreshold).toBe(3);
+  });
+
+  it("clamps percentages to 0–100 and rejects invalid duration/rsvp", () => {
+    const v = validateCampaignInput({ name: "X", discountPercent: 250, discountDuration: "weird", webinarRsvpStatus: "bogus" });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.value.discountPercent).toBe(100);
+    expect(v.value.discountDuration).toBeNull();
+    expect(v.value.webinarRsvpStatus).toBe("open"); // safe default
+  });
+});
+
+describe("validateWaitlistInput", () => {
+  it("requires a valid email", () => {
+    expect(validateWaitlistInput({ email: "not-an-email" }).ok).toBe(false);
+    expect(validateWaitlistInput({ email: "" }).ok).toBe(false);
+    expect(validateWaitlistInput({ email: "person@uni.edu" }).ok).toBe(true);
+  });
+
+  it("lowercases email, builds a combined name, and coerces booleans", () => {
+    const v = validateWaitlistInput({
+      firstName: "  Pat ",
+      lastName: "Lee",
+      email: "Pat@UNI.edu",
+      wantsWebinarSeat: true,
+      consentToEmail: true
+    });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.value.email).toBe("pat@uni.edu");
+    expect(v.value.name).toBe("Pat Lee");
+    expect(v.value.wantsWebinarSeat).toBe(true);
+    expect(v.value.consentToEmail).toBe(true);
+  });
+
+  it("normalizes the referral code and passes through UTM fields", () => {
+    const v = validateWaitlistInput({
+      email: "a@b.edu",
+      referralCode: "rc-7k2qf9",
+      utm: { source: "newsletter", medium: "email", campaign: "founding" }
+    });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.value.referralCode).toBe("RC-7K2QF9");
+    expect(v.value.utm.source).toBe("newsletter");
+    expect(v.value.utm.term).toBeNull();
+  });
+
+  it("drops an invalid referral code rather than failing the signup", () => {
+    const v = validateWaitlistInput({ email: "a@b.edu", referralCode: "garbage" });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.value.referralCode).toBeNull();
   });
 });

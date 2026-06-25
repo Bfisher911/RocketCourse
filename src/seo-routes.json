@@ -92,6 +92,16 @@
       "intro": "How RocketCourse handles your data, your course content, and your privacy."
     },
     {
+      "screen": "foundingCohort",
+      "path": "/founding-cohort",
+      "index": true,
+      "title": "RocketCourse Founding Cohort — 40% Off + AI Course Building Workshop",
+      "description": "Join the RocketCourse Founding Cohort: 40% off your first 3 months, a live AI Course Building Workshop, early access, and a launch discount. Turn a course idea into a Canvas-ready course shell.",
+      "keywords": "RocketCourse founding cohort, AI course building workshop, Canvas course builder early access, instructional design launch discount, founding member offer",
+      "h1": "Build your next Canvas course before your coffee gets cold.",
+      "intro": "Join the founding cohort for 40% off your first 3 months, a live AI Course Building Workshop, and early access to RocketCourse."
+    },
+    {
       "screen": "integration",
       "path": "/integration",
       "index": true,
