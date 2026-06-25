@@ -4,6 +4,7 @@ import { escapeXml } from "../utils/text";
 import { icon, iconLabel, type IconName } from "./themeIcons";
 import { ELEVATION, MEASURE, RADIUS, SPACE } from "./exportTokens";
 import { buildBloomPyramid, buildGradeWeightDonut } from "./themeDataViz";
+import { seededBannerDecor } from "./generativeArt";
 
 export type ThemeValidationStatus = "pass" | "review";
 export type ThemePreviewKind = "homepage" | "syllabus" | "assignment" | "quiz" | "rubric";
@@ -361,6 +362,7 @@ export const buildBannerSvg = (title: string, theme: Theme): string => {
   <rect width="1440" height="360" fill="url(#bannerBg)"/>
   ${pattern.rect}
   ${motifBannerArt(styles.motif)}
+  ${seededBannerDecor(title, styles.onGradient)}
   <rect x="96" y="92" width="640" height="176" rx="18" fill="#ffffff" opacity="0.94"/>
   <text x="132" y="166" font-family="${styles.font}" font-size="44" font-weight="700" fill="#111827">${escapeXml(title)}</text>
   <text x="132" y="214" font-family="${styles.font}" font-size="24" fill="#374151">${escapeXml(theme.bannerLabel)}</text>
