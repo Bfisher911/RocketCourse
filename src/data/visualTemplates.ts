@@ -29,6 +29,7 @@ export const visualTemplates: VisualTemplate[] = [
     syllabusTemplateId: "standard-university",
     theme: theme({
       id: "vt-cognitive-lab",
+      heroScene: "lab",
       name: "Cognitive Lab",
       accent: "#6d28d9",
       accentDark: "#4c1d95",
@@ -55,6 +56,7 @@ export const visualTemplates: VisualTemplate[] = [
     syllabusTemplateId: "standard-university",
     theme: theme({
       id: "vt-writers-studio",
+      heroScene: "manuscript",
       name: "Writer's Studio",
       accent: "#b45309",
       accentDark: "#7c2d12",
@@ -185,6 +187,7 @@ export const visualTemplates: VisualTemplate[] = [
     syllabusTemplateId: "online-course",
     theme: theme({
       id: "vt-space-mission-control",
+      heroScene: "cosmos",
       name: "Space Mission Control",
       accent: "#7c3aed",
       accentDark: "#5b21b6",
@@ -237,6 +240,7 @@ export const visualTemplates: VisualTemplate[] = [
     syllabusTemplateId: "standard-university",
     theme: theme({
       id: "vt-data-observatory",
+      heroScene: "tech",
       name: "Data Observatory",
       accent: "#0891b2",
       accentDark: "#0e7490",
@@ -263,6 +267,7 @@ export const visualTemplates: VisualTemplate[] = [
     syllabusTemplateId: "accreditation-friendly",
     theme: theme({
       id: "vt-civic-forum",
+      heroScene: "city",
       name: "Civic Forum",
       accent: "#1d4ed8",
       accentDark: "#1e3a8a",
@@ -315,6 +320,7 @@ export const visualTemplates: VisualTemplate[] = [
     syllabusTemplateId: "compressed-term",
     theme: theme({
       id: "vt-expedition-map",
+      heroScene: "mountains",
       name: "Expedition Map",
       accent: "#4d7c0f",
       accentDark: "#3f6212",

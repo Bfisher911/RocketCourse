@@ -1,10 +1,11 @@
-import type { Theme, ThemeCardStyle, ThemeFont, ThemeHeroStyle, ThemeMotif, ThemePattern } from "../types";
+import type { Theme, ThemeCardStyle, ThemeFont, ThemeHeroScene, ThemeHeroStyle, ThemeMotif, ThemePattern } from "../types";
 import { bestTextOn, contrastRatio, shiftHue, withAlpha } from "../utils/color";
 import { escapeXml } from "../utils/text";
 import { icon, iconLabel, type IconName } from "./themeIcons";
 import { ELEVATION, MEASURE, RADIUS, SPACE } from "./exportTokens";
 import { buildBloomPyramid, buildGradeWeightDonut } from "./themeDataViz";
 import { seededBannerDecor } from "./generativeArt";
+import { buildHeroSceneSvg, sceneArt } from "./heroScenes";
 
 export type ThemeValidationStatus = "pass" | "review";
 export type ThemePreviewKind = "homepage" | "syllabus" | "assignment" | "quiz" | "rubric";
@@ -28,6 +29,7 @@ export interface ThemeStyles {
   font: string;
   heroStyle: ThemeHeroStyle;
   cardStyle: ThemeCardStyle;
+  heroScene?: ThemeHeroScene;
 }
 
 // Canvas-safe system font stacks (no @font-face / web fonts). "sans" matches the legacy look exactly,
@@ -169,7 +171,8 @@ export const getThemeStyles = (theme: Theme): ThemeStyles => {
     onGradient: textForGradient(gradientFrom, gradientTo),
     font: fontStack(theme.fontFamily),
     heroStyle: theme.heroStyle ?? "banner",
-    cardStyle: theme.cardStyle ?? "elevated"
+    cardStyle: theme.cardStyle ?? "elevated",
+    heroScene: theme.heroScene
   };
 };
 
@@ -349,9 +352,15 @@ const motifBannerArt = (motif: ThemeMotif): string => {
 export const buildBannerSvg = (title: string, theme: Theme): string => {
   const styles = getThemeStyles(theme);
   const pattern = svgBannerPattern(styles.pattern);
+  // When the theme opts into a figurative scene, the banner background becomes that duotone
+  // illustration (its taller foreground simply clips at 360). The white title card stays for
+  // a readable course title regardless of the scene.
+  const background = styles.heroScene
+    ? sceneArt(styles.heroScene, styles)
+    : `${pattern.rect}\n  ${motifBannerArt(styles.motif)}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="360" viewBox="0 0 1440 360" role="img" aria-labelledby="bannerTitle bannerDesc">
   <title id="bannerTitle">${escapeXml(title)} course banner</title>
-  <desc id="bannerDesc">Gradient banner using the ${escapeXml(theme.name)} theme.</desc>
+  <desc id="bannerDesc">${styles.heroScene ? `Illustrated ${escapeXml(styles.heroScene)} scene banner` : "Gradient banner"} using the ${escapeXml(theme.name)} theme.</desc>
   <defs>
     <linearGradient id="bannerBg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${escapeXml(styles.gradientFrom)}"/>
@@ -360,8 +369,7 @@ export const buildBannerSvg = (title: string, theme: Theme): string => {
     ${pattern.def}
   </defs>
   <rect width="1440" height="360" fill="url(#bannerBg)"/>
-  ${pattern.rect}
-  ${motifBannerArt(styles.motif)}
+  ${background}
   ${seededBannerDecor(title, styles.onGradient)}
   <rect x="96" y="92" width="640" height="176" rx="18" fill="#ffffff" opacity="0.94"/>
   <text x="132" y="166" font-family="${styles.font}" font-size="44" font-weight="700" fill="#111827">${escapeXml(title)}</text>
@@ -501,6 +509,22 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
   const eyebrow = `<div style="display: inline-block; margin: 0 0 16px; padding: 6px 14px; border-radius: 999px; background: ${withAlpha(onInk, 0.18)}; color: ${styles.onGradient}; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>`;
   const wrap = (hero: string): string =>
     `<div style="font-family: ${styles.font}; color: ${styles.canvasText}; line-height: 1.65;">${hero}${body}</div>`.trim();
+
+  // Figurative full-bleed scene (takes precedence over heroStyle): a duotone illustration behind the
+  // title, with a left scrim + text-shadow for readability. The scene is an inline SVG element
+  // (NOT a CSS background) so Canvas keeps it.
+  if (styles.heroScene) {
+    const textShadow = styles.onGradient === "#ffffff" ? "0 1px 14px rgba(0,0,0,0.5)" : "0 1px 14px rgba(255,255,255,0.55)";
+    return wrap(`<div style="position: relative; overflow: hidden; margin: 0 0 24px; border-radius: 18px; box-shadow: ${SHADOW_MD}; min-height: 220px;">
+    ${buildHeroSceneSvg(styles.heroScene, styles)}
+    <div style="position: relative; padding: 52px 40px;">
+      ${eyebrow}
+      <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 40px; line-height: 1.12; font-weight: 900; max-width: 62%; text-shadow: ${textShadow};">${escHtml(title)}</h1>
+      <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: 0 0 14px;"></div>
+      <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.97; font-size: 17px; max-width: 50ch; text-shadow: ${textShadow};">${escHtml(subtitle)}</p>
+    </div>
+  </div>`);
+  }
 
   // "minimal": flat soft panel with a thin accent top rule and dark text — no gradient. Distinct, calm.
   if (styles.heroStyle === "minimal") {

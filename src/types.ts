@@ -236,6 +236,11 @@ export type ThemeHeroStyle =
   | "editorial"
   | "medallion";
 
+// Full-bleed figurative hero illustration (a duotone scene drawn in the theme palette), rendered
+// behind the homepage hero title. Optional + back-compatible; takes precedence over heroStyle when
+// set. See services/heroScenes.ts.
+export type ThemeHeroScene = "lab" | "city" | "manuscript" | "mountains" | "tech" | "cosmos";
+
 // Section-card treatment. "elevated" is the legacy top-bar shadowed card.
 export type ThemeCardStyle =
   | "elevated"
@@ -268,6 +273,8 @@ export interface Theme {
   fontFamily?: ThemeFont;
   heroStyle?: ThemeHeroStyle;
   cardStyle?: ThemeCardStyle;
+  /** Full-bleed figurative hero scene (overrides heroStyle on the homepage hero when set). */
+  heroScene?: ThemeHeroScene;
 }
 
 // A cohesive, named visual template a user can apply to ANY course. It bundles a curated theme
