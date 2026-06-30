@@ -16,7 +16,7 @@ export const findSyllabusPage = (course: CourseProject): CoursePage | undefined 
   course.pages.find((page) => page.slug === "syllabus") ??
   course.pages.find((page) => /syllabus/i.test(page.title));
 
-export const buildSyllabusPdfBlob = (course: CourseProject): Blob => {
+const buildSyllabusDoc = (course: CourseProject): PdfDoc => {
   const doc = new PdfDoc().theme(course.theme.accent, course.theme.accentDark);
   doc.setFooter(`${course.title || "Course"} - Syllabus`);
   const settings = course.settings;
@@ -97,7 +97,12 @@ export const buildSyllabusPdfBlob = (course: CourseProject): Blob => {
     "This printable syllabus is generated from the RocketCourse syllabus model. Review dates, contact details, " +
       "institutional policies, required materials, links, grading, and accessibility information before publishing."
   );
-  return doc.blob();
+  return doc;
 };
+
+/** The printable syllabus as raw PDF bytes-string (for embedding in the .imscc web_resources). */
+export const buildSyllabusPdf = (course: CourseProject): string => buildSyllabusDoc(course).build();
+
+export const buildSyllabusPdfBlob = (course: CourseProject): Blob => buildSyllabusDoc(course).blob();
 
 export const syllabusPdfFileName = (course: CourseProject): string => `${slugify(course.title || "course")}-syllabus.pdf`;
