@@ -73,8 +73,8 @@ export const polishCourse = (course: CourseProject): TransformResult => {
   if (pages) summary.push(`Added accessibility guidance to ${pages} page(s).`);
   if (assignments) summary.push(`Added a clarity pass to ${assignments} assignment(s).`);
   if (discussions) summary.push(`Added example prompts to ${discussions} discussion(s).`);
-  if (summary.length) summary.push("Deterministic guidance — no AI credits used. Use per-object AI revise for deeper rewrites.");
-  else summary.push("Every page, assignment, and discussion already has polish guidance — nothing to change.");
+  if (summary.length) summary.push("Deterministic guidance. No AI credits used. Use per-object AI revise for deeper rewrites.");
+  else summary.push("Every page, assignment, and discussion already has polish guidance, nothing to change.");
 
   return { course: { ...course, pages: nextPages, assignments: nextAssignments, discussions: nextDiscussions, updatedAt: timestamp, status: "edited" }, summary };
 };
@@ -123,7 +123,7 @@ export const makeCourseExportReady = (course: CourseProject): TransformResult =>
   if (blockers.length) {
     summary.push(`${blockers.length} blocker(s) still need manual attention: ${blockers.slice(0, 3).map((check) => check.label).join("; ")}.`);
   } else {
-    summary.push("No blocking readiness issues remain — this course is export-ready.");
+    summary.push("No blocking readiness issues remain. This course is export-ready.");
   }
 
   return { course: { ...next, updatedAt: timestamp, status: "edited" }, summary };

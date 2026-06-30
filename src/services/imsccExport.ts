@@ -16,7 +16,7 @@ import type {
   Rubric
 } from "../types";
 import { escapeXml, slugify, stripHtml } from "../utils/text";
-import { unsafeHtmlReasons } from "./htmlSafety";
+import { headingOrderIssues, imageTagsMissingAltCount, malformedLinksFromHtml, unsafeHtmlReasons } from "./htmlSafety";
 import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
@@ -26,8 +26,10 @@ import { validateRubricPlan } from "./rubricBuilder";
 import { buildReadinessReport } from "./readiness";
 import { repairCourse } from "./courseRepair";
 import { buildBannerSvg, buildCourseTileSvg, buildModuleHeaderSvg } from "./themeDesign";
+import { buildVisualCourseAssetSvg } from "./visualCourseAssets";
 import { canvasRefResolves, canvasRefTargets, isCanvasRef } from "./canvasLinks";
 import { collectXmlParseErrors, formatXmlParseError } from "./xmlWellFormed";
+import { REQUIRED_VISIBLE_NAVIGATION_IDS } from "./navigationDefaults";
 
 const CANVAS_NAMESPACE = "http://canvas.instructure.com/xsd/cccv1p0";
 const CANVAS_XSD_URI = "https://canvas.instructure.com/xsd/cccv1p0.xsd";
@@ -166,16 +168,17 @@ const CANVAS_TAB_IDS: Record<string, number> = {
 const canvasTabConfiguration = (course: CourseProject): string => {
   const idsSeen = new Set<number>();
   const entries: string[] = [];
+  const requiredVisible = new Set<string>(REQUIRED_VISIBLE_NAVIGATION_IDS);
   const push = (navId: string, hidden: boolean): void => {
     const tabId = CANVAS_TAB_IDS[navId];
     if (tabId === undefined || idsSeen.has(tabId)) return;
     idsSeen.add(tabId);
     entries.push(hidden ? `{"id":${tabId},"hidden":true}` : `{"id":${tabId}}`);
   };
-  course.navigation.filter((item) => item.visible).forEach((item) => push(item.id, false));
-  course.navigation.filter((item) => !item.visible).forEach((item) => push(item.id, true));
-  // Always hide the remaining non-essential built-in tabs even if the course nav didn't list them.
-  ["pages", "assignments", "quizzes", "discussions", "files", "outcomes", "collaborations", "rubrics", "conferences"].forEach((navId) => push(navId, true));
+  REQUIRED_VISIBLE_NAVIGATION_IDS.forEach((navId) => push(navId, false));
+  course.navigation.filter((item) => !requiredVisible.has(item.id)).forEach((item) => push(item.id, true));
+  // Always hide every remaining built-in tab even if the course nav model did not list it.
+  Object.keys(CANVAS_TAB_IDS).filter((navId) => !requiredVisible.has(navId)).forEach((navId) => push(navId, true));
   return `[${entries.join(",")}]`;
 };
 
@@ -230,7 +233,15 @@ const createAssignmentXml = (assignment: Assignment): string => `<?xml version="
   <grading_type>points</grading_type>
   ${assignment.dueAt ? `<due_at>${xml(assignment.dueAt)}</due_at>` : ""}
   <submission_types>online_text_entry,online_upload</submission_types>
-  ${assignment.rubricId ? `<rubric_identifierref>${xml(assignment.rubricId)}</rubric_identifierref>` : ""}
+  ${
+    assignment.rubricId
+      ? `<rubric_identifierref>${xml(assignment.rubricId)}</rubric_identifierref>
+  <rubric_use_for_grading>true</rubric_use_for_grading>
+  <rubric_hide_points>false</rubric_hide_points>
+  <rubric_hide_outcome_results>false</rubric_hide_outcome_results>
+  <rubric_hide_score_total>false</rubric_hide_score_total>`
+      : ""
+  }
   <description>${xml(stripHtml(assignment.descriptionHtml))}</description>
 </assignment>`;
 
@@ -256,7 +267,15 @@ const createDiscussionMetaXml = (discussion: Discussion): string => `<?xml versi
     <grading_type>points</grading_type>
     ${discussion.dueAt ? `<due_at>${xml(discussion.dueAt)}</due_at>` : ""}
     <assignment_group_identifierref>${xml(discussion.assignmentGroupId)}</assignment_group_identifierref>
-    ${discussion.rubricId ? `<rubric_identifierref>${xml(discussion.rubricId)}</rubric_identifierref>` : ""}
+    ${
+      discussion.rubricId
+        ? `<rubric_identifierref>${xml(discussion.rubricId)}</rubric_identifierref>
+    <rubric_use_for_grading>true</rubric_use_for_grading>
+    <rubric_hide_points>false</rubric_hide_points>
+    <rubric_hide_outcome_results>false</rubric_hide_outcome_results>
+    <rubric_hide_score_total>false</rubric_hide_score_total>`
+        : ""
+    }
   </assignment>`
       : ""
   }
@@ -292,8 +311,10 @@ ${rubrics
     <public>false</public>
     <workflow_state>${workflowState(rubric.publishState)}</workflow_state>
     <points_possible>${rubric.points}</points_possible>
+    <hide_score_total>false</hide_score_total>
     <aligned_outcome_identifierrefs>${xml(rubric.alignedOutcomeIds.join(","))}</aligned_outcome_identifierrefs>
     <free_form_criterion_comments>false</free_form_criterion_comments>
+    <rating_order>descending</rating_order>
     <criteria>
 ${rubric.criteria
   .map(
@@ -311,6 +332,7 @@ ${criterion.levels
             <points>${level.points}</points>
             <criterion_id>${xml(criterion.id)}</criterion_id>
             <long_description>${xml(level.description)}</long_description>
+            <id>${xml(`${criterion.id}_${slugify(level.label)}`)}</id>
           </rating>`
   )
   .join("\n")}
@@ -768,6 +790,10 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
       }
     });
   }
+  course.fileAssets.forEach((asset) => {
+    const svg = buildVisualCourseAssetSvg(course, asset.path);
+    if (svg && !zip.file(asset.path)) zip.file(asset.path, svg);
+  });
   zip.file("web_resources/syllabus-printable.html", printableHtml("Printable Syllabus", syllabusPage?.bodyHtml ?? ""));
   zip.file(
     "web_resources/syllabus-printable.pdf",
@@ -970,6 +996,14 @@ export const validateImsccZip = async (input: CourseProject, zip: JSZip): Promis
     if (blockUnsafeReasons.length > 0) fail(`unsafe-html-${block.id}`, `${block.title} includes Canvas-hostile HTML: ${blockUnsafeReasons.join(", ")}.`);
     hrefsFrom(block.html).forEach((href) => {
       if (placeholderHref(href)) fail(`placeholder-link-${block.id}`, `${block.title} includes a placeholder or unsafe link: ${href || "(empty)"}.`);
+    });
+    malformedLinksFromHtml(block.html).forEach((href, index) => {
+      warn(`malformed-link-${block.id}-${index + 1}`, `${block.title} includes a malformed link: ${href}.`);
+    });
+    const missingAlt = imageTagsMissingAltCount(block.html);
+    if (missingAlt > 0) warn(`missing-alt-${block.id}`, `${block.title} has ${missingAlt} image(s) missing alt text or decorative marking.`);
+    headingOrderIssues(block.html).forEach((issue, index) => {
+      warn(`heading-order-${block.id}-${index + 1}`, `${block.title}: ${issue}`);
     });
   });
 

@@ -43,6 +43,65 @@ export const unsafeHtmlReasons = (html: string): string[] =>
 
 export const hasUnsafeHtml = (html: string): boolean => UNSAFE_HTML_RULES.some((rule) => rule.test.test(html));
 
+export const hrefsFromHtml = (html: string): string[] => Array.from(html.matchAll(/href\s*=\s*["']([^"']*)["']/gi)).map((match) => match[1].trim());
+
+export const malformedLinksFromHtml = (html: string): string[] =>
+  hrefsFromHtml(html).filter((href) => {
+    if (!href || href === "#") return false;
+    if (/[\u0000-\u001f<>]/.test(href)) return true;
+    if (/^www\./i.test(href)) return true;
+    if (/^https?:\/(?!\/)/i.test(href)) return true;
+    if (/^mailto:\s*$/i.test(href)) return true;
+    if (/^tel:\s*$/i.test(href)) return true;
+    return false;
+  });
+
+export const imageTagsMissingAltCount = (html: string): number =>
+  Array.from(html.matchAll(/<img\b[^>]*>/gi)).filter((match) => {
+    const tag = match[0];
+    const alt = tag.match(/\salt\s*=\s*(["'])(.*?)\1/i);
+    if (!alt) return true;
+    const value = alt[2].trim();
+    if (value) return false;
+    return !/(role\s*=\s*["']?(presentation|none)|aria-hidden\s*=\s*["']?true)/i.test(tag);
+  }).length;
+
+export const headingOrderIssues = (html: string): string[] => {
+  const levels = Array.from(html.matchAll(/<h([1-6])\b[^>]*>/gi)).map((match) => Number(match[1]));
+  const issues: string[] = [];
+  let previous = 0;
+  levels.forEach((level, index) => {
+    if (index === 0 && level > 1) issues.push(`First heading is h${level}, not h1.`);
+    if (previous && level > previous + 1) issues.push(`Heading jumps from h${previous} to h${level}.`);
+    previous = level;
+  });
+  return issues;
+};
+
+export interface HtmlSafetyIssue {
+  id: string;
+  label: string;
+  detail: string;
+}
+
+export const htmlSafetyIssues = (html: string): HtmlSafetyIssue[] => {
+  const issues: HtmlSafetyIssue[] = unsafeHtmlReasons(html).map((reason) => ({
+    id: `unsafe-${reason.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+    label: "Canvas-hostile HTML",
+    detail: reason
+  }));
+  malformedLinksFromHtml(html).forEach((href, index) => {
+    issues.push({ id: `malformed-link-${index + 1}`, label: "Malformed link", detail: href });
+  });
+  const missingAlt = imageTagsMissingAltCount(html);
+  if (missingAlt > 0) issues.push({ id: "missing-image-alt", label: "Image alt text missing", detail: `${missingAlt} image(s) need alt text or decorative marking.` });
+  const headingIssues = headingOrderIssues(html);
+  headingIssues.forEach((detail, index) => {
+    issues.push({ id: `heading-order-${index + 1}`, label: "Heading order issue", detail });
+  });
+  return issues;
+};
+
 // A ready-to-show validation detail naming the exact unsafe constructs found, or null when the
 // HTML is safe. `subject` is the thing being described, e.g. "page", "assignment", "question".
 export const unsafeHtmlDetail = (html: string, subject: string): string | null => {

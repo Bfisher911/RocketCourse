@@ -19,7 +19,7 @@ import {
   Wand2,
   X
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_SYLLABUS_TEMPLATE_ID,
   PRINTABLE_HTML_HREF,
@@ -42,6 +42,7 @@ import { aiGenerateSyllabusContent } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import { ReadinessRing } from "./ReadinessRing";
+import { RockContentToolbox } from "./RockContentToolbox";
 import type { CourseProject, SyllabusContent, SyllabusSnapshot, SyllabusState } from "../types";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
@@ -141,6 +142,7 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
     assignmentOverview: true
   });
   const [compareId, setCompareId] = useState<string | null>(null);
+  const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const ai = useAiAction();
 
   useEffect(() => {
@@ -272,6 +274,19 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
     }));
   };
 
+  const applyRockContent = (bodyHtml: string, reason: string): void => {
+    if (!state) return;
+    const updatedAt = new Date().toISOString();
+    onUpdateCourse((current) => ({
+      ...current,
+      syllabus: current.syllabus
+        ? { ...current.syllabus, mode: "custom", updatedAt, snapshots: withSnapshot(`Before ${reason}`, current.syllabus.snapshots) }
+        : current.syllabus,
+      pages: current.pages.map((item) => (item.id === page.id ? { ...item, bodyHtml, status: "edited", metadata: { ...item.metadata, updatedAt, source: "edited" } } : item))
+    }));
+    setAdvancedOpen(true);
+  };
+
   const rebuildFromStructured = (): void => {
     if (!state) return;
     const html = renderSyllabus(state.templateId, state.content, course.theme);
@@ -353,6 +368,14 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
 
       <div className="hp-split syllabus-split">
         <div className="hp-editor">
+          <RockContentToolbox
+            course={course}
+            value={page.bodyHtml}
+            surface="syllabus"
+            textareaRef={htmlEditorRef}
+            onChange={applyRockContent}
+          />
+
           {isCustom ? (
             <div className="hp-custom-panel">
               <div className="hp-mode-banner">
@@ -410,7 +433,7 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
                 {!isCustom && <button className="hp-chip" onClick={enterCustomMode}>Edit raw HTML</button>}
               </div>
               <p className="hp-hint">Changes here affect Canvas export. The editor saves a snapshot before raw HTML editing begins.</p>
-              <textarea className="hp-html-textarea" aria-label="Syllabus Canvas HTML" spellCheck={false} rows={18} value={page.bodyHtml} readOnly={!isCustom} onChange={(event) => editRawHtml(event.target.value)} />
+              <textarea ref={htmlEditorRef} className="hp-html-textarea" aria-label="Syllabus Canvas HTML" spellCheck={false} rows={18} value={page.bodyHtml} readOnly={!isCustom} onChange={(event) => editRawHtml(event.target.value)} />
               {!isCustom && <p className="hp-hint">This is read-only until you choose "Edit raw HTML." Use structured fields for safer edits.</p>}
             </div>
           )}

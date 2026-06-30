@@ -1,6 +1,6 @@
 import type { CourseProject, ModuleItemType, ReadinessCheck, ReadinessReport } from "../types";
 import { slugify, stripHtml } from "../utils/text";
-import { hasUnsafeHtml } from "./htmlSafety";
+import { hasUnsafeHtml, headingOrderIssues, imageTagsMissingAltCount, malformedLinksFromHtml } from "./htmlSafety";
 import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
@@ -10,6 +10,8 @@ import { validateRubricPlan } from "./rubricBuilder";
 import { validateSyllabus } from "./syllabusValidation";
 import { canvasRefTargets } from "./canvasLinks";
 import { CALENDAR_HREF, SUCCESS_GUIDE_HREF } from "./homepageTemplates";
+import { validateTheme } from "./themeDesign";
+import { navigationMatchesRequiredDefaults, visibleNavigationLabels } from "./navigationDefaults";
 
 const check = (
   id: string,
@@ -76,6 +78,28 @@ const hasModuleBoundaryPages = (course: CourseProject): boolean =>
         module.items.some((item) => item.type === "page" && /(overview|about )/i.test(item.title)) &&
         module.items.some((item) => item.type === "page" && /(wrap|recap|end of )/i.test(item.title))
     );
+
+const contentModuleOverviewPages = (course: CourseProject): Array<{ moduleTitle: string; pageTitle: string; html: string }> =>
+  course.modules
+    .filter((module) => module.kind === "content")
+    .flatMap((module) =>
+      module.items
+        .filter((item) => item.type === "page" && /(overview|about )/i.test(item.title))
+        .map((item) => {
+          const page = course.pages.find((candidate) => candidate.id === item.refId);
+          return page ? { moduleTitle: module.title, pageTitle: page.title, html: page.bodyHtml } : null;
+        })
+        .filter((value): value is { moduleTitle: string; pageTitle: string; html: string } => Boolean(value))
+    );
+
+const hasAny = (html: string, patterns: RegExp[]): boolean => patterns.some((pattern) => pattern.test(html));
+
+const visualPatternCoverage = (course: CourseProject): number => {
+  const blocks = bodyBlocks(course);
+  if (!blocks.length) return 0;
+  const themed = blocks.filter((block) => block.html.includes(course.theme.accent) || block.html.includes(course.theme.accentDark) || block.html.includes(course.theme.soft)).length;
+  return Math.round((themed / blocks.length) * 100);
+};
 
 // Content modules need a full learning path, not just overview/recap bookends around an empty
 // middle: a readings/resources stop and a lecture-or-practice stop are required too.
@@ -217,7 +241,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const homepageCalendarResolves = Boolean(homepage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes(CALENDAR_HREF)) && calendarPage);
   const syllabusPrintable = course.fileAssets.some((asset) => asset.path === "web_resources/syllabus-printable.pdf");
   const syllabusValidation = syllabus
-    ? validateSyllabus(syllabus.bodyHtml, { knownTargets: new Set([...pageTargetSet, ...resourceTargetSet]), includeContactHours: course.settings.includeContactHours })
+    ? validateSyllabus(syllabus.bodyHtml, { knownTargets: new Set([...pageTargetSet, ...resourceTargetSet, ...tokenTargetSet]), includeContactHours: course.settings.includeContactHours })
     : null;
   const instructorPrintable = course.fileAssets.some((asset) => asset.path === "web_resources/instructor-guide.pdf");
   const blockedDates = new Set([...(scheduleSettings.holidays ?? []), ...(scheduleSettings.blackoutDates ?? [])]);
@@ -232,9 +256,8 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const reviewPriorities = new Set(course.reviewChecklist.map((item) => item.priority));
   const reviewChecklistHasCoverage = (["must", "recommended", "optional"] as const).every((priority) => reviewPriorities.has(priority));
   const humanReviewPage = course.pages.find((page) => page.slug === "before-publishing-human-review-checklist");
-  const desiredVisibleNavigation = new Set(["Home", "Announcements", "Syllabus", "Modules", "Grades", "People"]);
-  const visibleNavigation = course.navigation.filter((item) => item.visible).map((item) => item.label);
-  const navigationMatches = visibleNavigation.every((label) => desiredVisibleNavigation.has(label)) && desiredVisibleNavigation.size === visibleNavigation.length;
+  const visibleNavigation = visibleNavigationLabels(course.navigation);
+  const navigationMatches = navigationMatchesRequiredDefaults(course.navigation);
   const allRubricsAligned = course.rubrics.length > 0 && course.rubrics.every((rubric) => rubric.alignedOutcomeIds.length > 0 && rubric.alignedOutcomeIds.every((outcomeId) => outcomeIds.has(outcomeId)));
   const shallowRubrics = course.rubrics.filter(
     (rubric) => rubric.criteria.length < 3 || rubric.points <= 0 || rubric.criteria.some((criterion) => criterion.levels.length < 2)
@@ -286,6 +309,68 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
       ].filter((value): value is string => Boolean(value))
     : ["Start Here module"];
 
+  const overviewPages = contentModuleOverviewPages(course);
+  const overviewPagesByModule = new Set(overviewPages.map((page) => page.moduleTitle));
+  const contentModules = course.modules.filter((module) => module.kind === "content");
+  const overviewPagesComplete = contentModules.every((module) => overviewPagesByModule.has(module.title));
+  const overviewRichPages = overviewPages.filter(
+    (page) =>
+      hasAny(page.html, [/Module Mission Briefing/i]) &&
+      hasAny(page.html, [/Big Question/i]) &&
+      hasAny(page.html, [/Objectives Chips|Module Learning Objectives/i]) &&
+      hasAny(page.html, [/Read-Watch-Do Path|Student Action Steps/i]) &&
+      hasAny(page.html, [/Module Map/i]) &&
+      hasAny(page.html, [/Before You Begin Checklist/i])
+  );
+  const homepageVisualReady = Boolean(
+    homepage &&
+      hasAny(homepage.bodyHtml, [/Start Here/i]) &&
+      hasAny(homepage.bodyHtml, [/Course Navigation|Navigation/i]) &&
+      hasAny(homepage.bodyHtml, [/Journey|Map/i]) &&
+      hasAny(homepage.bodyHtml, [/Need Help|Support/i]) &&
+      (homepage.bodyHtml.match(/<h2\b/gi)?.length ?? 0) >= 4
+  );
+  const assignmentLaunchpads = course.assignments.filter((assignment) =>
+    hasAny(assignment.descriptionHtml, [/Deliverable Checklist|Deliverables/i]) &&
+    hasAny(assignment.descriptionHtml, [/Rubric Preview|Rubric/i]) &&
+    hasAny(assignment.descriptionHtml, [/Success Checklist|Before You Submit/i])
+  );
+  const discussionGuidance = course.discussions.filter((discussion) =>
+    hasAny(discussion.promptHtml, [/Reply Guidance|Reply Instructions|Replies/i]) &&
+    hasAny(discussion.promptHtml, [/Conversation Moves|Peer Response|Sample Strong Reply/i])
+  );
+  const syllabusVisualReady = Boolean(
+    syllabus &&
+      hasAny(syllabus.bodyHtml, [/Grading Breakdown Visual|Grading Breakdown/i]) &&
+      hasAny(syllabus.bodyHtml, [/Communication Expectations|Participation and Communication/i]) &&
+      hasAny(syllabus.bodyHtml, [/Technology Needed|Technology Requirements/i]) &&
+      hasAny(syllabus.bodyHtml, [/Accessibility and Inclusion|Accessibility and Accommodations/i])
+  );
+  const allHeadingIssues = bodyBlocks(course).flatMap((block) => headingOrderIssues(block.html).map((issue) => `${block.title}: ${issue}`));
+  const malformedLinks = htmlBlocks(course).flatMap((block) => malformedLinksFromHtml(block.html).map((href) => `${block.title}: ${href}`));
+  const missingAltImages = htmlBlocks(course).flatMap((block) => {
+    const count = imageTagsMissingAltCount(block.html);
+    return count > 0 ? [`${block.title}: ${count} image(s)`] : [];
+  });
+  const themeValidation = validateTheme(course.theme);
+  const supportInfoPresent = htmlBlocks(course).some((block) => hasAny(block.html, [/Need Help|Help and Support|Student Support|support resources/i]));
+  const visualPatternPercent = visualPatternCoverage(course);
+  const visualPolishSignals = [
+    homepageVisualReady,
+    startHereMissing.length === 0,
+    overviewPagesComplete && overviewRichPages.length === contentModules.length,
+    assignmentLaunchpads.length === course.assignments.length,
+    discussionGuidance.length === course.discussions.length,
+    syllabusVisualReady,
+    allHeadingIssues.length === 0,
+    unsafeBlocks.length === 0 && malformedLinks.length === 0,
+    themeValidation.status === "pass",
+    missingAltImages.length === 0,
+    supportInfoPresent,
+    visualPatternPercent >= 80
+  ];
+  const visualPolishScore = Math.round((visualPolishSignals.filter(Boolean).length / visualPolishSignals.length) * 100);
+
   const checks: ReadinessCheck[] = [
     check("objectives", "Learning objectives present", course.outcomes.length >= 3, `${course.outcomes.length} course outcomes.`),
     check("objective-quality", "Objectives are substantive and uniquely coded", weakObjectives.length === 0 && distinctOutcomeCodes, weakObjectives.length ? `${weakObjectives.length} outcome(s) have missing codes or thin text.` : distinctOutcomeCodes ? "Every outcome has a distinct code and substantive text." : "Outcome codes are duplicated."),
@@ -305,6 +390,20 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("page-quality", "Pages pass safety and structure checks", pageBlockers.length === 0 && pagePlanValidation.score >= 85, pageBlockers.length ? `${pageBlockers.length} page blocker(s): ${pageBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Page validation score is ${pagePlanValidation.score}.`, "recommended"),
     check("reference-integrity", "Cross-object references resolve", danglingRefs.length === 0, danglingRefs.length ? `${danglingRefs.length} broken reference(s): ${danglingRefs.slice(0, 3).join("; ")}.` : "Group, rubric, outcome, module, and item references all resolve."),
     check("start-here-content", "Start Here module carries orientation content", startHereMissing.length === 0, startHereMissing.length ? `Start Here is missing: ${startHereMissing.join(", ")}.` : "Start Here includes the homepage, syllabus, success guide, and calendar."),
+    check("visual-polish-score", "Visual readiness score is strong", visualPolishScore >= 85, `Visual polish score is ${visualPolishScore}.`, "recommended"),
+    check("visual-homepage-structure", "Homepage has strong visual structure", homepageVisualReady, homepage ? "Homepage includes Start Here, navigation, journey/support cues, and multiple sections." : "No homepage found.", "recommended"),
+    check("visual-start-here-guidance", "Start Here guidance exists", startHereMissing.length === 0 && supportInfoPresent, startHereMissing.length ? `Start Here is missing: ${startHereMissing.join(", ")}.` : "Start Here and support/help guidance are present.", "recommended"),
+    check("visual-module-overviews", "Each module has a polished overview page", overviewPagesComplete && overviewRichPages.length === contentModules.length, overviewPagesComplete ? `${overviewRichPages.length}/${contentModules.length} content module overview page(s) include mission, question, objectives, path, map, and checklist.` : `${contentModules.length - overviewPagesByModule.size} content module(s) are missing overview pages.`, "recommended"),
+    check("visual-module-action-steps", "Module overview pages include objectives and student action steps", overviewRichPages.length === contentModules.length, overviewRichPages.length === contentModules.length ? "Overview pages include objectives and student action steps." : `${contentModules.length - overviewRichPages.length} overview page(s) need objectives, Read-Watch-Do, or action steps.`, "recommended"),
+    check("visual-assignment-launchpads", "Assignments include deliverable checklists", assignmentLaunchpads.length === course.assignments.length, `${assignmentLaunchpads.length}/${course.assignments.length} assignment(s) include deliverable, success, and rubric guidance.`, "recommended"),
+    check("visual-discussion-guidance", "Discussions include reply guidance", discussionGuidance.length === course.discussions.length, `${discussionGuidance.length}/${course.discussions.length} discussion(s) include reply guidance and conversation moves.`, "recommended"),
+    check("visual-syllabus-sections", "Syllabus includes visual grading and communication sections", syllabusVisualReady, syllabusVisualReady ? "Syllabus includes grading, communication, technology, and accessibility sections." : "Syllabus needs grading, communication, technology, or accessibility sections.", "recommended"),
+    check("visual-heading-order", "Pages use valid heading order", allHeadingIssues.length === 0, allHeadingIssues.length ? allHeadingIssues.slice(0, 3).join("; ") : "No heading-order jumps found in page, assignment, or discussion bodies.", "recommended"),
+    check("visual-html-safety", "Blocks avoid unsafe or malformed HTML", unsafeBlocks.length === 0 && malformedLinks.length === 0, unsafeBlocks.length ? `${unsafeBlocks.length} content block(s) include unsafe HTML.` : malformedLinks.length ? malformedLinks.slice(0, 3).join("; ") : "No unsafe HTML or malformed links found.", "recommended"),
+    check("visual-theme-contrast", "Theme contrast is acceptable", themeValidation.status === "pass", `Theme contrast score is ${themeValidation.score}; ${themeValidation.warnings} warning(s).`, "recommended"),
+    check("visual-image-alt", "Image placeholders include alt-text guidance", missingAltImages.length === 0, missingAltImages.length ? missingAltImages.slice(0, 3).join("; ") : "Images include alt text or decorative marking.", "recommended"),
+    check("visual-support-info", "Course has support/help information", supportInfoPresent, supportInfoPresent ? "Support and help information appears in student-facing content." : "Add Need Help, Student Support, or Help and Support guidance.", "recommended"),
+    check("visual-pattern-consistency", "Course has a consistent visual pattern", visualPatternPercent >= 80, `${visualPatternPercent}% of major body blocks carry the active theme tokens.`, "recommended"),
     check("weights", "Grade weights total 100%", Math.round(gradeWeightTotal) === 100, `Current assignment group total is ${gradeWeightTotal}%.`),
     check("weight-bounds", "Assignment group weights are in range and balanced", outOfRangeWeightGroups.length === 0 && Math.abs(gradeWeightTotal - 100) < 0.5 && gradedItemsInUnweightedGroup.length === 0, outOfRangeWeightGroups.length ? `${outOfRangeWeightGroups.map((group) => group.name).slice(0, 3).join(", ")} have weights outside 0-100%.` : gradedItemsInUnweightedGroup.length ? `${gradedItemsInUnweightedGroup.map((item) => item.title).slice(0, 3).join(", ")} sit in a 0%-weight group and would not count.` : "Group weights are within range and sum to 100%."),
     check("assignment-groups", "Graded items use meaningful assignment groups", gradedItemsHaveGroups, `${gradedItems.length} graded items checked for assignment group references.`),

@@ -2,6 +2,7 @@ import type { CourseSettings } from "../types";
 
 export const defaultSettings: CourseSettings = {
   buildMode: "hybrid",
+  contentDepth: "complete-course",
   title: "AI and Modern Society",
   description:
     "An undergraduate course exploring the social, ethical, technical, and civic dimensions of artificial intelligence.",
@@ -33,6 +34,7 @@ export const defaultSettings: CourseSettings = {
   outcomeFramework: "bloom",
   structureFramework: "linear",
   modulePattern: "standard",
+  themeIntensity: "polished",
   includeContactHours: true,
   accessibilityFocus: true,
   accessibilityTier: "AA",
@@ -51,7 +53,7 @@ export const defaultSettings: CourseSettings = {
   imageSettings: {
     homepageBannerMode: "generated-svg",
     courseTileMode: "generated-svg",
-    moduleHeaderImages: false,
+    moduleHeaderImages: true,
     futureImageCreditLimit: 20
   },
   sourceFiles: []

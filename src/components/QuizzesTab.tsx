@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Copy, Download, FileQuestion, FileText, Filter, GraduationCap, GripVertical, Key, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { CourseProject, PublishState, Quiz, QuizDifficulty, QuizQuestion, QuizQuestionType } from "../types";
 import { stripHtml } from "../utils/text";
 import {
@@ -19,6 +19,7 @@ import {
 import { aiGenerateQuizQuestions } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
+import { RockContentToolbox } from "./RockContentToolbox";
 
 interface QuizzesTabProps {
   course: CourseProject;
@@ -65,6 +66,7 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
   const [warningFilter, setWarningFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [snapshots, setSnapshots] = useState<QuizSnapshot[]>([]);
+  const purposeEditorRef = useRef<HTMLTextAreaElement | null>(null);
 
   const selectedQuiz = course.quizzes.find((quiz) => quiz.id === selectedQuizId) ?? course.quizzes[0];
   const selectedIssues = selectedQuiz ? validation.issues.filter((issue) => issue.quizId === selectedQuiz.id) : [];
@@ -122,6 +124,12 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
           return { ...quiz, questions: merged, points: quizPoints({ ...quiz, questions: merged }), status: "edited" };
         })
     );
+  };
+
+  const applyRockContent = (purpose: string, reason: string) => {
+    if (!selectedQuiz) return;
+    pushSnapshot(selectedQuiz, reason);
+    updateSelectedQuiz((quiz) => ({ ...quiz, purpose, status: "edited" }));
   };
 
   const duplicateQuestion = (question: QuizQuestion) => {
@@ -263,7 +271,15 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
             <label>Shuffle answers<select value={selectedQuiz.shuffleAnswers ? "yes" : "no"} onChange={(event) => updateSelectedQuiz((quiz) => ({ ...quiz, shuffleAnswers: event.target.value === "yes", status: "edited" }))}><option value="no">No</option><option value="yes">Yes</option></select></label>
           </div>
 
-          <label className="quiz-purpose-editor">Purpose<textarea value={selectedQuiz.purpose} onChange={(event) => updateSelectedQuiz((quiz) => ({ ...quiz, purpose: event.target.value, status: "edited" }))} /></label>
+          <RockContentToolbox
+            course={course}
+            value={selectedQuiz.purpose}
+            surface="quiz"
+            textareaRef={purposeEditorRef}
+            onChange={applyRockContent}
+          />
+
+          <label className="quiz-purpose-editor">Purpose<textarea ref={purposeEditorRef} value={selectedQuiz.purpose} onChange={(event) => updateSelectedQuiz((quiz) => ({ ...quiz, purpose: event.target.value, status: "edited" }))} /></label>
 
           <section className="quiz-outcome-picker" aria-label="Aligned quiz outcomes">
             <header><h4>Outcome alignment</h4><p>Quiz-level outcomes also seed new question alignment.</p></header>

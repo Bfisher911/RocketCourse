@@ -37,12 +37,23 @@ export const objectRef = (kind: CanvasObjectKind, id: string): string => `${OBJE
 export const assignmentRef = (id: string): string => objectRef("assignments", id);
 export const quizRef = (id: string): string => objectRef("quizzes", id);
 export const discussionRef = (id: string): string => objectRef("discussion_topics", id);
+export const moduleRef = (id: string): string => objectRef("modules", id);
 
 /** Link to the course Modules index (the natural "see all modules" destination). */
 export const modulesIndexRef = (): string => `${COURSE_TOKEN}/modules`;
 
 /** Reference a file packaged under web_resources/ (pass the path WITHOUT the web_resources/ prefix). */
 export const fileRef = (nameUnderWebResources: string): string => `${FILE_TOKEN}/${nameUnderWebResources.replace(/^\/+/, "")}`;
+
+/**
+ * Link to a packaged file from exported wiki/assignment/discussion HTML.
+ *
+ * Canvas can leave $IMS-CC-FILEBASE$ unchanged in normal download anchors after import.
+ * Package-relative links give the importer a concrete web_resources target to migrate
+ * into a real Canvas file URL.
+ */
+export const webResourceHref = (nameUnderWebResources: string): string =>
+  `../web_resources/${nameUnderWebResources.replace(/^\/+/, "").replace(/^web_resources\//, "")}`;
 
 // Stable ids for the well-known pages the homepage and course navigation link to.
 // Shared by the generator (which stamps them onto the created pages) and the homepage
@@ -93,6 +104,7 @@ export const canvasRefTargets = (course: CourseProject): Set<string> => {
   course.assignments.forEach((assignment) => targets.add(assignmentRef(assignment.id)));
   course.quizzes.forEach((quiz) => targets.add(quizRef(quiz.id)));
   course.discussions.forEach((discussion) => targets.add(discussionRef(discussion.id)));
+  course.modules.forEach((module) => targets.add(moduleRef(module.id)));
   course.fileAssets.forEach((asset) => {
     targets.add(fileRef(asset.path.replace(/^web_resources\//, "")));
     if (asset.fileName) targets.add(fileRef(asset.fileName));

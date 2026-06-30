@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasUnsafeHtml, sanitizeHtmlForPreview, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
+import { headingOrderIssues, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, sanitizeHtmlForPreview, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
 
 describe("html safety (shared Canvas HTML safety)", () => {
   it("treats clean instructional HTML as safe", () => {
@@ -59,5 +59,27 @@ describe("html safety (shared Canvas HTML safety)", () => {
     expect(clean).not.toMatch(/<style|<iframe|<form|<input|onclick=|javascript:|data:text\/html/i);
     expect(clean).toContain("Hi");
     expect(clean).toContain("ok");
+  });
+
+  it("flags malformed links without treating every relative Canvas link as bad", () => {
+    const html = '<a href="www.example.com">bad</a><a href="http:/broken">bad</a><a href="module-1.html">ok</a><a href="$WIKI_REFERENCE$/pages/page_homepage">ok</a>';
+
+    expect(malformedLinksFromHtml(html)).toEqual(["www.example.com", "http:/broken"]);
+  });
+
+  it("counts images missing useful alt text unless marked decorative", () => {
+    const html = '<img src="x.svg"><img src="y.svg" alt=""><img src="z.svg" alt="" role="presentation"><img src="ok.svg" alt="Course badge">';
+
+    expect(imageTagsMissingAltCount(html)).toBe(2);
+  });
+
+  it("reports practical heading order issues", () => {
+    expect(headingOrderIssues("<h2>Starts too low</h2><h4>Jump</h4>")).toEqual(["First heading is h2, not h1.", "Heading jumps from h2 to h4."]);
+  });
+
+  it("summarizes practical HTML safety issues", () => {
+    const issues = htmlSafetyIssues('<h1>Ok</h1><h3>Jump</h3><img src="x"><a href="www.example.com">bad</a>');
+
+    expect(issues.map((issue) => issue.label)).toEqual(expect.arrayContaining(["Heading order issue", "Image alt text missing", "Malformed link"]));
   });
 });

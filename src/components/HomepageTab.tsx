@@ -19,7 +19,7 @@ import {
   Wand2,
   X
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_TEMPLATE_ID,
   HOMEPAGE_REVISE_ACTIONS,
@@ -41,6 +41,7 @@ import { aiGenerateHomepageContent } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import { ReadinessRing } from "./ReadinessRing";
+import { RockContentToolbox } from "./RockContentToolbox";
 import type { CourseProject, HomepageContent, HomepageLink, HomepageSnapshot, HomepageState } from "../types";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
@@ -130,6 +131,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ hero: true, buttons: true, path: true });
   const [compareId, setCompareId] = useState<string | null>(null);
+  const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const ai = useAiAction();
 
   // Lazily initialize builder state for legacy / imported courses that predate the homepage model.
@@ -182,13 +184,13 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
   const updateContent = (patch: Partial<HomepageContent> | ((prev: HomepageContent) => HomepageContent)): void => {
     if (!state) return;
     const nextContent = typeof patch === "function" ? patch(state.content) : { ...state.content, ...patch };
-    const html = renderHomepage(state.templateId, nextContent, course.theme);
+    const html = renderHomepage(state.templateId, nextContent, course.theme, course);
     writeHomepage({ ...state, content: nextContent, mode: "builder", themeId: course.theme.id, updatedAt: new Date().toISOString() }, html);
   };
 
   const applyTemplate = (templateId: string): void => {
     if (!state) return;
-    const html = renderHomepage(templateId, state.content, course.theme);
+    const html = renderHomepage(templateId, state.content, course.theme, course);
     writeHomepage(
       { ...state, templateId, mode: "builder", themeId: course.theme.id, updatedAt: new Date().toISOString(), snapshots: withSnapshot(`Before applying ${templateMeta(templateId).name}`, state.snapshots) },
       html
@@ -200,7 +202,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
     if (!state) return;
     const meta = HOMEPAGE_REVISE_ACTIONS.find((item) => item.id === action);
     const nextContent = reviseHomepageContent(action, state.content, homepageContextFromCourse(course));
-    const html = renderHomepage(state.templateId, nextContent, course.theme);
+    const html = renderHomepage(state.templateId, nextContent, course.theme, course);
     writeHomepage(
       { ...state, content: nextContent, mode: "builder", themeId: course.theme.id, updatedAt: new Date().toISOString(), snapshots: withSnapshot(`Before "${meta?.label ?? action}"`, state.snapshots) },
       html
@@ -209,7 +211,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
 
   const refreshTheme = (): void => {
     if (!state) return;
-    const html = renderHomepage(state.templateId, state.content, course.theme);
+    const html = renderHomepage(state.templateId, state.content, course.theme, course);
     writeHomepage({ ...state, mode: "builder", themeId: course.theme.id, updatedAt: new Date().toISOString(), snapshots: withSnapshot("Before theme refresh", state.snapshots) }, html);
   };
 
@@ -219,7 +221,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
     void ai.run(
       () => aiGenerateHomepageContent(course, baseState.content),
       (next) => {
-        const html = renderHomepage(baseState.templateId, next, course.theme);
+        const html = renderHomepage(baseState.templateId, next, course.theme, course);
         writeHomepage(
           { ...baseState, content: next, mode: "builder", themeId: course.theme.id, updatedAt: new Date().toISOString(), snapshots: withSnapshot("Before Generate with AI", baseState.snapshots) },
           html
@@ -251,6 +253,19 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
     }));
   };
 
+  const applyRockContent = (bodyHtml: string, reason: string): void => {
+    if (!state) return;
+    const updatedAt = new Date().toISOString();
+    onUpdateCourse((current) => ({
+      ...current,
+      homepage: current.homepage
+        ? { ...current.homepage, mode: "custom", updatedAt, snapshots: withSnapshot(`Before ${reason}`, current.homepage.snapshots) }
+        : current.homepage,
+      pages: current.pages.map((item) => (item.id === page.id ? { ...item, bodyHtml, status: "edited", metadata: { ...item.metadata, updatedAt, source: "edited" } } : item))
+    }));
+    setAdvancedOpen(true);
+  };
+
   const enterCustomMode = (): void => {
     if (!state) return;
     onUpdateCourse((current) => ({ ...current, homepage: current.homepage ? { ...current.homepage, mode: "custom", snapshots: withSnapshot("Before advanced HTML edit", current.homepage.snapshots) } : current.homepage }));
@@ -259,7 +274,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
 
   const returnToBuilder = (): void => {
     if (!state) return;
-    const html = renderHomepage(state.templateId, state.content, course.theme);
+    const html = renderHomepage(state.templateId, state.content, course.theme, course);
     writeHomepage({ ...state, mode: "builder", themeId: course.theme.id, updatedAt: new Date().toISOString(), snapshots: withSnapshot("Before returning to builder", state.snapshots) }, html);
   };
 
@@ -315,7 +330,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
         <section className="hp-gallery" aria-label="Homepage templates">
           {HOMEPAGE_TEMPLATES.map((template) => (
             <div key={template.id} className={`hp-template-card ${state?.templateId === template.id && !isCustom ? "selected" : ""}`}>
-              <div className="hp-template-thumb" aria-hidden="true" dangerouslySetInnerHTML={{ __html: withPreviewAssets(renderHomepage(template.id, content ?? defaultHomepageContent(homepageContextFromCourse(course)), course.theme), course) }} />
+              <div className="hp-template-thumb" aria-hidden="true" dangerouslySetInnerHTML={{ __html: withPreviewAssets(renderHomepage(template.id, content ?? defaultHomepageContent(homepageContextFromCourse(course)), course.theme, course), course) }} />
               <div className="hp-template-body">
                 <div className="hp-template-head">
                   <strong>{template.name}</strong>
@@ -335,6 +350,14 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
       {/* ---------- Split editor / preview ---------- */}
       <div className="hp-split">
         <div className="hp-editor">
+          <RockContentToolbox
+            course={course}
+            value={page.bodyHtml}
+            surface="homepage"
+            textareaRef={htmlEditorRef}
+            onChange={applyRockContent}
+          />
+
           {isCustom ? (
             <div className="hp-custom-panel">
               <div className="hp-mode-banner">
@@ -400,6 +423,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
                 {!isCustom && <button className="hp-chip" onClick={enterCustomMode}>Edit raw HTML</button>}
               </div>
               <textarea
+                ref={htmlEditorRef}
                 className="hp-html-textarea"
                 aria-label="Canvas HTML"
                 spellCheck={false}

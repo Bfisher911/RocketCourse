@@ -70,7 +70,8 @@ describe("RocketCourse export engine", () => {
       // Enriched teaching content: defined key terms, a structured worked example, and why-it-matters.
       expect(page.bodyHtml).toContain("Worked Example");
       expect(page.bodyHtml).toContain("Why This Matters");
-      expect(page.bodyHtml).toContain("<strong>Stakeholder:</strong>");
+      expect(page.bodyHtml).toMatch(/<strong>[^<]+:<\/strong>/);
+      expect(page.bodyHtml).toContain("Artifact:");
       expect(page.bodyHtml).toContain("<ol");
     });
   });
@@ -111,11 +112,11 @@ describe("RocketCourse export engine", () => {
     }
   });
 
-  it("creates resource placeholders without fabricating citations or URLs", () => {
+  it("creates generated resource briefs without fabricating citations or URLs by default", () => {
     expect(sampleProject.resources.length).toBe(sampleProject.settings.moduleCount * 3);
     sampleProject.resources.forEach((resource) => {
-      expect(resource.placeholder).toMatch(/Add verified|Add textbook|upload/i);
-      expect(resource.instructorEditNote).toMatch(/Replace|Add|verified|captions|transcript/i);
+      expect(resource.placeholder).toMatch(/Generated source brief|Generated evidence dossier|Generated media or example prompt/i);
+      expect(resource.instructorEditNote).toMatch(/Optional|replace|verified|captioned|institution-approved/i);
       expect(resource.studentInstructions.length).toBeGreaterThan(40);
     });
   });
@@ -168,7 +169,21 @@ describe("RocketCourse export engine", () => {
     sampleProject.rubrics.forEach((rubric) => {
       expect(rubric.alignedOutcomeIds.length).toBeGreaterThan(0);
       expect(rubric.alignedOutcomeIds.every((outcomeId) => outcomeIds.has(outcomeId))).toBe(true);
+      expect(rubric.criteria.some((criterion) => /^Outcome criterion:/i.test(criterion.title) && criterion.outcomeId)).toBe(true);
     });
+  });
+
+  it("always generates attached rubrics for graded assignments and discussions", () => {
+    const course = generateCourseProject({
+      prompt: "Build me a 6-week course on Mesoamerican Warfare.",
+      settings: { ...defaultSettings, includeRubrics: false, moduleCount: 6, lengthWeeks: 6, assignmentCadence: "every-module", discussionFrequency: "weekly" }
+    });
+    const rubricIds = new Set(course.rubrics.map((rubric) => rubric.id));
+
+    expect(course.assignments.length).toBeGreaterThan(0);
+    expect(course.discussions.filter((discussion) => discussion.points > 0).length).toBeGreaterThan(0);
+    course.assignments.forEach((assignment) => expect(assignment.rubricId && rubricIds.has(assignment.rubricId)).toBe(true));
+    course.discussions.filter((discussion) => discussion.points > 0).forEach((discussion) => expect(discussion.rubricId && rubricIds.has(discussion.rubricId)).toBe(true));
   });
 
   it("generates quiz questions with answer keys, feedback, difficulty, and alignment", () => {
@@ -274,12 +289,14 @@ describe("RocketCourse export engine", () => {
     const zip = await buildImsccZip(sampleProject);
     const report = await validateImsccZip(sampleProject, zip);
     const moduleMeta = await zip.file("course_settings/module_meta.xml")?.async("text");
+    const courseSettingsXml = await zip.file("course_settings/course_settings.xml")?.async("text");
+    const navigationXml = await zip.file("course_settings/course_navigation.xml")?.async("text");
     const syllabusHtml = await zip.file("course_settings/syllabus.html")?.async("text");
     const printableHtml = await zip.file("web_resources/syllabus-printable.html")?.async("text");
 
     expect(report.valid).toBe(true);
-    // Every internal link/banner now uses a Canvas substitution token that resolves to a real
-    // object, so the package must carry zero broken-internal-link findings.
+    // Every internal link/banner/file link resolves to a real object or packaged file, so the
+    // package must carry zero broken-internal-link findings.
     expect(report.issues.filter((issue) => issue.id.startsWith("broken-internal-link"))).toHaveLength(0);
     expect(report.packageName.endsWith(".imscc")).toBe(true);
     expect(report.files).toContain("imsmanifest.xml");
@@ -297,6 +314,30 @@ describe("RocketCourse export engine", () => {
     expect(report.files).toContain("web_resources/course-tile.svg");
     expect(report.files).not.toContain("rubrics.xml");
     expect(report.files).not.toContain("assessment_qti.xml");
+    expect(courseSettingsXml).toContain(
+      '<tab_configuration>[{"id":0},{"id":14},{"id":1},{"id":10},{"id":5},{"id":6},{"id":3,"hidden":true},{"id":8,"hidden":true},{"id":4,"hidden":true},{"id":2,"hidden":true},{"id":11,"hidden":true},{"id":15,"hidden":true},{"id":17,"hidden":true},{"id":16,"hidden":true},{"id":12,"hidden":true},{"id":13,"hidden":true}]</tab_configuration>'
+    );
+    ["Home", "Announcements", "Syllabus", "Modules", "Grades", "People"].forEach((label) => {
+      expect(navigationXml).toContain(`<label>${label}</label>`);
+      expect(navigationXml).toContain("<hidden>false</hidden>");
+    });
+    ["Assignments", "Discussions", "Quizzes", "Pages", "Files", "Outcomes", "Rubrics", "Collaborations", "Conferences"].forEach((label) => {
+      expect(navigationXml).toContain(`<label>${label}</label>`);
+    });
+    const firstAssignment = sampleProject.assignments[0];
+    const assignmentSettings = await zip.file(firstAssignment ? `assignment_${firstAssignment.id.replace(/^assignment_/, "")}/assignment_settings.xml` : "")?.async("text");
+    const firstGradedDiscussion = sampleProject.discussions.find((discussion) => discussion.points > 0);
+    const discussionMeta = await zip.file(firstGradedDiscussion ? `${firstGradedDiscussion.id}_meta.xml` : "")?.async("text");
+    const rubricsXml = await zip.file("course_settings/rubrics.xml")?.async("text");
+    expect(assignmentSettings).toContain("<rubric_identifierref>");
+    expect(assignmentSettings).toContain("<rubric_use_for_grading>true</rubric_use_for_grading>");
+    expect(assignmentSettings).toContain("<rubric_hide_points>false</rubric_hide_points>");
+    expect(discussionMeta).toContain("<rubric_identifierref>");
+    expect(discussionMeta).toContain("<rubric_use_for_grading>true</rubric_use_for_grading>");
+    expect(rubricsXml).toContain("<hide_score_total>false</hide_score_total>");
+    expect(rubricsXml).toContain("<rating_order>descending</rating_order>");
+    expect(rubricsXml).toContain("<learning_outcome_identifierref>");
+    expect(rubricsXml).toContain("Outcome criterion:");
     expect(report.files).toContain("quiz_1/assessment_qti.xml");
     expect(report.files).toContain("quiz_1/assessment_meta.xml");
     expect(report.files).toContain("non_cc_assessments/quiz_1.xml.qti");
@@ -305,10 +346,25 @@ describe("RocketCourse export engine", () => {
     expect(moduleMeta).toContain("<workflow_state>unpublished</workflow_state>");
     expect(syllabusHtml).toContain(PRINTABLE_HTML_HREF);
     expect(syllabusHtml).toContain(PRINTABLE_PDF_HREF);
+    expect(syllabusHtml).not.toContain("$IMS-CC-FILEBASE$/syllabus-printable");
     expect(syllabusHtml).toContain(sampleProject.pages.find((page) => page.slug === "syllabus")?.bodyHtml);
     expect(printableHtml).toContain("<title>Printable Syllabus</title>");
     expect(printableHtml).toContain(sampleProject.title);
     expect(report.sandboxImportStatus).toBe("not_tested");
+  });
+
+  it("uses Canvas course links in the welcome announcement", async () => {
+    const zip = await buildImsccZip(sampleProject);
+    const announcement = sampleProject.announcements[0];
+    const xml = (await zip.file(`${announcement.id}.xml`)?.async("text")) ?? "";
+
+    expect(xml).toContain("$CANVAS_OBJECT_REFERENCE$/modules/module_start");
+    expect(xml).toContain("$CANVAS_OBJECT_REFERENCE$/discussion_topics/discussion_introduce_yourself");
+    expect(xml).toContain("$WIKI_REFERENCE$/pages/page_course_success_guide");
+    expect(xml).toContain("$WIKI_REFERENCE$/pages/page_syllabus");
+    expect(xml).toContain("$WIKI_REFERENCE$/pages/page_course_calendar_workload_plan");
+    expect(xml).not.toContain("Open the Start Here module, read the Course Success Guide");
+    expect(xml).not.toContain("Post in the Introduce Yourself discussion");
   });
 
   it("carries refreshed theme styling into exported Canvas assets and syllabus content", async () => {

@@ -18,7 +18,7 @@ import {
   Trash2,
   Undo2
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ASSIGNMENT_REVISE_ACTIONS,
   ASSIGNMENT_SUBMISSION_TYPES,
@@ -41,6 +41,7 @@ import { stripHtml } from "../utils/text";
 import { aiGenerateAssignmentDescription } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
+import { RockContentToolbox } from "./RockContentToolbox";
 import type { Assignment, CourseProject, ObjectMetadata, PublishState } from "../types";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
@@ -123,6 +124,7 @@ export function AssignmentsTab({
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedTemplateId, setSelectedTemplateId] = useState<AssignmentTemplateId>("essay-paper");
   const [snapshots, setSnapshots] = useState<AssignmentSnapshot[]>([]);
+  const descriptionEditorRef = useRef<HTMLTextAreaElement | null>(null);
 
   const issueMap = useMemo(() => {
     const map = new Map<string, AssignmentIssue[]>();
@@ -248,6 +250,16 @@ export function AssignmentsTab({
             }
           : item
       )
+    }));
+  };
+
+  const applyRockContent = (assignment: Assignment, descriptionHtml: string, reason: string): void => {
+    pushSnapshot(assignment, reason);
+    updateAssignment(assignment.id, (item, timestamp) => ({
+      ...item,
+      descriptionHtml,
+      status: "edited",
+      metadata: touchMetadata(item.metadata, timestamp)
     }));
   };
 
@@ -673,9 +685,18 @@ export function AssignmentsTab({
               </div>
             </section>
 
+            <RockContentToolbox
+              course={course}
+              value={selectedAssignment.descriptionHtml}
+              surface="assignment"
+              textareaRef={descriptionEditorRef}
+              onChange={(descriptionHtml, reason) => applyRockContent(selectedAssignment, descriptionHtml, reason)}
+            />
+
             <label className="assignment-instructions-editor">
               <span>Canvas-safe assignment instructions</span>
               <textarea
+                ref={descriptionEditorRef}
                 rows={16}
                 value={selectedAssignment.descriptionHtml}
                 onChange={(event) =>

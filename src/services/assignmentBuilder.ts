@@ -1,7 +1,7 @@
 import type { Assignment, CourseModule, CourseOutcome, CourseProject, ModuleItem, ObjectMetadata, Rubric } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
 import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
-import { getThemeStyles } from "./themeDesign";
+import { buildAssignmentCard, getThemeStyles } from "./themeDesign";
 import { withAlpha } from "../utils/color";
 
 export type AssignmentTemplateId =
@@ -162,7 +162,7 @@ const escapeHtml = (value: string | number | undefined | null): string =>
 
 const paragraph = (value: string): string => `<p>${escapeHtml(value)}</p>`;
 
-const list = (items: string[]): string => `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+const list = (items: string[] = []): string => `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 
 // Themed section heading (accent color + subtle underline) so generated assignments pick up the
 // course theme and look polished. Canvas-safe inline style only.
@@ -302,14 +302,29 @@ export const buildAssignmentTemplateHtml = (templateId: AssignmentTemplateId, co
 
   return [
     `<div style="${assignmentThemeStyle(course)}"><h2 style="margin-top: 0;">${escapeHtml(title)}</h2>${paragraph(`This ${template.name.toLowerCase()} belongs in ${moduleTitle}. Review local due dates, point values, and policy language before publishing.`)}</div>`,
+    buildAssignmentCard(course.theme, {
+      purpose: details.purpose,
+      task: details.task,
+      deliverable: details.deliverables[0],
+      successCriteria: details.grading[0],
+      points: assignment?.points ?? template.recommendedPoints,
+      estimatedHours: assignment?.estimatedHours ?? template.recommendedHours
+    }),
     section("Purpose", paragraph(details.purpose)),
     section("Task", paragraph(details.task)),
+    section("What You Will Create", paragraph(`Create a ${template.name.toLowerCase()} that makes your thinking visible for ${moduleTitle}. Your work should show the decision, evidence, artifact, analysis, or reflection requested in this prompt.`)),
     section("Deliverables", list(details.deliverables)),
     section("Steps", list(details.steps)),
     section("Format Requirements", list(details.format)),
+    section("Success Checklist", list(["I can name the purpose of the assignment.", "Every required deliverable is present.", "Evidence or examples are specific and explained.", "The work is organized with readable headings or labels.", "Links, files, media, and images are accessible where applicable."])),
     section("Example Success Markers", list(details.examples)),
+    section("Rubric Preview", list([`This assignment is worth ${assignment?.points ?? template.recommendedPoints} points.`, ...(rubric ? [`Use the ${rubric.title} rubric before submitting.`] : ["Instructor should attach or confirm the rubric before publishing."]), ...details.grading])),
+    section("Examples and Non-Examples", list([...details.examples, "Non-example: a broad response that lists ideas without explaining evidence, audience, criteria, or next steps.", "Non-example: a file or link the instructor cannot open or review."])),
     section("Submission Instructions", paragraph(`Submit this assignment in Canvas using ${assignment?.submissionType || template.submissionType}. Confirm that attached files, links, media, and captions open correctly before the deadline.`)),
-    section("Grading Notes", list([`This assignment is worth ${assignment?.points ?? template.recommendedPoints} points.`, ...(rubric ? [`Use the ${rubric.title} rubric when reviewing your work.`] : ["Instructor should attach or confirm the rubric before publishing."]), ...details.grading])),
+    section("AI Use Guidance", paragraph("Follow the official course and institutional AI-use policy. If AI tools are permitted, disclose how they were used, verify all output against course sources, and take responsibility for the final submission.")),
+    section("Time Estimate", paragraph(`Plan for approximately ${assignment?.estimatedHours ?? template.recommendedHours} focused hour(s), including review, drafting, revision, accessibility checks, and rubric review.`)),
+    section("Stretch Goal", paragraph("Add a concise visual, example, appendix, revision note, or alternate path if it makes the work stronger without distracting from required deliverables.")),
+    section("Grading Notes", list(details.grading)),
     section("Accessibility Note", paragraph("Use clear headings, descriptive link text, readable file names, alt text for meaningful images, captions or transcripts for media, and accessible document structure where applicable.")),
     section("Rubric Alignment Prompt", paragraph("Before publishing, confirm the rubric criteria match the task, deliverables, success markers, and selected outcomes.")),
     section("Outcome Alignment", list(outcomeLabels(course.outcomes, alignedOutcomeIds)))

@@ -1856,6 +1856,13 @@ function Intake({
               labels={{ vibe: "Vibe Build", guided: "Guided Build", hybrid: "Hybrid" }}
               onChange={(value) => onSettingsChange("buildMode", value as CourseSettings["buildMode"])}
             />
+            <Select
+              label="Course content"
+              value={settings.contentDepth ?? "complete-course"}
+              options={["complete-course", "generic-template"]}
+              labels={{ "complete-course": "Fully generated course", "generic-template": "Generic editable template" }}
+              onChange={(value) => onSettingsChange("contentDepth", value as CourseSettings["contentDepth"])}
+            />
             <Input label="Course title" value={settings.title} onChange={(value) => onSettingsChange("title", value)} />
             <TextArea label="Course description" value={settings.description} onChange={(value) => onSettingsChange("description", value)} compact />
             <div className="field-grid">
@@ -3198,7 +3205,7 @@ function ThemeTab({
 
   const chooseTheme = (theme: Theme): void => {
     setRefreshNotice(null);
-    onUpdateCourse((current) => ({ ...current, theme, settings: { ...current.settings, themeId: theme.id }, status: "edited" }));
+    onUpdateCourse((current) => ({ ...current, theme, settings: { ...current.settings, themeId: theme.id, themeIntensity: theme.intensity ?? current.settings.themeIntensity }, status: "edited" }));
   };
 
   const refreshThemeStyling = (): void => {
@@ -3211,7 +3218,7 @@ function ThemeTab({
     // One move: swap the curated theme, point homepage/syllabus at the template layouts, and re-theme
     // all generated content so previews + export reflect the look immediately.
     onUpdateCourse((current) => applyVisualTemplate(current, template));
-    setRefreshNotice(`Applied the ${template.name} visual template — homepage, syllabus, module cards, and the export banner were restyled. Manually edited objects were preserved where possible.`);
+    setRefreshNotice(`Applied the ${template.name} visual template. Homepage, syllabus, module cards, and the export banner were restyled. Manually edited objects were preserved where possible.`);
   };
 
   return (
@@ -3252,7 +3259,7 @@ function ThemeTab({
           <div>
             <span className="hp-eyebrow"><Sparkles size={14} /> Visual template gallery</span>
             <h2>Pick a complete course look</h2>
-            <p>Each template bundles a palette, gradient hero, decorative motif, typography, and section-card style — plus matching homepage and syllabus layouts. Apply any look to any course; you can still fine-tune colors below.</p>
+            <p>Each template bundles a palette, gradient hero, decorative motif, typography, and section-card style, plus matching homepage and syllabus layouts. Apply any look to any course; you can still fine-tune colors below.</p>
           </div>
         </header>
         <div className="template-gallery-grid">
@@ -3376,24 +3383,25 @@ function ThemeTab({
         </section>
 
         <section className="theme-refresh-card">
-          <h2>Refresh Course Theme Styling</h2>
+          <h2>Apply Theme to Course Content</h2>
           <p>
             Rebuilds generated homepage, syllabus, guide, module, assignment, discussion, and support page HTML with the selected theme. Manual edits are preserved where possible.
           </p>
           {builderThemeDrift.length > 0 && <p className="theme-refresh-hint">{builderThemeDrift.join(", ")} can be refreshed from structured builder data.</p>}
           <button className="primary" onClick={refreshThemeStyling}>
-            <Sparkles size={18} /> Refresh course theme styling
+            <Sparkles size={18} /> Apply theme to course content
           </button>
           {refreshNotice && <p className="theme-refresh-success"><CheckCircle2 size={15} /> {refreshNotice}</p>}
         </section>
 
         <section className="theme-refresh-card">
           <h2>Export Assets</h2>
-          <p>The exported banner and course tile use the selected theme's soft background, accent, and banner label.</p>
+          <p>The exported banner, tile, module headers, badges, icons, and dividers use the selected theme's palette, motif, and intensity.</p>
           <ul className="compact-list">
             <li>Homepage banner: {course.settings.imageSettings.homepageBannerMode}</li>
             <li>Course tile: {course.settings.imageSettings.courseTileMode}</li>
-            <li>Future image credit limit: {course.settings.imageSettings.futureImageCreditLimit}</li>
+            <li>Module headers: {course.settings.imageSettings.moduleHeaderImages ? "Included" : "Off"}</li>
+            <li>Reusable SVG assets: {course.fileAssets.filter((asset) => /badge|icon|divider/i.test(asset.fileName)).length}</li>
           </ul>
         </section>
       </div>

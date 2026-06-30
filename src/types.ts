@@ -44,6 +44,8 @@ export type EditorTab =
 
 export type BuildMode = "vibe" | "guided" | "hybrid";
 
+export type CourseContentDepth = "complete-course" | "generic-template";
+
 export type CourseLengthPreset = "4-weeks" | "6-weeks" | "8-weeks" | "12-weeks" | "15-weeks" | "16-weeks" | "maymester" | "custom";
 
 export type ModuleOrganizationPattern = "weeks" | "topics" | "chapters" | "units" | "quarters" | "custom";
@@ -119,6 +121,8 @@ export interface ScheduleSettings {
 
 export interface CourseSettings {
   buildMode: BuildMode;
+  /** Controls whether RocketCourse creates complete subject-specific materials or an editable generic shell. */
+  contentDepth?: CourseContentDepth;
   title: string;
   description: string;
   level: string;
@@ -155,6 +159,10 @@ export interface CourseSettings {
   structureFramework: StructureFrameworkKey;
   /** Per-module instructional pattern (how each module's learning path is structured). */
   modulePattern: ModulePatternKey;
+  /** Visual style used by generated module overview pages. Optional + back-compatible. */
+  moduleOverviewStyleId?: ModuleOverviewStyleId;
+  /** Course visual intensity, used by theme-aware generators when present. Optional + back-compatible. */
+  themeIntensity?: ThemeIntensity;
   includeContactHours: boolean;
   accessibilityFocus: boolean;
   /** WCAG contrast tier for generated content. "AAA" deepens themed colors to clear 7:1. Default "AA". */
@@ -278,6 +286,8 @@ export interface Theme {
   cardStyle?: ThemeCardStyle;
   /** Full-bleed figurative hero scene (overrides heroStyle on the homepage hero when set). */
   heroScene?: ThemeHeroScene;
+  /** Clean/polished/immersive visual density. Optional + back-compatible. */
+  intensity?: ThemeIntensity;
 }
 
 // A cohesive, named visual template a user can apply to ANY course. It bundles a curated theme
@@ -307,6 +317,20 @@ export type OutcomeFrameworkKey = "bloom" | "solo" | "knowledge" | "kolb";
 // framing only — the Canvas item graph is unchanged. See services/courseDesignModels.ts.
 export type StructureFrameworkKey = "linear" | "backward" | "spiral" | "thematic" | "competency";
 export type ModulePatternKey = "standard" | "addie" | "gagne" | "inquiry" | "conceptual";
+
+export type ModuleOverviewStyleId =
+  | "weekly-rhythm"
+  | "inquiry-cycle"
+  | "project-sprint"
+  | "case-based"
+  | "debate-based"
+  | "lab-based"
+  | "reading-seminar"
+  | "field-investigation"
+  | "design-studio"
+  | "operations-briefing";
+
+export type ThemeIntensity = "clean" | "polished" | "immersive";
 
 // Pedagogical purpose for generated quizzes — shapes the quiz title and description (which exports
 // as the Canvas/QTI quiz description). See services/quizPurposes.ts.

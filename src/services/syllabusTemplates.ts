@@ -1,10 +1,11 @@
 import type { Assignment, AssignmentGroup, ContactHourPlan, CourseOutcome, Discussion, Quiz, SyllabusContent, SyllabusState, Theme } from "../types";
 import { bestTextOn } from "../utils/color";
-import { fileRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
+import { webResourceHref, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
+import { buildThemedStatBand, buildThemedTimeline } from "./themeDesign";
 
-// Canvas link tokens (not relative ".html") so syllabus links resolve in the imported course.
-export const PRINTABLE_HTML_HREF = fileRef("syllabus-printable.html");
-export const PRINTABLE_PDF_HREF = fileRef("syllabus-printable.pdf");
+// Package-relative file links are migrated by Canvas into real file URLs on import.
+export const PRINTABLE_HTML_HREF = webResourceHref("syllabus-printable.html");
+export const PRINTABLE_PDF_HREF = webResourceHref("syllabus-printable.pdf");
 export const CALENDAR_HREF = wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar);
 
 export interface SyllabusTemplateMeta {
@@ -159,28 +160,64 @@ const linkButton = (label: string, href: string, theme: Theme): string =>
 const outlineButton = (label: string, href: string, theme: Theme): string =>
   `<a href="${escAttr(safeSyllabusHref(href))}" style="display: inline-block; margin: 6px 10px 6px 0; padding: 9px 14px; border-radius: 7px; background: #ffffff; color: ${theme.accentDark}; border: 1px solid ${theme.accent}; text-decoration: none; font-weight: 700;">${escHtml(label)}</a>`;
 
+const syllabusSnapshot = (content: SyllabusContent, theme: Theme): string =>
+  buildThemedStatBand(theme, [
+    { value: String(content.learningOutcomes.length), label: "Outcomes", sub: "Course goals" },
+    { value: String(content.gradingBreakdown.length), label: "Grade Groups", sub: "Assessment mix" },
+    { value: String(content.weeklySchedule.length), label: "Schedule", sub: "Pacing lines" },
+    { value: String(content.studentSupportResources.length), label: "Support", sub: "Help routes" }
+  ]);
+
+const scheduleTimeline = (content: SyllabusContent, theme: Theme): string =>
+  buildThemedTimeline(
+    theme,
+    content.weeklySchedule.slice(0, 6).map((row, index) => {
+      const [first, ...rest] = row.split(":");
+      const label = first && first.length <= 36 ? first : `Schedule item ${index + 1}`;
+      const body = rest.length ? rest.join(":").trim() : row;
+      return { label, body };
+    })
+  );
+
+const gradingVisual = (content: SyllabusContent, theme: Theme): string => {
+  const rows = content.gradingBreakdown.map((item) => {
+    const match = item.match(/(.+?):\s*(\d+(?:\.\d+)?)%/);
+    const label = match?.[1]?.trim() || item;
+    const value = Math.max(0, Math.min(100, Number(match?.[2] ?? 0)));
+    return `<div style="margin: 0 0 12px;">
+      <div style="font-weight: 700; color: ${theme.accentDark}; margin: 0 0 5px;">${escHtml(label)}${value ? ` <span style="color: #374151; font-weight: 600;">${value}%</span>` : ""}</div>
+      <div style="height: 12px; border-radius: 999px; background: #e5e7eb; overflow: hidden;">
+        <div style="width: ${value || 12}%; height: 12px; background: linear-gradient(90deg, ${theme.accent}, ${theme.accentDark});"></div>
+      </div>
+    </div>`;
+  });
+  return `<div style="margin: 12px 0;">${rows.join("")}</div>`;
+};
+
 const hero = (content: SyllabusContent, theme: Theme, title = "Course Syllabus"): string =>
   `<header style="margin: 0 0 20px; padding: 28px; background: ${theme.soft}; border: 1px solid #dbe4f0; border-radius: 12px;">
     <h1 style="margin: 0 0 10px; color: #111827; font-size: 34px;">${escHtml(title)}</h1>
     <p style="margin: 0; color: #374151; font-size: 17px;">${escHtml(content.courseDescription)}</p>
     <p style="margin: 16px 0 0;">${linkButton("Open print-friendly syllabus", PRINTABLE_HTML_HREF, theme)}${outlineButton("Download simple PDF copy", PRINTABLE_PDF_HREF, theme)}</p>
+    ${syllabusSnapshot(content, theme)}
   </header>`;
 
 const coreSections = (content: SyllabusContent, theme: Theme): string => [
-  themedSection("Course Description", paragraph(content.courseDescription), theme),
+  themedSection("Course Info Card and Course Description", `${paragraph(content.courseDescription)}${syllabusSnapshot(content, theme)}`, theme),
+  themedSection("Instructor Info Card: Instructor Contact and Availability", paragraph(content.instructorContactBlock), theme),
   themedSection("Course Learning Outcomes", list(content.learningOutcomes), theme),
   themedSection("Required and Optional Materials", list(content.requiredMaterials), theme),
-  themedSection("Weekly Schedule and Pacing", `${paragraph(content.scheduleSummary)}${outlineButton("Open course calendar and workload plan", CALENDAR_HREF, theme)}${list(content.weeklySchedule)}`, theme),
-  themedSection("Grading Breakdown", list(content.gradingBreakdown), theme),
-  themedSection("Assignment Overview", list(content.assignmentOverview), theme),
-  themedSection("Participation and Communication", paragraph(content.communicationExpectations), theme),
-  themedSection("Late Work Policy", paragraph(content.lateWorkPolicy), theme),
-  themedSection("Academic Integrity Policy", paragraph(content.academicIntegrityPolicy), theme),
-  themedSection("AI Use Policy", paragraph(content.aiUsePolicy), theme),
-  themedSection("Accessibility and Accommodations", paragraph(content.accessibilityAccommodations), theme),
-  themedSection("Technology Requirements", paragraph(content.technologyRequirements), theme),
-  themedSection("Student Support Resources", list(content.studentSupportResources), theme),
-  themedSection("Instructor Contact and Availability", paragraph(content.instructorContactBlock), theme),
+  themedSection("Course Rhythm", `${paragraph(content.scheduleSummary)}${list(["Begin each module with the overview page.", "Use the weekly schedule and Canvas modules together.", "Check announcements and feedback before starting the next graded task.", "Ask for help early when timing, technology, or instructions become unclear."])}`, theme),
+  themedSection("Weekly Schedule and Pacing", `${outlineButton("Open course calendar and workload plan", CALENDAR_HREF, theme)}${scheduleTimeline(content, theme)}${list(content.weeklySchedule)}`, theme),
+  themedSection("Grading Breakdown Visual", `${gradingVisual(content, theme)}${list(content.gradingBreakdown)}`, theme),
+  themedSection("Assignment Overview and How Grades Work", `${paragraph("Grades are organized by assignment groups, points, rubrics, and feedback. Students should review each rubric before submitting and check Canvas Grades after feedback is posted.")}${list(content.assignmentOverview)}`, theme),
+  themedSection("Participation and Communication Expectations", paragraph(content.communicationExpectations), theme),
+  themedSection("Technology Requirements and Technology Needed", paragraph(content.technologyRequirements), theme),
+  themedSection("Late Work Policy at a Glance", paragraph(content.lateWorkPolicy), theme),
+  themedSection("Accessibility and Accommodations / Inclusion", paragraph(content.accessibilityAccommodations), theme),
+  themedSection("Student Success Path", list(["Start with the homepage and Start Here module.", "Read each module overview before opening graded work.", "Use rubrics and examples before submitting.", "Return to feedback and wrap-up pages before the next module.", "Contact the instructor or support office early when a barrier appears."]), theme),
+  themedSection("Student Support Resources and Help", list(content.studentSupportResources), theme),
+  themedSection("Academic Integrity Policy and AI Use Policy Guidance", `${paragraph(content.academicIntegrityPolicy)}${paragraph(content.aiUsePolicy)}`, theme),
   themedSection("Workload and Contact Hours", paragraph(content.workloadContactHours), theme)
 ].join("");
 
@@ -255,6 +292,61 @@ const scheduleLabel = (context: SyllabusContext, row: string, index: number): st
   return clean || `${context.organizationLabel || "Module"} ${index + 1}: instructor will add schedule details.`;
 };
 
+const subjectLabel = (context: Pick<SyllabusContext, "title">): string => {
+  const cleaned = context.title
+    .replace(/\b(introduction to|intro to|principles of|foundations of|survey of)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || context.title || "the course subject";
+};
+
+const finalProjectLabel = (context: Pick<SyllabusContext, "finalProjectType">): string =>
+  context.finalProjectType.replace(/-/g, " ").replace(/\s+/g, " ").trim() || "final synthesis";
+
+const courseDescriptionFor = (context: SyllabusContext): string => {
+  const base = sentence(context.description);
+  const subject = subjectLabel(context);
+  const level = context.level ? `${context.level.toLowerCase()} ` : "";
+  const project = context.finalProject ? ` and culminates in a ${finalProjectLabel(context)}` : "";
+  const opening =
+    base ||
+    `${context.title} is a ${level}course that helps students build a working command of ${subject} through evidence, practice, feedback, and reflection.`;
+  return [
+    opening,
+    `Students will move beyond memorizing terms by using module briefings, resource pages, discussions, knowledge checks, and applied assignments to explain how the central ideas of ${subject} work in real situations.`,
+    `The course is designed as a guided path: each module starts with a clear question, introduces key concepts, asks students to practice with examples or cases, and closes with an action step that prepares them for the next module${project}.`,
+    "A successful student will leave with usable vocabulary, stronger evidence habits, clearer communication, and a portfolio of work that shows what they can analyze, explain, create, or recommend."
+  ].join(" ");
+};
+
+const assignmentGroupExplanation = (group: AssignmentGroup, context: SyllabusContext): string => {
+  const name = group.name.trim();
+  const lower = name.toLowerCase();
+  const weight = `${group.weight}%`;
+  const subject = subjectLabel(context);
+  if (/discussion|participation|engagement/.test(lower)) {
+    return `${name}: ${weight}. This category grades active course conversation: prepared first posts, evidence-based replies, respectful disagreement, and the habit of connecting classmates' ideas back to ${subject}.`;
+  }
+  if (/quiz|knowledge|check/.test(lower)) {
+    return `${name}: ${weight}. These low-to-moderate stakes checks help students confirm vocabulary, concepts, examples, and module readiness before larger assignments.`;
+  }
+  if (/project|portfolio|capstone|final/.test(lower)) {
+    return `${name}: ${weight}. Project work asks students to synthesize course evidence into a polished product, recommendation, analysis, or portfolio artifact.`;
+  }
+  if (/assignment|application|applied|lab|field|studio|brief|case/.test(lower)) {
+    return `${name}: ${weight}. Applied work turns the module material into a concrete deliverable, such as a brief, analysis, case response, design, reflection, problem set, or evidence-based recommendation.`;
+  }
+  return `${name}: ${weight}. This category supports the course goals through rubric-aligned work, feedback, and revision habits.`;
+};
+
+const assignmentHighlights = (context: SyllabusContext): string[] =>
+  context.assignments.slice(0, 8).map((assignment) => {
+    const outcomeCodes = assignment.alignedOutcomeIds.length
+      ? ` Alignment: ${assignment.alignedOutcomeIds.length} course outcome${assignment.alignedOutcomeIds.length === 1 ? "" : "s"}.`
+      : "";
+    return `${assignment.title}: ${assignment.points} points, estimated ${assignment.estimatedHours} hours. Students should read the prompt, review the rubric, complete the listed deliverables, and submit through Canvas.${outcomeCodes}`;
+  });
+
 export const syllabusContextFromCourse = (course: {
   title: string;
   description: string;
@@ -300,54 +392,63 @@ export const syllabusContextFromCourse = (course: {
 });
 
 export const defaultSyllabusContent = (context: SyllabusContext): SyllabusContent => {
-  const gradedAssignments = context.assignments.slice(0, 8).map((assignment) => `${assignment.title}: ${assignment.points} points, estimated ${assignment.estimatedHours} hours.`);
+  const gradedAssignments = assignmentHighlights(context);
   const discussionCount = context.discussions.filter((discussion) => discussion.points > 0).length;
   const quizCount = context.quizzes.length;
   const modality = context.modality || "course";
+  const subject = subjectLabel(context);
   return {
-    courseDescription:
-      sentence(context.description) ||
-      `${context.title} is a ${context.level || "course"} organized around clear modules, applied work, feedback, and a final synthesis.`,
+    courseDescription: courseDescriptionFor(context),
     learningOutcomes: context.outcomes.map((outcome) => `${outcome.code}: ${outcome.text} (${outcome.bloomLevel})`),
     requiredMaterials: [
-      "Instructor will add required textbook chapters, OER sections, articles, videos, software, or open educational resources before publishing.",
-      "Module resource pages identify where verified readings, media, datasets, templates, or uploaded files should be added.",
-      "Optional resources are marked clearly so students can prioritize required work."
+      "Course materials are organized inside the Canvas modules. Use the module overview, resource page, linked readings, media, source packets, examples, datasets, templates, or instructor-added files as the authoritative weekly evidence base.",
+      "Each module identifies what to read, watch, review, or practice before discussions, quizzes, and assignments. Complete those materials before opening graded work.",
+      "If your section uses a required textbook, library article, primary source packet, lab tool, or media collection, the instructor will place the exact link or file in the matching module resource page."
     ],
-    scheduleSummary: `${context.title} is planned as a ${context.creditHours}-credit ${modality.toLowerCase()} course over ${context.lengthWeeks} weeks with ${context.moduleCount} instructional modules. Dates should be checked against the official term calendar before publishing.`,
-    weeklySchedule: context.scheduleRows.length ? context.scheduleRows.map((row, index) => scheduleLabel(context, row, index)) : ["Instructor will add official weekly dates and deadlines before publishing."],
-    gradingBreakdown: context.assignmentGroups.map((group) => `${group.name}: ${group.weight}%`),
+    scheduleSummary: `${context.title} is planned as a ${context.creditHours}-credit ${modality.toLowerCase()} course over ${context.lengthWeeks} weeks with ${context.moduleCount} instructional modules. Expect a repeating rhythm of overview, course materials, practice, discussion or knowledge check, applied assignment work, and feedback review.`,
+    weeklySchedule: context.scheduleRows.length
+      ? context.scheduleRows.map((row, index) => scheduleLabel(context, row, index))
+      : [`Module 1: begin with the Start Here module, review the course workflow, and complete the first ${subject} orientation activity.`],
+    gradingBreakdown: context.assignmentGroups.map((group) => assignmentGroupExplanation(group, context)),
     assignmentOverview: [
+      ...context.assignmentGroups.map((group) => assignmentGroupExplanation(group, context)),
       ...gradedAssignments,
-      discussionCount ? `Graded discussions: ${discussionCount} discussion activity/activities with clear initial post and reply expectations.` : "Discussions are used for practice, interaction, or instructor-selected participation.",
-      quizCount ? `Knowledge checks: ${quizCount} quiz/quiz set(s) with answer feedback and outcome alignment.` : "Quizzes are not currently selected for this course.",
-      context.finalProject ? `Final ${context.finalProjectType.replace("-", " ")}: a cumulative synthesis project with rubric-aligned deliverables.` : "Final assessment: instructor will confirm the final synthesis format."
+      discussionCount
+        ? `Graded discussions: ${discussionCount} discussion activity/activities. A strong discussion post makes a claim, uses course evidence, names a specific example, and replies to classmates in a way that advances the conversation.`
+        : "Discussions are used for practice, interaction, and instructor-selected participation when they fit the module goals.",
+      quizCount
+        ? `Knowledge checks: ${quizCount} quiz or quiz set(s). Use quiz feedback to identify terms, examples, or concepts to revisit before larger assignments.`
+        : "Knowledge checks may be added by the instructor when quick concept feedback would help students prepare for applied work.",
+      context.finalProject
+        ? `Final ${finalProjectLabel(context)}: a cumulative synthesis that asks students to connect multiple modules, use course evidence, meet rubric criteria, and explain the significance of their work.`
+        : "Final assessment: students will complete the designated closing assessment, reflection, or synthesis activity selected for this section."
     ],
     communicationExpectations:
-      "Students are expected to monitor Canvas announcements, participate respectfully, ask specific questions, and contact the instructor when barriers arise. Instructor should add response-time expectations, office hours, and preferred contact method.",
+      "Students are expected to monitor Canvas announcements, read module overview pages before asking logistics questions, participate respectfully, ask specific questions, and contact the instructor when barriers arise. The instructor will confirm response-time expectations, office hours, and the preferred contact method for this section.",
     lateWorkPolicy:
-      "Instructor should add institution-specific late work rules, grace periods, extension procedures, and assignment types that cannot be submitted late. Students should communicate before deadlines whenever possible.",
+      "Submit work through Canvas by the posted deadline whenever possible. If illness, caregiving, technology, work, travel, or another serious barrier affects your timeline, contact the instructor before the deadline with the assignment name, what is complete, and a realistic completion plan. The instructor will confirm any local grace periods, extension rules, and work that cannot be made up.",
     academicIntegrityPolicy:
-      "Students are responsible for submitting original work and following institutional academic integrity expectations. Instructor should insert the official institutional policy before publishing.",
+      "Students are responsible for submitting original work, representing sources accurately, and following institutional academic integrity expectations. Course work should show the student's own reasoning, evidence choices, analysis, and writing unless collaboration or tool use is explicitly allowed.",
     aiUsePolicy:
-      "Instructor should add the official AI-use policy for this course. If AI tools are permitted, students should disclose use, verify all output against course sources, and remain responsible for submitted work.",
+      "AI tools may be useful for brainstorming, outlining, checking grammar, or testing study questions when the instructor permits that use. They may not replace required reading, evidence analysis, citation work, reflection, or original judgment. When AI assistance is allowed, students should disclose meaningful use, verify all claims against course sources, avoid entering private or sensitive information, and remain responsible for submitted work.",
     accessibilityAccommodations:
       "Students who need accommodations should contact the appropriate campus office and the instructor as early as possible. Course materials should use headings, descriptive links, readable files, captions/transcripts for media, and alternative formats where practical.",
     studentSupportResources: [
-      "Use Canvas help or campus support for technical access issues.",
-      "Ask content questions in the instructor-designated channel.",
-      "Contact advising, tutoring, library, accessibility, or student support offices when needed. Instructor should add local links before publishing."
+      "Use Canvas help or campus technology support for login, file, browser, upload, or access issues.",
+      "Ask course-content questions in the instructor-designated channel so answers can help the whole class when appropriate.",
+      "Use library support for research, source access, citation help, and evaluating evidence.",
+      "Use tutoring, writing, advising, accessibility, counseling, or student success services before a small issue becomes urgent. The instructor should add local office names and links."
     ],
     instructorContactBlock:
-      "Instructor should add name, pronouns if desired, email, office hours, response-time expectations, preferred contact method, and any section-specific communication rules before publishing.",
+      "Instructor contact information, office hours, preferred contact method, and response-time expectations should be confirmed in Canvas before the course opens. Students should use the stated channel, include the course and assignment name when asking for help, and follow up early when a problem affects participation or deadlines.",
     workloadContactHours:
       context.contactHours.totalHours > 0
         ? `${context.contactHours.justification} Planned hours include ${context.contactHours.instructionalTime} instructional, ${context.contactHours.readingMediaTime} reading/media, ${context.contactHours.assignmentTime} assignment, ${context.contactHours.discussionTime} discussion, ${context.contactHours.quizStudyTime} quiz/study, and ${context.contactHours.finalProjectTime} final project hours.`
-        : "Instructor should add workload and contact-hour expectations before publishing.",
+        : `Students should plan regular weekly work blocks for reading or viewing course material, practicing with examples, joining discussions, completing assignments, reviewing feedback, and preparing for assessments in ${subject}.`,
     technologyRequirements:
-      "Students need reliable Canvas access, the ability to open common document formats, and any instructor-specified software. Instructor should add browser, device, proctoring, lab, or media requirements if applicable.",
+      "Students need reliable Canvas access, a current browser, the ability to open common document formats, and a way to submit files or text entries. If the course requires specialized software, media tools, lab platforms, proctoring, or field documentation, those requirements should appear in the relevant module before students need them.",
     instructorReviewNotes: [
-      "Replace all local policy placeholders with official institutional wording.",
+      "Confirm local policy language, instructor contact details, term dates, required materials, and support office links before publishing.",
       "Verify required materials, links, due dates, support offices, and accessibility guidance.",
       "Confirm grading weights, assignment names, rubrics, and weekly schedule match the Canvas course."
     ]

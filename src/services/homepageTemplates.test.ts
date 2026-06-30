@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getTheme, themes } from "../data/themes";
+import { sampleProject } from "./courseGenerator";
+import { canvasRefTargets } from "./canvasLinks";
 import {
   BANNER_SRC,
   CALENDAR_HREF,
@@ -30,16 +32,33 @@ const context: HomepageContext = {
 
 const content = defaultHomepageContent(context);
 const theme = getTheme("purple-innovation");
+const knownTargets = canvasRefTargets(sampleProject);
 
 describe("homepage templates", () => {
-  it("ships exactly five templates", () => {
-    expect(HOMEPAGE_TEMPLATES.length).toBe(5);
-    expect(HOMEPAGE_TEMPLATES.map((t) => t.id)).toEqual(["clean-canvas", "bold-university", "warm-instructor", "high-contrast", "project-based"]);
+  it("ships the original templates plus the ten Phase 3 homepage presets", () => {
+    expect(HOMEPAGE_TEMPLATES.length).toBe(15);
+    expect(HOMEPAGE_TEMPLATES.map((t) => t.id)).toEqual([
+      "clean-canvas",
+      "bold-university",
+      "warm-instructor",
+      "high-contrast",
+      "project-based",
+      "classic-course-welcome",
+      "course-dashboard",
+      "journey-map",
+      "studio-course",
+      "lab-course",
+      "field-guide",
+      "command-center",
+      "seminar-table",
+      "project-launchpad",
+      "visual-magazine"
+    ]);
   });
 
   HOMEPAGE_TEMPLATES.forEach((template) => {
     describe(`${template.id}`, () => {
-      const html = renderHomepage(template.id, content, theme);
+      const html = renderHomepage(template.id, content, theme, sampleProject);
 
       it("produces Canvas-safe HTML with exactly one H1 and no unsafe markup", () => {
         expect((html.match(/<h1\b/gi) ?? []).length).toBe(1);
@@ -68,7 +87,7 @@ describe("homepage templates", () => {
       });
 
       it("passes its own homepage validation with no warnings", () => {
-        const result = validateHomepage(html, { knownTargets: new Set([SYLLABUS_HREF, SUCCESS_GUIDE_HREF, CALENDAR_HREF]) });
+        const result = validateHomepage(html, { knownTargets });
         expect(result.failures).toBe(0);
         expect(result.warnings).toBe(0);
       });
@@ -85,7 +104,7 @@ describe("homepage templates", () => {
   it("renders cleanly for every shipped theme", () => {
     themes.forEach((candidate) => {
       HOMEPAGE_TEMPLATES.forEach((template) => {
-        const html = renderHomepage(template.id, content, candidate);
+        const html = renderHomepage(template.id, content, candidate, { ...sampleProject, theme: candidate });
         expect(validateHomepage(html).failures).toBe(0);
       });
     });
@@ -93,6 +112,22 @@ describe("homepage templates", () => {
 
   it("falls back to the default template for an unknown id", () => {
     expect(renderHomepage("does-not-exist", content, theme)).toContain("<h1");
+  });
+
+  it("builds each Phase 3 preset from the required visual block sequence", () => {
+    HOMEPAGE_TEMPLATES.filter((template) => !["clean-canvas", "bold-university", "warm-instructor", "high-contrast", "project-based"].includes(template.id)).forEach((template) => {
+      const html = renderHomepage(template.id, content, theme, sampleProject);
+
+      expect(html, template.id).toContain("Start Here");
+      expect(html, template.id).toContain("Course Navigation");
+      expect(html, template.id).toContain("Course Journey Map");
+      expect(html, template.id).toContain("This Week at a Glance");
+      expect(html, template.id).toContain("Welcome From Your Instructor");
+      expect(html, template.id).toContain("Need Help?");
+      expect(html, template.id).toContain("How to Succeed");
+      expect(html, template.id).toContain("Course Promise");
+      expect(html, template.id).toContain("Course Trailer");
+    });
   });
 });
 

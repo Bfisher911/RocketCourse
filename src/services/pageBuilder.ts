@@ -1,6 +1,8 @@
 import type { CourseModule, CoursePage, CourseProject, ModuleItem, ModuleItemType, ObjectMetadata, PublishState } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
+import { canvasRefTargets } from "./canvasLinks";
 import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
+import { buildVisualBlockHtml, type VisualBlockId } from "./visualBlocks";
 
 // Canvas HTML safety is defined once in htmlSafety.ts and shared by every builder, the readiness
 // report, and the export validator. Re-exported here so existing page imports keep working.
@@ -231,6 +233,17 @@ const templateBodies: Record<PageTemplateId, { title: string; subtitle: string; 
   }
 };
 
+const templateVisualBlocks: Record<PageTemplateId, VisualBlockId[]> = {
+  "module-overview": ["course-journey-map", "module-mission-briefing", "module-objectives-chips", "this-week-at-a-glance"],
+  "lecture-notes": ["key-terms-cards", "concept-and-example-block", "common-mistake-callout", "pause-and-think-reflection-box"],
+  recap: ["prior-module-connection-card", "next-module-preview-card", "student-success-path", "stretch-goal"],
+  "reading-guide": ["read-watch-do-layout", "resource-list", "before-you-begin-checklist"],
+  "activity-instructions": ["try-this-now-activity-block", "process-diagram", "student-decision-point"],
+  "student-support": ["need-help-support-panel", "technology-needed-block", "accessibility-and-inclusion-panel"],
+  "instructor-planning": ["instructor-facilitation-notes", "announcement-bank", "course-launch-checklist"],
+  "resource-list": ["resource-list", "comparison-table", "field-note-box"]
+};
+
 export const makeUniqueSlug = (value: string, course: CourseProject, currentPageId?: string): string => {
   const existing = new Set(course.pages.filter((page) => page.id !== currentPageId).map((page) => page.slug));
   return uniqueValue(slugify(value), existing);
@@ -255,9 +268,11 @@ export const buildPageTemplateHtml = (templateId: PageTemplateId, course: Course
   const template = templateById(templateId);
   const body = templateBodies[template.id];
   const moduleTitle = page?.moduleId ? course.modules.find((module) => module.id === page.moduleId)?.title : undefined;
+  const visualBlocks = templateVisualBlocks[template.id].map((blockId) => buildVisualBlockHtml(blockId, { course, page })).join("\n");
   return [
     `<div style="${themedShellStyle(course)}"><h1 style="margin: 0 0 8px;">${escapeHtml(page?.title || body.title)}</h1>${paragraph(body.subtitle)}${moduleTitle ? paragraph(`Module: ${moduleTitle}`) : ""}</div>`,
-    ...body.sections.map(([title, content]) => section(title, content))
+    ...body.sections.map(([title, content]) => section(title, content)),
+    visualBlocks
   ].join("\n");
 };
 
@@ -294,7 +309,7 @@ const blankTargetLinksMissingRel = (html: string): number =>
   ).length;
 
 const knownTargetsFor = (course: CourseProject): Set<string> => {
-  const targets = new Set<string>();
+  const targets = canvasRefTargets(course);
   course.pages.forEach((page) => {
     const slug = slugify(page.slug || page.title);
     targets.add(page.slug);

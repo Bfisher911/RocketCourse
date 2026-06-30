@@ -25,10 +25,25 @@ describe("theme design system", () => {
         "STEM Lab",
         "Healthcare Professional",
         "Humanities Studio",
-        "Executive Program"
+        "Executive Program",
+        "Psychology Lab",
+        "Creative Writing Studio",
+        "Marine Biology Field Journal",
+        "Environmental Science Field Station",
+        "Art History Gallery",
+        "Financial Accounting Ledger Lab",
+        "Public Health Command Center",
+        "Ethics Debate Chamber",
+        "Emergency Management Operations Center",
+        "Business Strategy Boardroom",
+        "Data Science Workbench",
+        "Literature Seminar",
+        "History Archive",
+        "Design Studio",
+        "Leadership Lab"
       ])
     );
-    expect(themes.length).toBeGreaterThanOrEqual(8);
+    expect(themes.length).toBeGreaterThanOrEqual(23);
   });
 
   it("keeps bundled themes above the contrast validation threshold", () => {
@@ -86,6 +101,38 @@ describe("theme design system", () => {
       const validation = validateTheme(theme);
       expect(validation.status, id).toBe("pass");
       expect(validation.warnings, id).toBe(0);
+    });
+  });
+
+  it("ships discipline identities with visible personality tokens", () => {
+    const ids = [
+      "psychology-lab",
+      "creative-writing-studio",
+      "marine-biology-field-journal",
+      "environmental-science-field-station",
+      "art-history-gallery",
+      "financial-accounting-ledger-lab",
+      "public-health-command-center",
+      "ethics-debate-chamber",
+      "emergency-management-operations-center",
+      "business-strategy-boardroom",
+      "data-science-workbench",
+      "literature-seminar",
+      "history-archive",
+      "design-studio",
+      "leadership-lab"
+    ];
+
+    ids.forEach((id) => {
+      const theme = getTheme(id);
+      expect(theme.id, id).toBe(id);
+      expect(theme.gradientFrom, id).toBeTruthy();
+      expect(theme.gradientTo, id).toBeTruthy();
+      expect(theme.motif, id).toBeTruthy();
+      expect(theme.heroStyle, id).toBeTruthy();
+      expect(theme.cardStyle, id).toBeTruthy();
+      expect(theme.intensity, id).toMatch(/clean|polished|immersive/);
+      expect(validateTheme(theme).status, id).toBe("pass");
     });
   });
 

@@ -18,7 +18,7 @@ import {
   Trash2,
   Undo2
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CourseProject, Discussion, ObjectMetadata, PublishState } from "../types";
 import {
   DISCUSSION_REVISE_ACTIONS,
@@ -42,6 +42,7 @@ import { stripHtml } from "../utils/text";
 import { aiGenerateDiscussionPrompt } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
+import { RockContentToolbox } from "./RockContentToolbox";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 type RubricFilter = "all" | "with-rubric" | "without-rubric";
@@ -147,6 +148,7 @@ export function DiscussionsTab({
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedTemplateId, setSelectedTemplateId] = useState<DiscussionTemplateId>("evidence-based");
   const [snapshots, setSnapshots] = useState<DiscussionSnapshot[]>([]);
+  const promptEditorRef = useRef<HTMLTextAreaElement | null>(null);
 
   const issueMap = useMemo(() => {
     const map = new Map<string, DiscussionIssue[]>();
@@ -677,9 +679,17 @@ export function DiscussionsTab({
               </div>
             </section>
 
+            <RockContentToolbox
+              course={course}
+              value={selectedDiscussion.promptHtml}
+              surface="discussion"
+              textareaRef={promptEditorRef}
+              onChange={(promptHtml, reason) => updatePromptHtml(selectedDiscussion, promptHtml, reason)}
+            />
+
             <label className="discussion-prompt-editor">
               <span>Advanced Canvas discussion HTML</span>
-              <textarea rows={16} value={selectedDiscussion.promptHtml} onChange={(event) => updatePromptHtml(selectedDiscussion, event.target.value)} />
+              <textarea ref={promptEditorRef} rows={16} value={selectedDiscussion.promptHtml} onChange={(event) => updatePromptHtml(selectedDiscussion, event.target.value)} />
             </label>
 
             <section className="discussion-checklist" aria-label="Discussion validation checks">

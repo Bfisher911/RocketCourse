@@ -1,6 +1,8 @@
 import type { CourseModule, CourseOutcome, CourseProject, Discussion, ModuleItem, ObjectMetadata, Rubric } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
 import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
+import { withAlpha } from "../utils/color";
+import { buildDiscussionCard, buildThemedNote, buildThemedSteps, getThemeStyles } from "./themeDesign";
 
 export type DiscussionTemplateId =
   | "evidence-based"
@@ -80,6 +82,14 @@ const escapeHtml = (value: string | number | undefined | null): string =>
 const paragraph = (value: string): string => `<p>${escapeHtml(value)}</p>`;
 const list = (items: string[]): string => `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 const section = (title: string, body: string): string => `<h2>${escapeHtml(title)}</h2>${body}`;
+
+const themedSection = (course: CourseProject, title: string, body: string): string => {
+  const styles = getThemeStyles(course.theme);
+  return `<section style="margin: 20px 0; padding: 18px 20px; background: #ffffff; border: 1px solid ${styles.border}; border-left: 5px solid ${styles.accent}; border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 6px 16px rgba(15,23,42,0.06);">
+  <h2 style="margin: 0 0 10px; color: ${styles.accentDark}; font-size: 20px; font-weight: 800; padding-bottom: 6px; border-bottom: 2px solid ${withAlpha(styles.accent, 0.26)}; font-family: ${styles.font};">${escapeHtml(title)}</h2>
+  ${body}
+</section>`;
+};
 
 const touchedMetadata = (metadata: ObjectMetadata | undefined, timestamp: string): ObjectMetadata => ({
   createdAt: metadata?.createdAt ?? timestamp,
@@ -219,17 +229,37 @@ export const buildDiscussionTemplateHtml = (templateId: DiscussionTemplateId, co
   const alignedOutcomeIds = discussion?.alignedOutcomeIds.length ? discussion.alignedOutcomeIds : course.outcomes.slice(0, 2).map((outcome) => outcome.id);
   const rubric = discussion?.rubricId ? course.rubrics.find((candidate) => candidate.id === discussion.rubricId) : undefined;
   const title = discussion?.title?.trim() || template.name;
+  const section = (heading: string, body: string): string => themedSection(course, heading, body);
   return [
     `<div style="${discussionThemeStyle(course)}"><h2 style="margin-top: 0;">${escapeHtml(title)}</h2>${paragraph(`This ${template.name.toLowerCase()} belongs in ${moduleTitleFor(course, discussion?.moduleId)}. Confirm local due dates, reply deadlines, and grading policy before publishing.`)}</div>`,
+    buildDiscussionCard(course.theme, {
+      prompt: details.prompt,
+      preparation: details.evidence[0],
+      replyExpectations: details.replies[0],
+      gradingCriteria: details.criteria.join(", "),
+      points: discussion?.points ?? template.recommendedPoints
+    }),
     section("Purpose", paragraph(details.purpose)),
+    section("Scenario or Role", paragraph(`Participate as a careful contributor in ${moduleTitleFor(course, discussion?.moduleId)}. Depending on your instructor's directions, you may respond as an analyst, peer reviewer, stakeholder, designer, researcher, or seminar participant.`)),
     section("Prompt", paragraph(details.prompt)),
     section("Required Evidence", list(details.evidence)),
     section("Initial Post Instructions", list(details.initialPost)),
     section("Reply Instructions", list(details.replies)),
+    section("Conversation Moves", list(["Extend a classmate's idea with a new example or piece of evidence.", "Compare two posts and name the pattern or tension between them.", "Ask a clarifying question that would improve the analysis.", "Respectfully challenge a claim by focusing on evidence, assumptions, or consequences.", "Synthesize several replies into a stronger takeaway."])),
+    section("Sample Strong Reply", paragraph("A strong reply might begin: I see your point about [specific idea]. The evidence from [source or module concept] adds another layer because [reason]. One question I still have is [specific question].")),
+    section("Peer Response Sentence Starters", list(["I want to build on your point about...", "The evidence that complicates this is...", "A different stakeholder might see this as...", "One assumption worth testing is...", "Your post made me reconsider..."])),
+    section("Respectful Disagreement Guidance", paragraph("Challenge ideas, evidence, assumptions, or implications rather than classmates. Use calm language, represent the other view fairly, and name what evidence would help resolve the disagreement.")),
+    section("Optional Group Discussion Variant", paragraph("For small groups, assign one facilitator, one evidence tracker, one connector, and one summarizer. The group should post a short synthesis that names the strongest idea, the unresolved question, and one next step.")),
+    buildThemedSteps(course.theme, [
+      { title: "Post", body: paragraph("Make one focused contribution that answers the prompt with evidence.") },
+      { title: "Reply", body: paragraph("Respond to peers by extending, questioning, comparing, or adding evidence.") },
+      { title: "Return", body: paragraph("Read instructor feedback or class patterns before the next module activity.") }
+    ]),
     section("Quality Criteria", list(details.criteria)),
     section("Rubric Alignment", paragraph(rubric ? `Use the ${rubric.title} rubric. ${details.rubric}` : details.rubric)),
     section("Accessibility-Friendly Structure", paragraph(details.accessibility)),
-    section("Outcome Alignment", list(outcomeLabels(course.outcomes, alignedOutcomeIds)))
+    section("Outcome Alignment", list(outcomeLabels(course.outcomes, alignedOutcomeIds))),
+    buildThemedNote(course.theme, "tip", "Discussion Success Tip", paragraph("Before you post, check that your response names a specific idea, uses evidence, and gives classmates something useful to answer."))
   ].join("\n");
 };
 
@@ -284,7 +314,7 @@ export const validateDiscussionPlan = (course: CourseProject): DiscussionPlanVal
     const matchingItems = discussionItems.filter(({ item }) => item.refId === discussion.id);
     if (!discussion.title.trim()) add(discussion, "title", "error", "Title missing", "Canvas discussions need a clear student-facing title.");
     if (text.length < 220) add(discussion, "prompt-detail", "warning", "Prompt is thin", "Add purpose, prompt, evidence, initial post, replies, quality criteria, and accessibility guidance.");
-    if (!/(choose|analyze|explain|compare|respond|reply|identify|recommend|reflect|debate|share|post)/i.test(text)) add(discussion, "specific-work", "warning", "Specific task unclear", "Ask students to do specific work, not just react broadly.");
+    if (!/(choose|analyze|explain|compare|respond|reply|identify|recommend|reflect|debate|share|post)/i.test(text)) add(discussion, "specific-work", "warning", "Specific task unclear", "Ask students to do specific work with a clear action beyond a broad reaction.");
     if (!/(initial post|first post|post .*words|write .*words|share your|state your)/i.test(text)) add(discussion, "initial-post", "warning", "Initial post expectations unclear", "Clarify what students should post first.");
     if (!/(reply|replies|respond to|classmate|peer)/i.test(text)) add(discussion, "replies", "warning", "Reply expectations unclear", "Clarify how many peer replies are expected and what makes them substantive.");
     if (!/(evidence|source|reading|case|example|data|module concept|course concept)/i.test(text)) add(discussion, "evidence", "warning", "Evidence requirement unclear", "Ask students to use evidence, a course concept, a case, or a concrete example.");

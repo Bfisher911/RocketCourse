@@ -33,6 +33,7 @@ import { getOutcomeFramework } from "./outcomeFrameworks";
 import { getModulePattern, getStructureFramework } from "./courseDesignModels";
 import { getQuizPurpose } from "./quizPurposes";
 import { DEFAULT_TEMPLATE_ID, createHomepageState, defaultHomepageContent, renderHomepage, rethemeHomepageHtml } from "./homepageTemplates";
+import { chooseModuleOverviewStyle, renderModuleOverviewHtml } from "./moduleOverviewTemplates";
 import {
   chooseSyllabusTemplate,
   createSyllabusState,
@@ -43,10 +44,12 @@ import {
 } from "./syllabusTemplates";
 import { buildThemedButton, buildThemedCallout, buildThemedCard, buildThemedNote, buildThemedSecondaryButton, buildThemedShell } from "./themeDesign";
 import { buildBloomPyramid, buildCourseMap, buildGradeWeightDonut } from "./themeDataViz";
+import { visualCourseFileAssets } from "./visualCourseAssets";
 import { applyAccessibilityTier } from "./accessibility";
 import { bestTextOn, withAlpha } from "../utils/color";
 import { validateSyllabus } from "./syllabusValidation";
-import { fileRef, modulesIndexRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
+import { discussionRef, fileRef, moduleRef, modulesIndexRef, webResourceHref, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
+import { navigationDefaults } from "./navigationDefaults";
 
 export interface GenerateCourseInput {
   prompt: string;
@@ -70,6 +73,9 @@ const baseTopics = [
   "Future Trends and Professional Practice",
   "Synthesis and Transfer"
 ];
+
+const START_MODULE_ID = "module_start";
+const INTRO_DISCUSSION_ID = "discussion_introduce_yourself";
 
 const id = (prefix: string, value: string | number): string => `${prefix}_${slugify(String(value))}`;
 
@@ -143,6 +149,138 @@ const shouldIncludeFinalMilestone = (settings: CourseSettings, moduleNumber: num
     return milestoneModules.has(moduleNumber);
   }
   return moduleNumber === Math.max(1, Math.ceil(moduleTotal / 2));
+};
+
+const isGenericTemplate = (settings: CourseSettings): boolean => settings.contentDepth === "generic-template";
+
+interface SubjectProfile {
+  lens: string;
+  audience: string;
+  caseLabel: string;
+  artifactLabel: string;
+  artifacts: string[];
+  evidenceTypes: string[];
+  actionVerbs: string[];
+  keyTerms: string[];
+}
+
+const subjectProfileFor = (courseTopic: string, moduleTopic: string): SubjectProfile => {
+  const text = `${courseTopic} ${moduleTopic}`.toLowerCase();
+  if (/(history|war|warfare|ancient|medieval|mesoamerican|archive|civilization|empire|revolution|colonial)/.test(text)) {
+    return {
+      lens: "historical interpretation",
+      audience: "historical interpretation team",
+      caseLabel: `${courseTopic} evidence dossier`,
+      artifactLabel: "primary-source or material-culture artifact",
+      artifacts: ["primary-source excerpt", "site map", "material artifact", "chronicle account", "iconography sample", "conflict timeline"],
+      evidenceTypes: ["archaeological evidence", "settlement pattern", "artifact description", "map evidence", "chronicle claim", "historian interpretation"],
+      actionVerbs: ["interpret", "compare", "contextualize", "evaluate"],
+      keyTerms: ["source context", "material evidence", "periodization", "causation", "interpretive claim"]
+    };
+  }
+  if (/(biology|marine|environment|ecology|climate|field|health|public health|lab|science)/.test(text)) {
+    return {
+      lens: "field and lab analysis",
+      audience: "research briefing team",
+      caseLabel: `${courseTopic} field case`,
+      artifactLabel: "field observation or research finding",
+      artifacts: ["field observation", "data table", "site description", "research abstract", "species or system profile", "method note"],
+      evidenceTypes: ["observational data", "method detail", "study finding", "system interaction", "risk factor", "limitation"],
+      actionVerbs: ["observe", "classify", "test", "evaluate"],
+      keyTerms: ["variable", "system", "method", "limitation", "evidence claim"]
+    };
+  }
+  if (/(psychology|counseling|behavior|learning|development)/.test(text)) {
+    return {
+      lens: "behavioral case analysis",
+      audience: "case review team",
+      caseLabel: `${courseTopic} case vignette`,
+      artifactLabel: "case observation or intervention note",
+      artifacts: ["case vignette", "behavior observation", "study summary", "assessment note", "intervention plan", "ethical decision point"],
+      evidenceTypes: ["observed behavior", "construct definition", "study finding", "contextual factor", "ethical constraint", "measurement limit"],
+      actionVerbs: ["diagnose", "interpret", "apply", "evaluate"],
+      keyTerms: ["construct", "behavioral evidence", "context", "intervention", "ethical constraint"]
+    };
+  }
+  if (/(business|strategy|accounting|finance|marketing|management|operations|entrepreneur)/.test(text)) {
+    return {
+      lens: "decision and performance analysis",
+      audience: "decision review board",
+      caseLabel: `${courseTopic} decision brief`,
+      artifactLabel: "business case artifact",
+      artifacts: ["decision memo", "ledger excerpt", "market snapshot", "stakeholder map", "operations metric", "strategy option"],
+      evidenceTypes: ["financial signal", "customer evidence", "operational constraint", "risk estimate", "competitive context", "decision criterion"],
+      actionVerbs: ["analyze", "forecast", "recommend", "justify"],
+      keyTerms: ["constraint", "metric", "tradeoff", "stakeholder", "recommendation"]
+    };
+  }
+  if (/(writing|literature|art|design|studio|music|film|media|communication)/.test(text)) {
+    return {
+      lens: "creative and critical analysis",
+      audience: "studio critique group",
+      caseLabel: `${courseTopic} critique packet`,
+      artifactLabel: "text, image, performance, or design artifact",
+      artifacts: ["draft passage", "visual composition", "style sample", "audience analysis", "revision plan", "critical excerpt"],
+      evidenceTypes: ["textual detail", "design choice", "audience response", "genre convention", "revision rationale", "critical vocabulary"],
+      actionVerbs: ["analyze", "revise", "critique", "interpret"],
+      keyTerms: ["genre", "audience", "form", "evidence", "revision"]
+    };
+  }
+  return {
+    lens: "applied course analysis",
+    audience: "course decision team",
+    caseLabel: `${courseTopic} application case`,
+    artifactLabel: "course-specific artifact or case evidence",
+    artifacts: [`${courseTopic} case example`, `${moduleTopic} scenario`, "source excerpt", "visual or data artifact", "stakeholder note", "decision point"],
+    evidenceTypes: ["course source", "specific example", "context detail", "stakeholder evidence", "constraint", "consequence"],
+    actionVerbs: ["analyze", "apply", "evaluate", "recommend"],
+    keyTerms: ["context", "evidence", "stakeholder", "tradeoff", "recommendation"]
+  };
+};
+
+const listJoin = (items: string[]): string => {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")}, or ${items[items.length - 1]}`;
+};
+
+const subjectAssignmentPlan = (courseTopic: string, moduleTopic: string, settings: CourseSettings) => {
+  const profile = subjectProfileFor(courseTopic, moduleTopic);
+  if (isGenericTemplate(settings)) {
+    return {
+      purpose: "This assignment asks you to move from course concepts to grounded analysis and decision-making.",
+      create: `Create an applied analysis brief that helps a real audience understand how ${moduleTopic.toLowerCase()} affects a decision, policy, design, classroom, workplace, or community context.`,
+      scenario: `You are preparing this brief for an audience that needs context, evidence, tradeoffs, and a defensible next step connected to ${moduleTopic.toLowerCase()}.`,
+      steps: ["Select a relevant example, case, problem, or scenario.", "Explain the context, stakeholders, and decision point.", "Use module vocabulary and at least two pieces of course evidence.", "Analyze consequences, tradeoffs, or ethical considerations.", "End with a practical recommendation, next step, or unresolved question."],
+      deliverables: ["Applied analysis brief, paper, slide narrative, memo, or equivalent instructor-approved artifact.", "Clear heading structure that matches the task.", "Evidence from course materials or verified instructor-approved sources.", "Recommendation, decision, design choice, or next step supported by evidence.", "Accessible file names, links, headings, captions, and alt text where applicable."],
+      examples: [["A focused case with named stakeholders and evidence.", "A broad opinion that never identifies who is affected."], ["A recommendation linked to course concepts.", "A summary of sources without analysis."], ["A file with headings, descriptive links, and accessible media.", "A file with unclear labels, broken links, or missing alt text."]]
+    };
+  }
+  const artifactChoices = listJoin(profile.artifacts.slice(0, 4));
+  const evidenceChoices = listJoin(profile.evidenceTypes.slice(0, 4));
+  return {
+    purpose: `This assignment asks you to use ${moduleTopic.toLowerCase()} as a ${profile.lens} problem inside ${courseTopic}. Your goal is to make a defensible claim from specific course evidence.`,
+    create: `Create the ${profile.caseLabel} for the ${profile.audience}. The brief should focus on one ${profile.artifactLabel}, explain what it reveals about ${moduleTopic.toLowerCase()}, and recommend how a reader should interpret or act on the evidence.`,
+    scenario: `Imagine the ${profile.audience} is preparing a public-facing explanation of ${courseTopic}. They need you to choose a concrete example such as ${artifactChoices}, connect it to ${moduleTopic.toLowerCase()}, and explain the strongest interpretation with limits clearly named.`,
+    steps: [
+      `Select one course-specific example related to ${courseTopic}: ${artifactChoices}.`,
+      `Describe the context of the example and the module idea it illustrates: ${moduleTopic.toLowerCase()}.`,
+      `Use at least two evidence types such as ${evidenceChoices}.`,
+      `Explain one tension, uncertainty, or competing interpretation that a careful reader should notice.`,
+      `End with a recommendation for how the ${profile.audience} should explain, preserve, revise, teach, or act on this evidence.`
+    ],
+    deliverables: [
+      `${profile.caseLabel} with a clear title and 3-5 section headings.`,
+      `One focused claim about ${moduleTopic.toLowerCase()} in ${courseTopic}.`,
+      `At least two pieces of course evidence, such as ${evidenceChoices}.`,
+      `A short recommendation or interpretation memo for the ${profile.audience}.`,
+      "Accessible file names, links, headings, captions, and alt text where applicable."
+    ],
+    examples: [
+      [`A focused ${profile.artifactLabel} connected to ${moduleTopic.toLowerCase()} and interpreted with course evidence.`, `A generic paragraph about ${courseTopic.toLowerCase()} that never names a specific artifact, case, or source.`],
+      ["A recommendation that names what the evidence can and cannot prove.", "A confident claim with no limitation, uncertainty, or counterevidence."],
+      [`A brief that uses terms such as ${profile.keyTerms.slice(0, 3).join(", ")} accurately.`, "A submission that uses course vocabulary as decoration without explaining the terms."]
+    ]
+  };
 };
 
 const listHtml = (items: string[]): string => `<ul style="margin: 10px 0 0 20px; padding: 0;">${items.map((item) => `<li style="margin: 6px 0;">${item}</li>`).join("")}</ul>`;
@@ -323,86 +461,145 @@ const resourceCardsHtml = (resources: CourseResource[], theme: Theme): string =>
       return `
 <div style="margin: 14px 0; padding: 18px 20px; border: 1px solid #e2e8f0; border-left: 5px solid ${theme.accent}; border-radius: 14px; background: ${resource.optional ? "#f8fafc" : "#ffffff"}; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 6px 16px rgba(15,23,42,0.06);">
   <div style="margin: 0 0 10px;">${typeBadge}${timeBadge}</div>
-  <h3 style="margin: 0 0 8px; color: ${theme.accentDark}; font-size: 18px; font-weight: 800;">${resource.title}</h3>
+  <h2 style="margin: 0 0 8px; color: ${theme.accentDark}; font-size: 18px; font-weight: 800;">${resource.title}</h2>
   <p style="margin: 0 0 8px; color: #374151;"><strong>Why it matters:</strong> ${resource.whyItMatters}</p>
   <p style="margin: 0 0 8px; color: #374151;"><strong>Student instructions:</strong> ${resource.studentInstructions}</p>
-  <p style="margin: 0 0 8px; color: #374151;"><strong>Editable source placeholder:</strong> ${resource.placeholder}</p>
+  <p style="margin: 0 0 8px; color: #374151;"><strong>Source brief:</strong> ${resource.placeholder}</p>
   <p style="margin: 0; color: ${theme.accentDark}; font-size: 13px;"><strong>Instructor edit note:</strong> ${resource.instructorEditNote}</p>
 </div>`.trim();
     })
     .join("\n");
 
-const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic: string, courseTopic: string, timestamp: string): CourseResource[] => [
-  makeResource(
-    id("resource", `${moduleId}-textbook`),
-    moduleId,
-    `${moduleLabel} Core Reading: ${moduleTopic}`,
-    "textbook",
-    `Gives students an instructor-selected anchor text for ${moduleTopic.toLowerCase()}.`,
-    45,
-    "Read with the module outcomes nearby and mark two ideas to use in discussion or applied work.",
-    "Replace with the exact textbook chapter, OER section, or institution-approved reading.",
-    "Add textbook chapter, OER section, or uploaded PDF before publishing.",
-    false,
-    timestamp
-  ),
-  makeResource(
-    id("resource", `${moduleId}-scholarly`),
-    moduleId,
-    `${moduleLabel} Evidence Source`,
-    "scholarly-article",
-    `Models how evidence is used to support claims about ${courseTopic.toLowerCase()}.`,
-    35,
-    "Skim the abstract and conclusion first, then identify one claim, one piece of evidence, and one limitation.",
-    "Add a verified scholarly article, library permalink, or reading-list citation. Do not leave this placeholder as a fake source.",
-    "Add verified article citation or library link.",
-    false,
-    timestamp
-  ),
-  makeResource(
-    id("resource", `${moduleId}-media`),
-    moduleId,
-    `${moduleLabel} Media Example`,
-    "video",
-    `Provides a concrete example students can connect to ${moduleTopic.toLowerCase()}.`,
-    20,
-    "Watch or review the media example and note one moment that illustrates the module vocabulary.",
-    "Add a verified accessible video, podcast, website, or instructor-created mini-lecture. Include captions or transcript information.",
-    "Add verified URL or upload replacement; include captions/transcript note.",
-    true,
-    timestamp
-  )
-];
+const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic: string, courseTopic: string, settings: CourseSettings, timestamp: string): CourseResource[] => {
+  const profile = subjectProfileFor(courseTopic, moduleTopic);
+  if (isGenericTemplate(settings)) {
+    return [
+      makeResource(
+        id("resource", `${moduleId}-textbook`),
+        moduleId,
+        `${moduleLabel} Core Reading: ${moduleTopic}`,
+        "textbook",
+        `Gives students an instructor-selected anchor text for ${moduleTopic.toLowerCase()}.`,
+        45,
+        "Read with the module outcomes nearby and mark two ideas to use in discussion or applied work.",
+        "Replace with the exact textbook chapter, OER section, or institution-approved reading.",
+        "Add textbook chapter, OER section, or uploaded PDF before publishing.",
+        false,
+        timestamp
+      ),
+      makeResource(
+        id("resource", `${moduleId}-scholarly`),
+        moduleId,
+        `${moduleLabel} Evidence Source`,
+        "scholarly-article",
+        `Models how evidence is used to support claims about ${courseTopic.toLowerCase()}.`,
+        35,
+        "Skim the abstract and conclusion first, then identify one claim, one piece of evidence, and one limitation.",
+        "Add a verified scholarly article, library permalink, or reading-list citation. Do not leave this placeholder as a fake source.",
+        "Add verified article citation or library link.",
+        false,
+        timestamp
+      ),
+      makeResource(
+        id("resource", `${moduleId}-media`),
+        moduleId,
+        `${moduleLabel} Media Example`,
+        "video",
+        `Provides a concrete example students can connect to ${moduleTopic.toLowerCase()}.`,
+        20,
+        "Watch or review the media example and note one moment that illustrates the module vocabulary.",
+        "Add a verified accessible video, podcast, website, or instructor-created mini-lecture. Include captions or transcript information.",
+        "Add verified URL or upload replacement; include captions/transcript note.",
+        true,
+        timestamp
+      )
+    ];
+  }
+  const evidenceChoices = listJoin(profile.evidenceTypes.slice(0, 4));
+  const artifactChoices = listJoin(profile.artifacts.slice(0, 4));
+  return [
+    makeResource(
+      id("resource", `${moduleId}-core-brief`),
+      moduleId,
+      `${moduleLabel} Core Brief: ${moduleTopic}`,
+      "textbook",
+      `Gives students an anchor explanation of how ${moduleTopic.toLowerCase()} functions inside ${courseTopic}.`,
+      45,
+      `Read the brief as a map for this module. Mark one concept, one example from ${courseTopic}, and one question you can use in discussion or applied work.`,
+      "Optional: replace this generated brief with the exact textbook chapter, OER section, or institution-approved reading used by the instructor.",
+      `Generated source brief: compare ${artifactChoices} to explain how ${moduleTopic.toLowerCase()} shapes ${courseTopic}. Students should track ${evidenceChoices}.`,
+      false,
+      timestamp
+    ),
+    makeResource(
+      id("resource", `${moduleId}-evidence-dossier`),
+      moduleId,
+      `${moduleLabel} Evidence Dossier`,
+      "scholarly-article",
+      `Models how evidence supports claims about ${courseTopic.toLowerCase()} and ${moduleTopic.toLowerCase()}.`,
+      35,
+      `Identify one claim, one piece of evidence, and one limitation from the ${profile.caseLabel}. Use those notes in the discussion or assignment.`,
+      "Optional: add a library permalink, scholarly article, local archive item, dataset, or verified reading-list citation that strengthens this generated dossier.",
+      `Generated evidence dossier: students examine ${evidenceChoices} and decide which evidence best supports a claim about ${moduleTopic.toLowerCase()} in ${courseTopic}.`,
+      false,
+      timestamp
+    ),
+    makeResource(
+      id("resource", `${moduleId}-example`),
+      moduleId,
+      `${moduleLabel} Applied Example`,
+      "video",
+      `Provides a concrete example students can connect to ${moduleTopic.toLowerCase()}.`,
+      20,
+      `Review the example and name the moment where ${moduleTopic.toLowerCase()} becomes visible. Prepare one observation for class discussion.`,
+      "Optional: replace with a captioned video, podcast, website, image set, instructor-created mini-lecture, or local example.",
+      `Generated media or example prompt: use a ${profile.artifactLabel} from ${courseTopic} to show ${moduleTopic.toLowerCase()} in action. Include caption or transcript guidance if media is added.`,
+      true,
+      timestamp
+    )
+  ];
+};
 
 const makeRubric = (
   rubricId: string,
   title: string,
   points: number,
   outcomeIds: string[],
+  outcomes: CourseOutcome[],
   timestamp: string,
   purposeLabel: string
 ): Rubric => {
-  const criteria: RubricCriterion[] = [
-    {
-      id: `${rubricId}_alignment`,
-      title: `${purposeLabel} alignment`,
-      description: "Work addresses the stated task and course outcomes with a clear purpose.",
-      outcomeId: outcomeIds[0],
+  const uniqueOutcomeIds = Array.from(new Set(outcomeIds)).filter(Boolean);
+  const outcomePointTotal = Math.max(1, Math.round(points * 0.6));
+  const outcomeMax = Math.max(1, Math.round(outcomePointTotal / Math.max(1, uniqueOutcomeIds.length)));
+  const evidenceMax = Math.max(1, Math.round(points * 0.25));
+  const communicationMax = Math.max(1, points - outcomeMax * uniqueOutcomeIds.length - evidenceMax);
+  const outcomeCriteria: RubricCriterion[] = uniqueOutcomeIds.map((outcomeId, index) => {
+    const outcome = outcomes.find((entry) => entry.id === outcomeId);
+    const label = outcome ? `${outcome.code}: ${outcome.text}` : outcomeId;
+    return {
+      id: `${rubricId}_outcome_${index + 1}`,
+      title: `Outcome criterion: ${outcome?.code ?? `Outcome ${index + 1}`}`,
+      description: `${purposeLabel} work demonstrates the aligned outcome: ${label}`,
+      outcomeId,
       levels: [
-        { label: "Exemplary", points: Math.round(points * 0.34), description: "Focused, complete, and explicitly aligned to the relevant outcomes." },
-        { label: "Proficient", points: Math.round(points * 0.26), description: "Mostly aligned with minor gaps in purpose or outcome connection." },
-        { label: "Developing", points: Math.round(points * 0.16), description: "Partially aligned or missing important assignment expectations." }
+        { label: "Exemplary", points: outcomeMax, description: "Clearly demonstrates the outcome with accurate course concepts, specific evidence, and focused reasoning." },
+        { label: "Proficient", points: Math.max(1, Math.round(outcomeMax * 0.75)), description: "Demonstrates the outcome with mostly accurate concepts and relevant evidence." },
+        { label: "Developing", points: Math.max(1, Math.round(outcomeMax * 0.5)), description: "Partially demonstrates the outcome, but the connection to course evidence or reasoning is incomplete." }
       ]
-    },
+    };
+  });
+  const criteria: RubricCriterion[] = [
+    ...outcomeCriteria,
     {
       id: `${rubricId}_evidence`,
       title: "Evidence, reasoning, and application",
       description: "Uses course concepts, examples, and reasoning in a way that fits the task.",
       outcomeId: outcomeIds[1] ?? outcomeIds[0],
       levels: [
-        { label: "Exemplary", points: Math.round(points * 0.33), description: "Specific evidence supports thoughtful analysis and practical application." },
-        { label: "Proficient", points: Math.round(points * 0.24), description: "Evidence is relevant and mostly explained." },
-        { label: "Developing", points: Math.round(points * 0.14), description: "Evidence is limited, generic, or underexplained." }
+        { label: "Exemplary", points: evidenceMax, description: "Specific evidence supports thoughtful analysis and practical application." },
+        { label: "Proficient", points: Math.max(1, Math.round(evidenceMax * 0.75)), description: "Evidence is relevant and mostly explained." },
+        { label: "Developing", points: Math.max(1, Math.round(evidenceMax * 0.5)), description: "Evidence is limited, generic, or underexplained." }
       ]
     },
     {
@@ -411,9 +608,9 @@ const makeRubric = (
       description: "Presents work clearly with accessible formatting and complete deliverables.",
       outcomeId: outcomeIds[2] ?? outcomeIds[0],
       levels: [
-        { label: "Exemplary", points: Math.max(1, points - Math.round(points * 0.67)), description: "Clear, polished, complete, and easy to navigate." },
-        { label: "Proficient", points: Math.round(points * 0.2), description: "Generally clear with minor organization or editing issues." },
-        { label: "Developing", points: Math.round(points * 0.1), description: "Difficult to follow, incomplete, or missing accessible structure." }
+        { label: "Exemplary", points: communicationMax, description: "Clear, polished, complete, and easy to navigate." },
+        { label: "Proficient", points: Math.max(1, Math.round(communicationMax * 0.75)), description: "Generally clear with minor organization or editing issues." },
+        { label: "Developing", points: Math.max(1, Math.round(communicationMax * 0.5)), description: "Difficult to follow, incomplete, or missing accessible structure." }
       ]
     }
   ];
@@ -452,23 +649,6 @@ export const makeContactHours = (settings: CourseSettings): ContactHourPlan => {
     justification: `${settings.creditHours} credit hours over ${settings.lengthWeeks} weeks is planned as approximately ${totalHours} total student workload hours. The plan balances instructor-presented content, reading and media, discussion, quiz preparation, applied assignments, and final project development.`
   };
 };
-
-const navigationDefaults = (): CanvasNavigationItem[] => [
-  { id: "home", label: "Home", visible: true, reason: "Front page starts students in the guided course path." },
-  { id: "announcements", label: "Announcements", visible: true, reason: "Faculty need one clear communication channel." },
-  { id: "syllabus", label: "Syllabus", visible: true, reason: "Students need grading, schedule, and policy details." },
-  { id: "modules", label: "Modules", visible: true, reason: "Modules are the primary learning path." },
-  { id: "grades", label: "Grades", visible: true, reason: "Students need gradebook visibility." },
-  { id: "people", label: "People", visible: true, reason: "Useful for class community and group workflows." },
-  { id: "assignments", label: "Assignments", visible: false, reason: "Assignments are intentionally reached through Modules by default." },
-  { id: "discussions", label: "Discussions", visible: false, reason: "Discussions are intentionally reached through Modules by default." },
-  { id: "quizzes", label: "Quizzes", visible: false, reason: "Quizzes are intentionally reached through Modules by default." },
-  { id: "pages", label: "Pages", visible: false, reason: "Pages are intentionally reached through Modules by default." },
-  { id: "files", label: "Files", visible: false, reason: "Files are linked from relevant pages to avoid exposing a file dump." },
-  { id: "outcomes", label: "Outcomes", visible: false, reason: "Outcomes support assessment design but are not a student-facing destination." },
-  { id: "rubrics", label: "Rubrics", visible: false, reason: "Rubrics are attached to assignments; students reach them in context." },
-  { id: "collaborations", label: "Collaborations", visible: false, reason: "Not used by default; enable only if your design needs it." }
-];
 
 const makeItem = (
   itemId: string,
@@ -572,16 +752,21 @@ const makeFileAsset = (
 const moduleObjectivesFor = (outcomes: CourseOutcome[], outcomeIds: string[]): string[] =>
   outcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.text ?? "").filter(Boolean);
 
-const quizQuestions = (quizId: string, moduleTopic: string, moduleId: string, outcomeIds: string[], settings: CourseSettings): QuizQuestion[] => {
+const quizQuestions = (quizId: string, moduleTopic: string, courseTopic: string, moduleId: string, outcomeIds: string[], settings: CourseSettings): QuizQuestion[] => {
+  const profile = subjectProfileFor(courseTopic, moduleTopic);
+  const artifactChoices = listJoin(profile.artifacts.slice(0, 3));
+  const evidenceChoices = listJoin(profile.evidenceTypes.slice(0, 3));
   const base: QuizQuestion[] = [
     {
       id: `${quizId}_q1`,
       type: "multiple_choice",
-      stem: `Which choice best describes a core issue in ${moduleTopic}?`,
-      choices: ["A narrow technical detail", "A connection among concepts, people, and context", "A random course policy", "An unrelated opinion"],
-      correctAnswer: "A connection among concepts, people, and context",
-      feedback: "The best answer connects module concepts to broader context.",
-      correctFeedback: "Correct. The strongest answer connects ideas, people, evidence, and context.",
+      stem: isGenericTemplate(settings) ? `Which choice best describes a core issue in ${moduleTopic}?` : `Which choice best describes a strong analysis of ${moduleTopic} in ${courseTopic}?`,
+      choices: isGenericTemplate(settings)
+        ? ["A narrow technical detail", "A connection among concepts, people, and context", "A random course policy", "An unrelated opinion"]
+        : [`A claim tied to ${evidenceChoices} and course context`, "A broad opinion without source details", "A course policy unrelated to the module", "A personal preference with no evidence"],
+      correctAnswer: isGenericTemplate(settings) ? "A connection among concepts, people, and context" : `A claim tied to ${evidenceChoices} and course context`,
+      feedback: "The best answer connects module concepts to evidence and broader context.",
+      correctFeedback: "Correct. The strongest answer connects ideas, evidence, and context.",
       incorrectFeedback: "Review the lesson examples and look for the answer that connects concepts to context.",
       difficulty: settings.quizDifficulty,
       alignedOutcomeIds: outcomeIds,
@@ -591,7 +776,7 @@ const quizQuestions = (quizId: string, moduleTopic: string, moduleId: string, ou
     {
       id: `${quizId}_q2`,
       type: "true_false",
-      stem: "Course concepts should be applied with attention to evidence and context.",
+      stem: isGenericTemplate(settings) ? "Course concepts should be applied with attention to evidence and context." : `Claims about ${courseTopic} should be interpreted with attention to evidence, context, and limits.`,
       choices: ["True", "False"],
       correctAnswer: "True",
       feedback: "Evidence and context make applied analysis stronger.",
@@ -605,7 +790,7 @@ const quizQuestions = (quizId: string, moduleTopic: string, moduleId: string, ou
     {
       id: `${quizId}_q3`,
       type: "short_answer",
-      stem: `Name one example that illustrates ${moduleTopic.toLowerCase()} and explain why it matters.`,
+      stem: isGenericTemplate(settings) ? `Name one example that illustrates ${moduleTopic.toLowerCase()} and explain why it matters.` : `Name one ${profile.artifactLabel} that could illustrate ${moduleTopic.toLowerCase()} in ${courseTopic}, and explain why it matters.`,
       feedback: "A strong answer names a specific example and explains its significance using module vocabulary.",
       correctFeedback: "Look for a concrete example, relevant vocabulary, and a clear explanation of significance.",
       incorrectFeedback: "If the response is vague, ask the student to add a concrete example and one course concept.",
@@ -618,7 +803,7 @@ const quizQuestions = (quizId: string, moduleTopic: string, moduleId: string, ou
     {
       id: `${quizId}_q4`,
       type: settings.quizDifficulty === "challenging" ? "essay" : "multiple_choice",
-      stem: `How should an instructor or practitioner evaluate competing claims about ${moduleTopic.toLowerCase()}?`,
+      stem: isGenericTemplate(settings) ? `How should an instructor or practitioner evaluate competing claims about ${moduleTopic.toLowerCase()}?` : `How should a ${profile.audience} evaluate competing claims about ${moduleTopic.toLowerCase()} in ${courseTopic}?`,
       choices: settings.quizDifficulty === "challenging" ? undefined : ["By popularity only", "By evidence, context, and consequences", "By speed", "By personal preference"],
       correctAnswer: settings.quizDifficulty === "challenging" ? undefined : "By evidence, context, and consequences",
       feedback: "A strong answer weighs evidence, context, and consequences.",
@@ -633,7 +818,7 @@ const quizQuestions = (quizId: string, moduleTopic: string, moduleId: string, ou
     {
       id: `${quizId}_q5`,
       type: "short_answer",
-      stem: `Identify one unresolved question students should carry forward from ${moduleTopic.toLowerCase()}.`,
+      stem: isGenericTemplate(settings) ? `Identify one unresolved question students should carry forward from ${moduleTopic.toLowerCase()}.` : `Identify one unresolved question about ${artifactChoices} that students should carry forward from ${moduleTopic.toLowerCase()}.`,
       feedback: "A strong response names a question that can guide discussion, assignment work, or the final project.",
       correctFeedback: "Look for a question that is specific enough to investigate in later work.",
       incorrectFeedback: "Ask the student to connect the question to a module concept or outcome.",
@@ -648,23 +833,169 @@ const quizQuestions = (quizId: string, moduleTopic: string, moduleId: string, ou
   return base.slice(0, Math.max(1, Math.min(10, settings.quizQuestionsPerQuiz)));
 };
 
-const discussionPrompt = (moduleTopic: string, courseTopic: string, settings: CourseSettings, theme: Theme): string => {
+const ROTATING_DISCUSSION_FORMATS = [
+  "Debate",
+  "Case consultation",
+  "Gallery walk",
+  "Role-play",
+  "Peer review",
+  "Prediction",
+  "Postmortem",
+  "Ethical dilemma",
+  "Lab meeting",
+  "Design critique"
+] as const;
+
+type RotatingDiscussionFormat = (typeof ROTATING_DISCUSSION_FORMATS)[number];
+
+const discussionFormatFor = (moduleNumber: number): RotatingDiscussionFormat => ROTATING_DISCUSSION_FORMATS[(moduleNumber - 1) % ROTATING_DISCUSSION_FORMATS.length];
+
+const discussionFormatDetails = (format: RotatingDiscussionFormat, moduleTopic: string, courseTopic: string, settings: CourseSettings): { role: string; prompt: string; replyMove: string } => {
+  const topic = moduleTopic.toLowerCase();
+  const profile = subjectProfileFor(courseTopic, moduleTopic);
+  if (!isGenericTemplate(settings)) {
+    const artifactChoices = listJoin(profile.artifacts.slice(0, 4));
+    const evidenceChoices = listJoin(profile.evidenceTypes.slice(0, 4));
+    const specificDetails: Record<RotatingDiscussionFormat, { role: string; prompt: string; replyMove: string }> = {
+      Debate: {
+        role: `Take a position as a member of the ${profile.audience}.`,
+        prompt: `Take a defensible position on how ${topic} changes the way we should understand ${courseTopic}. Use at least one concrete example such as ${artifactChoices}, and name the evidence that would challenge your view.`,
+        replyMove: `Respectfully test a classmate's position by adding ${evidenceChoices}, a limitation, or a fair counterargument.`
+      },
+      "Case consultation": {
+        role: `Respond as a consultant for the ${profile.audience}.`,
+        prompt: `Analyze the ${profile.caseLabel} connected to ${topic}. Identify the central issue, the evidence that matters most, what remains uncertain, and the next interpretive or practical step.`,
+        replyMove: "Add a missing source, stakeholder, limitation, alternative interpretation, or clarifying question."
+      },
+      "Gallery walk": {
+        role: "Curate one course-specific artifact for classmates to examine.",
+        prompt: `Post one ${profile.artifactLabel} connected to ${courseTopic} and ${topic}. Explain what students should notice first and how the artifact changes the module conversation.`,
+        replyMove: "Visit classmates' posts and compare the patterns, strengths, missing context, or unanswered questions across artifacts."
+      },
+      "Role-play": {
+        role: `Choose a role inside the ${profile.audience} or an affected group in ${courseTopic}.`,
+        prompt: `Respond from that role to a decision point involving ${topic}. Explain your priorities, the evidence you trust, the constraint you worry about, and your likely recommendation.`,
+        replyMove: "Reply from your role to another role, looking for shared interests, conflict, or negotiation points."
+      },
+      "Peer review": {
+        role: "Act as a constructive reviewer using the module criteria.",
+        prompt: `Share a draft claim, evidence choice, outline, or project move related to ${topic} in ${courseTopic}. Ask for feedback on one specific part of your reasoning.`,
+        replyMove: "Give warm, specific, actionable feedback tied to evidence, course vocabulary, audience, or limitation."
+      },
+      Prediction: {
+        role: "Make and test a prediction from course evidence.",
+        prompt: `Predict what becomes more likely if a trend, decision, or interpretation connected to ${topic} continues in ${courseTopic}. Name the evidence behind the prediction and one assumption you are making.`,
+        replyMove: "Test a classmate's prediction by adding evidence, a hidden assumption, or an alternate future."
+      },
+      Postmortem: {
+        role: `Analyze what happened in a failed or contested ${profile.caseLabel}.`,
+        prompt: `Imagine an effort connected to ${topic} in ${courseTopic} did not work as planned. Identify the likely cause, warning sign, evidence trail, and repair move.`,
+        replyMove: "Add a prevention strategy, missing signal, better evidence source, or recovery action."
+      },
+      "Ethical dilemma": {
+        role: "Weigh values, harms, responsibilities, and tradeoffs.",
+        prompt: `Describe an ethical or interpretive dilemma connected to ${topic} in ${courseTopic}. Explain the competing values, the evidence that matters, and the most responsible next step.`,
+        replyMove: "Name a value, affected party, source limitation, or unintended consequence that complicates a classmate's answer."
+      },
+      "Lab meeting": {
+        role: `Participate as a ${profile.lens} team member.`,
+        prompt: `Bring one observation, source claim, data point, or method question connected to ${topic} in ${courseTopic}. Explain what it suggests and what it cannot prove yet.`,
+        replyMove: "Help a classmate improve the method, interpretation, limitation statement, or evidence choice."
+      },
+      "Design critique": {
+        role: `Critique a ${profile.artifactLabel} as part of the ${profile.audience}.`,
+        prompt: `Evaluate a concrete artifact connected to ${courseTopic} and ${topic}, such as ${artifactChoices}. Name what the artifact communicates, what it leaves unclear, what evidence supports your critique, and what you would revise in the interpretation.`,
+        replyMove: "Offer one criterion-based critique and one concrete revision to the interpretation, evidence choice, label, display, message, or recommendation."
+      }
+    };
+    return specificDetails[format];
+  }
+  const details: Record<RotatingDiscussionFormat, { role: string; prompt: string; replyMove: string }> = {
+    Debate: {
+      role: "Take a position as an evidence-based contributor.",
+      prompt: `Take a defensible position on a question connected to ${topic}. Name the evidence that supports your view and one counterargument you take seriously.`,
+      replyMove: "Respectfully challenge or strengthen a classmate's position by adding evidence, a limitation, or a fair counterargument."
+    },
+    "Case consultation": {
+      role: "Respond as a consultant helping a real stakeholder make a decision.",
+      prompt: `Analyze a realistic case connected to ${topic}. Identify the central issue, affected stakeholders, evidence, and recommended next step.`,
+      replyMove: "Add a missing stakeholder, risk, alternative recommendation, or clarifying question."
+    },
+    "Gallery walk": {
+      role: "Share a concise artifact or example, then tour classmates' contributions.",
+      prompt: `Post one example, image description, source excerpt, mini-visual, or idea connected to ${topic}, and explain why it belongs in the gallery.`,
+      replyMove: "Visit classmates' posts and leave observations that compare patterns, strengths, or unanswered questions."
+    },
+    "Role-play": {
+      role: "Respond from an assigned or self-selected role.",
+      prompt: `Choose a role affected by ${topic}. Explain that role's priorities, evidence, constraints, and likely recommendation.`,
+      replyMove: "Reply from your role to another role, looking for shared interests, conflict, or negotiation points."
+    },
+    "Peer review": {
+      role: "Act as a constructive reviewer using the module criteria.",
+      prompt: `Share a draft idea, claim, outline, or project move related to ${topic}. Ask for feedback on one specific part.`,
+      replyMove: "Give warm, specific, actionable feedback tied to criteria, evidence, or audience."
+    },
+    Prediction: {
+      role: "Make and test a prediction.",
+      prompt: `Predict what will happen if a decision, trend, or practice connected to ${topic} continues. Name the evidence behind the prediction.`,
+      replyMove: "Test a classmate's prediction by adding evidence, an assumption, or an alternate future."
+    },
+    Postmortem: {
+      role: "Analyze what happened after a decision or attempt.",
+      prompt: `Imagine an effort connected to ${topic} did not work as planned. Identify the likely cause, warning sign, and repair move.`,
+      replyMove: "Add a prevention strategy, missing signal, or better recovery action."
+    },
+    "Ethical dilemma": {
+      role: "Weigh values, harms, responsibilities, and tradeoffs.",
+      prompt: `Describe an ethical dilemma connected to ${topic}. Explain the competing values and the most responsible next step.`,
+      replyMove: "Name a value, affected party, or unintended consequence that complicates a classmate's answer."
+    },
+    "Lab meeting": {
+      role: "Participate as a research or practice team member.",
+      prompt: `Bring one observation, data point, source claim, or method question connected to ${topic}. Explain what it suggests and what it cannot prove yet.`,
+      replyMove: "Help a classmate improve the method, interpretation, or limitation statement."
+    },
+    "Design critique": {
+      role: "Critique a choice, artifact, intervention, or communication move.",
+      prompt: `Evaluate a design, policy, message, process, or artifact connected to ${topic}. Name what works, what fails, and what you would revise.`,
+      replyMove: "Offer one criterion-based critique and one concrete revision idea."
+    }
+  };
+  return details[format];
+};
+
+const discussionPrompt = (moduleTopic: string, courseTopic: string, settings: CourseSettings, theme: Theme, moduleNumber = 1): string => {
+  const format = discussionFormatFor(moduleNumber);
+  const formatDetails = discussionFormatDetails(format, moduleTopic, courseTopic, settings);
+  const profile = subjectProfileFor(courseTopic, moduleTopic);
   const styleLead: Record<CourseSettings["discussionStyle"], string> = {
     reflective: "Connect the module ideas to your own learning, prior experience, or professional context.",
     "case-based": "Analyze a concrete case that reveals the tensions in this module.",
     debate: "Take a position, acknowledge a counterargument, and explain what evidence would change your view.",
     "peer-review": "Share a draft idea and give classmates specific, constructive feedback.",
-    application: "Apply the module concepts to a realistic decision, classroom, workplace, or community scenario."
+    application: isGenericTemplate(settings)
+      ? "Apply the module concepts to a realistic decision, classroom, workplace, or community scenario."
+      : `Apply the module concepts to a realistic ${subjectProfileFor(courseTopic, moduleTopic).lens} decision connected to ${courseTopic}.`
   };
+  const evidenceLine = isGenericTemplate(settings)
+    ? `Connect your answer to ${courseTopic.toLowerCase()} and to the current module vocabulary.`
+    : `Ground your answer in ${courseTopic} by using a specific example such as ${listJoin(profile.artifacts.slice(0, 4))} and at least one evidence type such as ${listJoin(profile.evidenceTypes.slice(0, 3))}.`;
 
   return canvasShell(
-    `Discussion: ${moduleTopic}`,
-    styleLead[settings.discussionStyle],
-    `${section("Purpose", `<p>This discussion helps you test the module ideas in conversation before using them in graded applied work.</p>`, theme)}
-${section("Prompt", `<p>Choose one example connected to ${moduleTopic.toLowerCase()} and explain why it matters for ${courseTopic.toLowerCase()}.</p>`, theme)}
-${section("Initial Post", checklistHtml(["Write 250-350 words unless your instructor changes the expectation.", "Use at least two module terms accurately.", "Reference one reading, media example, case, or personal/professional observation.", "End with one question that invites classmates into a more specific conversation."]), theme)}
-${section("Replies", checklistHtml(["Reply to at least two classmates.", "Use the name of the idea you are connecting to or challenging.", "Add evidence, an example, a respectful counterpoint, or a useful question.", "Avoid short agreement-only replies."]), theme)}
-${section("Example Starter Pattern", "<p>One way to begin: <em>The example I selected shows [module concept] because [evidence]. This matters for [course topic] because [consequence or decision].</em></p>", theme)}
+    `${format} Discussion: ${moduleTopic}`,
+    `${styleLead[settings.discussionStyle]} Format: ${format}.`,
+    `<p style="margin: 0 0 16px;"><img src="${fileRef("discussion-icon.svg")}" alt="Discussion prompt icon" style="width: 82px; height: auto; display: inline-block;" /></p>
+${section("Purpose", `<p>This discussion helps you test the module ideas in conversation before using them in graded applied work.</p>`, theme)}
+${section("Scenario or Role", `<p>${formatDetails.role}</p>`, theme)}
+${section("Prompt", `<p>${formatDetails.prompt}</p><p>${evidenceLine}</p>`, theme)}
+${section("First Post Guidance", checklistHtml(["Write 250-350 words unless your instructor changes the expectation.", "Use at least two module terms accurately.", "Reference one reading, media example, case, data point, artifact, or personal/professional observation.", "End with one question that invites classmates into a more specific conversation."]), theme)}
+${section("Reply Guidance", checklistHtml(["Reply to at least two classmates.", formatDetails.replyMove, "Use the name of the idea you are connecting to or challenging.", "Add evidence, an example, a respectful counterpoint, or a useful question.", "Avoid short agreement-only replies."]), theme)}
+${section("Conversation Moves", checklistHtml(["Extend a classmate's idea with new evidence or a concrete example.", "Compare two posts and name the pattern between them.", "Ask a clarifying question that would improve the analysis.", "Respectfully challenge the reasoning, not the person.", "Synthesize several replies into a stronger takeaway."]), theme)}
+${section("Sample Strong Reply", "<p><em>I see your point about [specific idea]. The evidence from [source or module concept] adds another layer because [reason]. One question I still have is [specific question].</em></p>", theme)}
+${section("Peer Response Starters", checklistHtml(["I want to build on your point about...", "The evidence that complicates this is...", "A different stakeholder might see this as...", "One assumption worth testing is...", "Your post made me reconsider..."]), theme)}
+${section("Respectful Disagreement Guidance", "<p>Challenge ideas, evidence, assumptions, or implications rather than classmates. Represent the other view fairly and name what evidence would help resolve the disagreement.</p>", theme)}
+${section("Optional Group Discussion Variant", "<p>For small groups, assign a facilitator, evidence tracker, connector, and summarizer. Post one synthesis that names the strongest idea, the unresolved question, and one next step.</p>", theme)}
 ${section("Instructor Facilitation Tips", checklistHtml(["Look for posts that stay too general and ask for a concrete example.", "Invite students to connect claims back to the module outcomes.", "Use one strong student question as a bridge into the next module."]), theme)}
 ${callout("Grading Criteria", "<p>Strong posts use evidence, connect to course outcomes, respond substantively to peers, and move the conversation forward.</p>", theme)}`,
     theme
@@ -676,43 +1007,48 @@ ${callout("Grading Criteria", "<p>Strong posts use evidence, connect to course o
 const buildWelcomeAnnouncementHtml = (courseTitle: string, theme: Theme): string =>
   canvasShell(
     `Welcome to ${courseTitle}!`,
-    "Read this first — it is your launch pad for the whole course.",
-    `${tipNote("Start here", `<p>Open the <strong>Start Here</strong> module, read the Course Success Guide, and skim the syllabus. Then begin Module 1. The course is laid out so you always know exactly what to do next.</p>`, theme)}
+    "Read this first. It is your launch pad for the whole course.",
+    `${tipNote("Start here", `<p>Open the ${secondaryLink(moduleRef(START_MODULE_ID), "Start Here module", theme)} then read the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.successGuide), "Course Success Guide", theme)} and skim the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.syllabus), "Syllabus", theme)}. Then begin Module 1. The course is laid out so you always know exactly what to do next.</p>`, theme)}
 ${section("Your first three steps", checklistHtml([
-      "Open Start Here and read About This Course and the Course Success Guide.",
-      "Post in the Introduce Yourself discussion so we get to know you.",
-      "Check the Course Calendar and Workload Plan so the pace is no surprise."
+      `${secondaryLink(moduleRef(START_MODULE_ID), "Open Start Here", theme)} and read the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.successGuide), "Course Success Guide", theme)}.`,
+      `Post in the ${secondaryLink(discussionRef(INTRO_DISCUSSION_ID), "Introduce Yourself discussion", theme)} so we get to know you.`,
+      `Check the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar), "Course Calendar and Workload Plan", theme)} so the pace is no surprise.`
     ]), theme)}
-${exampleNote("How to stay on track", "<p>Check <strong>Announcements</strong> and the home page regularly — that is where reminders, updates, and encouragement will show up throughout the term.</p>", theme)}
-${callout("Questions? Reach out early", "<p>Use the <strong>Ask Course Questions</strong> discussion in Start Here, or contact me during office hours. I would much rather hear from you sooner than later — you are not on your own here.</p>", theme)}`,
+${exampleNote("How to stay on track", `<p>Check <strong>Announcements</strong> and the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.homepage), "course home page", theme)} regularly. That is where reminders, updates, and encouragement will show up throughout the term.</p>`, theme)}
+${callout("Questions? Reach out early", `<p>Use the ${secondaryLink(moduleRef(START_MODULE_ID), "Start Here module", theme)} or contact me during office hours. I would much rather hear from you sooner than later. You are not on your own here.</p>`, theme)}`,
     theme
   );
 
-const assignmentDescription = (title: string, moduleTopic: string, outcomeIds: string[], outcomes: CourseOutcome[], theme: Theme): string =>
-  canvasShell(
+const assignmentDescription = (title: string, moduleTopic: string, courseTopic: string, settings: CourseSettings, outcomeIds: string[], outcomes: CourseOutcome[], theme: Theme): string => {
+  const plan = subjectAssignmentPlan(courseTopic, moduleTopic, settings);
+  return canvasShell(
     title,
     `Apply ${moduleTopic.toLowerCase()} to a realistic problem, case, or teaching context.`,
-    `${section("Purpose", "<p>This assignment asks you to move from course concepts to grounded analysis and decision-making.</p>", theme)}
-${section("Scenario", `<p>You are preparing a brief for an audience that needs to understand how ${moduleTopic.toLowerCase()} affects a real decision, policy, design, classroom, workplace, or community context.</p>`, theme)}
-${section("Task Instructions", checklistHtml(["Select a relevant example, case, problem, or scenario.", "Explain the context, stakeholders, and decision point.", "Use module vocabulary and at least two pieces of course evidence.", "Analyze consequences, tradeoffs, or ethical considerations.", "End with a practical recommendation, next step, or unresolved question."]), theme)}
-${section("Deliverable Requirements", checklistHtml(["Use clear headings that match the task.", "Include 700-1000 words or an equivalent instructor-approved artifact.", "Cite or name course sources according to local expectations.", "Use descriptive links and accessible file names if attachments are included."]), theme)}
-${section("Format Guidance", "<p>A strong submission usually includes: context, evidence, analysis, recommendation, and reflection. Tables or diagrams are welcome when they make the reasoning easier to follow.</p>", theme)}
-${section("Model Elements", checklistHtml(["A specific example instead of a broad topic.", "A claim supported by evidence.", "A paragraph that explains why the evidence matters.", "A recommendation that follows from the analysis."]), theme)}
-${section("How Your Work Is Evaluated", tableHtml("Self-check against these before you submit — they mirror the rubric", ["Criterion", "What strong work shows"], [["Evidence", "Specific, relevant course evidence is cited and explained, not just listed."], ["Analysis", "Reasoning connects evidence to context, stakeholders, and tradeoffs."], ["Recommendation", "A defensible recommendation follows directly from the analysis."], ["Communication", "Clear headings, accessible links, and audience-appropriate language."]], theme), theme)}
-${section("Submission Instructions", "<p>Submit in Canvas using online text entry or upload as directed by your instructor. Confirm that any attached file opens correctly before submitting.</p>", theme)}
-${section("Estimated Workload", "<p>Plan for approximately 4-6 focused hours: review sources, outline, draft, revise, and check the rubric.</p>", theme)}
-${section("Academic Integrity and AI Use", "<p>Use institutional academic integrity and AI-use policies. If AI tools are permitted, document how they were used and verify all output against course sources.</p>", theme)}
+    `<p style="margin: 0 0 16px;"><img src="${fileRef("assignment-type-icon.svg")}" alt="Assignment launchpad icon" style="width: 82px; height: auto; display: inline-block;" /></p>
+${section("Purpose", `<p>${plan.purpose}</p>`, theme)}
+${section("What You Will Create", `<p>${plan.create}</p>`, theme)}
+${section("Scenario", `<p>${plan.scenario}</p>`, theme)}
+${section("Steps", checklistHtml(plan.steps), theme)}
+${section("Deliverable Checklist", checklistHtml(plan.deliverables), theme)}
+${section("Submission Format", checklistHtml(["Submit in Canvas using online text entry or upload as directed by your instructor.", "Suggested length: 700-1000 words or an equivalent instructor-approved artifact.", "Use the citation style requested by the instructor or program.", "Confirm that attached files, links, media, and captions open correctly before submitting."]), theme)}
+${section("Success Checklist", checklistHtml(["My example is specific rather than broad.", "My claim is supported by evidence.", "I explain why the evidence matters.", "My recommendation follows from the analysis.", "My submission is readable, accessible, and complete."]), theme)}
+${section("Rubric Preview", tableHtml("Self-check against these before you submit", ["Criterion", "What strong work shows"], [["Evidence", "Specific, relevant course evidence is cited, explained, and connected to the claim."], ["Analysis", "Reasoning connects evidence to context, stakeholders, and tradeoffs."], ["Recommendation", "A defensible recommendation follows directly from the analysis."], ["Communication", "Clear headings, accessible links, and audience-appropriate language."]], theme), theme)}
+${section("Examples and Non-Examples", tableHtml("Use this comparison to check direction before drafting", ["Strong example", "Weak non-example"], plan.examples, theme), theme)}
+${section("AI Use Guidance", "<p>Follow the official course and institutional AI-use policy. If AI tools are permitted, disclose how they were used, verify all output against course sources, and take responsibility for the final submission.</p>", theme)}
+${section("Time Estimate", "<p>Plan for approximately 4-6 focused hours: review sources, outline, draft, revise, check accessibility, and compare your work to the rubric.</p>", theme)}
+${section("Stretch Goal", "<p>Add a visual, table, short appendix, stakeholder map, prototype, or alternate recommendation if it makes your reasoning clearer without distracting from the required deliverable.</p>", theme)}
 ${section("Outcome Alignment", `<p>This work aligns to:</p>${outcomeBadges(outcomes, outcomeIds, theme)}`, theme)}
-${callout("Before You Submit", "<p>Review the rubric, confirm every section is complete, check that links or attachments are accessible, and make sure your recommendation follows from your evidence.</p>", theme)}`,
+${callout("Submission Survival Kit", "<p>Review the rubric, confirm every deliverable is complete, check links or attachments, name any permitted AI use, and make sure your recommendation follows from your evidence.</p>", theme)}`,
     theme
   );
+};
 
 const buildStudentGuideHtml = (courseTitle: string, theme: Theme): string =>
   canvasShell(
     "Course Success Guide",
     `A practical student manual for navigating ${courseTitle}.`,
-    `${section("How This Course Works", `<p>Begin with Start Here, then work through Modules in order. Each module opens with an overview, moves through content and practice, and closes with a recap.</p>${checklistHtml(["Read each module overview before starting.", "Use the module item order as your weekly path.", "Check due dates and rubrics before submitting work.", "Return to recap pages before quizzes, assignments, or the final project."])}`, theme)}
-${section("Where To Find Important Work", checklistHtml(["Syllabus: grading, workload, policies, and course outcomes.", "Course Calendar and Workload Plan: release dates, due dates, workload estimates, and pacing notes.", "Modules: the primary path for readings, pages, discussions, quizzes, and assignments.", "Grades: feedback and progress.", "Announcements: instructor updates and reminders."]), theme)}
+    `${section("How This Course Works", `<p>Begin with ${secondaryLink(moduleRef(START_MODULE_ID), "Start Here", theme)}, then work through ${secondaryLink(modulesIndexRef(), "Modules", theme)} in order. Each module opens with an overview, moves through content and practice, and closes with a recap.</p>${checklistHtml(["Read each module overview before starting.", "Use the module item order as your weekly path.", "Check due dates and rubrics before submitting work.", "Return to recap pages before quizzes, assignments, or the final project."])}`, theme)}
+${section("Where To Find Important Work", checklistHtml([`${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.syllabus), "Syllabus", theme)}: grading, workload, policies, and course outcomes.`, `${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar), "Course Calendar and Workload Plan", theme)}: release dates, due dates, workload estimates, and pacing notes.`, `${secondaryLink(modulesIndexRef(), "Modules", theme)}: the primary path for readings, pages, discussions, quizzes, and assignments.`, "Grades: feedback and progress.", "Announcements: instructor updates and reminders."]), theme)}
 ${section("What Success Looks Like", checklistHtml(["You can explain each module's objectives in your own words.", "You use rubric language before submitting.", "You ask questions early when instructions feel unclear.", "You connect weekly work to the final project."]), theme)}
 ${callout("When You Feel Stuck", "<p>Return to the current module overview, reread the assignment rubric, post or send a specific question, and name exactly where you lost the thread.</p>", theme)}
 ${section("First Steps", `<p>${buttonLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.syllabus), "Review the syllabus", theme)}${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar), "Open course calendar", theme)}${secondaryLink(modulesIndexRef(), "Go to Modules", theme)}</p>`, theme)}`,
@@ -772,8 +1108,8 @@ const buildInstructorGuideHtml = (courseTitle: string, navigation: CanvasNavigat
   canvasShell(
     "Instructor Guide",
     `Instructor-only implementation notes for ${courseTitle}.`,
-    `${section("Downloadable Version", `<p>${secondaryLink(fileRef("instructor-guide.pdf"), "Download instructor guide PDF", theme)}</p>`, theme)}
-${section("How To Run This Course", checklistHtml(["Import the .imscc into a clean Canvas shell when possible.", "Review Start Here, syllabus, all module overview pages, assignments, rubrics, and quizzes before publishing.", "Replace instructor placeholders, required materials, due dates, office hours, and institution policies.", "Publish only the modules and items that should be visible to students."]), theme)}
+    `${section("Downloadable Version", `<p>${secondaryLink(webResourceHref("instructor-guide.pdf"), "Download instructor guide PDF", theme)}</p>`, theme)}
+${section("How To Run This Course", checklistHtml(["Import the .imscc into a clean Canvas shell when possible.", "Review Start Here, syllabus, all module overview pages, assignments, rubrics, and quizzes before publishing.", "Review generated source briefs, required materials, due dates, office hours, and institution policies.", "Publish only the modules and items that should be visible to students."]), theme)}
 ${section("Course Structure", "<p>The generated shell uses Start Here, sequenced content modules, a separate Final Project module, and this unpublished Instructor Guide module at the end.</p>", theme)}
 ${section("Before Publishing Checklist", checklistHtml(["Confirm the homepage Start Here button resolves.", "Review the Outcome and Assessment Alignment Map.", "Review gradebook assignment groups and weights.", "Check every graded item has an aligned outcome and rubric where appropriate.", "Open Modules as a student would and verify flow.", "Confirm the Instructor Guide module remains unpublished.", "Decide whether Assignments, Discussions, Quizzes, Pages, or Files should stay hidden from course navigation."]), theme)}
 ${section("Canvas Navigation Defaults", listHtml(navigation.map((item) => `<strong>${item.label}:</strong> ${item.visible ? "visible" : "hidden"} - ${item.reason}`)), theme)}
@@ -786,7 +1122,7 @@ const buildInstructorTeachingNotesHtml = (courseTitle: string, contentModules: C
   canvasShell(
     "Instructor Module Teaching Notes",
     `Facilitation, grading, release, and review notes for ${courseTitle}.`,
-    `${section("How To Use These Notes", checklistHtml(["Review each module before publishing.", "Replace resource placeholders with verified readings or media.", "Use announcement prompts to connect module work to the next graded task.", "Watch risk flags for content that needs discipline-specific review."]), theme)}
+    `${section("How To Use These Notes", checklistHtml(["Review each module before publishing.", "Review generated source briefs or replace them with verified readings or media.", "Use announcement prompts to connect module work to the next graded task.", "Watch risk flags for content that needs discipline-specific review."]), theme)}
 ${contentModules
   .map(
     (module) =>
@@ -961,7 +1297,9 @@ const buildReviewChecklist = (course: {
     makeReviewItem("must", "Review outcome and assessment alignment map", "A coherent Canvas course should show how outcomes connect to modules, graded work, rubrics, and gradebook groups.", "Open the alignment map and confirm every outcome has meaningful instructional and assessment evidence.", "course"),
     makeReviewItem("must", "Review gradebook groups and weights", "Canvas imports are sensitive to assignment-group setup and weights.", "Confirm assignment group names and percentages match the intended grading policy.", "gradebook"),
     makeReviewItem("must", "Review due dates and schedule", "Dates should not land on holidays, blackout dates, or outside the term unless intentionally allowed.", dueDateNote, "schedule"),
-    makeReviewItem("must", "Replace resource placeholders", "Generated resources intentionally avoid fake citations and URLs.", "Replace textbook, OER, article, media, and upload placeholders with verified sources.", "resource"),
+    isGenericTemplate(course.settings)
+      ? makeReviewItem("must", "Replace resource placeholders", "Generic template resources intentionally avoid fake citations and URLs.", "Replace textbook, OER, article, media, and upload placeholders with verified sources.", "resource")
+      : makeReviewItem("recommended", "Review generated source briefs", "Generated resources give students complete course-specific source briefs without fabricating citations or URLs.", "Keep the generated briefs, replace them with verified readings, or add institution-approved sources where needed.", "resource"),
     makeReviewItem("must", "Check module flow", "Students should be able to move from overview to resources, lesson, practice, graded work, and recap.", "Open Modules in order and verify each content module has a clear learning path.", "module"),
     makeReviewItem("must", "Review rubrics", "Rubrics should be understandable before students submit work.", "Check criteria, performance levels, point values, and outcome alignment.", "course"),
     makeReviewItem("must", "Confirm instructor-only visibility", "Instructor-only materials should not publish to students by default.", "Confirm the instructor module and all instructor-only items remain unpublished.", "module", instructorModule?.id ?? "module_instructor_guide"),
@@ -1004,6 +1342,8 @@ interface GeneratedHomepage {
   content: ReturnType<typeof defaultHomepageContent>;
 }
 
+const GENERATED_HOMEPAGE_TEMPLATE_ID = "course-dashboard";
+
 const buildHomepage = (settings: CourseSettings, title: string, moduleCount: number, theme: Theme): GeneratedHomepage => {
   const content = defaultHomepageContent({
     title,
@@ -1027,8 +1367,10 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
     imageSettings: { ...defaultSettings.imageSettings, ...settings.imageSettings } as CourseImageSettings
   };
   const title = titleFromPrompt(prompt, mergedSettings.title);
-  const theme = applyAccessibilityTier(themeOverride ?? getTheme(mergedSettings.themeId), mergedSettings.accessibilityTier);
+  const selectedTheme = themeOverride ?? getTheme(mergedSettings.themeId);
+  const theme = applyAccessibilityTier({ ...selectedTheme, intensity: selectedTheme.intensity ?? mergedSettings.themeIntensity }, mergedSettings.accessibilityTier);
   const moduleCount = Math.max(1, Math.min(18, mergedSettings.moduleCount || mergedSettings.lengthWeeks || 12));
+  const moduleOverviewStyleId = chooseModuleOverviewStyle(mergedSettings, theme);
   const finalTitle = finalModuleTitle(mergedSettings);
   const projectId = `course_${slugify(title)}`;
   const topic = title.replace(/^course\s+on\s+/i, "");
@@ -1087,7 +1429,8 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
     makeFileAsset("asset_syllabus_pdf", "web_resources/syllabus-printable.pdf", "Printable syllabus PDF", "application/pdf", "syllabus-printable", generatedAt, "Downloadable printable syllabus."),
     makeFileAsset("asset_syllabus_html", "web_resources/syllabus-printable.html", "Printable syllabus HTML", "text/html", "other", generatedAt, "PDF-ready syllabus HTML fallback."),
     makeFileAsset("asset_instructor_pdf", "web_resources/instructor-guide.pdf", "Instructor guide PDF", "application/pdf", "instructor-guide", generatedAt, "Downloadable instructor guide."),
-    makeFileAsset("asset_instructor_html", "web_resources/instructor-guide-printable.html", "Instructor guide printable HTML", "text/html", "other", generatedAt, "PDF-ready instructor guide HTML fallback.")
+    makeFileAsset("asset_instructor_html", "web_resources/instructor-guide-printable.html", "Instructor guide printable HTML", "text/html", "other", generatedAt, "PDF-ready instructor guide HTML fallback."),
+    ...visualCourseFileAssets(title, moduleCount, generatedAt)
   ];
 
   const homepageId = WELL_KNOWN_PAGE_IDS.homepage;
@@ -1119,9 +1462,9 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
   const instructorGuideHtml = buildInstructorGuideHtml(title, navigation, theme);
 
   const generatedHomepage = buildHomepage(mergedSettings, title, moduleCount, theme);
-  pages.push(makePage(homepageId, `${title} Homepage`, "homepage", generatedHomepage.html, "module_start", generatedAt, { frontPage: true }));
-  pages.push(makePage(syllabusId, "Syllabus", "syllabus", syllabusHtml, "module_start", generatedAt));
-  pages.push(makePage(studentGuideId, "Course Success Guide", "course-success-guide", buildStudentGuideHtml(title, theme), "module_start", generatedAt));
+  pages.push(makePage(homepageId, `${title} Homepage`, "homepage", generatedHomepage.html, START_MODULE_ID, generatedAt, { frontPage: true }));
+  pages.push(makePage(syllabusId, "Syllabus", "syllabus", syllabusHtml, START_MODULE_ID, generatedAt));
+  pages.push(makePage(studentGuideId, "Course Success Guide", "course-success-guide", buildStudentGuideHtml(title, theme), START_MODULE_ID, generatedAt));
 
   const startItems: ModuleItem[] = [
     makeItem("item_homepage", "page", "Welcome to the Course", homepageId, 1, generatedAt),
@@ -1143,21 +1486,20 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
 ${section("Recommended Actions", checklistHtml(["Review module overview pages first.", "Use Canvas notifications and calendar reminders.", "Download or bookmark key support resources.", "Contact the instructor before small issues become urgent."]), theme)}`,
           theme
         ),
-        "module_start",
+        START_MODULE_ID,
         generatedAt
       )
     );
     startItems.push(makeItem(id("item", pageTitle), "page", pageTitle, pageId, index + 4, generatedAt));
   });
 
-  const introDiscussionId = "discussion_introduce_yourself";
   const introRubricId = "rubric_introduce_yourself";
   const introDiscussionDueAt = dueDateForModule(mergedSettings, 0, 1);
-  rubrics.push(makeRubric(introRubricId, "Introduce Yourself Discussion Rubric", 10, [outcomes[0].id], generatedAt, "Community"));
+  rubrics.push(makeRubric(introRubricId, "Introduce Yourself Discussion Rubric", 10, [outcomes[0].id], outcomes, generatedAt, "Community"));
   discussions.push({
-    id: introDiscussionId,
+    id: INTRO_DISCUSSION_ID,
     title: "Introduce Yourself",
-    moduleId: "module_start",
+    moduleId: START_MODULE_ID,
     dueAt: introDiscussionDueAt,
     assignmentGroupId: "group_discussions",
     points: 10,
@@ -1170,16 +1512,17 @@ ${section("Recommended Actions", checklistHtml(["Review module overview pages fi
       "Introduce Yourself",
       "Build course community and practice the discussion workflow.",
       `${section("Prompt", "<p>Share your background, one question you bring to the course, and one strategy that helps you learn online.</p>", theme)}
-${section("Replies", "<p>Reply to two classmates with a connection, a useful resource, or a thoughtful question.</p>", theme)}`,
+${section("Reply Guidance", "<p>Reply to two classmates with a connection, a useful resource, or a thoughtful question. Use the reply as a short conversation move with substance beyond agreement.</p>", theme)}
+${section("Conversation Moves", checklistHtml(["Connect a classmate's experience to your own learning strategy.", "Ask one clarifying question that could help them prepare for the course.", "Name a shared question or support need that the class might revisit."]), theme)}`,
       theme
     )
   });
-  startItems.push(makeItem("item_introduce_yourself", "discussion", "Introduce Yourself", introDiscussionId, startItems.length + 1, generatedAt));
+  startItems.push(makeItem("item_introduce_yourself", "discussion", "Introduce Yourself", INTRO_DISCUSSION_ID, startItems.length + 1, generatedAt));
   schedule.push({
-    id: id("schedule", introDiscussionId),
-    moduleId: "module_start",
+    id: id("schedule", INTRO_DISCUSSION_ID),
+    moduleId: START_MODULE_ID,
     title: "Introduce Yourself discussion",
-    itemId: introDiscussionId,
+    itemId: INTRO_DISCUSSION_ID,
     itemType: "discussion",
     dueAt: introDiscussionDueAt,
     workloadHours: 1,
@@ -1233,7 +1576,8 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
     const moduleObjectives = moduleObjectivesFor(outcomes, alignedOutcomeIds);
     const moduleItems: ModuleItem[] = [];
     const workloadHours = Math.round((contactHours.totalHours - 8) / moduleCount);
-    const moduleResources = buildModuleResources(moduleId, moduleLabel, moduleTopic, topic, generatedAt);
+    const moduleResources = buildModuleResources(moduleId, moduleLabel, moduleTopic, topic, mergedSettings, generatedAt);
+    const moduleProfile = subjectProfileFor(topic, moduleTopic);
     const moduleReleaseAt = releaseDateForModule(mergedSettings, index);
     const resourceDueAt = dueDateForModule(mergedSettings, index, 2);
     const practiceDueAt = dueDateForModule(mergedSettings, index, 3);
@@ -1257,19 +1601,15 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
     const hasQuiz = shouldIncludeQuiz(mergedSettings, moduleNumber);
     const hasAssignment = shouldIncludeAssignment(mergedSettings, moduleNumber);
     const glanceRows: string[][] = [
-      ["Overview", "Page", "—", "Read first"],
+      ["Overview", "Page", "-", "Read first"],
       ["Readings &amp; Resources", "Page", readableDate(resourceDueAt), "Required reading"],
-      ["Lecture &amp; Notes", "Page", "—", "Study"],
+      ["Lecture &amp; Notes", "Page", "-", "Study"],
       ["Practice Activity", "Page", readableDate(practiceDueAt), "Ungraded practice"]
     ];
     if (hasDiscussion) glanceRows.push(["Discussion", "Discussion", readableDate(discussionDueAt), "Graded"]);
     if (hasQuiz) glanceRows.push([quizPurposeModel.titleWord, "Quiz", readableDate(quizDueAt), "Graded"]);
     if (hasAssignment) glanceRows.push(["Applied Assignment", "Assignment", readableDate(assignmentDueAt), "Graded"]);
-    glanceRows.push(["Wrap-Up &amp; Reflection", "Page", "—", "Recap"]);
-    const overviewPills = pillRow(
-      [`~${workloadHours} hrs of work`, `${alignedOutcomeIds.length} aligned outcomes`, `${glanceRows.length} activities`, `${[hasDiscussion, hasQuiz, hasAssignment].filter(Boolean).length} graded`],
-      theme
-    );
+    glanceRows.push(["Wrap-Up &amp; Reflection", "Page", "-", "Recap"]);
     // Per-module header image (opt-in via imageSettings.moduleHeaderImages). Mirrors the homepage
     // banner pattern: an SVG written to web_resources + referenced with a Canvas file token. The SVG
     // itself is generated at export time (imsccExport) from this same module number/title.
@@ -1294,20 +1634,23 @@ ${section("Replies", "<p>Reply to two classmates with a connection, a useful res
         overviewPageId,
         `About ${moduleLabel}`,
         slugify(`${moduleLabel}-${moduleTopic}-overview`),
-        canvasShell(
-          `${moduleLabel}: ${moduleTopic}`,
-          "Start here to understand the learning path, outcomes, activities, and expectations for this module.",
-          `${moduleHeaderImg}${overviewPills}${callout("🚀 Mission briefing", `<p>Welcome to <strong>${moduleTopic}</strong> — your launch pad for this part of the course. Work through the module in order: each stop builds on the one before, moving you from new vocabulary to real examples to confident, evidence-based judgment.</p><p><em>${structureModel.approach}</em></p>`, theme)}
-${callout("🧭 Keep this question as your North Star", `<p>As you move through the readings, lecture, and practice, keep asking: <em>What is actually happening, who is affected, what does the evidence show, and what becomes possible once we understand the context?</em></p>`, theme)}
-${section("✅ What You Will Do", checklistHtml(["Review the module overview and required materials.", "Study the lecture/content page.", "Complete discussions, quizzes, and assignments shown in the module.", "Use the recap page to prepare for what comes next."]), theme)}
-${section("Module Learning Objectives", listHtml(moduleObjectives), theme)}
-${section("Aligned Course Outcomes", outcomeBadges(outcomes, alignedOutcomeIds, theme), theme)}
-${section("Module at a Glance", tableHtml("Everything in this module and when it is due", ["Activity", "Type", "Due", "Counts toward grade"], glanceRows, theme), theme)}
-${section("Learning Path", checklistHtml(patternModel.steps), theme)}
-${callout("Estimated Workload", `<p>Plan for approximately ${workloadHours} hours of student work in this module.</p>`, theme)}
-${section("Module Navigation", moduleNavBar(index), theme)}`,
-          theme
-        ),
+        `${moduleHeaderImg}${renderModuleOverviewHtml({
+          courseTitle: title,
+          theme,
+          styleId: moduleOverviewStyleId,
+          moduleLabel,
+          moduleTopic,
+          moduleNumber,
+          workloadHours,
+          objectives: moduleObjectives,
+          outcomeHtml: outcomeBadges(outcomes, alignedOutcomeIds, theme),
+          glanceRows,
+          learningPathSteps: patternModel.steps,
+          navigationHtml: moduleNavBar(index),
+          structureApproach: structureModel.approach,
+          nextTopic: baseTopics[index + 1] ?? finalTitle,
+          weekBadgeFile: `week-${moduleNumber}-badge.svg`
+        })}`,
         moduleId,
         generatedAt
       )
@@ -1322,8 +1665,8 @@ ${section("Module Navigation", moduleNavBar(index), theme)}`,
         slugify(`${moduleLabel}-${moduleTopic}-resources`),
         canvasShell(
           `${moduleLabel}: Readings and Resources`,
-          "Use these instructor-editable resources to build the evidence base for this module.",
-          `${section("How To Use These Resources", checklistHtml(["Prioritize required resources first.", "Record one concept, one example, and one question from each required source.", "Treat generated citations and URLs as placeholders until an instructor replaces them with verified sources."]), theme)}
+          isGenericTemplate(mergedSettings) ? "Use these instructor-editable resources to build the evidence base for this module." : `Use these generated source briefs to build an evidence base for ${moduleTopic.toLowerCase()} in ${topic}.`,
+          `${section("How To Use These Resources", checklistHtml(isGenericTemplate(mergedSettings) ? ["Prioritize required resources first.", "Record one concept, one example, and one question from each required source.", "Treat generated citations and URLs as placeholders until an instructor replaces them with verified sources."] : [`Start with the core brief and identify the ${moduleProfile.artifactLabel} it asks you to examine.`, `Record one claim, one example, and one limitation related to ${topic}.`, `Use the evidence dossier to gather ${listJoin(moduleProfile.evidenceTypes.slice(0, 3))}.`, "If your instructor adds verified readings or media, use those sources as the authoritative version."]), theme)}
 ${section("Resource List", resourceCardsHtml(moduleResources, theme), theme)}
 ${callout("Accessibility Check", "<p>Instructor should confirm that videos include captions or transcripts, files are readable by screen readers where possible, and links use descriptive text.</p>", theme)}`,
           theme
@@ -1341,7 +1684,7 @@ ${callout("Accessibility Check", "<p>Instructor should confirm that videos inclu
       itemType: "page",
       dueAt: resourceDueAt,
       workloadHours: Math.max(1, Math.round(moduleResources.reduce((sum, resource) => sum + resource.estimatedMinutes, 0) / 60)),
-      notes: "Instructor should replace placeholders with verified readings, media, or uploaded files before publication."
+      notes: isGenericTemplate(mergedSettings) ? "Instructor should replace placeholders with verified readings, media, or uploaded files before publication." : "Generated source briefs are ready for student orientation; instructor may replace or supplement them with verified readings, media, or uploaded files."
     });
 
     const lecturePageId = id("page", `${moduleNumber}-${moduleTopic}-lecture`);
@@ -1353,22 +1696,22 @@ ${callout("Accessibility Check", "<p>Instructor should confirm that videos inclu
         canvasShell(
           `${moduleTopic}: Lecture and Notes`,
           "Canvas-friendly lesson content, examples, misconception checks, and instructor-editable teaching notes.",
-          `${section("Mini-Lecture", `<p>${moduleTopic} asks students to connect course concepts to evidence, context, and decisions. In this module, students identify the vocabulary that helps them describe the issue, then practice using that vocabulary to interpret examples connected to ${topic.toLowerCase()}.</p><p>Experts in this area rarely ask "what do I think?" first. They ask, in order: <em>What is actually happening? Who is affected? What evidence supports the claim? What becomes possible once we understand the context?</em> The rest of this page walks that sequence so you can reuse it on the graded work.</p>`, theme)}
-${section("Key Terms", `<p>Learn these well enough to use them in a sentence — the assignment and quiz both reward precise vocabulary.</p>${listHtml([
+          `${section("Mini-Lecture", `<p>${moduleTopic} asks students to connect course concepts to evidence, context, and decisions. In this module, students use ${moduleProfile.lens} to interpret examples connected to ${topic}.</p><p>A strong analysis starts with a concrete artifact or case, such as ${listJoin(moduleProfile.artifacts.slice(0, 4))}. Then it asks: <em>What is happening? What evidence supports the claim? What context changes the interpretation? What can and cannot be concluded?</em> The rest of this page walks that sequence so you can reuse it on the graded work.</p>`, theme)}
+${section("Key Terms", `<p>Learn these well enough to use them in a sentence. The assignment and quiz both reward precise vocabulary.</p>${listHtml([
             `<strong>${moduleTopic} vocabulary:</strong> the specific words this module uses to describe ${moduleTopic.toLowerCase()} precisely instead of in general terms.`,
-            "<strong>Stakeholder:</strong> any person, group, or system affected by a decision — naming stakeholders keeps your analysis grounded in real impact.",
-            "<strong>Evidence:</strong> verifiable data, sources, or observations used to support a claim, as opposed to personal opinion.",
-            "<strong>Context:</strong> the conditions and constraints that change how a situation should be interpreted.",
-            "<strong>Tradeoff:</strong> what is given up when one option is chosen over another; strong analysis makes tradeoffs explicit.",
-            "<strong>Recommendation:</strong> a defensible course of action that follows from the evidence and weighs the tradeoffs."
+            `<strong>${moduleProfile.keyTerms[0]}:</strong> a discipline-specific idea students use to make a precise claim about ${topic}.`,
+            `<strong>${moduleProfile.keyTerms[1]}:</strong> the evidence pattern that makes a claim more than an unsupported impression.`,
+            `<strong>${moduleProfile.keyTerms[2]}:</strong> the surrounding condition that changes how a source, case, or artifact should be read.`,
+            `<strong>${moduleProfile.keyTerms[3]}:</strong> a relationship or cause students should be able to explain with evidence.`,
+            `<strong>${moduleProfile.keyTerms[4]}:</strong> the final judgment that follows from source details and context.`
           ])}`, theme)}
-${exampleNote("Worked Example", `<p>Here is the five-move method applied to a case connected to ${topic.toLowerCase()} — the same moves you will use on the assignment:</p>${orderedListHtml([
+${exampleNote("Worked Example", `<p>Here is the five-move method applied to the ${moduleProfile.caseLabel}. These are the same moves you will use on the assignment:</p>${orderedListHtml([
             "<strong>Situation:</strong> state what is happening and when, in one or two sentences, before interpreting anything.",
-            "<strong>Stakeholders:</strong> name the people, groups, or systems affected, and note what each one stands to gain or lose.",
-            "<strong>Evidence:</strong> cite two or three specific items from the resource page and explain what each one shows.",
-            "<strong>Tradeoffs:</strong> make at least one tension between competing goals explicit instead of glossing over it.",
-            "<strong>Recommendation:</strong> state a clear, defensible decision and one sentence on why it follows from the evidence."
-          ])}<p style="margin: 12px 0 0;">Notice that opinion never appears on its own — every judgment is anchored to evidence and context.</p>`, theme)}
+            `<strong>Artifact:</strong> name the ${moduleProfile.artifactLabel} you are interpreting and why it matters.`,
+            `<strong>Evidence:</strong> cite two or three items such as ${listJoin(moduleProfile.evidenceTypes.slice(0, 3))} and explain what each one shows.`,
+            "<strong>Limit:</strong> make at least one uncertainty, missing perspective, or competing interpretation explicit.",
+            `<strong>Conclusion:</strong> state a clear, defensible interpretation for the ${moduleProfile.audience}.`
+          ])}<p style="margin: 12px 0 0;">Notice that opinion never appears on its own. Every judgment is anchored to evidence and context.</p>`, theme)}
 ${tipNote("Why This Matters", `<p>Advanced courses and employers expect graduates to move from opinion to evidence-based judgment. Practicing the five-move method on ${moduleTopic.toLowerCase()} now builds the exact habit you will use in this module's graded work, in the final project, and in professional decisions later.</p>`, theme)}
 ${misconceptionNote("Common Misconception", `<p>A common mistake is treating ${moduleTopic.toLowerCase()} as a simple opinion question. Course work should move from opinion toward evidence, context, and reasoned judgment.</p>`, theme)}
 ${checkNote("Check Your Understanding", checklistHtml(["Define one module term in your own words.", "Name one example that illustrates the concept.", "Explain one consequence or tradeoff.", "Write one question you still need answered."]), theme)}
@@ -1390,8 +1733,8 @@ ${section("Instructor Teaching Notes", checklistHtml(["Replace the worked exampl
         canvasShell(
           `${moduleLabel}: Practice Activity`,
           "A low-stakes activity to prepare for discussion, quiz, assignment, or final project work.",
-          `${section("Practice Prompt", `<p>Choose one example connected to ${moduleTopic.toLowerCase()}. Create a quick analysis with three parts: what is happening, what evidence supports your interpretation, and what question remains.</p>`, theme)}
-${section("Student Steps", checklistHtml(["Write a one-sentence claim.", "Add one piece of evidence from the module resources.", "Name one stakeholder, audience, or affected group.", "Identify one uncertainty to discuss or investigate."]), theme)}
+          `${section("Practice Prompt", `<p>Choose one example connected to ${moduleTopic.toLowerCase()} in ${topic}. Create a quick analysis with three parts: what is happening, what evidence supports your interpretation, and what question remains.</p>`, theme)}
+${section("Student Steps", checklistHtml([`Write a one-sentence claim about ${moduleTopic.toLowerCase()}.`, `Add one piece of evidence from the module resources, such as ${moduleProfile.evidenceTypes[0]}.`, `Name the audience or affected group that would care about this ${moduleProfile.artifactLabel}.`, "Identify one uncertainty to discuss or investigate."]), theme)}
 ${section("Self-Check", checklistHtml(["Did I use at least one module term?", "Did I explain why the evidence matters?", "Did I connect this practice to a course outcome or final project idea?"]), theme)}
 ${callout("What To Do Next", "<p>Use this practice response as a starting point for the discussion, quiz preparation, assignment, or final project checkpoint.</p>", theme)}`,
           theme
@@ -1415,22 +1758,23 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
     if (shouldIncludeDiscussion(mergedSettings, moduleNumber)) {
       const discussionId = id("discussion", moduleNumber);
       const rubricId = id("rubric-discussion", moduleNumber);
-      if (mergedSettings.includeRubrics) rubrics.push(makeRubric(rubricId, `${moduleLabel} Discussion Rubric`, 20, alignedOutcomeIds, generatedAt, "Discussion"));
+      const discussionFormat = discussionFormatFor(moduleNumber);
+      rubrics.push(makeRubric(rubricId, `${moduleLabel} Discussion Rubric`, 20, alignedOutcomeIds, outcomes, generatedAt, "Discussion"));
       discussions.push({
         id: discussionId,
-        title: `${moduleLabel} Discussion: ${moduleTopic}`,
+        title: `${moduleLabel} ${discussionFormat}: ${moduleTopic}`,
         moduleId,
         dueAt: discussionDueAt,
         assignmentGroupId: "group_discussions",
         points: 20,
-        rubricId: mergedSettings.includeRubrics ? rubricId : undefined,
+        rubricId,
         alignedOutcomeIds,
         publishState: "published",
         status: "generated",
         metadata: metadata(generatedAt),
-        promptHtml: discussionPrompt(moduleTopic, topic, mergedSettings, theme)
+        promptHtml: discussionPrompt(moduleTopic, topic, mergedSettings, theme, moduleNumber)
       });
-      moduleItems.push(makeItem(id("item", discussionId), "discussion", `Discussion: ${moduleTopic}`, discussionId, moduleItems.length + 1, generatedAt));
+      moduleItems.push(makeItem(id("item", discussionId), "discussion", `${discussionFormat}: ${moduleTopic}`, discussionId, moduleItems.length + 1, generatedAt));
       schedule.push({
         id: id("schedule", discussionId),
         moduleId,
@@ -1445,14 +1789,14 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
 
     if (shouldIncludeQuiz(mergedSettings, moduleNumber)) {
       const quizId = id("quiz", moduleNumber);
-      const questions = quizQuestions(quizId, moduleTopic, moduleId, alignedOutcomeIds, mergedSettings);
+      const questions = quizQuestions(quizId, moduleTopic, topic, moduleId, alignedOutcomeIds, mergedSettings);
       quizzes.push({
         id: quizId,
         title: `${moduleLabel} ${quizPurposeModel.titleWord}`,
         moduleId,
         dueAt: quizDueAt,
         assignmentGroupId: "group_quizzes",
-        purpose: `${quizPurposeModel.framing(moduleTopic)} Aligned outcomes: ${alignedOutcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.code).join(", ")}.`,
+        purpose: `${quizPurposeModel.framing(moduleTopic)} Aligned outcomes: ${alignedOutcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.code).join(", ")}.<p><img src="${fileRef("quiz-icon.svg")}" alt="Quiz support icon" style="width: 74px; height: auto; display: inline-block;" /></p><h2>Quiz Support</h2><ul><li>Review the module overview, key terms, and common mistake callout before starting.</li><li>${isGenericTemplate(mergedSettings) ? "Use feedback after submission to decide what to review next." : `Use feedback to revisit the source brief, ${moduleProfile.artifactLabel}, and evidence types for ${moduleTopic.toLowerCase()}.`}</li><li>Ask the instructor about any item that still feels unclear after remediation.</li></ul>`,
         points: questions.reduce((sum, question) => sum + question.points, 0),
         alignedOutcomeIds,
         publishState: "published",
@@ -1476,7 +1820,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
     if (shouldIncludeAssignment(mergedSettings, moduleNumber)) {
       const assignmentId = id("assignment", moduleNumber);
       const rubricId = id("rubric-assignment", moduleNumber);
-      if (mergedSettings.includeRubrics) rubrics.push(makeRubric(rubricId, `${moduleLabel} Applied Assignment Rubric`, 60, alignedOutcomeIds, generatedAt, "Applied assignment"));
+      rubrics.push(makeRubric(rubricId, `${moduleLabel} Applied Assignment Rubric`, 60, alignedOutcomeIds, outcomes, generatedAt, "Applied assignment"));
       assignments.push({
         id: assignmentId,
         title: `${moduleLabel} Applied Analysis: ${moduleTopic}`,
@@ -1486,12 +1830,12 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
         points: 60,
         estimatedHours: 5,
         submissionType: "Online upload or text entry",
-        rubricId: mergedSettings.includeRubrics ? rubricId : undefined,
+        rubricId,
         alignedOutcomeIds,
         publishState: "published",
         status: "generated",
         metadata: metadata(generatedAt),
-        descriptionHtml: assignmentDescription(`${moduleLabel} Applied Analysis`, moduleTopic, alignedOutcomeIds, outcomes, theme)
+        descriptionHtml: assignmentDescription(`${moduleLabel} Applied Analysis`, moduleTopic, topic, mergedSettings, alignedOutcomeIds, outcomes, theme)
       });
       moduleItems.push(makeItem(id("item", assignmentId), "assignment", assignments[assignments.length - 1].title, assignmentId, moduleItems.length + 1, generatedAt));
       schedule.push({
@@ -1524,7 +1868,8 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
           canvasShell(
             `${moduleLabel} ${finalTitle} Milestone`,
             `Use this checkpoint to keep the ${finalTitle.toLowerCase()} moving before the final module.`,
-            `${section("Milestone Task", checklistHtml(["Connect this module to your final work.", "Save one source, example, or design decision.", "Note one question to resolve before final submission."]), theme)}
+            `<p style="margin: 0 0 14px;"><img src="${fileRef("project-milestone-badge.svg")}" alt="Project milestone badge" style="width: 86px; height: auto; display: inline-block;" /></p>
+${section("Milestone Task", checklistHtml(["Connect this module to your final work.", "Save one source, example, or design decision.", "Note one question to resolve before final submission."]), theme)}
 ${section("What To Carry Forward", `<p>This checkpoint should leave you with one concrete artifact, decision, or question to revisit in the ${finalTitle} module.</p>`, theme)}`,
             theme
           ),
@@ -1644,7 +1989,7 @@ ${section("Recommended Process", checklistHtml(["Review module recap pages.", "C
 
   const finalAssignmentId = "assignment_final_project";
   const finalRubricId = "rubric_final_project";
-  if (mergedSettings.includeRubrics) rubrics.push(makeRubric(finalRubricId, `${finalTitle} Rubric`, 120, finalOutcomeIds, generatedAt, finalTitle));
+  rubrics.push(makeRubric(finalRubricId, `${finalTitle} Rubric`, 120, finalOutcomeIds, outcomes, generatedAt, finalTitle));
   assignments.push({
     id: finalAssignmentId,
     title: `Final ${readableFinalProjectType(mergedSettings)}: Course Synthesis`,
@@ -1654,19 +1999,12 @@ ${section("Recommended Process", checklistHtml(["Review module recap pages.", "C
     points: 120,
     estimatedHours: 12,
     submissionType: "Online upload or text entry",
-    rubricId: mergedSettings.includeRubrics ? finalRubricId : undefined,
+    rubricId: finalRubricId,
     alignedOutcomeIds: finalOutcomeIds,
     publishState: "published",
     status: "generated",
     metadata: metadata(generatedAt),
-    descriptionHtml: canvasShell(
-      `Final ${readableFinalProjectType(mergedSettings)}: Course Synthesis`,
-      "Demonstrate integrated learning across the course.",
-      `${section("Final Deliverable", checklistHtml(["Submit the final artifact in the format specified by your instructor.", "Explain the problem, context, stakeholders, evidence, and recommendations.", "Connect your work to several course outcomes.", "Use accessible headings, clear file names, and complete citations where needed."]), theme)}
-${section("Outcome Alignment", outcomeBadges(outcomes, finalOutcomeIds, theme), theme)}
-${callout("Before Submission", "<p>Review the final rubric and confirm that every required section is complete.</p>", theme)}`,
-      theme
-    )
+    descriptionHtml: assignmentDescription(`Final ${readableFinalProjectType(mergedSettings)}: Course Synthesis`, finalTitle, topic, mergedSettings, finalOutcomeIds, outcomes, theme)
   });
   finalItems.push(makeItem("item_final_project_submission", "assignment", assignments[assignments.length - 1].title, finalAssignmentId, finalItems.length + 1, generatedAt));
   schedule.push({
@@ -1689,7 +2027,8 @@ ${callout("Before Submission", "<p>Review the final rubric and confirm that ever
       canvasShell(
         "Final Course Wrap-Up",
         "Close the course by naming what you can carry into future learning and practice.",
-        `${section("Reflect", checklistHtml(["What can you now explain or do that you could not do at the beginning?", "Which course outcome feels strongest for you?", "What will you keep practicing after the course?"]), theme)}
+        `<p style="margin: 0 0 14px;"><img src="${fileRef("completion-badge.svg")}" alt="Course completion badge" style="width: 86px; height: auto; display: inline-block;" /></p>
+${section("Reflect", checklistHtml(["What can you now explain or do that you could not do at the beginning?", "Which course outcome feels strongest for you?", "What will you keep practicing after the course?"]), theme)}
 ${section("Next Steps", "<p>Save your final project, feedback, and key resources for future academic or professional use.</p>", theme)}`,
         theme
       ),
@@ -1838,7 +2177,7 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     theme,
     status: "generated",
     updatedAt: generatedAt,
-    homepage: createHomepageState(generatedHomepage.content, DEFAULT_TEMPLATE_ID, theme.id, generatedAt),
+    homepage: createHomepageState(generatedHomepage.content, GENERATED_HOMEPAGE_TEMPLATE_ID, theme.id, generatedAt),
     syllabus: createSyllabusState(finalSyllabusContent, finalSyllabusTemplateId, theme.id, generatedAt),
     outcomes,
     announcements,
@@ -1860,7 +2199,13 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     metadata: metadata(generatedAt)
   };
 
-  return { ...project, quality: buildCourseQualityReport(project) };
+  const polishedHomepageHtml = renderHomepage(GENERATED_HOMEPAGE_TEMPLATE_ID, generatedHomepage.content, theme, project);
+  const polishedProject: CourseProject = {
+    ...project,
+    pages: project.pages.map((page) => (page.frontPage ? { ...page, bodyHtml: polishedHomepageHtml } : page))
+  };
+
+  return { ...polishedProject, quality: buildCourseQualityReport(polishedProject) };
 };
 
 export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme): CourseProject => {
@@ -1880,7 +2225,7 @@ export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme
   const themedCourse: CourseProject = {
     ...course,
     theme,
-    settings: { ...course.settings, themeId: theme.id },
+    settings: { ...course.settings, themeId: theme.id, themeIntensity: theme.intensity ?? course.settings.themeIntensity },
     pages: keepEdited(regenerated.pages, course.pages),
     assignments: keepEdited(regenerated.assignments, course.assignments),
     discussions: keepEdited(regenerated.discussions, course.discussions),
@@ -1899,7 +2244,7 @@ export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme
   // Re-theme the homepage from its builder model so a theme change recolors it even when the
   // page is marked "edited" (keepEdited would otherwise retain the old palette). A custom,
   // hand-edited homepage returns null here and is deliberately left untouched.
-  const rethemedHomepageHtml = rethemeHomepageHtml(course.homepage, theme);
+  const rethemedHomepageHtml = rethemeHomepageHtml(course.homepage, theme, course);
   const rethemedSyllabusHtml = rethemeSyllabusHtml(course.syllabus, theme);
   const homepagePage = course.pages.find((page) => page.frontPage);
   const syllabusPage = course.pages.find((page) => page.slug === "syllabus");
@@ -1956,7 +2301,7 @@ export const applyVisualTemplate = (course: CourseProject, template: VisualTempl
   const staged: CourseProject = {
     ...course,
     theme: template.theme,
-    settings: { ...course.settings, themeId: template.theme.id, visualTemplateId: template.id },
+    settings: { ...course.settings, themeId: template.theme.id, themeIntensity: template.theme.intensity ?? course.settings.themeIntensity, visualTemplateId: template.id },
     homepage: course.homepage ? { ...course.homepage, templateId: template.homepageTemplateId } : course.homepage,
     syllabus: course.syllabus ? { ...course.syllabus, templateId: template.syllabusTemplateId } : course.syllabus
   };

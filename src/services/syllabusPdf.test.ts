@@ -21,6 +21,16 @@ describe("syllabus PDF", () => {
     expect(declared).toBe(pageCount);
   });
 
+  it("uses a print-first syllabus structure instead of flattening Canvas controls", async () => {
+    const text = await buildSyllabusPdfBlob(sampleProject).text();
+    expect(text).toContain("How This Course Works");
+    expect(text).toContain("Assignment Categories and Grading");
+    expect(text).toContain("Major Work and Success Expectations");
+    expect(text).toContain("Policies for Success");
+    expect(text).not.toContain("Open print-friendly syllabus");
+    expect(text).not.toContain("Download simple PDF copy");
+  });
+
   it("names the file with a -syllabus.pdf suffix", () => {
     expect(syllabusPdfFileName(sampleProject)).toMatch(/-syllabus\.pdf$/);
   });

@@ -13,8 +13,9 @@
 // <style>, <iframe>, <form>, inline event handlers, or javascript: URLs.
 // ============================================================================
 
-import type { HomepageContent, HomepageLink, HomepageState, Theme } from "../types";
+import type { CourseProject, HomepageContent, HomepageLink, HomepageState, Theme } from "../types";
 import { bestTextOn, withAlpha } from "../utils/color";
+import { buildContentBlockHtml, type ContentBlockId } from "../utils/contentBlocks";
 import { fileRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
 
 // Shared soft shadows for the homepage cards/buttons — depth without heaviness.
@@ -43,7 +44,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateMeta[] = [
     name: "Clean Canvas",
     tagline: "Simple and professional",
     description: "A calm, professional Canvas homepage with a welcome, a clear start button, the syllabus, and a course path checklist.",
-    bestFor: "Most courses — a dependable default that reads well on any device."
+    bestFor: "Most courses, a dependable default that reads well on any device."
   },
   {
     id: "bold-university",
@@ -72,6 +73,76 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateMeta[] = [
     tagline: "Milestones and deliverables",
     description: "Organized around the final project: milestones, deliverables, and the module sequence that builds toward it.",
     bestFor: "Studio, capstone, lab, and portfolio courses driven by a final deliverable."
+  },
+  {
+    id: "classic-course-welcome",
+    name: "Classic Course Welcome",
+    tagline: "Warm course launch",
+    description: "A complete homepage with welcome, start panel, success checklist, instructor voice, and support.",
+    bestFor: "General-purpose Canvas courses that need a friendly polished start."
+  },
+  {
+    id: "course-dashboard",
+    name: "Course Dashboard",
+    tagline: "Student command surface",
+    description: "Prioritizes navigation tiles, weekly rhythm, support, and course-at-a-glance structure.",
+    bestFor: "Operational courses where students need fast repeated access to the right place."
+  },
+  {
+    id: "journey-map",
+    name: "Journey Map",
+    tagline: "Path-first homepage",
+    description: "Leads with the course journey and connects every section to student progress.",
+    bestFor: "Courses where sequencing and motivation matter."
+  },
+  {
+    id: "studio-course",
+    name: "Studio Course",
+    tagline: "Practice and critique",
+    description: "Frames the course around doing, feedback, instructor welcome, and stretch goals.",
+    bestFor: "Design, writing, arts, media, and portfolio courses."
+  },
+  {
+    id: "lab-course",
+    name: "Lab Course",
+    tagline: "Procedure and evidence",
+    description: "Emphasizes weekly rhythm, support, technology, and evidence-building habits.",
+    bestFor: "Science, technology, methods, and applied lab courses."
+  },
+  {
+    id: "field-guide",
+    name: "Field Guide",
+    tagline: "Observation and transfer",
+    description: "Uses journey, field-note, and support patterns to help students navigate real contexts.",
+    bestFor: "Fieldwork, practicum, community-based, and professional courses."
+  },
+  {
+    id: "command-center",
+    name: "Command Center",
+    tagline: "Clear next actions",
+    description: "Dense but clean homepage layout with navigation, weekly priorities, and support routes.",
+    bestFor: "Fast-paced online courses and multi-deliverable shells."
+  },
+  {
+    id: "seminar-table",
+    name: "Seminar Table",
+    tagline: "Conversation-centered",
+    description: "Highlights welcome, big questions, discussion moves, and instructor presence.",
+    bestFor: "Seminars, reading courses, and discussion-heavy classes."
+  },
+  {
+    id: "project-launchpad",
+    name: "Project Launchpad",
+    tagline: "Milestones and making",
+    description: "Sets up the course as a project path with navigation, journey, support, and success moves.",
+    bestFor: "Capstone, studio, portfolio, and project-based courses."
+  },
+  {
+    id: "visual-magazine",
+    name: "Visual Magazine",
+    tagline: "Editorial and visual",
+    description: "A visually rich homepage rhythm with hero, trailer, cards, promise, and clear support.",
+    bestFor: "Humanities, media, social science, and topic-rich courses."
   }
 ];
 
@@ -277,20 +348,171 @@ const projectBased = (content: HomepageContent, theme: Theme): string => {
   );
 };
 
-type TemplateRenderer = (content: HomepageContent, theme: Theme) => string;
+const REQUIRED_PRESET_BLOCKS: ContentBlockId[] = [
+  "hero-banner",
+  "start-here-button-panel",
+  "navigation-tile-grid",
+  "course-journey-map",
+  "this-week-at-a-glance",
+  "instructor-welcome-card",
+  "need-help-support-panel",
+  "how-to-succeed-checklist",
+  "course-promise-statement",
+  "course-trailer-video-placeholder"
+];
+
+const presetOrders: Record<string, ContentBlockId[]> = {
+  "classic-course-welcome": REQUIRED_PRESET_BLOCKS,
+  "course-dashboard": [
+    "hero-banner",
+    "navigation-tile-grid",
+    "this-week-at-a-glance",
+    "start-here-button-panel",
+    "course-journey-map",
+    "how-to-succeed-checklist",
+    "need-help-support-panel",
+    "instructor-welcome-card",
+    "course-promise-statement",
+    "course-trailer-video-placeholder"
+  ],
+  "journey-map": [
+    "hero-banner",
+    "course-journey-map",
+    "start-here-button-panel",
+    "navigation-tile-grid",
+    "this-week-at-a-glance",
+    "course-promise-statement",
+    "instructor-welcome-card",
+    "how-to-succeed-checklist",
+    "need-help-support-panel",
+    "course-trailer-video-placeholder"
+  ],
+  "studio-course": [
+    "hero-banner",
+    "course-promise-statement",
+    "start-here-button-panel",
+    "course-journey-map",
+    "this-week-at-a-glance",
+    "navigation-tile-grid",
+    "instructor-welcome-card",
+    "how-to-succeed-checklist",
+    "need-help-support-panel",
+    "course-trailer-video-placeholder"
+  ],
+  "lab-course": [
+    "hero-banner",
+    "this-week-at-a-glance",
+    "start-here-button-panel",
+    "navigation-tile-grid",
+    "course-journey-map",
+    "how-to-succeed-checklist",
+    "need-help-support-panel",
+    "instructor-welcome-card",
+    "course-promise-statement",
+    "course-trailer-video-placeholder"
+  ],
+  "field-guide": [
+    "hero-banner",
+    "course-journey-map",
+    "course-promise-statement",
+    "navigation-tile-grid",
+    "start-here-button-panel",
+    "this-week-at-a-glance",
+    "instructor-welcome-card",
+    "need-help-support-panel",
+    "how-to-succeed-checklist",
+    "course-trailer-video-placeholder"
+  ],
+  "command-center": [
+    "hero-banner",
+    "navigation-tile-grid",
+    "start-here-button-panel",
+    "this-week-at-a-glance",
+    "need-help-support-panel",
+    "how-to-succeed-checklist",
+    "course-journey-map",
+    "instructor-welcome-card",
+    "course-promise-statement",
+    "course-trailer-video-placeholder"
+  ],
+  "seminar-table": [
+    "hero-banner",
+    "instructor-welcome-card",
+    "course-promise-statement",
+    "start-here-button-panel",
+    "course-journey-map",
+    "navigation-tile-grid",
+    "this-week-at-a-glance",
+    "how-to-succeed-checklist",
+    "need-help-support-panel",
+    "course-trailer-video-placeholder"
+  ],
+  "project-launchpad": [
+    "hero-banner",
+    "course-promise-statement",
+    "course-journey-map",
+    "start-here-button-panel",
+    "navigation-tile-grid",
+    "this-week-at-a-glance",
+    "how-to-succeed-checklist",
+    "instructor-welcome-card",
+    "need-help-support-panel",
+    "course-trailer-video-placeholder"
+  ],
+  "visual-magazine": [
+    "hero-banner",
+    "course-trailer-video-placeholder",
+    "course-promise-statement",
+    "navigation-tile-grid",
+    "course-journey-map",
+    "start-here-button-panel",
+    "this-week-at-a-glance",
+    "instructor-welcome-card",
+    "how-to-succeed-checklist",
+    "need-help-support-panel"
+  ]
+};
+
+const visualBlockPreset = (presetId: string): TemplateRenderer => (content, theme, course) => {
+  if (!course) return cleanCanvas(content, theme);
+  const themedCourse = { ...course, theme };
+  const order = presetOrders[presetId] ?? REQUIRED_PRESET_BLOCKS;
+  return wrapper(
+    `<section style="margin: 0 0 22px; padding: 26px 28px; background: ${theme.soft}; border: 1px solid ${withAlpha(theme.accent, 0.34)}; border-left: 7px solid ${theme.accent}; border-radius: 14px;">
+    <p style="margin: 0 0 7px; color: ${theme.accentDark}; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">${escHtml(templateMeta(presetId).tagline)}</p>
+    <h1 style="margin: 0 0 12px; color: #111827; font-size: 34px; line-height: 1.12;">${escHtml(content.heroHeading)}</h1>
+    <p style="margin: 0 0 16px; color: #374151; font-size: 17px;">${escHtml(content.welcome)}</p>
+    <p style="margin: 0;">${primaryButton(content.primaryButton, theme)}${secondaryButton(content.secondaryButton, theme)}${secondaryButton({ label: "Open calendar and workload plan", target: CALENDAR_HREF }, theme)}</p>
+    ${metaChipsRow(content, theme)}
+  </section>
+  ${order.map((blockId) => buildContentBlockHtml(blockId, { course: themedCourse })).join("\n")}`
+  );
+};
+
+type TemplateRenderer = (content: HomepageContent, theme: Theme, course?: CourseProject) => string;
 
 const RENDERERS: Record<string, TemplateRenderer> = {
   "clean-canvas": cleanCanvas,
   "bold-university": boldUniversity,
   "warm-instructor": warmInstructor,
   "high-contrast": highContrast,
-  "project-based": projectBased
+  "project-based": projectBased,
+  "classic-course-welcome": visualBlockPreset("classic-course-welcome"),
+  "course-dashboard": visualBlockPreset("course-dashboard"),
+  "journey-map": visualBlockPreset("journey-map"),
+  "studio-course": visualBlockPreset("studio-course"),
+  "lab-course": visualBlockPreset("lab-course"),
+  "field-guide": visualBlockPreset("field-guide"),
+  "command-center": visualBlockPreset("command-center"),
+  "seminar-table": visualBlockPreset("seminar-table"),
+  "project-launchpad": visualBlockPreset("project-launchpad"),
+  "visual-magazine": visualBlockPreset("visual-magazine")
 };
 
 // Render a homepage to Canvas-safe HTML. Falls back to the default template for an unknown id.
-export const renderHomepage = (templateId: string, content: HomepageContent, theme: Theme): string => {
+export const renderHomepage = (templateId: string, content: HomepageContent, theme: Theme, course?: CourseProject): string => {
   const renderer = RENDERERS[templateId] ?? RENDERERS[DEFAULT_TEMPLATE_ID];
-  return renderer(content, theme).trim();
+  return renderer(content, theme, course).trim();
 };
 
 // ----------------------------------------------------------------------------
@@ -336,11 +558,11 @@ export const defaultHomepageContent = (context: HomepageContext): HomepageConten
     pathItems: [
       "Open Start Here and read the Course Success Guide.",
       "Check the calendar and workload plan so you know the pace.",
-      `Work through the ${unit}s in order — each one opens with an overview.`,
+      `Work through the ${unit}s in order. Each one opens with an overview.`,
       "Use the rubrics and recap pages before you submit graded work.",
       context.finalProject ? "Finish strong with the Final Project module." : "Review the recap pages before the final assessment."
     ],
-    instructorNote: `Welcome! I am glad you are here. This ${context.level || "course"} is ${modality}, and it is designed so you always know what to do next. If anything is unclear, reach out early — I would rather hear from you sooner than later.`,
+    instructorNote: `Welcome! I am glad you are here. This ${context.level || "course"} is ${modality}, and it is designed so you always know what to do next. If anything is unclear, reach out early. I would rather hear from you sooner than later.`,
     weeklyItems: [
       `Each ${unit} opens with an overview that sets the goals.`,
       "Read and watch the assigned materials.",
@@ -387,9 +609,9 @@ export const createHomepageState = (content: HomepageContent, templateId: string
 
 // Re-render the homepage with a new theme, preserving instructor text. Returns null when the
 // homepage is in custom (hand-edited HTML) mode so we never silently overwrite manual edits.
-export const rethemeHomepageHtml = (state: HomepageState | undefined, theme: Theme): string | null => {
+export const rethemeHomepageHtml = (state: HomepageState | undefined, theme: Theme, course?: CourseProject): string | null => {
   if (!state || state.mode !== "builder") return null;
-  return renderHomepage(state.templateId, state.content, theme);
+  return renderHomepage(state.templateId, state.content, theme, course ? { ...course, theme } : undefined);
 };
 
 // ----------------------------------------------------------------------------
@@ -490,7 +712,7 @@ export const reviseHomepageContent = (action: HomepageReviseAction, content: Hom
         ...content,
         instructorNote:
           content.instructorNote.trim() ||
-          `Welcome to ${context.title}! I am genuinely glad you are here. This ${context.level || "course"} is built so you always know the next step. Reach out early and often — I am here to help you succeed.`
+          `Welcome to ${context.title}! I am genuinely glad you are here. This ${context.level || "course"} is built so you always know the next step. Reach out early and often. I am here to help you succeed.`
       };
     case "weekly-rhythm":
       return {

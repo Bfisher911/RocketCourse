@@ -32,8 +32,9 @@ describe("discussion builder", () => {
       const html = buildDiscussionTemplateHtml(template.id, course, discussion);
 
       ["Purpose", "Prompt", "Required Evidence", "Initial Post Instructions", "Reply Instructions", "Quality Criteria", "Rubric Alignment", "Accessibility-Friendly Structure"].forEach((heading) =>
-        expect(html).toContain(`<h2>${heading}</h2>`)
+        expect(html).toContain(`>${heading}</h2>`)
       );
+      expect(html).toContain("Discussion Success Tip");
       expect(html).not.toMatch(/<script|javascript:|\son[a-z]+\s*=/i);
     });
   });

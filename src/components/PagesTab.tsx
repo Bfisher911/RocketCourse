@@ -21,7 +21,7 @@ import {
   Trash2,
   Undo2
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CoursePage, CourseProject, ObjectMetadata, PublishState } from "../types";
 import {
   PAGE_TEMPLATES,
@@ -44,6 +44,7 @@ import { stripHtml } from "../utils/text";
 import { aiGeneratePageBody } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
+import { RockContentToolbox } from "./RockContentToolbox";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 type PageFilter = "all" | "module" | "front-page" | "draft" | "instructor-only" | "warnings";
@@ -92,28 +93,6 @@ const issueLabel = (issues: PageIssue[]): string => {
   return "Ready";
 };
 
-const blockHtml: Record<string, string> = {
-  heading: "<h2>New Section</h2>\n<p>Explain the purpose of this section in student-facing language.</p>",
-  intro: "<p><strong>Start here:</strong> This page explains what to do, why it matters, and how it connects to the course outcomes.</p>",
-  objectives: "<h2>Learning Objectives</h2>\n<ul>\n<li>Describe the key idea in your own words.</li>\n<li>Apply the concept to a realistic course example.</li>\n<li>Prepare one question or evidence-based observation.</li>\n</ul>",
-  terms: "<h2>Key Terms</h2>\n<ul>\n<li><strong>Term:</strong> Add a concise definition students can use while working.</li>\n<li><strong>Example:</strong> Add a short example or non-example.</li>\n</ul>",
-  content: "<h2>Content Section</h2>\n<p>Add concise explanation, evidence, steps, or guidance. Use short paragraphs and lists so the page is easy to scan in Canvas.</p>",
-  example: "<h2>Example</h2>\n<p>Show students what a strong response, process, or decision looks like. Make the success criteria visible.</p>",
-  check: "<h2>Check for Understanding</h2>\n<ul>\n<li>What is the main idea?</li>\n<li>Where does this connect to the module outcome?</li>\n<li>What is one question you still have?</li>\n</ul>",
-  next: "<h2>Next Steps</h2>\n<ul>\n<li>Review the next item in the module.</li>\n<li>Check the assignment or discussion expectations.</li>\n<li>Save one question for class, office hours, or feedback.</li>\n</ul>"
-};
-
-const blockLabels = [
-  ["heading", "Heading"],
-  ["intro", "Intro paragraph"],
-  ["objectives", "Learning objectives"],
-  ["terms", "Key terms"],
-  ["content", "Content section"],
-  ["example", "Example"],
-  ["check", "Check for understanding"],
-  ["next", "Next steps"]
-] as const;
-
 export function PagesTab({
   course,
   onUpdateCourse,
@@ -132,6 +111,7 @@ export function PagesTab({
   const [snapshots, setSnapshots] = useState<PageSnapshot[]>([]);
   const [pendingRequiredDeleteId, setPendingRequiredDeleteId] = useState<string | null>(null);
   const [copyState, setCopyState] = useState("Copy Canvas HTML");
+  const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
 
   const issueMap = useMemo(() => {
     const map = new Map<string, PageIssue[]>();
@@ -243,11 +223,11 @@ export function PagesTab({
     }));
   };
 
-  const addBlock = (page: CoursePage, blockId: keyof typeof blockHtml): void => {
-    pushSnapshot(page, `Inserted ${blockLabels.find(([id]) => id === blockId)?.[1] ?? "page block"}`);
+  const applyRockContent = (page: CoursePage, bodyHtml: string, reason: string): void => {
+    pushSnapshot(page, reason);
     updatePage(page.id, (item, timestamp) => ({
       ...item,
-      bodyHtml: `${item.bodyHtml.trim()}\n\n${blockHtml[blockId]}`,
+      bodyHtml,
       status: "edited",
       metadata: touchMetadata(item.metadata, timestamp)
     }));
@@ -560,18 +540,20 @@ export function PagesTab({
                   </button>
                 ))}
               </div>
-              <div className="page-block-grid" aria-label="Structured page blocks">
-                {blockLabels.map(([id, label]) => (
-                  <button key={id} onClick={() => addBlock(selectedPage, id)}>
-                    <Plus size={14} /> {label}
-                  </button>
-                ))}
-              </div>
             </section>
+
+            <RockContentToolbox
+              course={course}
+              value={selectedPage.bodyHtml}
+              surface="page"
+              textareaRef={htmlEditorRef}
+              onChange={(bodyHtml, reason) => applyRockContent(selectedPage, bodyHtml, reason)}
+            />
 
             <label className="page-html-editor">
               <span>Advanced Canvas HTML</span>
               <textarea
+                ref={htmlEditorRef}
                 rows={18}
                 value={selectedPage.bodyHtml}
                 onChange={(event) => {

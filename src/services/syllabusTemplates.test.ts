@@ -151,6 +151,7 @@ describe("syllabus templates", () => {
       it("keeps printable and schedule links resolvable", () => {
         expect(html).toContain(PRINTABLE_HTML_HREF);
         expect(html).toContain(PRINTABLE_PDF_HREF);
+        expect(html).not.toContain("$IMS-CC-FILEBASE$/syllabus-printable");
         expect(html).toContain(CALENDAR_HREF);
       });
 
@@ -177,6 +178,17 @@ describe("syllabus templates", () => {
     expect(safeSyllabusHref("vbscript:msgbox")).toBe("#");
     expect(safeSyllabusHref("data:text/html;base64,abc")).toBe("#");
     expect(safeSyllabusHref("course-calendar-and-workload-plan.html")).toBe("course-calendar-and-workload-plan.html");
+  });
+
+  it("builds a substantive student-facing default syllabus", () => {
+    expect(content.courseDescription.length).toBeGreaterThan(context.description.length + 180);
+    expect(content.courseDescription).toContain("guided path");
+    expect(content.requiredMaterials.join(" ")).not.toMatch(/Instructor will add required textbook/i);
+    expect(content.gradingBreakdown).toContain(
+      "Engagement and Discussions: 20%. This category grades active course conversation: prepared first posts, evidence-based replies, respectful disagreement, and the habit of connecting classmates' ideas back to AI and Modern Society."
+    );
+    expect(content.assignmentOverview.join(" ")).toContain("A strong discussion post makes a claim");
+    expect(content.aiUsePolicy).toContain("They may not replace required reading");
   });
 
   it("re-themes builder HTML while preserving custom HTML", () => {

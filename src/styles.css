@@ -5155,6 +5155,23 @@ p {
   gap: 8px;
 }
 
+.content-block-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.content-block-picker-section {
+  display: grid;
+  gap: 8px;
+}
+
+.content-block-picker-section h4 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 13px;
+}
+
 .page-block-grid button {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -5163,8 +5180,214 @@ p {
   font-weight: 800;
 }
 
+.page-block-grid button span {
+  display: grid;
+  gap: 3px;
+}
+
+.page-block-grid button strong {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.page-block-grid button small {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
 .page-block-grid svg {
   color: var(--cyan);
+}
+
+.rock-toolbox {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(34, 230, 255, 0.08), rgba(8, 14, 32, 0.35));
+  border: 1px solid rgba(34, 230, 255, 0.2);
+  border-radius: var(--radius);
+}
+
+.rock-toolbox.compact {
+  padding: 12px;
+}
+
+.rock-toolbox-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rock-toolbox-head span,
+.rock-actions-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.rock-toolbox-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.rock-toolbox-badge {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  color: var(--cyan);
+  background: rgba(34, 230, 255, 0.08);
+  border: 1px solid rgba(34, 230, 255, 0.24);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.rock-category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.rock-category-row button,
+.rock-actions button {
+  padding: 7px 9px;
+  color: var(--muted);
+  background: rgba(8, 14, 32, 0.36);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rock-category-row button.active,
+.rock-category-row button:hover,
+.rock-actions button:hover {
+  color: var(--ink);
+  border-color: rgba(34, 230, 255, 0.38);
+}
+
+.rock-block-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rock-block-grid button {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  min-height: 84px;
+  padding: 10px;
+  color: var(--muted);
+  background: rgba(8, 14, 32, 0.38);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rock-block-grid button:hover {
+  color: var(--ink);
+  border-color: rgba(34, 230, 255, 0.4);
+}
+
+.rock-block-grid strong,
+.rock-block-grid small {
+  display: block;
+}
+
+.rock-block-grid strong {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.rock-block-grid small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.rock-block-preview {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  min-height: 58px;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.rock-block-preview i {
+  display: block;
+  min-height: 6px;
+  background: linear-gradient(90deg, var(--cyan), rgba(255, 255, 255, 0.35));
+  border-radius: 999px;
+}
+
+.rock-block-preview.hero i:first-child,
+.rock-block-preview.media i:first-child {
+  min-height: 24px;
+  border-radius: 6px;
+}
+
+.rock-block-preview.cards,
+.rock-block-preview.table,
+.rock-block-preview.checklist {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rock-block-preview.cards i,
+.rock-block-preview.table i,
+.rock-block-preview.checklist i {
+  min-height: 18px;
+  border-radius: 5px;
+}
+
+.rock-block-preview.timeline i {
+  position: relative;
+  min-height: 10px;
+  margin-left: 10px;
+}
+
+.rock-block-preview.timeline i::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+}
+
+.rock-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.rock-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.rock-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .page-checklist header {

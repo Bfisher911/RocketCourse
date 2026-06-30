@@ -7,9 +7,11 @@ import {
   discussionRef,
   fileRef,
   isCanvasRef,
+  moduleRef,
   modulesIndexRef,
   parseCanvasRef,
   quizRef,
+  webResourceHref,
   wikiPageRef
 } from "./canvasLinks";
 
@@ -19,7 +21,9 @@ describe("canvasLinks", () => {
     expect(assignmentRef("assignment_1")).toBe("$CANVAS_OBJECT_REFERENCE$/assignments/assignment_1");
     expect(quizRef("quiz_1")).toBe("$CANVAS_OBJECT_REFERENCE$/quizzes/quiz_1");
     expect(discussionRef("discussion_1")).toBe("$CANVAS_OBJECT_REFERENCE$/discussion_topics/discussion_1");
+    expect(moduleRef("module_start")).toBe("$CANVAS_OBJECT_REFERENCE$/modules/module_start");
     expect(fileRef("course-banner.svg")).toBe("$IMS-CC-FILEBASE$/course-banner.svg");
+    expect(webResourceHref("syllabus-printable.pdf")).toBe("../web_resources/syllabus-printable.pdf");
     expect(modulesIndexRef()).toBe("$CANVAS_COURSE_REFERENCE$/modules");
   });
 

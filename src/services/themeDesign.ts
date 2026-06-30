@@ -1,4 +1,4 @@
-import type { Theme, ThemeCardStyle, ThemeFont, ThemeHeroScene, ThemeHeroStyle, ThemeMotif, ThemePattern } from "../types";
+import type { Theme, ThemeCardStyle, ThemeFont, ThemeHeroScene, ThemeHeroStyle, ThemeIntensity, ThemeMotif, ThemePattern } from "../types";
 import { bestTextOn, contrastRatio, shiftHue, withAlpha } from "../utils/color";
 import { escapeXml } from "../utils/text";
 import { icon, iconLabel, type IconName } from "./themeIcons";
@@ -30,6 +30,7 @@ export interface ThemeStyles {
   heroStyle: ThemeHeroStyle;
   cardStyle: ThemeCardStyle;
   heroScene?: ThemeHeroScene;
+  intensity: ThemeIntensity;
 }
 
 // Canvas-safe system font stacks (no @font-face / web fonts). "sans" matches the legacy look exactly,
@@ -153,6 +154,7 @@ const safeHref = (href: string): string => {
 export const getThemeStyles = (theme: Theme): ThemeStyles => {
   const gradientFrom = theme.gradientFrom ?? theme.accent;
   const gradientTo = theme.gradientTo ?? theme.accentDark;
+  const intensity = theme.intensity ?? "polished";
   return {
     accent: theme.accent,
     accentDark: theme.accentDark,
@@ -160,7 +162,7 @@ export const getThemeStyles = (theme: Theme): ThemeStyles => {
     contrastText: theme.contrastText,
     onAccent: bestTextOn(theme.accent),
     onAccentDark: bestTextOn(theme.accentDark),
-    border: "#dbe4f0",
+    border: intensity === "clean" ? "#e5e7eb" : intensity === "immersive" ? withAlpha(theme.accent, 0.38) : "#dbe4f0",
     canvasText: "#111827",
     mutedText: "#374151",
     canvasBackground: "#ffffff",
@@ -172,7 +174,8 @@ export const getThemeStyles = (theme: Theme): ThemeStyles => {
     font: fontStack(theme.fontFamily),
     heroStyle: theme.heroStyle ?? "banner",
     cardStyle: theme.cardStyle ?? "elevated",
-    heroScene: theme.heroScene
+    heroScene: theme.heroScene,
+    intensity
   };
 };
 
