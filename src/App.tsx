@@ -95,6 +95,7 @@ import { applyThemeToGeneratedContent, applyVisualTemplate, generateCourseProjec
 import { visualTemplates, visualTemplateForThemeId } from "./data/visualTemplates";
 import { buildCourseQualityReport } from "./services/courseQuality";
 import { generateAllQuizzesQtiBlob, generateImsccBlob, generateQuizQtiBlob } from "./services/imsccExport";
+import { fillEntireCourseContent, planFullCourseFill, type FullFillProgress } from "./services/fullCourseContent";
 import { coursePdfFileName, generateCoursePdfBlob } from "./services/coursePdf";
 import {
   allQuizzesAnswerKeyPdfFileName,
@@ -249,6 +250,11 @@ function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [lastDownloadName, setLastDownloadName] = useState<string | null>(null);
+  // Whole-course "flesh it out" pass: runs every per-object AI builder so the export
+  // packages a complete course rather than the templated scaffold.
+  const [isFillingContent, setIsFillingContent] = useState(false);
+  const [fillProgress, setFillProgress] = useState<FullFillProgress | null>(null);
+  const [fillSummary, setFillSummary] = useState<string | null>(null);
   const [draggedModuleId, setDraggedModuleId] = useState<string | null>(null);
   const [draggedItem, setDraggedItem] = useState<{ moduleId: string; itemId: string } | null>(null);
   const [importNotes, setImportNotes] = useState<string[]>([]);
@@ -665,13 +671,14 @@ function App() {
     }
   };
 
-  const downloadPackage = async (): Promise<void> => {
-    if (!exportAllowed) return;
+  // Build + validate + download one specific course snapshot. Shared by the plain download and the
+  // "generate full content, then download" flow so both go through the same validation gate.
+  const exportCourseToFile = async (courseToExport: CourseProject): Promise<void> => {
     setIsExporting(true);
     setExportError(null);
     setLastDownloadName(null);
     try {
-      const { blob, report, fileName } = await generateImsccBlob({ ...course, exportMode }, exportMode);
+      const { blob, report, fileName } = await generateImsccBlob({ ...courseToExport, exportMode }, exportMode);
       setValidationReport(report);
       if (!report.valid) {
         setExportError("Local validation found blocking issues. Resolve them before downloading.");
@@ -698,6 +705,57 @@ function App() {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const downloadPackage = async (): Promise<void> => {
+    if (!exportAllowed) return;
+    await exportCourseToFile(course);
+  };
+
+  // Run every per-object AI builder across the course so the package is a complete course, not a
+  // templated scaffold. Returns the filled course so a caller can export it without waiting on
+  // React state to settle. Never throws past the proxy: each builder falls back to its template.
+  const fillFullCourseContent = async (): Promise<CourseProject | null> => {
+    if (!exportAllowed) return null;
+    const plan = planFullCourseFill(course);
+    if (plan.total === 0) {
+      setFillSummary("Nothing to fill — this course has no lessons, assignments, discussions, or quizzes yet.");
+      return course;
+    }
+    setIsFillingContent(true);
+    setExportError(null);
+    setFillSummary(null);
+    setFillProgress({ completed: 0, total: plan.total, label: "Starting" });
+    try {
+      const result = await fillEntireCourseContent(course, { onProgress: setFillProgress });
+      updateCourse(() => result.course);
+      const { pages, assignments, discussions, quizzes } = result.applied;
+      const filledParts = [
+        pages ? `${pages} lesson${pages === 1 ? "" : "s"}` : "",
+        assignments ? `${assignments} assignment${assignments === 1 ? "" : "s"}` : "",
+        discussions ? `${discussions} discussion${discussions === 1 ? "" : "s"}` : "",
+        quizzes ? `${quizzes} quiz${quizzes === 1 ? "" : "zes"}` : ""
+      ].filter(Boolean);
+      setFillSummary(
+        result.aiCount === 0
+          ? "AI was unreachable, so every object kept its structured template. Check that the AI proxy (netlify dev) is running, then try again."
+          : `Generated full content for ${filledParts.join(", ") || "the course"}.${result.fallbackCount ? ` ${result.fallbackCount} object${result.fallbackCount === 1 ? "" : "s"} kept the template (AI unavailable).` : ""}`
+      );
+      return result.course;
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Generating full course content failed unexpectedly.");
+      return null;
+    } finally {
+      setIsFillingContent(false);
+      setFillProgress(null);
+    }
+  };
+
+  // One click: flesh out the whole course with AI, then download the .imscc of that filled course.
+  const downloadFullCoursePackage = async (): Promise<void> => {
+    if (!exportAllowed) return;
+    const filled = await fillFullCourseContent();
+    if (filled) await exportCourseToFile(filled);
   };
 
   // Download a readable PDF copy of the whole course (no Canvas import needed).
@@ -936,6 +994,11 @@ function App() {
           onUpdateCourse={updateCourse}
           onRunValidation={runValidation}
           onDownload={downloadPackage}
+          onFillFullContent={fillFullCourseContent}
+          onDownloadFull={downloadFullCoursePackage}
+          isFillingContent={isFillingContent}
+          fillProgress={fillProgress}
+          fillSummary={fillSummary}
           onDownloadPdf={downloadCoursePdf}
           onDownloadSyllabusPdf={downloadSyllabusPdf}
           onDownloadAllQti={downloadAllQuizzesQti}
@@ -2264,6 +2327,11 @@ function Editor({
   onUpdateCourse,
   onRunValidation,
   onDownload,
+  onFillFullContent,
+  onDownloadFull,
+  isFillingContent,
+  fillProgress,
+  fillSummary,
   onDownloadPdf,
   onDownloadSyllabusPdf,
   onDownloadAllQti,
@@ -2303,6 +2371,11 @@ function Editor({
   onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
   onRunValidation: () => void;
   onDownload: () => void;
+  onFillFullContent: () => Promise<CourseProject | null>;
+  onDownloadFull: () => void;
+  isFillingContent: boolean;
+  fillProgress: FullFillProgress | null;
+  fillSummary: string | null;
   onDownloadPdf: () => void;
   onDownloadSyllabusPdf: () => void;
   onDownloadAllQti: () => void;
@@ -2486,6 +2559,11 @@ function Editor({
               lastDownloadName={lastDownloadName}
               onRunValidation={onRunValidation}
               onDownload={onDownload}
+              onFillFullContent={onFillFullContent}
+              onDownloadFull={onDownloadFull}
+              isFillingContent={isFillingContent}
+              fillProgress={fillProgress}
+              fillSummary={fillSummary}
               onDownloadPdf={onDownloadPdf}
               onDownloadSyllabusPdf={onDownloadSyllabusPdf}
               onDownloadAllQti={onDownloadAllQti}

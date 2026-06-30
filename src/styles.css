@@ -8515,6 +8515,50 @@ p {
   max-width: 100%;
 }
 
+.export-fullfill {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(130, 146, 230, 0.22);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(130, 146, 230, 0.08), rgba(130, 146, 230, 0.02));
+}
+
+.export-fullfill-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.export-fullfill-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.export-fullfill-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.export-fullfill-bar {
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--line-soft);
+  overflow: hidden;
+}
+
+.export-fullfill-bar span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
 .overview-card-head,
 .overview-metric-grid,
 .grade-group-list,
