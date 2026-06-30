@@ -729,12 +729,13 @@ function App() {
     try {
       const result = await fillEntireCourseContent(course, { onProgress: setFillProgress });
       updateCourse(() => result.course);
-      const { pages, assignments, discussions, quizzes } = result.applied;
+      const { pages, assignments, discussions, quizzes, announcements } = result.applied;
       const filledParts = [
-        pages ? `${pages} lesson${pages === 1 ? "" : "s"}` : "",
+        pages ? `${pages} page${pages === 1 ? "" : "s"}` : "",
         assignments ? `${assignments} assignment${assignments === 1 ? "" : "s"}` : "",
         discussions ? `${discussions} discussion${discussions === 1 ? "" : "s"}` : "",
-        quizzes ? `${quizzes} quiz${quizzes === 1 ? "" : "zes"}` : ""
+        quizzes ? `${quizzes} quiz${quizzes === 1 ? "" : "zes"}` : "",
+        announcements ? `${announcements} announcement${announcements === 1 ? "" : "s"}` : ""
       ].filter(Boolean);
       setFillSummary(
         result.aiCount === 0

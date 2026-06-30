@@ -5,6 +5,7 @@
 // apply the value; all the AI plumbing lives here so each tab stays a few lines.
 
 import type {
+  Announcement,
   CoursePage,
   CourseProject,
   Discussion,
@@ -61,6 +62,54 @@ export const aiGeneratePageBody = (course: CourseProject, page: CoursePage): Pro
       return bodyHtml;
     },
     () => buildPageTemplateHtml("lecture-notes", course, page)
+  );
+
+// ---------------------------------------------------------------------------
+// Announcements -> bodyHtml
+// ---------------------------------------------------------------------------
+export const aiGenerateAnnouncementBody = (course: CourseProject, announcement: Announcement): Promise<AiResult<string>> =>
+  withFallback(
+    async () => {
+      const json = await generateJson<{ bodyHtml?: unknown }>({
+        stage: "homepageDraft",
+        courseId: course.id,
+        context: {
+          blueprintJson: buildBlueprintContext(course),
+          announcementRequestJson: { title: announcement.title }
+        },
+        outputContract:
+          'Return {"bodyHtml": "<Canvas-safe HTML for a warm, specific instructor announcement: 2-3 short paragraphs in second person that connect to THIS course\'s subject and where students are in the term, plus a short bulleted list of concrete next steps. Use only inline styles; no scripts, iframes, headings larger than h2, or external CSS.>"}.'
+      });
+      const bodyHtml = toCleanString(json.bodyHtml);
+      if (!bodyHtml) throw new Error("AI did not return announcement HTML.");
+      return bodyHtml;
+    },
+    () => announcement.bodyHtml
+  );
+
+// ---------------------------------------------------------------------------
+// Page enrichment -> a subject-specific prose fragment to ADD to a structured
+// page (overview, readings, practice, milestone, helper pages) without replacing
+// its glance tables / navigation. Returns 2-3 <p> paragraphs only.
+// ---------------------------------------------------------------------------
+export const aiGeneratePageProse = (course: CourseProject, page: CoursePage): Promise<AiResult<string>> =>
+  withFallback(
+    async () => {
+      const json = await generateJson<{ html?: unknown }>({
+        stage: "lessonPageDraft",
+        courseId: course.id,
+        context: {
+          blueprintJson: buildBlueprintContext(course),
+          pageRequestJson: { title: page.title, module: moduleTitle(course, page.moduleId) }
+        },
+        outputContract:
+          'Return {"html": "<2-3 short <p> paragraphs of real, subject-specific written content appropriate to this page\'s role in the course. Plain prose only: no headings, lists, tables, links, images, scripts, or wrapper divs — just <p> tags with inline styles. Do not restate the page title.>"}.'
+      });
+      const html = toCleanString(json.html);
+      if (!html) throw new Error("AI did not return page prose.");
+      return html;
+    },
+    () => ""
   );
 
 // ---------------------------------------------------------------------------

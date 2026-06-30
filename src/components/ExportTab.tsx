@@ -253,11 +253,13 @@ export function ExportTab({
             <span className="overview-pill muted">{fillPlan.total} object{fillPlan.total === 1 ? "" : "s"}</span>
           </div>
           <p className="export-fullfill-copy">
-            Generate real, subject-specific content for every lesson, assignment, discussion, and quiz so the package
-            is a complete course instead of a structured template. This runs {fillPlan.total} AI request
-            {fillPlan.total === 1 ? "" : "s"} ({fillPlan.pages} lesson{fillPlan.pages === 1 ? "" : "s"}, {fillPlan.assignments} assignment
-            {fillPlan.assignments === 1 ? "" : "s"}, {fillPlan.discussions} discussion{fillPlan.discussions === 1 ? "" : "s"}, {fillPlan.quizzes} quiz
-            {fillPlan.quizzes === 1 ? "" : "zes"}). Anything the AI can't reach keeps its template.
+            Generate real, subject-specific content across the whole course — homepage, every Canvas page, announcements,
+            discussions, assignments, and quizzes — so the package is a complete course instead of a structured template.
+            This runs {fillPlan.total} AI request{fillPlan.total === 1 ? "" : "s"} ({fillPlan.pages} page
+            {fillPlan.pages === 1 ? "" : "s"}, {fillPlan.assignments} assignment{fillPlan.assignments === 1 ? "" : "s"},{" "}
+            {fillPlan.discussions} discussion{fillPlan.discussions === 1 ? "" : "s"}, {fillPlan.quizzes} quiz
+            {fillPlan.quizzes === 1 ? "" : "zes"}, {fillPlan.announcements} announcement{fillPlan.announcements === 1 ? "" : "s"}).
+            Anything the AI can't reach keeps its template.
           </p>
           <div className="export-actions">
             <button

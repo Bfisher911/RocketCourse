@@ -1019,6 +1019,18 @@ ${callout("Questions? Reach out early", `<p>Use the ${secondaryLink(moduleRef(ST
     theme
   );
 
+// A periodic check-in announcement (kickoff / midpoint / final stretch). Templated by default; the
+// "Generate full content" pass rewrites the body with subject-specific prose via aiGenerateAnnouncementBody.
+const buildPeriodicAnnouncementHtml = (subtitle: string, focus: string, steps: string[], theme: Theme): string =>
+  canvasShell(
+    "A quick check-in",
+    subtitle,
+    `${section("Where we are", `<p>${focus}</p>`, theme)}
+${section("This is a good time to", checklistHtml(steps), theme)}
+${callout("Need anything?", "<p>If you are stuck or falling behind, reach out now rather than later — it is much easier to help early.</p>", theme)}`,
+    theme
+  );
+
 const assignmentDescription = (title: string, moduleTopic: string, courseTopic: string, settings: CourseSettings, outcomeIds: string[], outcomes: CourseOutcome[], theme: Theme): string => {
   const plan = subjectAssignmentPlan(courseTopic, moduleTopic, settings);
   return canvasShell(
@@ -2157,6 +2169,41 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
   const generatedSyllabusPage = pages.find((page) => page.id === syllabusId);
   if (generatedSyllabusPage) generatedSyllabusPage.bodyHtml = finalSyllabusHtml;
 
+  // Welcome announcement (always) plus a few periodic check-ins spread across the term, so the course
+  // ships with an announcement cadence instead of a single post. Each periodic post is timed to a
+  // module release and starts from a template the "Generate full content" pass can rewrite per-subject.
+  const periodicAnnouncementPlan: Array<{ id: string; title: string; subtitle: string; focus: string; steps: string[]; moduleIndex: number }> = [];
+  if (moduleCount >= 2) {
+    periodicAnnouncementPlan.push({
+      id: "announcement_kickoff",
+      title: "Getting started — your first week",
+      subtitle: "Settle into the rhythm of the course.",
+      focus: `We are underway. Early modules build the foundation everything later in ${title} depends on, so it pays to get into a steady weekly habit now.`,
+      steps: ["Skim the module overview before starting the readings.", "Do the practice activity before any graded work.", "Post early in the discussion so you can read and reply to others."],
+      moduleIndex: 0
+    });
+  }
+  if (moduleCount >= 4) {
+    periodicAnnouncementPlan.push({
+      id: "announcement_midpoint",
+      title: "Midpoint check-in",
+      subtitle: "You are halfway — here is how to finish strong.",
+      focus: `We are at the midpoint of ${title}. This is the moment to consolidate what is working, close any gaps, and start thinking ahead to the final project.`,
+      steps: ["Revisit feedback on returned work and note one thing to improve.", "Confirm your due dates for the second half of the term.", "Save one source, example, or idea you can carry into the final project."],
+      moduleIndex: Math.floor(moduleCount / 2)
+    });
+  }
+  if (moduleCount >= 3) {
+    periodicAnnouncementPlan.push({
+      id: "announcement_final_stretch",
+      title: "Final stretch — bringing it together",
+      subtitle: "The last modules and the final project.",
+      focus: `We are entering the final stretch of ${title}. The remaining work asks you to pull the course together and show what you can do with it.`,
+      steps: ["Map the final project requirements against what you have already produced.", "Schedule time for a draft and a revision pass.", "Bring any remaining questions to office hours before the deadline."],
+      moduleIndex: Math.max(0, moduleCount - 2)
+    });
+  }
+
   const announcements: Announcement[] = [
     {
       id: "announcement_welcome",
@@ -2165,7 +2212,16 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
       publishState: "published",
       status: "generated",
       metadata: metadata(generatedAt)
-    }
+    },
+    ...periodicAnnouncementPlan.map((plan) => ({
+      id: plan.id,
+      title: plan.title,
+      bodyHtml: buildPeriodicAnnouncementHtml(plan.subtitle, plan.focus, plan.steps, theme),
+      postedAt: releaseDateForModule(mergedSettings, plan.moduleIndex),
+      publishState: "published" as const,
+      status: "generated" as const,
+      metadata: metadata(generatedAt)
+    }))
   ];
 
   const project: CourseProject = {
