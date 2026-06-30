@@ -305,7 +305,15 @@ const createRubricsXml = (rubrics: Rubric[]): string => `<?xml version="1.0" enc
 <rubrics ${canvasSchemaAttrs}>
 ${rubrics
   .map(
-    (rubric) => `  <rubric identifier="${xml(rubric.id)}">
+    (rubric) => {
+      // Canvas rejects a rubric whose criteria align the SAME outcome more than once
+      // (Rubric::RubricUniqueAlignments → "This rubric has Outcomes aligned more than once"),
+      // which fails save! and surfaces as "Import Error: Rubric - <title>" on import. Generated
+      // rubrics commonly reuse an outcome across criteria (e.g. 3 criteria, 2 aligned outcomes),
+      // so emit each outcome's <learning_outcome_identifierref> on only the FIRST criterion that
+      // uses it. The criterion itself stays — it just isn't double-aligned.
+      const alignedOutcomeSeen = new Set<string>();
+      return `  <rubric identifier="${xml(rubric.id)}">
     <title>${xml(rubric.title)}</title>
     <reusable>false</reusable>
     <public>false</public>
@@ -318,12 +326,15 @@ ${rubrics
     <criteria>
 ${rubric.criteria
   .map(
-    (criterion) => `      <criterion>
+    (criterion) => {
+      const emitOutcomeRef = Boolean(criterion.outcomeId) && !alignedOutcomeSeen.has(criterion.outcomeId as string);
+      if (criterion.outcomeId) alignedOutcomeSeen.add(criterion.outcomeId);
+      return `      <criterion>
         <criterion_id>${xml(criterion.id)}</criterion_id>
         <points>${Math.max(...criterion.levels.map((level) => level.points))}</points>
         <description>${xml(criterion.title)}</description>
         <long_description>${xml(criterion.description)}</long_description>
-        ${criterion.outcomeId ? `<learning_outcome_identifierref>${xml(criterion.outcomeId)}</learning_outcome_identifierref>` : ""}
+        ${emitOutcomeRef ? `<learning_outcome_identifierref>${xml(criterion.outcomeId)}</learning_outcome_identifierref>` : ""}
         <ratings>
 ${criterion.levels
   .map(
@@ -337,11 +348,13 @@ ${criterion.levels
   )
   .join("\n")}
         </ratings>
-      </criterion>`
+      </criterion>`;
+    }
   )
   .join("\n")}
     </criteria>
-  </rubric>`
+  </rubric>`;
+    }
   )
   .join("\n")}
 </rubrics>`;
