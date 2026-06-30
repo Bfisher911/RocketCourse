@@ -19,18 +19,23 @@ export const supabaseConfig = {
 };
 
 let client: SupabaseClient | null = null;
+let clientPromise: Promise<SupabaseClient | null> | null = null;
 
 export const getSupabaseClient = async (): Promise<SupabaseClient | null> => {
   if (!supabaseConfig.isConfigured) return null;
   if (client) return client;
+  if (clientPromise) return clientPromise;
 
-  const { createClient } = await import("@supabase/supabase-js");
-  client = createClient(supabaseConfig.url, supabaseConfig.publishableKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
-    }
+  clientPromise = import("@supabase/supabase-js").then(({ createClient }) => {
+    client = createClient(supabaseConfig.url, supabaseConfig.publishableKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+    return client;
   });
-  return client;
+
+  return clientPromise;
 };
