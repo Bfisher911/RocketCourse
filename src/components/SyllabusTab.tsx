@@ -169,6 +169,20 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
   const compareSnapshot = state?.snapshots.find((snapshot) => snapshot.id === compareId) ?? null;
   const printableReady = course.fileAssets.some((asset) => asset.path === "web_resources/syllabus-printable.html") && course.fileAssets.some((asset) => asset.path === "web_resources/syllabus-printable.pdf");
 
+  // Section outlines for the template gallery — a readable table of contents beats a
+  // page render shrunk to 24%, which was too small to read.
+  const templateOutlines = useMemo(() => {
+    const outlines: Record<string, string[]> = {};
+    if (!showGallery || !content) return outlines;
+    const parser = new DOMParser();
+    for (const template of SYLLABUS_TEMPLATES) {
+      const doc = parser.parseFromString(renderSyllabus(template.id, content, course.theme), "text/html");
+      const headings = [...doc.querySelectorAll("h2")].map((node) => node.textContent?.trim() ?? "").filter(Boolean);
+      outlines[template.id] = headings.length > 0 ? headings : [...doc.querySelectorAll("h3")].map((node) => node.textContent?.trim() ?? "").filter(Boolean);
+    }
+    return outlines;
+  }, [showGallery, content, course.theme]);
+
   if (!page) return <div className="hp-empty"><h2>Syllabus missing</h2><p>Generate or add a syllabus page before export.</p></div>;
 
   const writeSyllabus = (nextState: SyllabusState, bodyHtml: string): void => {
@@ -351,7 +365,17 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
         <section className="hp-gallery" aria-label="Syllabus templates">
           {SYLLABUS_TEMPLATES.map((template) => (
             <div key={template.id} className={`hp-template-card ${state?.templateId === template.id && !isCustom ? "selected" : ""}`}>
-              <div className="hp-template-thumb syllabus-template-thumb" aria-hidden="true" dangerouslySetInnerHTML={{ __html: renderSyllabus(template.id, content, course.theme) }} />
+              <div className="syllabus-template-outline" aria-hidden="true">
+                <span className="syllabus-outline-label">Includes</span>
+                {(templateOutlines[template.id] ?? []).slice(0, 6).map((title) => (
+                  <span className="syllabus-outline-item" key={title}>
+                    <FileText size={11} /> {title}
+                  </span>
+                ))}
+                {(templateOutlines[template.id]?.length ?? 0) > 6 && (
+                  <small>+{(templateOutlines[template.id]?.length ?? 0) - 6} more sections</small>
+                )}
+              </div>
               <div className="hp-template-body">
                 <div className="hp-template-head">
                   <strong>{template.name}</strong>

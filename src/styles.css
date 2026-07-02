@@ -4407,6 +4407,69 @@ p {
   color: var(--ink);
 }
 
+/* Collapsed question summary row — click to expand one question at a time. */
+.quiz-question-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+
+.quiz-question-summary:hover {
+  background: rgba(130, 146, 230, 0.08);
+}
+
+.quiz-question-summary strong {
+  flex: 0 0 auto;
+}
+
+.quiz-question-stem-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.quiz-question-card.expanded .quiz-question-stem-preview {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.quiz-question-meta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quiz-question-chev {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  transition: transform var(--dur) var(--ease);
+}
+
+.quiz-question-chev.up {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 720px) {
+  .quiz-question-stem-preview {
+    display: none;
+  }
+}
+
 .quiz-question-card header div {
   display: flex;
   flex-wrap: wrap;
@@ -7952,14 +8015,48 @@ p {
   grid-template-columns: minmax(360px, 0.96fr) minmax(420px, 1.04fr);
 }
 
-.syllabus-template-thumb {
-  height: 174px;
+/* Readable section outline replaces the old shrunk-page thumbnail. */
+.syllabus-template-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 174px;
+  padding: 14px;
+  background: rgba(8, 14, 32, 0.36);
+  border-bottom: 1px solid var(--line);
 }
 
-.hp-template-thumb.syllabus-template-thumb > div {
-  transform: scale(0.24);
-  width: 416%;
-  padding: 18px;
+.syllabus-outline-label {
+  margin-bottom: 2px;
+  color: var(--subtle);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.syllabus-outline-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-dim);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.syllabus-outline-item svg {
+  flex: 0 0 auto;
+  color: var(--cyan);
+}
+
+.syllabus-template-outline small {
+  margin-top: 2px;
+  color: var(--subtle);
+  font-size: 11px;
 }
 
 .sy-section .hp-section-head {

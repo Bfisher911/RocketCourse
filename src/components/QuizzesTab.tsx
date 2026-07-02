@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Copy, Download, FileQuestion, FileText, Filter, GraduationCap, GripVertical, Key, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardCheck, Copy, Download, FileQuestion, FileText, Filter, GraduationCap, GripVertical, Key, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { CourseProject, PublishState, Quiz, QuizDifficulty, QuizQuestion, QuizQuestionType } from "../types";
 import { stripHtml } from "../utils/text";
@@ -66,6 +66,8 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
   const [warningFilter, setWarningFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [snapshots, setSnapshots] = useState<QuizSnapshot[]>([]);
+  // One question expands for editing at a time — collapsed summary rows keep long quizzes scannable.
+  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
   const purposeEditorRef = useRef<HTMLTextAreaElement | null>(null);
 
   const selectedQuiz = course.quizzes.find((quiz) => quiz.id === selectedQuizId) ?? course.quizzes[0];
@@ -109,6 +111,7 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
     pushSnapshot(selectedQuiz, `Added ${QUIZ_TEMPLATES.find((template) => template.id === templateId)?.name ?? "question"} question`);
     const question = buildQuizQuestionTemplate(templateId, course, selectedQuiz);
     updateSelectedQuiz((quiz) => ({ ...quiz, questions: [...quiz.questions, question], points: quiz.points + question.points, status: "edited" }));
+    setExpandedQuestionId(question.id);
   };
 
   const ai = useAiAction();
@@ -135,12 +138,14 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
   const duplicateQuestion = (question: QuizQuestion) => {
     if (!selectedQuiz) return;
     pushSnapshot(selectedQuiz, `Duplicated question`);
+    const copyId = `${question.id}_copy_${Date.now().toString(36)}`;
     updateSelectedQuiz((quiz) => ({
       ...quiz,
-      questions: [...quiz.questions, { ...question, id: `${question.id}_copy_${Date.now().toString(36)}`, stem: `${question.stem} (copy)` }],
+      questions: [...quiz.questions, { ...question, id: copyId, stem: `${question.stem} (copy)` }],
       points: quiz.points + question.points,
       status: "edited"
     }));
+    setExpandedQuestionId(copyId);
   };
 
   const deleteQuestion = (questionId: string) => {
@@ -324,10 +329,31 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
 
           <section className="quiz-question-panel" aria-label="Question editor">
             <header><h4>Questions</h4><span>{selectedQuiz.questions.length} items</span></header>
-            {selectedQuiz.questions.map((question, index) => (
-              <article className="quiz-question-card" key={question.id}>
+            {selectedQuiz.questions.map((question, index) => {
+              const expanded = expandedQuestionId === question.id;
+              const needsAnswer = (question.type === "multiple_choice" || question.type === "true_false") && !question.correctAnswer;
+              return (
+              <article className={`quiz-question-card${expanded ? " expanded" : ""}`} key={question.id}>
                 <header>
-                  <strong><GripVertical size={14} /> Question {index + 1}</strong>
+                  <button
+                    type="button"
+                    className="quiz-question-summary"
+                    aria-expanded={expanded}
+                    onClick={() => setExpandedQuestionId(expanded ? null : question.id)}
+                  >
+                    <strong><GripVertical size={14} /> Q{index + 1}</strong>
+                    <span className="quiz-question-stem-preview">{stripHtml(question.stem) || "Untitled question"}</span>
+                    <span className="quiz-question-meta">
+                      <span className="outcome-chip">{questionTypeLabel(question.type)}</span>
+                      <span className="outcome-chip">{question.points} pts</span>
+                      {needsAnswer && (
+                        <span className="outcome-chip danger">
+                          <AlertTriangle size={11} /> No correct answer
+                        </span>
+                      )}
+                    </span>
+                    <ChevronDown size={15} className={`quiz-question-chev${expanded ? " up" : ""}`} aria-hidden="true" />
+                  </button>
                   <div>
                     <button disabled={index === 0} onClick={() => reorderQuestion(question.id, -1)}>Up</button>
                     <button disabled={index === selectedQuiz.questions.length - 1} onClick={() => reorderQuestion(question.id, 1)}>Down</button>
@@ -335,6 +361,7 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
                     <button className="danger" onClick={() => deleteQuestion(question.id)}><Trash2 size={14} /> Delete</button>
                   </div>
                 </header>
+                {expanded && (<>
                 <div className="quiz-question-grid">
                   <label>Type<select value={question.type} onChange={(event) => {
                     // Switching type rebuilds the question from a template, which discards
@@ -370,8 +397,10 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
                   <label>Correct feedback<textarea value={question.correctFeedback ?? ""} onChange={(event) => updateQuestion(question.id, (current) => ({ ...current, correctFeedback: event.target.value }))} /></label>
                   <label>Incorrect feedback<textarea value={question.incorrectFeedback ?? ""} onChange={(event) => updateQuestion(question.id, (current) => ({ ...current, incorrectFeedback: event.target.value }))} /></label>
                 </div>
+                </>)}
               </article>
-            ))}
+              );
+            })}
           </section>
         </section>
 
