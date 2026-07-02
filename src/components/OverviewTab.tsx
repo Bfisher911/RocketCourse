@@ -341,6 +341,9 @@ export function OverviewTab({
                     placeholder="By the end of this course, students will be able to…"
                     onChange={(event) => onUpdateCourse((current) => updateOutcome(current, outcome.id, { text: event.target.value }))}
                   />
+                  {!outcome.text.trim() && (
+                    <p className="outcome-hint">Start with a measurable action verb — e.g. Analyze, Apply, Evaluate, Design.</p>
+                  )}
 
                   <div className="outcome-align">
                     <span className="outcome-chip outcome-tag" title={`Tag for ${outcome.code || "this outcome"} — a human-readable label; alignment uses the code`}>

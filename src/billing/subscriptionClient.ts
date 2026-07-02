@@ -19,12 +19,20 @@ const isLocal = (): boolean => !supabaseConfig.isConfigured;
 
 /** DEV ONLY: simulate an active plan locally so the demo flow works without Stripe. */
 export const setLocalPlan = (planKey: PlanKey): void => {
-  localStorage.setItem(LOCAL_PLAN_KEY, planKey);
+  try {
+    localStorage.setItem(LOCAL_PLAN_KEY, planKey);
+  } catch {
+    // Storage unavailable (private mode) — the simulated plan just won't persist.
+  }
 };
 
 export const getLocalPlanKey = (): PlanKey => {
-  const stored = localStorage.getItem(LOCAL_PLAN_KEY) as PlanKey | null;
-  return stored ?? "free_preview";
+  try {
+    const stored = localStorage.getItem(LOCAL_PLAN_KEY) as PlanKey | null;
+    return stored ?? "free_preview";
+  } catch {
+    return "free_preview";
+  }
 };
 
 const buildLocalSubscription = (): EntitlementSubscription => {

@@ -268,6 +268,8 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
 
   const enterCustomMode = (): void => {
     if (!state) return;
+    // Make the trade-off explicit before switching — the builder stops syncing in custom mode.
+    if (!window.confirm("Take manual control of the homepage HTML? The structured builder stops updating it until you rebuild from a template. A snapshot of the current page is saved first.")) return;
     onUpdateCourse((current) => ({ ...current, homepage: current.homepage ? { ...current.homepage, mode: "custom", snapshots: withSnapshot("Before advanced HTML edit", current.homepage.snapshots) } : current.homepage }));
     setAdvancedOpen(true);
   };

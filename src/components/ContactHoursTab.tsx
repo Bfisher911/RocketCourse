@@ -184,6 +184,9 @@ export function ContactHoursTab({
           </span>
           <span className="overview-pill ok">{summary.categorySum}h planned</span>
         </header>
+        <p className="overview-empty">
+          Hours are what you edit — the percentage next to each category recalculates automatically from the total.
+        </p>
         <div className="contact-cat-list">
           {breakdown.map((category) => (
             <article className="contact-cat-row" key={category.key}>

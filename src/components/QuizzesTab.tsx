@@ -336,7 +336,16 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
                   </div>
                 </header>
                 <div className="quiz-question-grid">
-                  <label>Type<select value={question.type} onChange={(event) => updateQuestion(question.id, (current) => ({ ...buildQuizQuestionTemplate(event.target.value === "true_false" ? "true-false-explanation" : event.target.value === "short_answer" ? "short-answer-analysis" : event.target.value === "essay" ? "reflection-essay" : "concept-check", course, selectedQuiz, { questionId: current.id }), stem: current.stem || buildQuizQuestionTemplate("concept-check", course, selectedQuiz).stem }))}><option value="multiple_choice">Multiple choice</option><option value="true_false">True/false</option><option value="short_answer">Short answer</option><option value="essay">Essay</option></select></label>
+                  <label>Type<select value={question.type} onChange={(event) => {
+                    // Switching type rebuilds the question from a template, which discards
+                    // existing choices/answers — confirm before losing the author's work.
+                    const hasWork = Boolean(question.correctAnswer) || (question.choices ?? []).some((choice) => choice.trim() && choice !== "New choice");
+                    if (hasWork && !window.confirm("Changing the question type resets its answer choices and correct answer. Continue?")) {
+                      event.target.value = question.type;
+                      return;
+                    }
+                    updateQuestion(question.id, (current) => ({ ...buildQuizQuestionTemplate(event.target.value === "true_false" ? "true-false-explanation" : event.target.value === "short_answer" ? "short-answer-analysis" : event.target.value === "essay" ? "reflection-essay" : "concept-check", course, selectedQuiz, { questionId: current.id }), stem: current.stem || buildQuizQuestionTemplate("concept-check", course, selectedQuiz).stem }));
+                  }}><option value="multiple_choice">Multiple choice</option><option value="true_false">True/false</option><option value="short_answer">Short answer</option><option value="essay">Essay</option></select></label>
                   <label>Points<input type="number" min={1} value={question.points} onChange={(event) => updateQuestion(question.id, (current) => ({ ...current, points: Number(event.target.value) }))} /></label>
                   <label>Difficulty<select value={question.difficulty} onChange={(event) => updateQuestion(question.id, (current) => ({ ...current, difficulty: event.target.value as QuizDifficulty }))}><option value="introductory">Introductory</option><option value="balanced">Balanced</option><option value="challenging">Challenging</option></select></label>
                 </div>

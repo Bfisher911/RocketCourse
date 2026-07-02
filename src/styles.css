@@ -2577,6 +2577,221 @@ p {
   }
 }
 
+/* Guided (one-step-at-a-time) editor mode ------------------------------- */
+
+.editor-viewbar {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.editor-viewbar .tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.guided-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  backdrop-filter: var(--glass-blur);
+}
+
+.guided-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.guided-count {
+  flex: 0 0 auto;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(130, 146, 230, 0.14);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.guided-info strong {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.guided-desc {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.guided-progress {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(130, 146, 230, 0.16);
+  overflow: hidden;
+}
+
+.guided-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--grad-plasma);
+  transition: width var(--dur-slow) var(--ease);
+}
+
+.view-toggle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  backdrop-filter: var(--glass-blur);
+}
+
+.view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.view-toggle button:hover {
+  color: var(--ink);
+  background: rgba(130, 146, 230, 0.1);
+}
+
+.view-toggle button.active {
+  color: var(--accent-ink);
+  background: var(--grad-plasma);
+}
+
+.editor-rail .step-link {
+  min-height: 34px;
+  gap: 9px;
+  font-size: 12.5px;
+}
+
+.step-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--subtle);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.editor-rail .step-link.visited .step-num {
+  border-color: rgba(34, 230, 255, 0.5);
+  color: var(--cyan);
+}
+
+.editor-rail .step-link.active .step-num {
+  background: var(--grad-plasma);
+  border-color: transparent;
+  color: var(--accent-ink);
+}
+
+.guided-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  backdrop-filter: var(--glass-blur);
+}
+
+.guided-footer-count {
+  color: var(--subtle);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.guided-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  color: var(--accent-ink);
+  background: var(--grad-plasma);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(106, 91, 255, 0.32);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.guided-next:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(106, 91, 255, 0.42);
+}
+
+.guided-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+@media (max-width: 900px) {
+  .editor-viewbar {
+    flex-direction: column;
+  }
+
+  .view-toggle {
+    align-self: flex-end;
+  }
+
+  .guided-footer {
+    flex-wrap: wrap;
+  }
+
+  .guided-footer-count {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+}
+
 .stack {
   display: grid;
   gap: 16px;
@@ -3010,6 +3225,9 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  /* Courses with many outcomes scroll inside the picker instead of pushing the editor off-screen. */
+  max-height: 340px;
+  overflow-y: auto;
 }
 
 .assignment-outcome-picker label {
@@ -3528,6 +3746,9 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  /* Courses with many outcomes scroll inside the picker instead of pushing the editor off-screen. */
+  max-height: 340px;
+  overflow-y: auto;
 }
 
 .discussion-outcome-picker label {
@@ -12772,4 +12993,128 @@ p {
 .fc-admin-detail__actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 @media (max-width: 720px) {
   .fc-admin-detail__grid { grid-template-columns: 1fr; }
+}
+
+/* Audit fixes: labeled campaign/waitlist forms ------------------------- */
+
+.campaign-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.campaign-field > span {
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.campaign-req,
+.fc-req {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.fc-form__req-note {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* Audit fixes: intake prompt example chips ------------------------------ */
+
+.prompt-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.prompt-examples-label {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.prompt-example-chip {
+  max-width: 100%;
+  padding: 6px 12px;
+  color: var(--ink-dim);
+  background: rgba(130, 146, 230, 0.08);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.prompt-example-chip:hover {
+  color: var(--ink);
+  border-color: rgba(34, 230, 255, 0.45);
+  background: rgba(34, 230, 255, 0.1);
+}
+
+/* Audit fixes: dashboard plan usage meters ------------------------------ */
+
+.plan-usage .usage-meter {
+  display: block;
+  height: 4px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: rgba(130, 146, 230, 0.16);
+  overflow: hidden;
+}
+
+.plan-usage .usage-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--grad-plasma);
+  transition: width var(--dur-slow) var(--ease);
+}
+
+.plan-usage .usage-meter.low i {
+  background: var(--warning, #f5a623);
+}
+
+.plan-usage .usage-meter.empty i {
+  background: var(--danger);
+}
+
+/* Audit fixes: builder tabs --------------------------------------------- */
+
+.outcome-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Column dividers keep long criterion titles from visually merging cells. */
+.rubric-preview-table th,
+.rubric-preview-table td {
+  border-right: 1px solid var(--line);
+}
+
+.rubric-preview-table th:last-child,
+.rubric-preview-table td:last-child {
+  border-right: none;
+}
+
+.export-fullfill-expectation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.export-status-line .small-button {
+  margin-left: 10px;
 }

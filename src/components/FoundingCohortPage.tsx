@@ -528,6 +528,9 @@ function WaitlistForm({ campaign, context, webinarPrefill, unseeded, onStartBuil
         }}
         noValidate
       >
+        <p className="fc-form__req-note">
+          <span className="fc-req" aria-hidden>*</span> Required field — everything else is optional.
+        </p>
         <div className="fc-form__row">
           <div className="fc-field">
             <label htmlFor="fc-first">First name</label>

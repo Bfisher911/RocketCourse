@@ -1,4 +1,5 @@
 import { LogoMark } from "./brand";
+import { screenToPath } from "../seo";
 import type { Screen } from "../types";
 
 // Shared footer for all public (pre-login) surfaces. Links cover the full public IA so users can
@@ -27,10 +28,18 @@ export function PublicFooter({ onNavigate }: { onNavigate: (screen: Screen) => v
           </div>
         </div>
         <nav className="public-footer-links" aria-label="Footer navigation">
+          {/* Real anchors so crawlers can follow the public IA; SPA navigation still handles the click. */}
           {FOOTER_LINKS.map((link) => (
-            <button key={link.screen} type="button" onClick={() => onNavigate(link.screen)}>
+            <a
+              key={link.screen}
+              href={screenToPath(link.screen)}
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigate(link.screen);
+              }}
+            >
               {link.label}
-            </button>
+            </a>
           ))}
           <a href="/integration">Integrations</a>
         </nav>

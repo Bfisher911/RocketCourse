@@ -52,14 +52,22 @@ const readLocalUsers = (): LocalUserRecord[] => {
 };
 
 const writeLocalUsers = (users: LocalUserRecord[]): void => {
-  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
+  try {
+    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
+  } catch {
+    // Storage unavailable (private mode) — local dev accounts just won't persist.
+  }
 };
 
 const localId = (email: string): string => `local_${btoa(email).replace(/[^a-z0-9]/gi, "").slice(0, 24)}`;
 
 const persistLocalSession = (session: AuthSession | null): void => {
-  if (session) localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(session));
-  else localStorage.removeItem(LOCAL_SESSION_KEY);
+  try {
+    if (session) localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(session));
+    else localStorage.removeItem(LOCAL_SESSION_KEY);
+  } catch {
+    // Storage unavailable (private mode) — the session lives only in memory.
+  }
 };
 
 const localSignUp = (email: string, password: string, fullName: string): AuthResult => {

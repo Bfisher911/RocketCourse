@@ -137,8 +137,15 @@ export default async (request: Request): Promise<Response> => {
       meter: false
     });
 
+    // Guard against unexpected response shapes (model changes, streaming misconfig) so the
+    // client gets a clear error instead of silently empty content.
+    const content = payload?.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || content.length === 0) {
+      return json(502, { error: "OpenAI returned an unexpected or empty response. Please try again." });
+    }
+
     return json(200, {
-      content: payload?.choices?.[0]?.message?.content ?? "",
+      content,
       model: payload?.model ?? model,
       finishReason: payload?.choices?.[0]?.finish_reason ?? null,
       usage: payload?.usage ?? null,

@@ -260,6 +260,8 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
 
   const enterCustomMode = (): void => {
     if (!state) return;
+    // Make the trade-off explicit before switching — the builder stops syncing in custom mode.
+    if (!window.confirm("Take manual control of the syllabus HTML? The structured builder stops updating it until you rebuild from a template. A snapshot of the current page is saved first.")) return;
     onUpdateCourse((current) => ({ ...current, syllabus: current.syllabus ? { ...current.syllabus, mode: "custom", snapshots: withSnapshot("Before advanced HTML edit", current.syllabus.snapshots) } : current.syllabus }));
     setAdvancedOpen(true);
   };

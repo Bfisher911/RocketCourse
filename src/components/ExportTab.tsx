@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ClipboardCheck,
+  Clock3,
   Copy,
   Download,
   FileArchive,
@@ -261,6 +262,10 @@ export function ExportTab({
             {fillPlan.quizzes === 1 ? "" : "zes"}, {fillPlan.announcements} announcement{fillPlan.announcements === 1 ? "" : "s"}).
             Anything the AI can't reach keeps its template.
           </p>
+          <p className="export-fullfill-copy export-fullfill-expectation">
+            <Clock3 size={13} /> Typically takes a few minutes and uses AI credit for each empty item — you can keep
+            editing other tabs while it runs.
+          </p>
           <div className="export-actions">
             <button
               type="button"
@@ -362,6 +367,9 @@ export function ExportTab({
         {!isExporting && exportError && (
           <p className="export-status-line danger">
             <AlertTriangle size={15} /> {exportError}
+            <button type="button" className="small-button" onClick={onRunValidation}>
+              <Play size={13} /> Try again
+            </button>
           </p>
         )}
         {!isExporting && !exportError && lastDownloadName && (

@@ -176,6 +176,47 @@ const editorTabs = [
 
 type EditorTab = (typeof editorTabs)[number];
 
+/**
+ * Guided mode shows one build step (tab) at a time with back/next controls so new
+ * users never face all fourteen sections at once. "tabs" restores the full strip.
+ */
+type EditorViewMode = "guided" | "tabs";
+
+const EDITOR_VIEW_STORAGE_KEY = "rocketcourse.editor-view";
+
+const readStoredEditorView = (): EditorViewMode => {
+  try {
+    return window.localStorage.getItem(EDITOR_VIEW_STORAGE_KEY) === "tabs" ? "tabs" : "guided";
+  } catch {
+    return "guided";
+  }
+};
+
+const storeEditorView = (mode: EditorViewMode): void => {
+  try {
+    window.localStorage.setItem(EDITOR_VIEW_STORAGE_KEY, mode);
+  } catch {
+    // Storage unavailable (private mode) — the choice just won't persist.
+  }
+};
+
+const stepDescriptions: Record<EditorTab, string> = {
+  Overview: "Confirm the course title, description, and learning outcomes.",
+  Homepage: "Design the first page students see in Canvas.",
+  Syllabus: "Review and polish the syllabus students will read.",
+  Modules: "Organize lessons into modules and set their order.",
+  Pages: "Edit the content pages inside your modules.",
+  Assignments: "Set up graded assignments and their instructions.",
+  Discussions: "Write discussion prompts and participation guidance.",
+  Quizzes: "Build quizzes, questions, and answer keys.",
+  Rubrics: "Attach grading rubrics to your assessments.",
+  "Gradebook Setup": "Balance grading categories so they total 100%.",
+  "Contact Hours": "Verify instructional time meets your requirements.",
+  Theme: "Pick the visual style applied to exported Canvas pages.",
+  Transform: "Optional: apply bulk changes across the whole course.",
+  Export: "Validate everything and download your Canvas package."
+};
+
 const weekdayOptions = ["0", "1", "2", "3", "4", "5", "6"];
 const weekdayLabels: Record<string, string> = {
   "0": "Sunday",
@@ -1122,12 +1163,18 @@ function TopBar({
             )}
           </div>
         )}
-        <button className={cls(screen === "landing")} onClick={() => onNavigate("landing")}>
-          <Home size={16} /> Home
-        </button>
-        <button className={cls(screen === "demo")} onClick={onDemo}>
-          <PanelLeft size={16} /> Demo
-        </button>
+        {/* Signed-in users reach Home via the logo and are past needing the demo —
+            trimming both keeps the workspace nav focused on the product. */}
+        {!session && (
+          <button className={cls(screen === "landing")} onClick={() => onNavigate("landing")}>
+            <Home size={16} /> Home
+          </button>
+        )}
+        {!session && (
+          <button className={cls(screen === "demo")} onClick={onDemo}>
+            <PanelLeft size={16} /> Demo
+          </button>
+        )}
         <button className={cls(screen === "pricing")} onClick={() => onNavigate("pricing")}>
           <CreditCard size={16} /> Pricing
         </button>
@@ -1646,6 +1693,19 @@ function Dashboard({
   const [refreshing, setRefreshing] = useState(false);
   const fmtLimit = (used: number, remaining: number | null): string =>
     remaining === null ? `${used} used · unlimited` : `${remaining} of ${used + remaining} left`;
+  // Visual meter that turns amber near the limit and red when exhausted, so users
+  // aren't surprised mid-build by running out of generations or exports.
+  const usageMeter = (used: number, remaining: number | null): ReactNode => {
+    if (remaining === null) return null;
+    const total = used + remaining;
+    const pct = total === 0 ? 0 : Math.round((used / total) * 100);
+    const level = remaining === 0 ? "empty" : used / total >= 0.75 ? "low" : "ok";
+    return (
+      <span className={`usage-meter ${level}`} aria-hidden="true">
+        <i style={{ width: `${pct}%` }} />
+      </span>
+    );
+  };
   const refresh = async (): Promise<void> => {
     setRefreshing(true);
     try {
@@ -1686,10 +1746,12 @@ function Dashboard({
           <div>
             <strong>{entitlement.aiGenerationsLimit === null ? "Unlimited" : fmtLimit(entitlement.aiGenerationsUsed, entitlement.aiGenerationsRemaining)}</strong>
             <span>AI generations</span>
+            {usageMeter(entitlement.aiGenerationsUsed, entitlement.aiGenerationsRemaining)}
           </div>
           <div>
             <strong>{entitlement.exportsLimit === null ? "Unlimited" : fmtLimit(entitlement.exportsUsed, entitlement.exportsRemaining)}</strong>
             <span>Exports</span>
+            {usageMeter(entitlement.exportsUsed, entitlement.exportsRemaining)}
           </div>
         </div>
         <div className="plan-panel-actions">
@@ -1852,6 +1914,20 @@ function Intake({
           <label htmlFor="prompt">Describe your course</label>
           <p className="prompt-hint">Plain language is fine — topic, audience, goals, tone, and anything you want emphasized.</p>
           <textarea id="prompt" className="prompt-textarea" value={prompt} onChange={(event) => onPromptChange(event.target.value)} placeholder="e.g. An 8-week undergraduate course on AI and Modern Society for non-majors. Emphasize ethics, real-world cases, and weekly discussion. Friendly, practical tone." />
+          {!prompt.trim() && (
+            <div className="prompt-examples" aria-label="Example course briefs">
+              <span className="prompt-examples-label">Try an example:</span>
+              {[
+                "An 8-week undergraduate course on AI and Modern Society for non-majors. Emphasize ethics, real-world cases, and weekly discussion. Friendly, practical tone.",
+                "A 16-week graduate research methods course for nursing students. Include APA writing support, a scaffolded literature-review project, and biweekly quizzes.",
+                "A 6-week professional development course on workplace safety for new EMS supervisors. Scenario-based, practical, with a final case-study presentation."
+              ].map((example) => (
+                <button key={example} type="button" className="prompt-example-chip" onClick={() => onPromptChange(example)}>
+                  {example.split(".")[0]}
+                </button>
+              ))}
+            </div>
+          )}
           <label className="upload-zone">
             <Upload size={22} />
             <span>Attach a syllabus, notes, reading list, or an existing Canvas .imscc export</span>
@@ -1950,7 +2026,7 @@ function Intake({
               <NumberInput label="Course length" value={settings.lengthWeeks} min={3} max={18} suffix="weeks" onChange={(value) => onSettingsChange("lengthWeeks", value)} />
               <NumberInput label="Modules" value={settings.moduleCount} min={3} max={18} onChange={(value) => onSettingsChange("moduleCount", value)} />
               <Select
-                label="Organization"
+                label="Organize by"
                 value={settings.organizationPattern}
                 options={["weeks", "topics", "chapters", "units", "quarters", "custom"]}
                 labels={{ weeks: "Weeks", topics: "Topics", chapters: "Chapters", units: "Units", quarters: "Quarters", custom: "Custom sections" }}
@@ -2182,10 +2258,13 @@ function BlueprintReview({
       <section className="page-heading">
         <div>
           <span className="section-eyebrow">
-            <Sparkles size={14} /> AI Blueprint
+            <Sparkles size={14} /> AI Blueprint — Step 2 of 3
           </span>
           <h1>{blueprint.title}</h1>
-          <p>Review the AI's instructional plan. Approve to build the full Canvas course, or regenerate.</p>
+          <p>
+            Review the AI's instructional plan below. Approving builds the full Canvas course (step 3) — you can still edit
+            everything afterwards.
+          </p>
         </div>
         <div className="blueprint-actions">
           <button className="secondary" onClick={onBack}>
@@ -2293,7 +2372,7 @@ function Progress({ progressIndex }: { progressIndex: number }) {
       <section className="progress-card">
         <RocketCourseLoader size="lg" className="progress-loader" />
         <h1>Building your Canvas course</h1>
-        <p>{progressSteps[Math.min(progressIndex, progressSteps.length - 1)]}</p>
+        <p aria-live="polite">{progressSteps[Math.min(progressIndex, progressSteps.length - 1)]}</p>
         <div className="progress-track" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
           <span style={{ width: `${percent}%` }} />
         </div>
@@ -2403,6 +2482,21 @@ function Editor({
   const tabsRef = useRef<HTMLDivElement>(null);
   const [revising, setRevising] = useState<RevisionMode | null>(null);
   const [reviseError, setReviseError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<EditorViewMode>(readStoredEditorView);
+
+  const stepIndex = editorTabs.indexOf(activeTab);
+  const stepCount = editorTabs.length;
+
+  const changeViewMode = (mode: EditorViewMode): void => {
+    setViewMode(mode);
+    storeEditorView(mode);
+  };
+
+  const goToStep = (index: number): void => {
+    const clamped = Math.min(stepCount - 1, Math.max(0, index));
+    setActiveTab(editorTabs[clamped]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   useEffect(() => {
     const active = tabsRef.current?.querySelector<HTMLButtonElement>("button.active");
@@ -2432,18 +2526,39 @@ function Editor({
             {course.modules.length} modules • {course.pages.length} pages
           </small>
         </div>
-        <span className="rail-label">Quick nav</span>
-        {[
-          ["Overview", BookOpen],
-          ["Modules", GripVertical],
-          ["Assignments", ClipboardCheck],
-          ["Discussions", MessageSquareText],
-          ["Export", FileArchive]
-        ].map(([label, Icon]) => (
-          <button key={String(label)} className={activeTab === label ? "active" : ""} onClick={() => setActiveTab(label as EditorTab)}>
-            <Icon size={17} /> {String(label)}
-          </button>
-        ))}
+        {viewMode === "guided" ? (
+          <>
+            <span className="rail-label">Build steps</span>
+            {editorTabs.map((tab, index) => (
+              <button
+                key={tab}
+                className={`step-link${activeTab === tab ? " active" : ""}${index < stepIndex ? " visited" : ""}`}
+                aria-current={activeTab === tab ? "step" : undefined}
+                onClick={() => goToStep(index)}
+              >
+                <span className="step-num" aria-hidden="true">
+                  {index < stepIndex ? <Check size={13} /> : index + 1}
+                </span>
+                {tab}
+              </button>
+            ))}
+          </>
+        ) : (
+          <>
+            <span className="rail-label">Quick nav</span>
+            {[
+              ["Overview", BookOpen],
+              ["Modules", GripVertical],
+              ["Assignments", ClipboardCheck],
+              ["Discussions", MessageSquareText],
+              ["Export", FileArchive]
+            ].map(([label, Icon]) => (
+              <button key={String(label)} className={activeTab === label ? "active" : ""} onClick={() => setActiveTab(label as EditorTab)}>
+                <Icon size={17} /> {String(label)}
+              </button>
+            ))}
+          </>
+        )}
       </aside>
 
       <section className="editor-main">
@@ -2495,12 +2610,44 @@ function Editor({
             </div>
           )}
         </div>
-        <div className="tabs" role="tablist" aria-label="Course editor sections" ref={tabsRef}>
-          {editorTabs.map((tab) => (
-            <button key={tab} role="tab" aria-selected={activeTab === tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
-              {tab}
+        <div className="editor-viewbar">
+          {viewMode === "guided" ? (
+            <div className="guided-bar" aria-label="Guided build steps">
+              <div className="guided-info">
+                <span className="guided-count">
+                  Step {stepIndex + 1} of {stepCount}
+                </span>
+                <strong>{activeTab}</strong>
+                <span className="guided-desc">{stepDescriptions[activeTab]}</span>
+              </div>
+              <div
+                className="guided-progress"
+                role="progressbar"
+                aria-label="Course build progress"
+                aria-valuemin={1}
+                aria-valuemax={stepCount}
+                aria-valuenow={stepIndex + 1}
+              >
+                <span className="guided-progress-fill" style={{ width: `${((stepIndex + 1) / stepCount) * 100}%` }} />
+              </div>
+            </div>
+          ) : (
+            <div className="tabs" role="tablist" aria-label="Course editor sections" ref={tabsRef}>
+              {editorTabs.map((tab) => (
+                <button key={tab} role="tab" aria-selected={activeTab === tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
+                  {tab}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="view-toggle" role="group" aria-label="Editor view mode">
+            <button className={viewMode === "guided" ? "active" : ""} aria-pressed={viewMode === "guided"} onClick={() => changeViewMode("guided")}>
+              <ListChecks size={14} /> Guided
             </button>
-          ))}
+            <button className={viewMode === "tabs" ? "active" : ""} aria-pressed={viewMode === "tabs"} onClick={() => changeViewMode("tabs")}>
+              <LayoutDashboard size={14} /> All sections
+            </button>
+          </div>
         </div>
         <div className="tab-body">
           {activeTab === "Overview" && <OverviewTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
@@ -2574,6 +2721,25 @@ function Editor({
             />
           )}
         </div>
+        {viewMode === "guided" && (
+          <nav className="guided-footer" aria-label="Step navigation">
+            <button className="ghost-button" onClick={() => goToStep(stepIndex - 1)} disabled={stepIndex === 0}>
+              <ArrowLeft size={15} /> Back{stepIndex > 0 ? `: ${editorTabs[stepIndex - 1]}` : ""}
+            </button>
+            <span className="guided-footer-count" aria-hidden="true">
+              {stepIndex + 1} / {stepCount}
+            </span>
+            {stepIndex < stepCount - 1 ? (
+              <button className="guided-next" onClick={() => goToStep(stepIndex + 1)}>
+                Next: {editorTabs[stepIndex + 1]} <ArrowRight size={15} />
+              </button>
+            ) : (
+              <span className="guided-done">
+                <CheckCircle2 size={15} /> Final step — download your course above
+              </span>
+            )}
+          </nav>
+        )}
       </section>
 
       <aside className="readiness-panel">

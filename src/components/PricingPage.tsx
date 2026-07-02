@@ -108,7 +108,8 @@ export function PricingPage({
                 disabled={isCurrent || Boolean(busyPlanKey)}
               >
                 {busy ? <Loader2 size={16} className="spin" /> : null}
-                {isCurrent ? "Current plan" : busy ? "Starting checkout…" : `Choose ${plan.name}`}
+                {/* The card heading already names the plan — a short label never wraps on mobile. */}
+                {isCurrent ? "Current plan" : busy ? "Starting checkout…" : "Choose plan"}
                 {!isCurrent && !busy && <ArrowRight size={16} />}
               </button>
             </article>

@@ -602,7 +602,12 @@ export function DiscussionsTab({
               <div>
                 {course.outcomes.map((outcome) => (
                   <label key={outcome.id} className={selectedDiscussion.alignedOutcomeIds.includes(outcome.id) ? "selected" : ""}>
-                    <input type="checkbox" checked={selectedDiscussion.alignedOutcomeIds.includes(outcome.id)} onChange={() => toggleOutcome(selectedDiscussion, outcome.id)} />
+                    <input
+                      type="checkbox"
+                      aria-label={`${outcome.code}: ${outcome.text}`}
+                      checked={selectedDiscussion.alignedOutcomeIds.includes(outcome.id)}
+                      onChange={() => toggleOutcome(selectedDiscussion, outcome.id)}
+                    />
                     <span>{outcome.code}</span>
                     <small>{outcome.text}</small>
                   </label>

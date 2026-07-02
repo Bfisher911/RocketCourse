@@ -197,7 +197,12 @@ export function GradebookTab({
                         min={0}
                         max={Math.max(0, entry.itemCount)}
                         value={entry.group.dropLowest ?? 0}
-                        onChange={(event) => onUpdateCourse((current) => updateAssignmentGroup(current, entry.group.id, { dropLowest: Number(event.target.value) || undefined }))}
+                        title={`This group has ${entry.itemCount} graded item${entry.itemCount === 1 ? "" : "s"}`}
+                        onChange={(event) => {
+                          // Clamp typed values — the native max only guards the spinner arrows.
+                          const clamped = Math.max(0, Math.min(entry.itemCount, Number(event.target.value) || 0));
+                          onUpdateCourse((current) => updateAssignmentGroup(current, entry.group.id, { dropLowest: clamped || undefined }));
+                        }}
                       />
                     </label>
                     <button type="button" className="icon-button danger grade-group-delete" aria-label={`Delete ${entry.group.name}`} onClick={() => openDelete(entry.group.id)}>

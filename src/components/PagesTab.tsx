@@ -324,8 +324,8 @@ export function PagesTab({
           <strong>{draftPages}</strong>
           <span>Draft or private</span>
         </div>
-        <div>
-          <strong>{frontPage?.title ?? "Missing"}</strong>
+        <div className={frontPage ? "" : "warn"} title={frontPage ? undefined : 'Open a page below and turn on its "Front page" toggle to set one.'}>
+          <strong>{frontPage?.title ?? "Not set"}</strong>
           <span>Front page</span>
         </div>
         <div className={warningPages ? "warn" : ""}>
@@ -552,6 +552,7 @@ export function PagesTab({
 
             <label className="page-html-editor">
               <span>Advanced Canvas HTML</span>
+              <small className="outcome-hint">Edits apply to the page immediately — a snapshot is saved before your first change so you can restore it.</small>
               <textarea
                 ref={htmlEditorRef}
                 rows={18}

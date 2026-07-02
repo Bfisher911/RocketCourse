@@ -631,7 +631,12 @@ export function AssignmentsTab({
               <div>
                 {course.outcomes.map((outcome) => (
                   <label key={outcome.id} className={selectedAssignment.alignedOutcomeIds.includes(outcome.id) ? "selected" : ""}>
-                    <input type="checkbox" checked={selectedAssignment.alignedOutcomeIds.includes(outcome.id)} onChange={() => toggleOutcome(selectedAssignment, outcome.id)} />
+                    <input
+                      type="checkbox"
+                      aria-label={`${outcome.code}: ${outcome.text}`}
+                      checked={selectedAssignment.alignedOutcomeIds.includes(outcome.id)}
+                      onChange={() => toggleOutcome(selectedAssignment, outcome.id)}
+                    />
                     <span>{outcome.code}</span>
                     <small>{outcome.text}</small>
                   </label>

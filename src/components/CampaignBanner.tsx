@@ -171,19 +171,36 @@ function CampaignSignupForm({ campaign, onDone }: { campaign: Campaign; onDone: 
       }}
     >
       <div className="campaign-form-grid">
-        <input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-        <input
-          type="email"
-          required
-          placeholder="Work email *"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-        />
-        <input placeholder="Institution / organization" value={institution} onChange={(e) => setInstitution(e.target.value)} />
-        <input placeholder="Your role (e.g. Instructor)" value={role} onChange={(e) => setRole(e.target.value)} />
+        <label className="campaign-field">
+          <span>Full name</span>
+          <input placeholder="Dr. Jane Smith" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+        </label>
+        <label className="campaign-field">
+          <span>
+            Work email <span className="campaign-req" aria-hidden="true">*</span>
+          </span>
+          <input
+            type="email"
+            required
+            placeholder="you@university.edu"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+        </label>
+        <label className="campaign-field">
+          <span>Institution / organization</span>
+          <input placeholder="e.g. State University" value={institution} onChange={(e) => setInstitution(e.target.value)} />
+        </label>
+        <label className="campaign-field">
+          <span>Your role</span>
+          <input placeholder="e.g. Instructor" value={role} onChange={(e) => setRole(e.target.value)} />
+        </label>
       </div>
-      <textarea placeholder="Anything we should know? (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+      <label className="campaign-field">
+        <span>Anything we should know?</span>
+        <textarea placeholder="Optional" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+      </label>
       {error && <p className="intake-ai-error">{error}</p>}
       <button type="submit" className="primary" disabled={busy || !email.trim()}>
         {busy ? <Loader2 size={15} className="spin" /> : <Rocket size={15} />} {campaign.ctaText}
