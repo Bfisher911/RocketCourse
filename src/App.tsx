@@ -200,6 +200,22 @@ const storeEditorView = (mode: EditorViewMode): void => {
   }
 };
 
+/**
+ * The 14 build steps grouped into 5 phases so the guided rail reads as a short,
+ * approachable journey ("Phase 2 of 5") instead of a 14-item wall. Order must
+ * match editorTabs — every tab appears in exactly one phase.
+ */
+const editorPhases: Array<{ name: string; steps: EditorTab[] }> = [
+  { name: "Foundations", steps: ["Overview", "Homepage", "Syllabus"] },
+  { name: "Content", steps: ["Modules", "Pages"] },
+  { name: "Assessment", steps: ["Assignments", "Discussions", "Quizzes", "Rubrics"] },
+  { name: "Logistics", steps: ["Gradebook Setup", "Contact Hours"] },
+  { name: "Finish", steps: ["Theme", "Transform", "Export"] }
+];
+
+const phaseIndexForTab = (tab: EditorTab): number =>
+  Math.max(0, editorPhases.findIndex((phase) => phase.steps.includes(tab)));
+
 const stepDescriptions: Record<EditorTab, string> = {
   Overview: "Confirm the course title, description, and learning outcomes.",
   Homepage: "Design the first page students see in Canvas.",
@@ -2486,6 +2502,8 @@ function Editor({
 
   const stepIndex = editorTabs.indexOf(activeTab);
   const stepCount = editorTabs.length;
+  const currentPhaseIndex = phaseIndexForTab(activeTab);
+  const currentPhase = editorPhases[currentPhaseIndex];
 
   const changeViewMode = (mode: EditorViewMode): void => {
     setViewMode(mode);
@@ -2528,20 +2546,44 @@ function Editor({
         </div>
         {viewMode === "guided" ? (
           <>
-            <span className="rail-label">Build steps</span>
-            {editorTabs.map((tab, index) => (
-              <button
-                key={tab}
-                className={`step-link${activeTab === tab ? " active" : ""}${index < stepIndex ? " visited" : ""}`}
-                aria-current={activeTab === tab ? "step" : undefined}
-                onClick={() => goToStep(index)}
-              >
-                <span className="step-num" aria-hidden="true">
-                  {index < stepIndex ? <Check size={13} /> : index + 1}
-                </span>
-                {tab}
-              </button>
-            ))}
+            <span className="rail-label">Build phases</span>
+            {editorPhases.map((phase, index) => {
+              const activePhase = phase.steps.includes(activeTab);
+              const phaseDone = index < currentPhaseIndex;
+              return (
+                <div key={phase.name} className={`rail-phase${activePhase ? " active" : ""}`}>
+                  <button
+                    className={`step-link phase-link${activePhase ? " active" : ""}${phaseDone ? " visited" : ""}`}
+                    aria-expanded={activePhase}
+                    onClick={() => goToStep(editorTabs.indexOf(phase.steps[0]))}
+                  >
+                    <span className="step-num" aria-hidden="true">
+                      {phaseDone ? <Check size={13} /> : index + 1}
+                    </span>
+                    {phase.name}
+                    <small className="phase-count">{phase.steps.length}</small>
+                  </button>
+                  {activePhase && (
+                    <div className="phase-steps">
+                      {phase.steps.map((tab) => {
+                        const tabIndex = editorTabs.indexOf(tab);
+                        return (
+                          <button
+                            key={tab}
+                            className={`step-link phase-step${activeTab === tab ? " active" : ""}${tabIndex < stepIndex ? " visited" : ""}`}
+                            aria-current={activeTab === tab ? "step" : undefined}
+                            onClick={() => goToStep(tabIndex)}
+                          >
+                            <span className="step-dot" aria-hidden="true">{tabIndex < stepIndex ? <Check size={11} /> : null}</span>
+                            {tab}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </>
         ) : (
           <>
@@ -2615,7 +2657,7 @@ function Editor({
             <div className="guided-bar" aria-label="Guided build steps">
               <div className="guided-info">
                 <span className="guided-count">
-                  Step {stepIndex + 1} of {stepCount}
+                  Phase {currentPhaseIndex + 1} of {editorPhases.length} — {currentPhase.name}
                 </span>
                 <strong>{activeTab}</strong>
                 <span className="guided-desc">{stepDescriptions[activeTab]}</span>
@@ -3689,13 +3731,22 @@ function ReadinessPanel({
     const weight = (item: ReadinessCheck): number => (item.passed ? 2 : item.severity === "required" ? 0 : 1);
     return weight(a) - weight(b);
   });
+  // Speak in outcomes, not scores: say whether the course is ready and what's left,
+  // instead of leaving the user to interpret a percentage.
+  const reviewCount = readiness.checks.filter((item) => !item.passed && item.severity !== "required").length;
+  const statusSentence =
+    readiness.blockers > 0
+      ? `Not ready yet — ${readiness.blockers} blocking issue${readiness.blockers === 1 ? "" : "s"} to fix first.`
+      : reviewCount > 0
+        ? `Ready to export — ${reviewCount} small thing${reviewCount === 1 ? "" : "s"} worth reviewing.`
+        : "Ready to export — everything checks out.";
   return (
     <div className="readiness-card">
       <ReadinessRing score={readiness.score} size={96} className="readiness-ring" ariaLabel={`Course readiness ${readiness.score} percent`} />
       <h2>Course Readiness</h2>
-      <p>{readiness.blockers === 0 ? "Ready for local package validation." : `${readiness.blockers} required ${readiness.blockers === 1 ? "check needs" : "checks need"} attention.`}</p>
+      <p>{statusSentence}</p>
       <div className="export-status">
-        <strong>Quality</strong>
+        <strong>Content quality</strong>
         <span>{quality.score}% instructional</span>
       </div>
       <ul className="readiness-list">
@@ -3716,8 +3767,8 @@ function ReadinessPanel({
         <span>{subscriptionActive ? "Enabled" : "Subscription required"}</span>
       </div>
       <div className="export-status">
-        <strong>IMSCC validation</strong>
-        <span>{validationReport ? `${validationReport.score}% local` : "Not run"}</span>
+        <strong>Canvas package check</strong>
+        <span>{validationReport ? `${validationReport.score}% passed` : "Not run yet"}</span>
       </div>
     </div>
   );
