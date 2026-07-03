@@ -36,7 +36,7 @@ const STEPS: Step[] = [
   {
     title: "Choose depth & structure",
     blurb: "Dial in module count, rigor, assessment mix, and contact hours — or accept smart defaults.",
-    points: ["Modules & week count", "Assessment balance", "Carnegie contact hours"],
+    points: ["Modules & week count", "Assessment balance", "Credit-hour workload"],
     icon: Settings2
   },
   {
@@ -52,8 +52,8 @@ const STEPS: Step[] = [
     icon: LayoutGrid
   },
   {
-    title: "Export the .imscc package",
-    blurb: "Download a validated Common Cartridge with QTI quizzes — checked before it ever leaves the browser.",
+    title: "Export the Canvas package",
+    blurb: "Download a validated Canvas course file (.imscc) with quiz files included — checked before it ever leaves the browser.",
     points: ["Manifest & references validated", "QTI quiz package", "Printable PDFs & syllabus"],
     icon: FileDown
   },
@@ -87,7 +87,7 @@ function StepScreen({ index }: { index: number }) {
     case 1:
       return (
         <div className="walk-screen walk-controls">
-          {[["Modules", "14"], ["Rigor", "Moderate"], ["Assessments", "Mixed"], ["Contact hrs", "Carnegie"]].map(([k, v]) => (
+          {[["Modules", "14"], ["Rigor", "Moderate"], ["Assessments", "Mixed"], ["Contact hrs", "Auto"]].map(([k, v]) => (
             <div className="walk-control" key={k}><span>{k}</span><strong>{v}</strong></div>
           ))}
         </div>

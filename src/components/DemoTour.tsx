@@ -72,7 +72,7 @@ const STEPS: TourStep[] = [
   {
     tab: "Contact Hours",
     title: "Contact Hours",
-    body: "A workload command center using a Carnegie-style model, with a clear rationale for the estimated student hours behind the course."
+    body: "A workload command center that checks planned student hours against the standard credit-hour expectation, with a clear rationale behind the estimate."
   },
   {
     tab: "Theme",

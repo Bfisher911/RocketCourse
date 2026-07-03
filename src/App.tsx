@@ -329,6 +329,9 @@ function App() {
   // turns on the demo chrome (banner + Back to Home) in the editor; `tourOpen` runs the walkthrough.
   const [demoActive, setDemoActive] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  // Celebratory summary shown once right after a course finishes generating, framing the
+  // editor as "review what we built" instead of dropping users into a cold workspace.
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
   // The public sample course is freely exportable inside the demo (the .imscc/QTI/PDF packages are
   // built entirely in the browser from in-browser data — no server secret is involved). Real
   // user-generated courses still require a paid plan; the costly server-side AI stays entitlement-gated.
@@ -358,6 +361,7 @@ function App() {
       setActiveTab("Overview");
       setDemoActive(false);
       setTourOpen(false);
+      setWelcomeOpen(true);
       setScreen("editor");
       return;
     }
@@ -520,6 +524,7 @@ function App() {
     setActiveTab("Overview");
     setDemoActive(false);
     setTourOpen(false);
+    setWelcomeOpen(true);
     setScreen("editor");
   };
 
@@ -1083,6 +1088,16 @@ function App() {
       )}
       {screen === "editor" && demoActive && tourOpen && (
         <DemoTour onSetTab={setActiveTab} onClose={() => setTourOpen(false)} />
+      )}
+      {screen === "editor" && welcomeOpen && !demoActive && (
+        <WelcomeSummary
+          course={course}
+          onStartReviewing={() => {
+            setActiveTab("Overview");
+            setWelcomeOpen(false);
+          }}
+          onDismiss={() => setWelcomeOpen(false)}
+        />
       )}
 
       {screen === "blog" && (
@@ -2054,6 +2069,7 @@ function Intake({
                 value={settings.outcomeFramework}
                 options={["bloom", "solo", "knowledge", "kolb"]}
                 labels={{ bloom: "Bloom's Taxonomy", solo: "SOLO Taxonomy", knowledge: "Dimensions of Knowledge", kolb: "Kolb's Cycle" }}
+                hint="How learning outcomes are worded and leveled. Bloom's is the safe default."
                 onChange={(value) => onSettingsChange("outcomeFramework", value as CourseSettings["outcomeFramework"])}
               />
               <Select
@@ -2061,6 +2077,7 @@ function Intake({
                 value={settings.structureFramework}
                 options={["linear", "backward", "spiral", "thematic", "competency"]}
                 labels={{ linear: "Subject-centred (linear)", backward: "Backward design (UbD)", spiral: "Spiral", thematic: "Thematic", competency: "Competency-based" }}
+                hint="The overall teaching approach — e.g. backward design drafts assessments first, then content to match."
                 onChange={(value) => onSettingsChange("structureFramework", value as CourseSettings["structureFramework"])}
               />
               <Select
@@ -2068,6 +2085,7 @@ function Intake({
                 value={settings.modulePattern}
                 options={["standard", "addie", "gagne", "inquiry", "conceptual"]}
                 labels={{ standard: "Standard learning path", addie: "ADDIE", gagne: "Gagné's Nine Events", inquiry: "Inquiry-based", conceptual: "Conceptual framework" }}
+                hint="How each module's items are ordered inside — overview, content, practice, assessment."
                 onChange={(value) => onSettingsChange("modulePattern", value as CourseSettings["modulePattern"])}
               />
             </div>
@@ -2078,12 +2096,12 @@ function Intake({
               <Select label="Quizzes" value={settings.quizFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("quizFrequency", value as CourseSettings["quizFrequency"])} />
               <NumberInput label="Questions per quiz" value={settings.quizQuestionsPerQuiz} min={1} max={10} onChange={(value) => onSettingsChange("quizQuestionsPerQuiz", value)} />
               <Select label="Quiz difficulty" value={settings.quizDifficulty} options={["introductory", "balanced", "challenging"]} onChange={(value) => onSettingsChange("quizDifficulty", value as CourseSettings["quizDifficulty"])} />
-              <Select label="Quiz purpose" value={settings.quizPurpose} options={["knowledge-check", "pre-assessment", "application", "scenario", "socratic", "review"]} labels={{ "knowledge-check": "Knowledge check", "pre-assessment": "Pre-assessment", application: "Application", scenario: "Scenario-based", socratic: "Socratic", review: "Review & reinforce" }} onChange={(value) => onSettingsChange("quizPurpose", value as CourseSettings["quizPurpose"])} />
+              <Select label="Quiz purpose" value={settings.quizPurpose} options={["knowledge-check", "pre-assessment", "application", "scenario", "socratic", "review"]} labels={{ "knowledge-check": "Knowledge check", "pre-assessment": "Pre-assessment", application: "Application", scenario: "Scenario-based", socratic: "Socratic", review: "Review & reinforce" }} hint="What quizzes are for — quick recall checks, applying ideas to scenarios, or end-of-module review." onChange={(value) => onSettingsChange("quizPurpose", value as CourseSettings["quizPurpose"])} />
               <Select label="Discussions" value={settings.discussionFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("discussionFrequency", value as CourseSettings["discussionFrequency"])} />
               <Select label="Discussion style" value={settings.discussionStyle} options={["reflective", "case-based", "debate", "peer-review", "application"]} onChange={(value) => onSettingsChange("discussionStyle", value as CourseSettings["discussionStyle"])} />
               <Select label="Assignments" value={settings.assignmentCadence} options={["every-module", "every-other-module", "major-milestones", "custom"]} labels={{ "every-module": "Every module", "every-other-module": "Every other module", "major-milestones": "Major milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("assignmentCadence", value as CourseSettings["assignmentCadence"])} />
               <Select label="Final project type" value={settings.finalProjectType} options={["project", "presentation", "paper", "portfolio", "exam", "case-study", "simulation", "other"]} onChange={(value) => onSettingsChange("finalProjectType", value as CourseSettings["finalProjectType"])} />
-              <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />
+              <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} hint="How often students submit final-project check-ins along the way, so the big project isn't one giant deadline." onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />
             </div>
   );
 
@@ -2378,6 +2396,66 @@ function BlueprintReview({
         </section>
       )}
     </main>
+  );
+}
+
+// Shown once, right after generation finishes: celebrate what was built and hand the
+// user a single obvious next action ("Start reviewing") instead of a cold workspace.
+function WelcomeSummary({
+  course,
+  onStartReviewing,
+  onDismiss
+}: {
+  course: CourseProject;
+  onStartReviewing: () => void;
+  onDismiss: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") onDismiss();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+
+  const stats: Array<[number, string]> = [
+    [course.modules.length, "modules"],
+    [course.pages.length, "pages"],
+    [course.assignments.length, "assignments"],
+    [course.discussions.length, "discussions"],
+    [course.quizzes.length, "quizzes"],
+    [course.rubrics.length, "rubrics"]
+  ];
+
+  return (
+    <div className="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title" onClick={onDismiss}>
+      <div className="welcome-card" onClick={(event) => event.stopPropagation()}>
+        <span className="hp-eyebrow">
+          <Sparkles size={14} /> Draft complete
+        </span>
+        <h2 id="welcome-title">{course.title} is ready to review</h2>
+        <div className="welcome-stats">
+          {stats.filter(([count]) => count > 0).map(([count, label]) => (
+            <div key={label}>
+              <strong>{count}</strong>
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+        <p>
+          This is a complete first draft — not a finished course. Walk through the five build phases to review and
+          polish it, then export to Canvas.
+        </p>
+        <div className="welcome-actions">
+          <button className="primary" onClick={onStartReviewing}>
+            <Rocket size={16} /> Start reviewing — Phase 1 <ArrowRight size={16} />
+          </button>
+          <button className="ghost-button" onClick={onDismiss}>
+            Explore on my own
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -3899,12 +3977,15 @@ function Select({
   value,
   options,
   labels,
+  hint,
   onChange
 }: {
   label: string;
   value: string;
   options: string[];
   labels?: Record<string, string>;
+  /** One plain-language sentence about what this choice changes — shown under the control. */
+  hint?: string;
   onChange: (value: string) => void;
 }) {
   return (
@@ -3917,6 +3998,7 @@ function Select({
           </option>
         ))}
       </select>
+      {hint && <small className="field-help">{hint}</small>}
     </label>
   );
 }

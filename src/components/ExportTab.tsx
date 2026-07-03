@@ -283,7 +283,7 @@ export function ExportTab({
               disabled={isExporting || isFillingContent || !subscriptionActive || fillPlan.total === 0 || !confidence.downloadable}
               title={!confidence.downloadable ? "Run validation and resolve blocking issues first." : "Generate full content, then download the .imscc"}
             >
-              <Sparkles size={16} /> Generate &amp; download .imscc
+              <Sparkles size={16} /> Generate &amp; download Canvas package
             </button>
           </div>
           {isFillingContent && fillProgress && (
@@ -308,7 +308,7 @@ export function ExportTab({
             {isExporting ? <Loader2 size={16} className="spin" /> : <Play size={16} />} Run local validation
           </button>
           <button type="button" className="primary" onClick={onDownload} disabled={isExporting || !subscriptionActive || !confidence.downloadable} title={!confidence.downloadable ? "Run validation and resolve blocking issues first." : "Download the .imscc package"}>
-            <Download size={16} /> Download .imscc
+            <Download size={16} /> Download Canvas package (.imscc)
           </button>
         </div>
 
@@ -330,7 +330,7 @@ export function ExportTab({
             disabled={!subscriptionActive || course.quizzes.length === 0}
             title={course.quizzes.length === 0 ? "This course has no quizzes yet." : "Download all quizzes as one Canvas QTI .zip"}
           >
-            <FileArchive size={16} /> Quizzes QTI ({course.quizzes.length})
+            <FileArchive size={16} /> Canvas quiz files — QTI ({course.quizzes.length})
           </button>
           <button
             type="button"
