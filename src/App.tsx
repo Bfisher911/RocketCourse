@@ -42,7 +42,8 @@ import {
   Trash2,
   Upload,
   User,
-  Wand2
+  Wand2,
+  X
 } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { BrandBadge, BrandHeader, BrandOrbitalAccent, LogoMark, LogoWordmark, RocketCourseLoader } from "./components/brand";
@@ -79,6 +80,7 @@ import { PublicFooter } from "./components/PublicFooter";
 import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
 import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
+import { ReviewMode } from "./components/ReviewMode";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
@@ -124,6 +126,7 @@ import { reviseCourseObject, type RevisionMode } from "./services/objectRevision
 import { listProjects, persistenceEnabled, saveProject } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
+import { inferSettingsFromPrompt } from "./services/promptInference";
 import { validateRevisionCandidate } from "./services/revisionGuard";
 import { buildCourseTileSvg, buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
 import { colorblindSafetyReport } from "./services/accessibility";
@@ -332,6 +335,8 @@ function App() {
   // Celebratory summary shown once right after a course finishes generating, framing the
   // editor as "review what we built" instead of dropping users into a cold workspace.
   const [welcomeOpen, setWelcomeOpen] = useState(false);
+  // Card-by-card review of every generated item: approve or flag each once.
+  const [reviewOpen, setReviewOpen] = useState(false);
   // The public sample course is freely exportable inside the demo (the .imscc/QTI/PDF packages are
   // built entirely in the browser from in-browser data — no server secret is involved). Real
   // user-generated courses still require a paid plan; the costly server-side AI stays entitlement-gated.
@@ -1084,6 +1089,7 @@ function App() {
           onSaveCustomTheme={handleSaveCustomTheme}
           demoMode={demoActive}
           onExitDemo={exitDemo}
+          onOpenReview={() => setReviewOpen(true)}
         />
       )}
       {screen === "editor" && demoActive && tourOpen && (
@@ -1093,11 +1099,15 @@ function App() {
         <WelcomeSummary
           course={course}
           onStartReviewing={() => {
-            setActiveTab("Overview");
             setWelcomeOpen(false);
+            setActiveTab("Overview");
+            setReviewOpen(true);
           }}
           onDismiss={() => setWelcomeOpen(false)}
         />
+      )}
+      {screen === "editor" && reviewOpen && (
+        <ReviewMode course={course} onClose={() => setReviewOpen(false)} onJumpToTab={setActiveTab} />
       )}
 
       {screen === "blog" && (
@@ -1912,6 +1922,22 @@ function Intake({
   const [intakeMode, setIntakeMode] = useState<"quick" | "guided">("guided");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [guidedStep, setGuidedStep] = useState(0);
+  // Assumptions inferred from the course description when leaving step 1, shown as an
+  // editable-banner on later steps. Only fields still at their defaults are pre-filled.
+  const [inferredNotes, setInferredNotes] = useState<string[]>([]);
+
+  const applyPromptInference = (): void => {
+    if (!prompt.trim()) return;
+    const { updates, notes } = inferSettingsFromPrompt(prompt);
+    const applied: string[] = [];
+    (Object.entries(updates) as Array<[keyof typeof updates, never]>).forEach(([key, value]) => {
+      if (settings[key] === defaultSettings[key]) {
+        onSettingsChange(key, value);
+        applied.push(key);
+      }
+    });
+    setInferredNotes(applied.length > 0 ? notes : []);
+  };
   const toggleSection = (key: string): void => setOpenSections((current) => ({ ...current, [key]: !current[key] }));
   const updateSchedule = <K extends keyof CourseSettings["schedule"]>(key: K, value: CourseSettings["schedule"][K]) => {
     onSettingsChange("schedule", { ...settings.schedule, [key]: value });
@@ -2232,23 +2258,42 @@ function Intake({
         </section>
       ) : (
         <section className="intake-guided">
-          <ol className="guided-stepper" aria-label="Course setup steps">
-            {guidedSteps.map((step, index) => (
-              <li key={step.key} className={index === guidedStep ? "active" : index < guidedStep ? "done" : ""}>
-                <button type="button" onClick={() => setGuidedStep(index)}>
-                  <span className="guided-step-num">{index < guidedStep ? <Check size={13} /> : index + 1}</span>
-                  <span>{step.title}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-          <div className="guided-step-body">
+          {/* Step 1 is a single focused question — the stepper appears once there's a journey to show. */}
+          {guidedStep > 0 && (
+            <ol className="guided-stepper" aria-label="Course setup steps">
+              {guidedSteps.map((step, index) => (
+                <li key={step.key} className={index === guidedStep ? "active" : index < guidedStep ? "done" : ""}>
+                  <button type="button" onClick={() => setGuidedStep(index)}>
+                    <span className="guided-step-num">{index < guidedStep ? <Check size={13} /> : index + 1}</span>
+                    <span>{step.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+          <div className={`guided-step-body${guidedStep === 0 ? " solo" : ""}`}>
             <div className="guided-progress" aria-hidden="true">
               <i style={{ width: `${((guidedStep + 1) / guidedSteps.length) * 100}%` }} />
             </div>
-            <h2 className="guided-step-title">
-              Step {guidedStep + 1} of {guidedSteps.length}: {guidedSteps[guidedStep].title}
-            </h2>
+            {guidedStep === 0 ? (
+              <>
+                <h2 className="guided-step-title">What do you teach?</h2>
+                <p className="guided-step-sub">
+                  One or two sentences is enough — we'll set up the rest from your description, and you can adjust
+                  everything before generating.
+                </p>
+              </>
+            ) : (
+              <h2 className="guided-step-title">
+                Step {guidedStep + 1} of {guidedSteps.length}: {guidedSteps[guidedStep].title}
+              </h2>
+            )}
+            {guidedStep > 0 && inferredNotes.length > 0 && (
+              <p className="inferred-note" role="note">
+                <Sparkles size={14} /> Pre-filled from your description: <strong>{inferredNotes.join(" · ")}</strong> —
+                adjust anything below.
+              </p>
+            )}
             <div className={`guided-step-content ${guidedStep > 0 ? "with-blueprint" : ""}`}>
               <div className="guided-step-fields">{guidedSteps[guidedStep].node}</div>
               {guidedStep > 0 && <CourseBlueprintPreview settings={settings} />}
@@ -2258,8 +2303,14 @@ function Intake({
                 <ArrowLeft size={15} /> Back
               </button>
               {guidedStep < lastStep ? (
-                <button className="primary" onClick={() => setGuidedStep((value) => Math.min(lastStep, value + 1))}>
-                  Next <ArrowRight size={15} />
+                <button
+                  className="primary"
+                  onClick={() => {
+                    if (guidedStep === 0) applyPromptInference();
+                    setGuidedStep((value) => Math.min(lastStep, value + 1));
+                  }}
+                >
+                  {guidedStep === 0 ? "Continue" : "Next"} <ArrowRight size={15} />
                 </button>
               ) : (
                 generateButton
@@ -2448,7 +2499,7 @@ function WelcomeSummary({
         </p>
         <div className="welcome-actions">
           <button className="primary" onClick={onStartReviewing}>
-            <Rocket size={16} /> Start reviewing — Phase 1 <ArrowRight size={16} />
+            <Rocket size={16} /> Start reviewing <ArrowRight size={16} />
           </button>
           <button className="ghost-button" onClick={onDismiss}>
             Explore on my own
@@ -2527,7 +2578,8 @@ function Editor({
   canCreateCustomTheme,
   onSaveCustomTheme,
   demoMode = false,
-  onExitDemo
+  onExitDemo,
+  onOpenReview
 }: {
   course: CourseProject;
   activeTab: EditorTab;
@@ -2572,11 +2624,24 @@ function Editor({
   onSaveCustomTheme: (input: CustomThemeInput) => Promise<{ ok: boolean; theme?: Theme; error?: string }>;
   demoMode?: boolean;
   onExitDemo?: () => void;
+  onOpenReview?: () => void;
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
   const [revising, setRevising] = useState<RevisionMode | null>(null);
   const [reviseError, setReviseError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<EditorViewMode>(readStoredEditorView);
+  // Readiness lives in a slide-over drawer (opened from the header chip) so the
+  // editor is two calm columns instead of three competing ones.
+  const [readinessOpen, setReadinessOpen] = useState(false);
+
+  useEffect(() => {
+    if (!readinessOpen) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setReadinessOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [readinessOpen]);
 
   const stepIndex = editorTabs.indexOf(activeTab);
   const stepCount = editorTabs.length;
@@ -2707,6 +2772,30 @@ function Editor({
             </p>
             </div>
           </div>
+          <div className="editor-header-right">
+            <div className="editor-header-chips">
+            {onOpenReview && (
+              <button type="button" className="readiness-chip" onClick={onOpenReview}>
+                <ListChecks size={15} /> Review course
+              </button>
+            )}
+            <button
+              type="button"
+              className={`readiness-chip ${readiness.blockers > 0 ? "blocked" : readiness.checks.some((item) => !item.passed) ? "review" : "ready"}`}
+              onClick={() => setReadinessOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={readinessOpen}
+            >
+              <Gauge size={15} />
+              {readiness.blockers > 0
+                ? `${readiness.blockers} blocking issue${readiness.blockers === 1 ? "" : "s"}`
+                : (() => {
+                    const review = readiness.checks.filter((item) => !item.passed).length;
+                    return review > 0 ? `Ready — ${review} to review` : "Ready to export";
+                  })()}
+              <ChevronRight size={14} aria-hidden="true" />
+            </button>
+            </div>
           {/* The Homepage tab has its own context-aware "Quick improvements" that edit the
               structured builder model, so the generic page-level revise toolbar is hidden there
               to avoid duplication and keep the builder and its HTML in sync. */}
@@ -2729,6 +2818,7 @@ function Editor({
               )}
             </div>
           )}
+          </div>
         </div>
         <div className="editor-viewbar">
           {viewMode === "guided" ? (
@@ -2862,9 +2952,31 @@ function Editor({
         )}
       </section>
 
-      <aside className="readiness-panel">
-        <ReadinessPanel readiness={readiness} quality={quality} validationReport={validationReport} subscriptionActive={subscriptionActive} onJumpToTab={setActiveTab} />
-      </aside>
+      {readinessOpen && (
+        <div className="readiness-drawer-backdrop" onClick={() => setReadinessOpen(false)}>
+          <aside
+            className="readiness-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Course readiness"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button className="ghost-button readiness-drawer-close" onClick={() => setReadinessOpen(false)}>
+              <X size={15} /> Close
+            </button>
+            <ReadinessPanel
+              readiness={readiness}
+              quality={quality}
+              validationReport={validationReport}
+              subscriptionActive={subscriptionActive}
+              onJumpToTab={(tab) => {
+                setReadinessOpen(false);
+                setActiveTab(tab);
+              }}
+            />
+          </aside>
+        </div>
+      )}
     </main>
   );
 }
