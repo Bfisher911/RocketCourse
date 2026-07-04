@@ -19,6 +19,7 @@ import {
   Undo2
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BuilderHero, BuilderMetricGrid } from "./builder/BuilderChrome";
 import type { CourseProject, Discussion, ObjectMetadata, PublishState } from "../types";
 import {
   DISCUSSION_REVISE_ACTIONS,
@@ -313,64 +314,52 @@ export function DiscussionsTab({
     });
   };
 
+  const discussionEyebrow = (
+    <span className="hp-eyebrow">
+      <MessageSquareText size={14} /> Discussion designer
+    </span>
+  );
+
   if (course.discussions.length === 0) {
     return (
       <div className="discussion-builder">
-        <section className="discussion-hero">
-          <div>
-            <span className="hp-eyebrow">
-              <MessageSquareText size={14} /> Discussion designer
-            </span>
-            <h2>No discussions yet</h2>
-            <p>Create a Canvas discussion with student-facing prompt guidance, module placement, rubric alignment, outcome mapping, and export-safe HTML.</p>
-          </div>
-          <button className="secondary" onClick={addDiscussion}>
-            <Plus size={16} /> Create discussion
-          </button>
-        </section>
+        <BuilderHero
+          prefix="discussion"
+          eyebrow={discussionEyebrow}
+          title="No discussions yet"
+          description="Create a Canvas discussion with student-facing prompt guidance, module placement, rubric alignment, outcome mapping, and export-safe HTML."
+          action={
+            <button className="secondary" onClick={addDiscussion}>
+              <Plus size={16} /> Create discussion
+            </button>
+          }
+        />
       </div>
     );
   }
 
   return (
     <div className="discussion-builder">
-      <section className="discussion-hero">
-        <div>
-          <span className="hp-eyebrow">
-            <MessageSquareText size={14} /> Discussion designer
-          </span>
-          <h2>Discussions</h2>
-          <p>Design Canvas discussions with evidence-rich prompts, clear participation rules, rubric coverage, outcome mapping, and safe export structure.</p>
-        </div>
-        <div className={`discussion-readiness ${validation.status === "Ready" ? "ready" : "review"}`}>
-          {validation.status === "Ready" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
-          <strong>{validation.score}%</strong>
-          <span>{validation.status}</span>
-        </div>
-      </section>
+      <BuilderHero
+        prefix="discussion"
+        eyebrow={discussionEyebrow}
+        title="Discussions"
+        description="Design Canvas discussions with evidence-rich prompts, clear participation rules, rubric coverage, outcome mapping, and safe export structure."
+        score={validation.score}
+        status={validation.status}
+      />
 
-      <section className="discussion-metric-grid" aria-label="Discussion summary">
-        <div>
-          <strong>{course.discussions.length}</strong>
-          <span>Total discussions</span>
-        </div>
-        <div>
-          <strong>{gradedDiscussions}</strong>
-          <span>Graded</span>
-        </div>
-        <div>
-          <strong>{rubricsAttached}/{course.discussions.length}</strong>
-          <span>Rubrics attached</span>
-        </div>
-        <div>
-          <strong>{outcomesAligned}/{course.discussions.length}</strong>
-          <span>Outcome aligned</span>
-        </div>
-        <div className={warningCount > 0 ? "warn" : ""}>
-          <strong>{warningCount}</strong>
-          <span>Warnings</span>
-        </div>
-      </section>
+      <BuilderMetricGrid
+        prefix="discussion"
+        ariaLabel="Discussion summary"
+        metrics={[
+          { label: "Total discussions", value: course.discussions.length },
+          { label: "Graded", value: gradedDiscussions },
+          { label: "Rubrics attached", value: `${rubricsAttached}/${course.discussions.length}` },
+          { label: "Outcome aligned", value: `${outcomesAligned}/${course.discussions.length}` },
+          { label: "Warnings", value: warningCount, warn: warningCount > 0 }
+        ]}
+      />
 
       <section className="discussion-toolbar" aria-label="Search and filter discussions">
         <label className="discussion-search">

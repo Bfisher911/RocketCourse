@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardCheck, Copy, Download, FileQuestion, FileText, Filter, GraduationCap, GripVertical, Key, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { BuilderHero, BuilderMetricGrid } from "./builder/BuilderChrome";
 import type { CourseProject, PublishState, Quiz, QuizDifficulty, QuizQuestion, QuizQuestionType } from "../types";
 import { stripHtml } from "../utils/text";
 import {
@@ -172,34 +173,32 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
   if (!selectedQuiz) {
     return (
       <div className="quiz-builder">
-        <section className="quiz-hero">
-          <div>
-            <span className="eyebrow">Canvas quiz builder</span>
-            <h2>Quizzes</h2>
-            <p>Create a first Canvas-ready quiz with editable questions, feedback, outcomes, and export checks.</p>
-          </div>
-          <button className="primary" onClick={addQuiz}>
-            <Plus size={16} /> Add quiz
-          </button>
-        </section>
+        <BuilderHero
+          prefix="quiz"
+          eyebrow={<span className="eyebrow">Canvas quiz builder</span>}
+          title="Quizzes"
+          description="Create a first Canvas-ready quiz with editable questions, feedback, outcomes, and export checks."
+          action={
+            <button className="primary" onClick={addQuiz}>
+              <Plus size={16} /> Add quiz
+            </button>
+          }
+        />
       </div>
     );
   }
 
   return (
     <div className="quiz-builder">
-      <section className="quiz-hero">
-        <div>
-          <span className="eyebrow">Canvas quiz builder</span>
-          <h2>Quizzes</h2>
-          <p>Edit quiz purpose, module placement, outcomes, question types, choices, correct answers, feedback, points, and QTI readiness from one guided workspace.</p>
-        </div>
-        <div className={`quiz-readiness ${validation.status === "Ready" ? "ready" : "review"}`}>
-          {validation.status === "Ready" ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
-          <strong>{validation.score}%</strong>
-          <span>{validation.status}</span>
-        </div>
-      </section>
+      <BuilderHero
+        prefix="quiz"
+        eyebrow={<span className="eyebrow">Canvas quiz builder</span>}
+        title="Quizzes"
+        description="Edit quiz purpose, module placement, outcomes, question types, choices, correct answers, feedback, points, and QTI readiness from one guided workspace."
+        score={validation.score}
+        status={validation.status}
+        badgeIconSize={18}
+      />
 
       <div className="quiz-disclaimer" role="note">
         <AlertTriangle size={16} />
@@ -210,13 +209,17 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
         </p>
       </div>
 
-      <section className="quiz-metric-grid" aria-label="Quiz summary">
-        <div><strong>{course.quizzes.length}</strong><span>Total quizzes</span></div>
-        <div><strong>{course.quizzes.reduce((sum, quiz) => sum + quiz.questions.length, 0)}</strong><span>Total questions</span></div>
-        <div><strong>{course.quizzes.reduce((sum, quiz) => sum + Number(quiz.points || 0), 0)}</strong><span>Total points</span></div>
-        <div><strong>{questionTypeCounts(course.quizzes)}</strong><span>Question types</span></div>
-        <div className={validation.issues.length ? "warn" : ""}><strong>{validation.issues.length}</strong><span>Warnings</span></div>
-      </section>
+      <BuilderMetricGrid
+        prefix="quiz"
+        ariaLabel="Quiz summary"
+        metrics={[
+          { label: "Total quizzes", value: course.quizzes.length },
+          { label: "Total questions", value: course.quizzes.reduce((sum, quiz) => sum + quiz.questions.length, 0) },
+          { label: "Total points", value: course.quizzes.reduce((sum, quiz) => sum + Number(quiz.points || 0), 0) },
+          { label: "Question types", value: questionTypeCounts(course.quizzes) },
+          { label: "Warnings", value: validation.issues.length, warn: validation.issues.length > 0 }
+        ]}
+      />
 
       <section className="quiz-toolbar" aria-label="Search and filter quizzes">
         <label className="quiz-search"><Search size={15} /><input value={search} placeholder="Search quizzes or questions" onChange={(event) => setSearch(event.target.value)} /></label>

@@ -19,6 +19,7 @@ import {
   Undo2
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BuilderHero, BuilderMetricGrid } from "./builder/BuilderChrome";
 import {
   ASSIGNMENT_REVISE_ACTIONS,
   ASSIGNMENT_SUBMISSION_TYPES,
@@ -291,68 +292,53 @@ export function AssignmentsTab({
     });
   };
 
+  const assignmentEyebrow = (
+    <span className="hp-eyebrow">
+      <ClipboardCheck size={14} /> Assignment builder
+    </span>
+  );
+
   if (course.assignments.length === 0) {
     return (
       <div className="assignment-builder">
-        <section className="assignment-hero">
-          <div>
-            <span className="hp-eyebrow">
-              <ClipboardCheck size={14} /> Assignment builder
-            </span>
-            <h2>No assignments yet</h2>
-            <p>Create a student-facing Canvas assignment with module placement, gradebook group, outcomes, rubric alignment, and export-safe instructions.</p>
-          </div>
-          <button className="secondary" onClick={addAssignment}>
-            <Plus size={16} /> Create assignment
-          </button>
-        </section>
+        <BuilderHero
+          prefix="assignment"
+          eyebrow={assignmentEyebrow}
+          title="No assignments yet"
+          description="Create a student-facing Canvas assignment with module placement, gradebook group, outcomes, rubric alignment, and export-safe instructions."
+          action={
+            <button className="secondary" onClick={addAssignment}>
+              <Plus size={16} /> Create assignment
+            </button>
+          }
+        />
       </div>
     );
   }
 
   return (
     <div className="assignment-builder">
-      <section className="assignment-hero">
-        <div>
-          <span className="hp-eyebrow">
-            <ClipboardCheck size={14} /> Assignment builder
-          </span>
-          <h2>Assignments</h2>
-          <p>Plan Canvas assignments with clear student instructions, gradebook alignment, rubric coverage, outcome mapping, and module-safe placement.</p>
-        </div>
-        <div className={`assignment-readiness ${validation.status === "Ready" ? "ready" : "review"}`}>
-          {validation.status === "Ready" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
-          <strong>{validation.score}%</strong>
-          <span>{validation.status}</span>
-        </div>
-      </section>
+      <BuilderHero
+        prefix="assignment"
+        eyebrow={assignmentEyebrow}
+        title="Assignments"
+        description="Plan Canvas assignments with clear student instructions, gradebook alignment, rubric coverage, outcome mapping, and module-safe placement."
+        score={validation.score}
+        status={validation.status}
+      />
 
-      <section className="assignment-metric-grid" aria-label="Assignment summary">
-        <div>
-          <strong>{course.assignments.length}</strong>
-          <span>Total assignments</span>
-        </div>
-        <div>
-          <strong>{totalPoints}</strong>
-          <span>Total points</span>
-        </div>
-        <div>
-          <strong>{groupsRepresented}</strong>
-          <span>Groups represented</span>
-        </div>
-        <div>
-          <strong>{rubricsAttached}/{course.assignments.length}</strong>
-          <span>Rubrics attached</span>
-        </div>
-        <div>
-          <strong>{outcomesAligned}/{course.assignments.length}</strong>
-          <span>Outcome aligned</span>
-        </div>
-        <div className={warningCount > 0 ? "warn" : ""}>
-          <strong>{warningCount}</strong>
-          <span>Warnings</span>
-        </div>
-      </section>
+      <BuilderMetricGrid
+        prefix="assignment"
+        ariaLabel="Assignment summary"
+        metrics={[
+          { label: "Total assignments", value: course.assignments.length },
+          { label: "Total points", value: totalPoints },
+          { label: "Groups represented", value: groupsRepresented },
+          { label: "Rubrics attached", value: `${rubricsAttached}/${course.assignments.length}` },
+          { label: "Outcome aligned", value: `${outcomesAligned}/${course.assignments.length}` },
+          { label: "Warnings", value: warningCount, warn: warningCount > 0 }
+        ]}
+      />
 
       <section className="assignment-toolbar" aria-label="Search and filter assignments">
         <label className="assignment-search">

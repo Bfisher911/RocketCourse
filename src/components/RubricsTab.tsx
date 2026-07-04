@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Copy, GraduationCap, Link2, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { BuilderHero, BuilderMetricGrid } from "./builder/BuilderChrome";
 import type { CourseProject, Rubric } from "../types";
 import {
   RUBRIC_TEMPLATES,
@@ -132,10 +133,17 @@ export function RubricsTab({ course, onUpdateCourse }: RubricsTabProps) {
   if (!selectedRubric) {
     return (
       <div className="rubric-builder">
-        <section className="rubric-hero">
-          <div><span className="eyebrow">Canvas rubric builder</span><h2>Rubrics</h2><p>Create a first rubric with criteria, levels, points, outcomes, and Canvas export structure.</p></div>
-          <button className="primary" onClick={addRubric}><Plus size={16} /> Add rubric</button>
-        </section>
+        <BuilderHero
+          prefix="rubric"
+          eyebrow={<span className="eyebrow">Canvas rubric builder</span>}
+          title="Rubrics"
+          description="Create a first rubric with criteria, levels, points, outcomes, and Canvas export structure."
+          action={
+            <button className="primary" onClick={addRubric}>
+              <Plus size={16} /> Add rubric
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -144,20 +152,28 @@ export function RubricsTab({ course, onUpdateCourse }: RubricsTabProps) {
 
   return (
     <div className="rubric-builder">
-      <section className="rubric-hero">
-        <div><span className="eyebrow">Canvas rubric builder</span><h2>Rubrics</h2><p>Edit criteria, performance levels, descriptions, points, outcome mapping, and graded-item alignment from one guided workspace.</p></div>
-        <div className={`rubric-readiness ${validation.status === "Ready" ? "ready" : "review"}`}>{validation.status === "Ready" ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}<strong>{validation.score}%</strong><span>{validation.status}</span></div>
-      </section>
+      <BuilderHero
+        prefix="rubric"
+        eyebrow={<span className="eyebrow">Canvas rubric builder</span>}
+        title="Rubrics"
+        description="Edit criteria, performance levels, descriptions, points, outcome mapping, and graded-item alignment from one guided workspace."
+        score={validation.score}
+        status={validation.status}
+        badgeIconSize={18}
+      />
 
-      <section className="rubric-metric-grid">
-        <div><strong>{course.rubrics.length}</strong><span>Total rubrics</span></div>
-        <div><strong>{course.rubrics.reduce((sum, rubric) => sum + rubric.criteria.length, 0)}</strong><span>Total criteria</span></div>
-        <div><strong>{averagePoints}</strong><span>Average points</span></div>
-        <div><strong>{course.assignments.filter((assignment) => assignment.rubricId).length}</strong><span>Attached assignments</span></div>
-        <div><strong>{course.discussions.filter((discussion) => discussion.rubricId).length}</strong><span>Attached discussions</span></div>
-        <div className={unusedCount ? "warn" : ""}><strong>{unusedCount}</strong><span>Unused rubrics</span></div>
-        <div className={validation.issues.length ? "warn" : ""}><strong>{validation.issues.length}</strong><span>Warnings</span></div>
-      </section>
+      <BuilderMetricGrid
+        prefix="rubric"
+        metrics={[
+          { label: "Total rubrics", value: course.rubrics.length },
+          { label: "Total criteria", value: course.rubrics.reduce((sum, rubric) => sum + rubric.criteria.length, 0) },
+          { label: "Average points", value: averagePoints },
+          { label: "Attached assignments", value: course.assignments.filter((assignment) => assignment.rubricId).length },
+          { label: "Attached discussions", value: course.discussions.filter((discussion) => discussion.rubricId).length },
+          { label: "Unused rubrics", value: unusedCount, warn: unusedCount > 0 },
+          { label: "Warnings", value: validation.issues.length, warn: validation.issues.length > 0 }
+        ]}
+      />
 
       <section className="rubric-toolbar">
         <label className="rubric-search"><Search size={15} /><input value={search} placeholder="Search rubrics or criteria" onChange={(event) => setSearch(event.target.value)} /></label>

@@ -22,6 +22,7 @@ import {
   Undo2
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BuilderHero, BuilderMetricGrid } from "./builder/BuilderChrome";
 import type { CoursePage, CourseProject, ObjectMetadata, PublishState } from "../types";
 import {
   PAGE_TEMPLATES,
@@ -275,64 +276,57 @@ export function PagesTab({
     else onJumpToTab("Modules");
   };
 
+  const pageEyebrow = (
+    <span className="hp-eyebrow">
+      <FileText size={14} /> Canvas page manager
+    </span>
+  );
+
   if (course.pages.length === 0) {
     return (
       <div className="page-manager">
-        <section className="page-hero">
-          <div>
-            <span className="hp-eyebrow">
-              <FileText size={14} /> Canvas page manager
-            </span>
-            <h2>No pages yet</h2>
-            <p>Create a Canvas-safe page with a template, stable slug, module placement, and export validation.</p>
-          </div>
-          <button className="secondary" onClick={addPage}>
-            <Plus size={16} /> Create page
-          </button>
-        </section>
+        <BuilderHero
+          prefix="page"
+          eyebrow={pageEyebrow}
+          title="No pages yet"
+          description="Create a Canvas-safe page with a template, stable slug, module placement, and export validation."
+          action={
+            <button className="secondary" onClick={addPage}>
+              <Plus size={16} /> Create page
+            </button>
+          }
+        />
       </div>
     );
   }
 
   return (
     <div className="page-manager">
-      <section className="page-hero">
-        <div>
-          <span className="hp-eyebrow">
-            <FileText size={14} /> Canvas page manager
-          </span>
-          <h2>Pages</h2>
-          <p>Manage Canvas pages with safe HTML, stable slugs, module-aware placement, reusable templates, and realistic previews.</p>
-        </div>
-        <div className={`page-readiness ${validation.status === "Ready" ? "ready" : "review"}`}>
-          {validation.status === "Ready" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
-          <strong>{validation.score}%</strong>
-          <span>{validation.status}</span>
-        </div>
-      </section>
+      <BuilderHero
+        prefix="page"
+        eyebrow={pageEyebrow}
+        title="Pages"
+        description="Manage Canvas pages with safe HTML, stable slugs, module-aware placement, reusable templates, and realistic previews."
+        score={validation.score}
+        status={validation.status}
+      />
 
-      <section className="page-metric-grid" aria-label="Page library summary">
-        <div>
-          <strong>{course.pages.length}</strong>
-          <span>Total pages</span>
-        </div>
-        <div>
-          <strong>{publishedPages}</strong>
-          <span>Published</span>
-        </div>
-        <div>
-          <strong>{draftPages}</strong>
-          <span>Draft or private</span>
-        </div>
-        <div className={frontPage ? "" : "warn"} title={frontPage ? undefined : 'Open a page below and turn on its "Front page" toggle to set one.'}>
-          <strong>{frontPage?.title ?? "Not set"}</strong>
-          <span>Front page</span>
-        </div>
-        <div className={warningPages ? "warn" : ""}>
-          <strong>{warningPages}</strong>
-          <span>Need review</span>
-        </div>
-      </section>
+      <BuilderMetricGrid
+        prefix="page"
+        ariaLabel="Page library summary"
+        metrics={[
+          { label: "Total pages", value: course.pages.length },
+          { label: "Published", value: publishedPages },
+          { label: "Draft or private", value: draftPages },
+          {
+            label: "Front page",
+            value: frontPage?.title ?? "Not set",
+            warn: !frontPage,
+            title: frontPage ? undefined : 'Open a page below and turn on its "Front page" toggle to set one.'
+          },
+          { label: "Need review", value: warningPages, warn: warningPages > 0 }
+        ]}
+      />
 
       <section className="page-toolbar" aria-label="Search and filter pages">
         <label className="page-search">
