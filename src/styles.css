@@ -13876,3 +13876,86 @@ p {
     grid-template-columns: 1fr;
   }
 }
+
+/* Global undo/redo chips ---------------------------------------------------- */
+
+.history-chip:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.history-chip:disabled:hover {
+  color: var(--ink-dim);
+  border-color: var(--line);
+}
+
+/* Rail status: amber markers where readiness checks are failing ------------- */
+
+.phase-count.warn {
+  background: rgba(245, 166, 35, 0.16);
+  color: var(--warning, #f5a623);
+}
+
+.step-dot.warn {
+  border-color: rgba(245, 166, 35, 0.55);
+}
+
+.step-issues {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(245, 166, 35, 0.16);
+  color: var(--warning, #f5a623);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Mobile: review mode + editor header chips --------------------------------- */
+
+@media (max-width: 560px) {
+  .review-overlay {
+    padding: 10px;
+    align-items: end;
+  }
+
+  .review-card {
+    padding: 16px;
+    max-height: calc(100dvh - 20px);
+  }
+
+  .review-item {
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .review-item h2 {
+    font-size: 17px;
+  }
+
+  .review-actions {
+    gap: 8px;
+  }
+
+  .review-approve {
+    flex: 1 1 100%;
+    justify-content: center;
+    order: -1;
+  }
+
+  .editor-header-chips {
+    justify-content: flex-start;
+  }
+
+  .editor-header-right {
+    justify-items: stretch;
+  }
+
+  .readiness-drawer {
+    width: 100vw;
+    border-left: none;
+  }
+
+  .welcome-card {
+    padding: 20px 16px;
+  }
+}

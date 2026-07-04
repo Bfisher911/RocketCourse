@@ -36,6 +36,7 @@ import {
   RefreshCw,
   Rocket,
   RotateCcw,
+  RotateCw,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -483,15 +484,88 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [course, auth.session, auth.entitlement.canCreateProject]);
 
+  // Global undo/redo: every course mutation flows through updateCourse, and updates are
+  // immutable, so a bounded stack of previous course states gives uniform undo across
+  // every tab for the price of holding references.
+  const UNDO_LIMIT = 50;
+  const undoStackRef = useRef<CourseProject[]>([]);
+  const redoStackRef = useRef<CourseProject[]>([]);
+  // Bumped whenever the stacks change so the header buttons' disabled states re-render.
+  const [, setHistoryVersion] = useState(0);
+
+  // Switching to a different course invalidates its history.
+  const historyCourseIdRef = useRef(course.id);
+  useEffect(() => {
+    if (historyCourseIdRef.current === course.id) return;
+    historyCourseIdRef.current = course.id;
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    setHistoryVersion((version) => version + 1);
+  }, [course.id]);
+
   const updateCourse = (updater: (current: CourseProject) => CourseProject): void => {
     setCourse((current) => {
       const updatedAt = new Date().toISOString();
       const updated = { ...updater(current), updatedAt, status: "edited" as const, metadata: { ...current.metadata, updatedAt, source: "edited" as const } };
+      // Reference-compare so a double-invoked updater (StrictMode) can't push twice.
+      if (undoStackRef.current[undoStackRef.current.length - 1] !== current) {
+        undoStackRef.current = [...undoStackRef.current.slice(-(UNDO_LIMIT - 1)), current];
+        redoStackRef.current = [];
+      }
       setProjects((projectList) => projectList.map((project) => (project.id === updated.id ? updated : project)));
       return updated;
     });
     setValidationReport(null);
+    setHistoryVersion((version) => version + 1);
   };
+
+  const undoCourse = (): void => {
+    const previous = undoStackRef.current[undoStackRef.current.length - 1];
+    if (!previous) return;
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setCourse((current) => {
+      if (redoStackRef.current[redoStackRef.current.length - 1] !== current) {
+        redoStackRef.current = [...redoStackRef.current, current];
+      }
+      setProjects((projectList) => projectList.map((project) => (project.id === previous.id ? previous : project)));
+      return previous;
+    });
+    setValidationReport(null);
+    setHistoryVersion((version) => version + 1);
+  };
+
+  const redoCourse = (): void => {
+    const next = redoStackRef.current[redoStackRef.current.length - 1];
+    if (!next) return;
+    redoStackRef.current = redoStackRef.current.slice(0, -1);
+    setCourse((current) => {
+      if (undoStackRef.current[undoStackRef.current.length - 1] !== current) {
+        undoStackRef.current = [...undoStackRef.current, current];
+      }
+      setProjects((projectList) => projectList.map((project) => (project.id === next.id ? next : project)));
+      return next;
+    });
+    setValidationReport(null);
+    setHistoryVersion((version) => version + 1);
+  };
+
+  // Cmd/Ctrl+Z (redo: +Shift) in the editor — but never while typing in a field, where
+  // the browser's native text undo must keep working.
+  useEffect(() => {
+    if (screen !== "editor") return;
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)) return;
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
+      event.preventDefault();
+      if (event.shiftKey) redoCourse();
+      else undoCourse();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // undoCourse/redoCourse only touch refs and stable setters, so the closure stays valid.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   const updateSettings = <K extends keyof CourseSettings>(key: K, value: CourseSettings[K]): void => {
     setSettings((current) => {
@@ -1150,6 +1224,10 @@ function App() {
           demoMode={demoActive}
           onExitDemo={exitDemo}
           onOpenReview={() => setReviewOpen(true)}
+          canUndo={undoStackRef.current.length > 0}
+          canRedo={redoStackRef.current.length > 0}
+          onUndo={undoCourse}
+          onRedo={redoCourse}
         />
       )}
       {screen === "editor" && demoActive && tourOpen && (
@@ -2785,7 +2863,11 @@ function Editor({
   onSaveCustomTheme,
   demoMode = false,
   onExitDemo,
-  onOpenReview
+  onOpenReview,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo
 }: {
   course: CourseProject;
   activeTab: EditorTab;
@@ -2831,6 +2913,10 @@ function Editor({
   demoMode?: boolean;
   onExitDemo?: () => void;
   onOpenReview?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
   const [revising, setRevising] = useState<RevisionMode | null>(null);
@@ -2853,6 +2939,18 @@ function Editor({
   const stepCount = editorTabs.length;
   const currentPhaseIndex = phaseIndexForTab(activeTab);
   const currentPhase = editorPhases[currentPhaseIndex];
+
+  // The rail doubles as a live status map: each step shows a check when its area has
+  // no failing readiness checks, or an amber count when something needs attention.
+  const tabIssueCounts = useMemo(() => {
+    const counts = new Map<EditorTab, number>();
+    for (const check of readiness.checks) {
+      if (check.passed) continue;
+      const tab = readinessTab(check.id);
+      counts.set(tab, (counts.get(tab) ?? 0) + 1);
+    }
+    return counts;
+  }, [readiness]);
 
   const changeViewMode = (mode: EditorViewMode): void => {
     setViewMode(mode);
@@ -2898,33 +2996,41 @@ function Editor({
             <span className="rail-label">Build phases</span>
             {editorPhases.map((phase, index) => {
               const activePhase = phase.steps.includes(activeTab);
-              const phaseDone = index < currentPhaseIndex;
+              const phaseIssues = phase.steps.reduce((sum, tab) => sum + (tabIssueCounts.get(tab) ?? 0), 0);
               return (
                 <div key={phase.name} className={`rail-phase${activePhase ? " active" : ""}`}>
                   <button
-                    className={`step-link phase-link${activePhase ? " active" : ""}${phaseDone ? " visited" : ""}`}
+                    className={`step-link phase-link${activePhase ? " active" : ""}${phaseIssues === 0 ? " visited" : ""}`}
                     aria-expanded={activePhase}
+                    title={phaseIssues > 0 ? `${phaseIssues} readiness check${phaseIssues === 1 ? "" : "s"} to address` : "All readiness checks pass"}
                     onClick={() => goToStep(editorTabs.indexOf(phase.steps[0]))}
                   >
                     <span className="step-num" aria-hidden="true">
-                      {phaseDone ? <Check size={13} /> : index + 1}
+                      {phaseIssues === 0 ? <Check size={13} /> : index + 1}
                     </span>
                     {phase.name}
-                    <small className="phase-count">{phase.steps.length}</small>
+                    <small className={`phase-count${phaseIssues > 0 ? " warn" : ""}`}>
+                      {phaseIssues > 0 ? phaseIssues : phase.steps.length}
+                    </small>
                   </button>
                   {activePhase && (
                     <div className="phase-steps">
                       {phase.steps.map((tab) => {
                         const tabIndex = editorTabs.indexOf(tab);
+                        const issues = tabIssueCounts.get(tab) ?? 0;
                         return (
                           <button
                             key={tab}
-                            className={`step-link phase-step${activeTab === tab ? " active" : ""}${tabIndex < stepIndex ? " visited" : ""}`}
+                            className={`step-link phase-step${activeTab === tab ? " active" : ""}${issues === 0 ? " visited" : ""}`}
                             aria-current={activeTab === tab ? "step" : undefined}
+                            title={issues > 0 ? `${issues} readiness check${issues === 1 ? "" : "s"} to address` : "All readiness checks pass"}
                             onClick={() => goToStep(tabIndex)}
                           >
-                            <span className="step-dot" aria-hidden="true">{tabIndex < stepIndex ? <Check size={11} /> : null}</span>
+                            <span className={`step-dot${issues > 0 ? " warn" : ""}`} aria-hidden="true">
+                              {issues === 0 ? <Check size={11} /> : null}
+                            </span>
                             {tab}
+                            {issues > 0 && <small className="step-issues">{issues}</small>}
                           </button>
                         );
                       })}
@@ -2980,6 +3086,29 @@ function Editor({
           </div>
           <div className="editor-header-right">
             <div className="editor-header-chips">
+            {onUndo && (
+              <button
+                type="button"
+                className="readiness-chip history-chip"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title="Undo last change (Ctrl/Cmd+Z)"
+              >
+                <RotateCcw size={14} /> Undo
+              </button>
+            )}
+            {onRedo && (
+              <button
+                type="button"
+                className="readiness-chip history-chip"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title="Redo (Ctrl/Cmd+Shift+Z)"
+                aria-label="Redo"
+              >
+                <RotateCw size={14} />
+              </button>
+            )}
             {onOpenReview && (
               <button type="button" className="readiness-chip" onClick={onOpenReview}>
                 <ListChecks size={15} /> Review course
