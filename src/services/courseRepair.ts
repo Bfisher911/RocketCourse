@@ -21,6 +21,7 @@
 import type { CourseProject, ModuleItem } from "../types";
 import { nowIso, slugify } from "../utils/text";
 import { rebalanceWeights } from "./gradebookSummary";
+import { demoteExtraH1s, stripUnresolvableHrefs } from "./htmlSafety";
 import { normalizeTrueFalseAnswer, reconcileChoiceAnswer } from "./quizBuilder";
 
 export interface RepairResult {
@@ -226,7 +227,8 @@ export const repairCourse = (input: CourseProject): RepairResult => {
       let changed = false;
       const questions = q.questions.map((question) => {
         let next = question;
-        if (!Number.isFinite(Number(next.points)) || Number(next.points) < 0) {
+        // The export validator requires strictly positive points, so 0 must be repaired too.
+        if (!Number.isFinite(Number(next.points)) || Number(next.points) <= 0) {
           next = { ...next, points: 1 };
           changed = true;
           questionFixes += 1;
@@ -264,10 +266,64 @@ export const repairCourse = (input: CourseProject): RepairResult => {
         }
         return next;
       });
+      // A zero/invalid quiz total is a blocking export error even when every question is
+      // individually valid; rebuild it from the questions. Intentional non-matching totals
+      // (a valid positive number) are left alone — the validator only warns on those.
+      const questionTotal = questions.reduce((sum, question) => sum + Number(question.points || 0), 0);
+      if (questions.length > 0 && questionTotal > 0 && (!Number.isFinite(q.points) || q.points <= 0)) {
+        questionFixes += 1;
+        return { ...q, questions, points: questionTotal };
+      }
       return changed ? { ...q, questions } : q;
     })
   };
   if (questionFixes) repairs.push(`Repaired ${questionFixes} quiz question(s) with invalid points or missing choices.`);
+
+  // 7b. Pages with more than one <h1> (common in AI-written or pasted bodies) fail the
+  // page-quality export gate; demote the extras to <h2> instead of blocking the download.
+  let headingFixes = 0;
+  course = {
+    ...course,
+    pages: course.pages.map((p) => {
+      const demoted = demoteExtraH1s(p.bodyHtml);
+      if (demoted === p.bodyHtml) return p;
+      headingFixes += 1;
+      return { ...p, bodyHtml: demoted };
+    })
+  };
+  if (headingFixes) repairs.push(`Demoted extra <h1> headings to <h2> on ${headingFixes} page(s).`);
+
+  // 7c. Links Canvas cannot resolve after import (hallucinated relative paths like
+  // "modules/module_start", unfilled "{{...}}" tokens) become 404s in the imported course.
+  // Drop just the dead href — the anchor text stays — across every exported HTML body.
+  let linkScrubs = 0;
+  const scrubHtml = (html: string): string => {
+    const scrubbed = stripUnresolvableHrefs(html);
+    if (scrubbed !== html) linkScrubs += 1;
+    return scrubbed;
+  };
+  course = {
+    ...course,
+    pages: course.pages.map((p) => {
+      const bodyHtml = scrubHtml(p.bodyHtml);
+      return bodyHtml === p.bodyHtml ? p : { ...p, bodyHtml };
+    }),
+    assignments: course.assignments.map((a) => {
+      const descriptionHtml = scrubHtml(a.descriptionHtml);
+      return descriptionHtml === a.descriptionHtml ? a : { ...a, descriptionHtml };
+    }),
+    discussions: course.discussions.map((d) => {
+      const promptHtml = scrubHtml(d.promptHtml);
+      return promptHtml === d.promptHtml ? d : { ...d, promptHtml };
+    }),
+    announcements: course.announcements
+      ? course.announcements.map((an) => {
+          const bodyHtml = scrubHtml(an.bodyHtml);
+          return bodyHtml === an.bodyHtml ? an : { ...an, bodyHtml };
+        })
+      : course.announcements
+  };
+  if (linkScrubs) repairs.push(`Removed unresolvable links (kept their text) in ${linkScrubs} content block(s).`);
 
   // 8. Assignments with an empty description → minimal placeholder so export emits a real body.
   let descFixes = 0;

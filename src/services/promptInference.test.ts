@@ -35,8 +35,21 @@ describe("inferSettingsFromPrompt", () => {
     expect(updates.lengthWeeks).toBe(6);
   });
 
-  it("returns nothing for prompts without signals", () => {
+  it("infers a title from 'course about X' phrasing", () => {
     const { updates, notes } = inferSettingsFromPrompt("A course about pottery.");
+    expect(updates.title).toBe("Pottery");
+    expect(notes).toContain("Title: Pottery");
+  });
+
+  it("treats a short opening line as the intended title", () => {
+    const { updates } = inferSettingsFromPrompt("Cartography of Lost Things. Students map objects and memories.");
+    expect(updates.title).toBe("Cartography of Lost Things");
+  });
+
+  it("returns nothing for prompts without signals", () => {
+    const { updates, notes } = inferSettingsFromPrompt(
+      "Learners will practice careful observation and thoughtful critique throughout the term with regular studio time."
+    );
     expect(Object.keys(updates)).toHaveLength(0);
     expect(notes).toHaveLength(0);
   });

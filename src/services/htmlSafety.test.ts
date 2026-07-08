@@ -84,6 +84,32 @@ describe("html safety (shared Canvas HTML safety)", () => {
     expect(issues.map((issue) => issue.label)).toEqual(expect.arrayContaining(["Heading order issue", "Image alt text missing", "Malformed link"]));
   });
 
+  it("strips hrefs Canvas cannot resolve after import, keeping the anchor text", () => {
+    const dirty =
+      "<a href='modules/module_start'>Start Here</a>" +
+      "<a href='{{link_to_start_here}}'>Intro</a>" +
+      "<a href='syllabus'>View Syllabus</a>" +
+      '<a href="$CANVAS_OBJECT_REFERENCE$/discussion_topics/discussion_1">Discussion</a>' +
+      '<a href="../web_resources/syllabus-printable.pdf">PDF</a>' +
+      '<a href="wiki_content/week-1-overview.html">Week 1</a>' +
+      '<a href="https://ok.org">External</a>' +
+      '<a href="mailto:prof@example.edu">Email</a>';
+    const clean = sanitizeAiHtml(dirty);
+
+    const hrefs = hrefsFromHtml(clean);
+    expect(hrefs).toEqual([
+      "$CANVAS_OBJECT_REFERENCE$/discussion_topics/discussion_1",
+      "../web_resources/syllabus-printable.pdf",
+      "wiki_content/week-1-overview.html",
+      "https://ok.org",
+      "mailto:prof@example.edu"
+    ]);
+    // Words survive even when their dead links do not.
+    expect(clean).toContain("Start Here");
+    expect(clean).toContain("Intro");
+    expect(clean).toContain("View Syllabus");
+  });
+
   it("sanitizeAiHtml makes model HTML safe to store and export", () => {
     const dirty =
       '<p onclick="x()">Hi</p><script>bad()</script><iframe src="z"></iframe><a href="#">dead</a><a href="">empty</a><a href="https://ok.org">real</a><p style="color:red">keep</p>';

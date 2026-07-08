@@ -12,6 +12,7 @@ import {
   validateQuizPlan
 } from "./quizBuilder";
 import { sampleProject } from "./courseGenerator";
+import { exportIdPrefix } from "./exportIdentifiers";
 
 const clone = (course: CourseProject): CourseProject => structuredClone(course);
 
@@ -147,11 +148,13 @@ describe("quiz builder", () => {
       incorrectFeedback: "Review <module> examples."
     };
 
+    // Exported quiz paths and question idents carry the per-course export id prefix.
+    const prefix = exportIdPrefix(course);
     const zip = await buildImsccZip(course);
-    const qti = (await zip.file("non_cc_assessments/quiz_export_created.xml.qti")?.async("text")) ?? "";
+    const qti = (await zip.file(`non_cc_assessments/${prefix}quiz_export_created.xml.qti`)?.async("text")) ?? "";
     expect(qti).toContain("Which option handles &lt;tags&gt; &amp; evidence safely?");
     expect(qti).toContain("Evidence &amp; context");
-    expect(qti).toContain(`<varequal respident="response_${quiz.questions[0].id}">${quiz.questions[0].id}_a2</varequal>`);
+    expect(qti).toContain(`<varequal respident="response_${prefix}${quiz.questions[0].id}">${prefix}${quiz.questions[0].id}_a2</varequal>`);
     expect(qti).toContain("Right &amp; supported.");
 
     const broken = clone(course);

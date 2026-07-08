@@ -122,3 +122,35 @@ export const toStringList = (value: unknown, limit = 24): string[] =>
 /** Coerce an unknown AI value into a trimmed string, or undefined if not usable. */
 export const toCleanString = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim() ? value.trim() : undefined;
+
+/**
+ * Coerce an AI value into PLAIN TEXT for template fields that are HTML-escaped when rendered
+ * (homepage welcome/purpose, syllabus policies, list items, …). Models routinely return HTML
+ * for these despite the contract; without this, the tags render literally in Canvas
+ * ("<p>Welcome to <strong>…" as visible text). Tags are stripped, basic entities decoded,
+ * whitespace collapsed.
+ */
+export const toPlainText = (value: unknown): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const text = value
+    .replace(/<\s*(?:br|\/p|\/div|\/li|\/h[1-6])\s*\/?\s*>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text || undefined;
+};
+
+/** Like toStringList, but each entry is coerced to plain text (see toPlainText). */
+export const toPlainTextList = (value: unknown, limit = 24): string[] =>
+  Array.isArray(value)
+    ? value
+        .map((item) => toPlainText(item))
+        .filter((item): item is string => Boolean(item))
+        .slice(0, limit)
+    : [];

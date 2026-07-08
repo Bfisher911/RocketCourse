@@ -294,7 +294,9 @@ function App() {
   const [projects, setProjects] = useState<CourseProject[]>([sampleProject]);
   const [course, setCourse] = useState<CourseProject>(sampleProject);
   const [settings, setSettings] = useState<CourseSettings>(defaultSettings);
-  const [prompt, setPrompt] = useState(sampleProject.prompt);
+  // Starts empty on purpose: seeding this with the sample prompt made every generation
+  // that didn't overwrite it inherit the demo's "AI and Modern Society" topic.
+  const [prompt, setPrompt] = useState("");
   const [progressIndex, setProgressIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<EditorTab>("Overview");
   const auth = useAuthSession();
@@ -575,6 +577,16 @@ function App() {
       }
       return { ...current, [key]: value };
     });
+  };
+
+  // Fresh intake: a new course must never inherit the previous course's settings,
+  // attached sources, or prompt. A seeded prompt (landing teaser) survives the reset.
+  const startNewIntake = (seedPrompt = ""): void => {
+    setSettings(defaultSettings);
+    setPrompt(seedPrompt);
+    setBlueprint(null);
+    setAiError(null);
+    setScreen(auth.session ? "intake" : "signup");
   };
 
   // Generate the course up front so the progress screen can reveal the REAL module
@@ -875,7 +887,11 @@ function App() {
       const { blob, report, fileName } = await generateImsccBlob({ ...courseToExport, exportMode }, exportMode);
       setValidationReport(report);
       if (!report.valid) {
-        setExportError("Local validation found blocking issues. Resolve them before downloading.");
+        const blockerCount = report.issues.filter((issue) => issue.severity === "error").length;
+        setExportError(
+          `Validation found ${blockerCount} blocking issue${blockerCount === 1 ? "" : "s"} — the list below names each one. ` +
+            `Try "Make export-ready" in the Transform tab to auto-fix structural problems, then download again.`
+        );
         return;
       }
       downloadBlob(blob, fileName);
@@ -944,13 +960,6 @@ function App() {
       setIsFillingContent(false);
       setFillProgress(null);
     }
-  };
-
-  // One click: flesh out the whole course with AI, then download the .imscc of that filled course.
-  const downloadFullCoursePackage = async (): Promise<void> => {
-    if (!exportAllowed) return;
-    const filled = await fillFullCourseContent();
-    if (filled) await exportCourseToFile(filled);
   };
 
   // Download a readable PDF copy of the whole course (no Canvas import needed).
@@ -1035,11 +1044,10 @@ function App() {
       {screen === "landing" && (
         <>
           <Landing
-            onStart={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
+            onStart={() => startNewIntake()}
             onStartWithPrompt={(teaserPrompt) => {
               // Carry the visitor's idea into the intake so they never retype it.
-              setPrompt(teaserPrompt);
-              setScreen(auth.session ? "intake" : "signup");
+              startNewIntake(teaserPrompt);
             }}
             onDashboard={() => setScreen(auth.session ? "dashboard" : "login")}
             onPricing={() => setScreen("pricing")}
@@ -1065,7 +1073,7 @@ function App() {
       {screen === "about" && (
         <>
           <AboutPage
-            onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
+            onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
             onContact={() => setScreen("contact")}
           />
@@ -1074,7 +1082,7 @@ function App() {
       )}
       {screen === "guides" && (
         <>
-          <GuidesPage onTryDemo={() => setScreen("demo")} onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))} />
+          <GuidesPage onTryDemo={() => setScreen("demo")} onStartBuilding={() => startNewIntake()} />
           <PublicFooter onNavigate={setScreen} />
         </>
       )}
@@ -1099,7 +1107,7 @@ function App() {
       {screen === "integration" && (
         <>
           <IntegrationPage
-            onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
+            onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
           />
           <PublicFooter onNavigate={setScreen} />
@@ -1108,7 +1116,7 @@ function App() {
       {screen === "foundingCohort" && (
         <>
           <FoundingCohortPage
-            onStartBuilding={() => (auth.session ? setScreen("intake") : setScreen("signup"))}
+            onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
           />
           <PublicFooter onNavigate={setScreen} />
@@ -1131,7 +1139,7 @@ function App() {
         <Dashboard
           projects={projects}
           entitlement={auth.entitlement}
-          onCreate={() => setScreen("intake")}
+          onCreate={() => startNewIntake()}
           onPricing={() => setScreen("pricing")}
           onRefreshStatus={auth.refreshSubscription}
           onBillingPortal={handleOpenBillingPortal}
@@ -1197,7 +1205,6 @@ function App() {
           onRunValidation={runValidation}
           onDownload={downloadPackage}
           onFillFullContent={fillFullCourseContent}
-          onDownloadFull={downloadFullCoursePackage}
           isFillingContent={isFillingContent}
           fillProgress={fillProgress}
           fillSummary={fillSummary}
@@ -2140,6 +2147,20 @@ function Intake({
     });
     setInferredNotes(applied.length > 0 ? notes : []);
   };
+
+  // Quick build has no "Continue" moment, so inference runs as the user types (debounced).
+  // It still only fills fields the user hasn't touched, exactly like the guided path.
+  const promptRef = useRef(prompt);
+  promptRef.current = prompt;
+  useEffect(() => {
+    if (intakeMode !== "quick" || !prompt.trim()) return;
+    const timer = window.setTimeout(() => {
+      if (promptRef.current === prompt) applyPromptInference();
+    }, 700);
+    return () => window.clearTimeout(timer);
+    // applyPromptInference reads current props/state; re-running on prompt/mode change is the point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prompt, intakeMode]);
   const toggleSection = (key: string): void => setOpenSections((current) => ({ ...current, [key]: !current[key] }));
   const updateSchedule = <K extends keyof CourseSettings["schedule"]>(key: K, value: CourseSettings["schedule"][K]) => {
     onSettingsChange("schedule", { ...settings.schedule, [key]: value });
@@ -2149,19 +2170,44 @@ function Intake({
     setPasteText("");
   };
 
+  // Generation needs at least a course brief or an explicit title — otherwise there is
+  // nothing user-specific to build from and the result would be an empty-shell course.
+  const hasIntake = Boolean(prompt.trim() || settings.title.trim());
+  const emptyIntakeHint = !hasIntake ? (
+    <p className="prompt-hint" role="status">
+      Describe your course above (or set a title) to enable generation.
+    </p>
+  ) : null;
+
   const generateButton = canUseAi ? (
-    <button className="primary" onClick={onGenerateBlueprint} disabled={aiBusy}>
-      {aiBusy ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
-      {aiBusy ? "Generating blueprint…" : "Generate Blueprint with AI"}
-    </button>
+    <>
+      <button className="primary" onClick={onGenerateBlueprint} disabled={aiBusy || !hasIntake}>
+        {aiBusy ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
+        {aiBusy ? "Generating blueprint…" : "Generate Blueprint with AI"}
+      </button>
+      {/* The instant deterministic draft stays available so an unreachable AI service is
+          never a dead end — the user always has a way to get their course. */}
+      <button
+        className="secondary"
+        onClick={onGenerate}
+        disabled={aiBusy || !hasIntake}
+        title="Build a structured draft instantly from your settings — no AI credits used. You can fill it with AI content later from the Export tab."
+      >
+        <Wand2 size={17} /> Build instant draft (no AI)
+      </button>
+      {emptyIntakeHint}
+    </>
   ) : isAuthed ? (
     <button className="primary" onClick={onUpgrade}>
       <Lock size={18} /> Upgrade to generate with AI
     </button>
   ) : (
-    <button className="primary" onClick={onGenerate}>
-      <Sparkles size={18} /> Generate sample course (no AI)
-    </button>
+    <>
+      <button className="primary" onClick={onGenerate} disabled={!hasIntake}>
+        <Sparkles size={18} /> Generate sample course (no AI)
+      </button>
+      {emptyIntakeHint}
+    </>
   );
 
   const promptPanel = (
@@ -2249,26 +2295,20 @@ function Intake({
   const basicsFields = (
     <>
             <Select
-              label="Build mode"
-              value={settings.buildMode}
-              options={["vibe", "guided", "hybrid"]}
-              labels={{ vibe: "Vibe Build", guided: "Guided Build", hybrid: "Hybrid" }}
-              onChange={(value) => onSettingsChange("buildMode", value as CourseSettings["buildMode"])}
-            />
-            <Select
               label="Course content"
               value={settings.contentDepth ?? "complete-course"}
               options={["complete-course", "generic-template"]}
               labels={{ "complete-course": "Fully generated course", "generic-template": "Generic editable template" }}
+              hint="Fully generated writes subject-specific drafts for every page and activity. Generic template builds the same structure with neutral placeholder text you fill in yourself."
               onChange={(value) => onSettingsChange("contentDepth", value as CourseSettings["contentDepth"])}
             />
-            <Input label="Course title" value={settings.title} onChange={(value) => onSettingsChange("title", value)} />
-            <TextArea label="Course description" value={settings.description} onChange={(value) => onSettingsChange("description", value)} compact />
+            <Input label="Course title" value={settings.title} placeholder="Leave blank to derive from your course brief" onChange={(value) => onSettingsChange("title", value)} />
+            <TextArea label="Course description" value={settings.description} placeholder="Optional — a catalog-style description. Leave blank and we'll write one from your brief." onChange={(value) => onSettingsChange("description", value)} compact />
             <div className="field-grid">
               <Select label="Level" value={settings.level} options={["Undergraduate", "Graduate", "Professional", "High school", "Continuing education"]} onChange={(value) => onSettingsChange("level", value)} />
               <Select label="Modality" value={settings.modality} options={["Online asynchronous", "Online synchronous", "Hybrid", "Face-to-face", "Accelerated"]} onChange={(value) => onSettingsChange("modality", value)} />
               <NumberInput label="Credit hours" value={settings.creditHours} min={1} max={6} onChange={(value) => onSettingsChange("creditHours", value)} />
-              <Select label="Tone" value={settings.tone} options={["Friendly academic", "Formal", "Practical", "Technical", "Clinical"]} onChange={(value) => onSettingsChange("tone", value)} />
+              <Select label="Tone" value={settings.tone} options={["Friendly academic", "Formal", "Practical", "Technical", "Clinical"]} hint="The writing voice used across generated pages, assignments, and announcements." onChange={(value) => onSettingsChange("tone", value)} />
             </div>
     </>
   );
@@ -2326,7 +2366,7 @@ function Intake({
               <Select label="Quiz difficulty" value={settings.quizDifficulty} options={["introductory", "balanced", "challenging"]} onChange={(value) => onSettingsChange("quizDifficulty", value as CourseSettings["quizDifficulty"])} />
               <Select label="Quiz purpose" value={settings.quizPurpose} options={["knowledge-check", "pre-assessment", "application", "scenario", "socratic", "review"]} labels={{ "knowledge-check": "Knowledge check", "pre-assessment": "Pre-assessment", application: "Application", scenario: "Scenario-based", socratic: "Socratic", review: "Review & reinforce" }} hint="What quizzes are for — quick recall checks, applying ideas to scenarios, or end-of-module review." onChange={(value) => onSettingsChange("quizPurpose", value as CourseSettings["quizPurpose"])} />
               <Select label="Discussions" value={settings.discussionFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("discussionFrequency", value as CourseSettings["discussionFrequency"])} />
-              <Select label="Discussion style" value={settings.discussionStyle} options={["reflective", "case-based", "debate", "peer-review", "application"]} onChange={(value) => onSettingsChange("discussionStyle", value as CourseSettings["discussionStyle"])} />
+              <Select label="Discussion style" value={settings.discussionStyle} options={["reflective", "case-based", "debate", "peer-review", "application"]} hint="The kind of prompt students respond to — personal reflection, analyzing a case, structured debate, reviewing peer work, or applying ideas to new situations." onChange={(value) => onSettingsChange("discussionStyle", value as CourseSettings["discussionStyle"])} />
               <Select label="Assignments" value={settings.assignmentCadence} options={["every-module", "every-other-module", "major-milestones", "custom"]} labels={{ "every-module": "Every module", "every-other-module": "Every other module", "major-milestones": "Major milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("assignmentCadence", value as CourseSettings["assignmentCadence"])} />
               <Select label="Final project type" value={settings.finalProjectType} options={["project", "presentation", "paper", "portfolio", "exam", "case-study", "simulation", "other"]} onChange={(value) => onSettingsChange("finalProjectType", value as CourseSettings["finalProjectType"])} />
               <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} hint="How often students submit final-project check-ins along the way, so the big project isn't one giant deadline." onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />
@@ -2335,14 +2375,12 @@ function Intake({
 
   const optionsFields = (
             <div className="toggle-grid">
-              <Toggle label="Final project" checked={settings.finalProject} onChange={(value) => onSettingsChange("finalProject", value)} />
-              <Toggle label="Scaffold final project" checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />
-              <Toggle label="Rubrics" checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
-              <Toggle label="Outcome level tags" checked={settings.includeBloom} onChange={(value) => onSettingsChange("includeBloom", value)} />
-              <Toggle label="Workload/contact hours" checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
-              <Toggle label="Accessibility emphasis" checked={settings.accessibilityFocus} onChange={(value) => onSettingsChange("accessibilityFocus", value)} />
-              <Toggle label="AAA contrast" checked={settings.accessibilityTier === "AAA"} onChange={(value) => onSettingsChange("accessibilityTier", value ? "AAA" : "AA")} />
-              <Toggle label="Module image hooks" checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
+              <Toggle label="Final project" hint="Adds a culminating final project with its own module, rubric, and gradebook weight." checked={settings.finalProject} onChange={(value) => onSettingsChange("finalProject", value)} />
+              <Toggle label="Scaffold final project" hint="Spreads the final project across smaller graded check-ins during the term instead of one big deadline." checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />
+              <Toggle label="Rubrics" hint="Generates a Canvas rubric for every graded assignment and discussion, aligned to the course outcomes." checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
+              <Toggle label="Workload/contact hours" hint="Adds a contact-hours plan (Carnegie model) showing how the course meets its credit-hour expectation." checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
+              <Toggle label="AAA contrast" hint="Uses the strictest WCAG AAA color-contrast tier for themed content (larger text, stronger contrast). Default is AA, the common institutional standard." checked={settings.accessibilityTier === "AAA"} onChange={(value) => onSettingsChange("accessibilityTier", value ? "AAA" : "AA")} />
+              <Toggle label="Module image hooks" hint="Adds a decorative SVG header image to each module overview page (no external image services)." checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
             </div>
   );
 
@@ -2355,13 +2393,6 @@ function Intake({
               <Select label="Module release day" value={String(settings.schedule.moduleReleaseDay)} options={weekdayOptions} labels={weekdayLabels} onChange={(value) => updateSchedule("moduleReleaseDay", Number(value))} />
               <Select label="Preferred due day" value={String(settings.schedule.preferredDueDay)} options={weekdayOptions} labels={weekdayLabels} onChange={(value) => updateSchedule("preferredDueDay", Number(value))} />
               <Input label="Preferred due time" type="time" value={settings.schedule.preferredDueTime} onChange={(value) => updateSchedule("preferredDueTime", value)} />
-              <Select
-                label="Meeting cadence"
-                value={settings.schedule.meetingCadence}
-                options={["weekly", "twice-weekly", "self-paced", "custom"]}
-                labels={{ weekly: "Weekly", "twice-weekly": "Twice weekly", "self-paced": "Self paced", custom: "Custom" }}
-                onChange={(value) => updateSchedule("meetingCadence", value as CourseSettings["schedule"]["meetingCadence"])}
-              />
             </div>
             <ListTextArea
               label="Holidays"
@@ -2837,7 +2868,6 @@ function Editor({
   onRunValidation,
   onDownload,
   onFillFullContent,
-  onDownloadFull,
   isFillingContent,
   fillProgress,
   fillSummary,
@@ -2886,7 +2916,6 @@ function Editor({
   onRunValidation: () => void;
   onDownload: () => void;
   onFillFullContent: () => Promise<CourseProject | null>;
-  onDownloadFull: () => void;
   isFillingContent: boolean;
   fillProgress: FullFillProgress | null;
   fillSummary: string | null;
@@ -3253,7 +3282,6 @@ function Editor({
               onRunValidation={onRunValidation}
               onDownload={onDownload}
               onFillFullContent={onFillFullContent}
-              onDownloadFull={onDownloadFull}
               isFillingContent={isFillingContent}
               fillProgress={fillProgress}
               fillSummary={fillSummary}
@@ -4322,17 +4350,19 @@ function Input({
   label,
   value,
   type = "text",
+  placeholder,
   onChange
 }: {
   label: string;
   value: string;
   type?: "text" | "date" | "time";
+  placeholder?: string;
   onChange: (value: string) => void;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+      <input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
@@ -4368,18 +4398,20 @@ function TextArea({
   value,
   onChange,
   compact,
+  placeholder,
   rows = compact ? 4 : 8
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   compact?: boolean;
+  placeholder?: string;
   rows?: number;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} />
+      <textarea rows={rows} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
@@ -4450,11 +4482,17 @@ function Select({
   );
 }
 
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
+function Toggle({ label, checked, hint, onChange }: { label: string; checked: boolean; hint?: string; onChange: (value: boolean) => void }) {
   return (
-    <label className="toggle">
+    <label className="toggle" title={hint}>
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       <span>{label}</span>
+      {hint && (
+        <span className="toggle-hint" aria-hidden="true">
+          <Info size={13} />
+        </span>
+      )}
+      {hint && <span className="sr-only">{hint}</span>}
     </label>
   );
 }

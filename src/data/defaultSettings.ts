@@ -1,11 +1,14 @@
 import type { CourseSettings } from "../types";
 
 export const defaultSettings: CourseSettings = {
-  buildMode: "hybrid",
+  // Retained for stored-project compatibility; the intake no longer exposes it.
+  buildMode: "guided",
   contentDepth: "complete-course",
-  title: "AI and Modern Society",
-  description:
-    "An undergraduate course exploring the social, ethical, technical, and civic dimensions of artificial intelligence.",
+  // Title and description intentionally start empty: real generations must derive
+  // entirely from the user's intake. The public demo passes its own explicit settings
+  // (see sampleProject in courseGenerator.ts) — demo copy must never live in defaults.
+  title: "",
+  description: "",
   level: "Undergraduate",
   modality: "Online asynchronous",
   creditHours: 3,

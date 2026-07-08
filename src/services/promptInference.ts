@@ -6,7 +6,7 @@
 import type { CourseLengthPreset, CourseSettings } from "../types";
 
 export type InferredSettings = Partial<
-  Pick<CourseSettings, "lengthWeeks" | "courseLengthPreset" | "moduleCount" | "level" | "modality">
+  Pick<CourseSettings, "title" | "lengthWeeks" | "courseLengthPreset" | "moduleCount" | "level" | "modality">
 >;
 
 export interface PromptInference {
@@ -24,10 +24,47 @@ const WEEK_PRESETS: Partial<Record<number, CourseLengthPreset>> = {
   16: "16-weeks"
 };
 
+const titleCase = (candidate: string): string =>
+  candidate
+    .replace(/^a\s+/i, "")
+    .replace(/^an\s+/i, "")
+    .replace(/\s+course$/i, "")
+    .split(" ")
+    .map((word, index) => {
+      const lower = word.toLowerCase();
+      if (index > 0 && ["and", "or", "of", "the", "to", "in", "for", "with"].includes(lower)) return lower;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+
+/** Mirror of the generator's title heuristics so the basics step can pre-fill the title
+ * field instead of asking the user to retype what they just described. */
+export const inferTitleFromPrompt = (prompt: string): string | undefined => {
+  const match =
+    prompt.match(/course on ([^.]+?)(?:\.|,| for | with |$)/i) ||
+    prompt.match(/class on ([^.]+?)(?:\.|,| for | with |$)/i) ||
+    prompt.match(/course (?:about|covering|exploring|introducing) ([^.]+?)(?:\.|,| for | with |$)/i);
+  if (match) {
+    const candidate = match[1].replace(/^about\s+/i, "").trim();
+    if (candidate) return titleCase(candidate);
+  }
+  const firstSentence = prompt.split(/[.\n]/)[0].trim();
+  if (firstSentence && firstSentence.split(/\s+/).length <= 8 && !/course|week|module/i.test(firstSentence)) {
+    return titleCase(firstSentence);
+  }
+  return undefined;
+};
+
 export const inferSettingsFromPrompt = (prompt: string): PromptInference => {
   const text = prompt.toLowerCase();
   const updates: InferredSettings = {};
   const notes: string[] = [];
+
+  const title = inferTitleFromPrompt(prompt);
+  if (title) {
+    updates.title = title;
+    notes.push(`Title: ${title}`);
+  }
 
   const weeksMatch = text.match(/(\d{1,2})\s*-?\s*week/);
   if (weeksMatch) {

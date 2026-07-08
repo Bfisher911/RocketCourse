@@ -22,11 +22,13 @@ import {
   buildBlueprintContext,
   generateJson,
   toCleanString,
+  toPlainText,
+  toPlainTextList,
   toStringList,
   withFallback,
   type AiResult
 } from "./aiAssist";
-import { sanitizeAiHtml } from "./htmlSafety";
+import { flattenHeadingsToParagraphs, sanitizeAiHtml } from "./htmlSafety";
 import { buildAssignmentTemplateHtml } from "./assignmentBuilder";
 import { buildDiscussionTemplateHtml } from "./discussionBuilder";
 import { buildPageTemplateHtml } from "./pageBuilder";
@@ -108,7 +110,9 @@ export const aiGeneratePageProse = (course: CourseProject, page: CoursePage): Pr
       });
       const html = toCleanString(json.html);
       if (!html) throw new Error("AI did not return page prose.");
-      return sanitizeAiHtml(html);
+      // The contract is <p>-only prose; flatten any heading the model sneaks in so the
+      // fragment can't add a second h1 (a blocking export error) to its host page.
+      return flattenHeadingsToParagraphs(sanitizeAiHtml(html));
     },
     () => ""
   );
@@ -179,7 +183,8 @@ const coerceQuestion = (raw: unknown, quiz: Quiz, course: CourseProject, index: 
   if (typeof raw !== "object" || raw === null) return null;
   const record = raw as Record<string, unknown>;
   const stem = toCleanString(record.stem);
-  if (!stem) return null;
+  // Stems under 12 chars fail the quiz-quality export validator as unusable questions.
+  if (!stem || stem.length < 12) return null;
   const type = QUESTION_TYPES.includes(record.type as QuizQuestionType) ? (record.type as QuizQuestionType) : "multiple_choice";
   const choices = type === "multiple_choice" ? toStringList(record.choices, 6) : [];
   const difficulty: QuizDifficulty = course.settings.quizDifficulty ?? "balanced";
@@ -209,7 +214,8 @@ const coerceQuestion = (raw: unknown, quiz: Quiz, course: CourseProject, index: 
     difficulty,
     alignedOutcomeIds: quiz.alignedOutcomeIds,
     moduleId: quiz.moduleId,
-    points: typeof record.points === "number" ? record.points : type === "essay" ? 6 : type === "short_answer" ? 4 : 2,
+    // Zero/negative points are a blocking export error, so only accept positive values.
+    points: typeof record.points === "number" && Number.isFinite(record.points) && record.points > 0 ? record.points : type === "essay" ? 6 : type === "short_answer" ? 4 : 2,
     instructorReviewRequired: type === "essay" || type === "short_answer" ? true : undefined
   };
 };
@@ -317,17 +323,19 @@ export const aiGenerateHomepageContent = (course: CourseProject, current: Homepa
           themeJson: { name: course.theme.name, accent: course.theme.accent }
         },
         outputContract:
-          'Return {"heroEyebrow": string, "heroHeading": string, "welcome": string, "purpose": string, "instructorNote": string, "pathItems": string[], "weeklyItems": string[]}.'
+          'Return {"heroEyebrow": string, "heroHeading": string, "welcome": string, "purpose": string, "instructorNote": string, "pathItems": string[], "weeklyItems": string[]}. Every value must be PLAIN TEXT — no HTML tags, no markdown, no link syntax; these fields are rendered inside a styled template that escapes markup.'
       });
+      // Plain-text coercion is load-bearing: these fields are HTML-escaped by the homepage
+      // template, so any tag the model returns would render literally in Canvas.
       return {
         ...current,
-        heroEyebrow: toCleanString(json.heroEyebrow) ?? current.heroEyebrow,
-        heroHeading: toCleanString(json.heroHeading) ?? current.heroHeading,
-        welcome: toCleanString(json.welcome) ?? current.welcome,
-        purpose: toCleanString(json.purpose) ?? current.purpose,
-        instructorNote: toCleanString(json.instructorNote) ?? current.instructorNote,
-        pathItems: toStringList(json.pathItems).length ? toStringList(json.pathItems) : current.pathItems,
-        weeklyItems: toStringList(json.weeklyItems).length ? toStringList(json.weeklyItems) : current.weeklyItems
+        heroEyebrow: toPlainText(json.heroEyebrow) ?? current.heroEyebrow,
+        heroHeading: toPlainText(json.heroHeading) ?? current.heroHeading,
+        welcome: toPlainText(json.welcome) ?? current.welcome,
+        purpose: toPlainText(json.purpose) ?? current.purpose,
+        instructorNote: toPlainText(json.instructorNote) ?? current.instructorNote,
+        pathItems: toPlainTextList(json.pathItems).length ? toPlainTextList(json.pathItems) : current.pathItems,
+        weeklyItems: toPlainTextList(json.weeklyItems).length ? toPlainTextList(json.weeklyItems) : current.weeklyItems
       };
     },
     () => defaultHomepageContent(homepageContextFromCourse(course))
@@ -344,17 +352,19 @@ export const aiGenerateSyllabusContent = (course: CourseProject, current: Syllab
         courseId: course.id,
         context: { blueprintJson: buildBlueprintContext(course) },
         outputContract:
-          'Return {"courseDescription": string, "communicationExpectations": string, "lateWorkPolicy": string, "academicIntegrityPolicy": string, "aiUsePolicy": string, "learningOutcomes": string[], "requiredMaterials": string[]}.'
+          'Return {"courseDescription": string, "communicationExpectations": string, "lateWorkPolicy": string, "academicIntegrityPolicy": string, "aiUsePolicy": string, "learningOutcomes": string[], "requiredMaterials": string[]}. Every value must be PLAIN TEXT prose — no HTML tags, no markdown, no headings; these fields are rendered inside a styled syllabus template that escapes markup. courseDescription is 2-4 sentences, not a full syllabus.'
       });
+      // Plain-text coercion is load-bearing: the syllabus template escapes these fields, so any
+      // markup the model returns would render literally in Canvas.
       return {
         ...current,
-        courseDescription: toCleanString(json.courseDescription) ?? current.courseDescription,
-        communicationExpectations: toCleanString(json.communicationExpectations) ?? current.communicationExpectations,
-        lateWorkPolicy: toCleanString(json.lateWorkPolicy) ?? current.lateWorkPolicy,
-        academicIntegrityPolicy: toCleanString(json.academicIntegrityPolicy) ?? current.academicIntegrityPolicy,
-        aiUsePolicy: toCleanString(json.aiUsePolicy) ?? current.aiUsePolicy,
-        learningOutcomes: toStringList(json.learningOutcomes).length ? toStringList(json.learningOutcomes) : current.learningOutcomes,
-        requiredMaterials: toStringList(json.requiredMaterials).length ? toStringList(json.requiredMaterials) : current.requiredMaterials
+        courseDescription: toPlainText(json.courseDescription) ?? current.courseDescription,
+        communicationExpectations: toPlainText(json.communicationExpectations) ?? current.communicationExpectations,
+        lateWorkPolicy: toPlainText(json.lateWorkPolicy) ?? current.lateWorkPolicy,
+        academicIntegrityPolicy: toPlainText(json.academicIntegrityPolicy) ?? current.academicIntegrityPolicy,
+        aiUsePolicy: toPlainText(json.aiUsePolicy) ?? current.aiUsePolicy,
+        learningOutcomes: toPlainTextList(json.learningOutcomes).length ? toPlainTextList(json.learningOutcomes) : current.learningOutcomes,
+        requiredMaterials: toPlainTextList(json.requiredMaterials).length ? toPlainTextList(json.requiredMaterials) : current.requiredMaterials
       };
     },
     () => defaultSyllabusContent(syllabusContextFromCourse(course))
@@ -375,11 +385,11 @@ export const aiGenerateCourseOverview = (course: CourseProject): Promise<AiResul
         stage: "blueprint",
         courseId: course.id,
         context: { blueprintJson: buildBlueprintContext(course) },
-        outputContract: 'Return {"description": "<2-4 sentence course description>", "outcomes": ["<measurable outcome>", ...]}.'
+        outputContract: 'Return {"description": "<2-4 sentence course description, plain text, no HTML>", "outcomes": ["<measurable outcome, plain text>", ...]}.'
       });
-      const description = toCleanString(json.description);
+      const description = toPlainText(json.description);
       if (!description) throw new Error("AI did not return a course description.");
-      return { description, outcomes: toStringList(json.outcomes) };
+      return { description, outcomes: toPlainTextList(json.outcomes) };
     },
     () => ({ description: course.description, outcomes: course.outcomes.map((outcome) => outcome.text) })
   );
@@ -397,9 +407,9 @@ export const aiGenerateContactHoursJustification = (course: CourseProject): Prom
           blueprintJson: buildBlueprintContext(course),
           contactHoursJson: course.contactHours
         },
-        outputContract: 'Return {"justification": "<paragraph explaining how the workload meets the credit-hour expectation>"}.'
+        outputContract: 'Return {"justification": "<paragraph explaining how the workload meets the credit-hour expectation — plain text, no HTML>"}.'
       });
-      const justification = toCleanString(json.justification);
+      const justification = toPlainText(json.justification);
       if (!justification) throw new Error("AI did not return a justification.");
       return justification;
     },

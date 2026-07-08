@@ -266,7 +266,14 @@ export const fillEntireCourseContent = async (
       if (signal?.aborted) throw new AbortError();
       const task = tasks[cursor];
       cursor += 1;
-      await task.run();
+      try {
+        await task.run();
+      } catch (error) {
+        // One object failing must never abort the whole pass (the promise of this module):
+        // count it as a fallback and keep that object's existing template content.
+        if (error instanceof AbortError) throw error;
+        fallbackCount += 1;
+      }
       completed += 1;
       onProgress?.({ completed, total, label: task.label });
     }

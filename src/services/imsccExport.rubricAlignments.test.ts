@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultSettings } from "../data/defaultSettings";
 import { generateCourseProject } from "./courseGenerator";
+import { exportIdPrefix } from "./exportIdentifiers";
 import { buildImsccZip } from "./imsccExport";
 
 // Regression: Canvas rejects a rubric whose criteria align the SAME learning outcome more than once
@@ -54,9 +55,11 @@ describe("rubric outcome alignment export", () => {
     const refsByRubric = outcomeRefsByRubric(xml);
 
     // Every rubric whose criteria reference an outcome keeps at least one alignment.
+    // Exported rubric identifiers carry the per-course export id prefix.
+    const prefix = exportIdPrefix(course);
     course.rubrics.forEach((rubric) => {
       if (rubric.criteria.some((criterion) => criterion.outcomeId)) {
-        expect((refsByRubric.get(rubric.id) ?? []).length).toBeGreaterThan(0);
+        expect((refsByRubric.get(`${prefix}${rubric.id}`) ?? []).length).toBeGreaterThan(0);
       }
     });
   });

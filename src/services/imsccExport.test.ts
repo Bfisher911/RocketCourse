@@ -5,6 +5,7 @@ import { applyThemeToGeneratedContent, generateCourseProject, sampleProject } fr
 import { CALENDAR_HREF } from "./homepageTemplates";
 import { PRINTABLE_HTML_HREF, PRINTABLE_PDF_HREF } from "./syllabusTemplates";
 import { buildCourseQualityReport } from "./courseQuality";
+import { exportIdPrefix, namespaceCourseForExport } from "./exportIdentifiers";
 import { buildImsccZip, generateImsccBlob, validateImsccZip } from "./imsccExport";
 import { importCanvasCourseFromImscc } from "./imsccImport";
 import { buildReadinessReport } from "./readiness";
@@ -173,10 +174,10 @@ describe("RocketCourse export engine", () => {
     });
   });
 
-  it("always generates attached rubrics for graded assignments and discussions", () => {
+  it("generates attached rubrics for graded assignments and discussions when rubrics are enabled", () => {
     const course = generateCourseProject({
       prompt: "Build me a 6-week course on Mesoamerican Warfare.",
-      settings: { ...defaultSettings, includeRubrics: false, moduleCount: 6, lengthWeeks: 6, assignmentCadence: "every-module", discussionFrequency: "weekly" }
+      settings: { ...defaultSettings, includeRubrics: true, moduleCount: 6, lengthWeeks: 6, assignmentCadence: "every-module", discussionFrequency: "weekly" }
     });
     const rubricIds = new Set(course.rubrics.map((rubric) => rubric.id));
 
@@ -184,6 +185,16 @@ describe("RocketCourse export engine", () => {
     expect(course.discussions.filter((discussion) => discussion.points > 0).length).toBeGreaterThan(0);
     course.assignments.forEach((assignment) => expect(assignment.rubricId && rubricIds.has(assignment.rubricId)).toBe(true));
     course.discussions.filter((discussion) => discussion.points > 0).forEach((discussion) => expect(discussion.rubricId && rubricIds.has(discussion.rubricId)).toBe(true));
+  });
+
+  it("honors the intake Rubrics toggle: includeRubrics false generates none", () => {
+    const course = generateCourseProject({
+      prompt: "Build me a 6-week course on Mesoamerican Warfare.",
+      settings: { ...defaultSettings, includeRubrics: false, moduleCount: 6, lengthWeeks: 6, assignmentCadence: "every-module", discussionFrequency: "weekly" }
+    });
+    expect(course.rubrics).toHaveLength(0);
+    course.assignments.forEach((assignment) => expect(assignment.rubricId).toBeUndefined());
+    course.discussions.forEach((discussion) => expect(discussion.rubricId).toBeUndefined());
   });
 
   it("generates quiz questions with answer keys, feedback, difficulty, and alignment", () => {
@@ -324,10 +335,13 @@ describe("RocketCourse export engine", () => {
     ["Assignments", "Discussions", "Quizzes", "Pages", "Files", "Outcomes", "Rubrics", "Collaborations", "Conferences"].forEach((label) => {
       expect(navigationXml).toContain(`<label>${label}</label>`);
     });
+    // Export namespaces every migration id (and therefore every id-derived zip path)
+    // with the deterministic per-course prefix.
+    const prefix = exportIdPrefix(sampleProject);
     const firstAssignment = sampleProject.assignments[0];
-    const assignmentSettings = await zip.file(firstAssignment ? `assignment_${firstAssignment.id.replace(/^assignment_/, "")}/assignment_settings.xml` : "")?.async("text");
+    const assignmentSettings = await zip.file(firstAssignment ? `${prefix}${firstAssignment.id}/assignment_settings.xml` : "")?.async("text");
     const firstGradedDiscussion = sampleProject.discussions.find((discussion) => discussion.points > 0);
-    const discussionMeta = await zip.file(firstGradedDiscussion ? `${firstGradedDiscussion.id}_meta.xml` : "")?.async("text");
+    const discussionMeta = await zip.file(firstGradedDiscussion ? `${prefix}${firstGradedDiscussion.id}_meta.xml` : "")?.async("text");
     const rubricsXml = await zip.file("course_settings/rubrics.xml")?.async("text");
     expect(assignmentSettings).toContain("<rubric_identifierref>");
     expect(assignmentSettings).toContain("<rubric_use_for_grading>true</rubric_use_for_grading>");
@@ -338,16 +352,18 @@ describe("RocketCourse export engine", () => {
     expect(rubricsXml).toContain("<rating_order>descending</rating_order>");
     expect(rubricsXml).toContain("<learning_outcome_identifierref>");
     expect(rubricsXml).toContain("Outcome criterion:");
-    expect(report.files).toContain("quiz_1/assessment_qti.xml");
-    expect(report.files).toContain("quiz_1/assessment_meta.xml");
-    expect(report.files).toContain("non_cc_assessments/quiz_1.xml.qti");
+    expect(report.files).toContain(`${prefix}quiz_1/assessment_qti.xml`);
+    expect(report.files).toContain(`${prefix}quiz_1/assessment_meta.xml`);
+    expect(report.files).toContain(`non_cc_assessments/${prefix}quiz_1.xml.qti`);
     expect(report.files.some((file) => file.startsWith("wiki_content/"))).toBe(true);
     expect(moduleMeta).toContain("<title>Instructor Guide</title>");
     expect(moduleMeta).toContain("<workflow_state>unpublished</workflow_state>");
     expect(syllabusHtml).toContain(PRINTABLE_HTML_HREF);
     expect(syllabusHtml).toContain(PRINTABLE_PDF_HREF);
     expect(syllabusHtml).not.toContain("$IMS-CC-FILEBASE$/syllabus-printable");
-    expect(syllabusHtml).toContain(sampleProject.pages.find((page) => page.slug === "syllabus")?.bodyHtml);
+    // The exported body carries namespaced ids inside Canvas link tokens, so compare against
+    // the same deterministic transform of the source page.
+    expect(syllabusHtml).toContain(namespaceCourseForExport(sampleProject).pages.find((page) => page.slug === "syllabus")?.bodyHtml);
     expect(printableHtml).toContain("<title>Printable Syllabus</title>");
     expect(printableHtml).toContain(sampleProject.title);
     expect(report.sandboxImportStatus).toBe("not_tested");
@@ -355,14 +371,15 @@ describe("RocketCourse export engine", () => {
 
   it("uses Canvas course links in the welcome announcement", async () => {
     const zip = await buildImsccZip(sampleProject);
+    const prefix = exportIdPrefix(sampleProject);
     const announcement = sampleProject.announcements[0];
-    const xml = (await zip.file(`${announcement.id}.xml`)?.async("text")) ?? "";
+    const xml = (await zip.file(`${prefix}${announcement.id}.xml`)?.async("text")) ?? "";
 
-    expect(xml).toContain("$CANVAS_OBJECT_REFERENCE$/modules/module_start");
-    expect(xml).toContain("$CANVAS_OBJECT_REFERENCE$/discussion_topics/discussion_introduce_yourself");
-    expect(xml).toContain("$WIKI_REFERENCE$/pages/page_course_success_guide");
-    expect(xml).toContain("$WIKI_REFERENCE$/pages/page_syllabus");
-    expect(xml).toContain("$WIKI_REFERENCE$/pages/page_course_calendar_workload_plan");
+    expect(xml).toContain(`$CANVAS_OBJECT_REFERENCE$/modules/${prefix}module_start`);
+    expect(xml).toContain(`$CANVAS_OBJECT_REFERENCE$/discussion_topics/${prefix}discussion_introduce_yourself`);
+    expect(xml).toContain(`$WIKI_REFERENCE$/pages/${prefix}page_course_success_guide`);
+    expect(xml).toContain(`$WIKI_REFERENCE$/pages/${prefix}page_syllabus`);
+    expect(xml).toContain(`$WIKI_REFERENCE$/pages/${prefix}page_course_calendar_workload_plan`);
     expect(xml).not.toContain("Open the Start Here module, read the Course Success Guide");
     expect(xml).not.toContain("Post in the Introduce Yourself discussion");
   });
@@ -387,24 +404,26 @@ describe("RocketCourse export engine", () => {
 
   it("exports auto-graded QTI with choices, answer keys, and feedback Canvas can import", async () => {
     const zip = await buildImsccZip(sampleProject);
+    const prefix = exportIdPrefix(sampleProject);
     const quiz = sampleProject.quizzes[0];
-    const canvasQti = (await zip.file(`non_cc_assessments/${quiz.id}.xml.qti`)?.async("text")) ?? "";
-    const ccQti = (await zip.file(`${quiz.id}/assessment_qti.xml`)?.async("text")) ?? "";
+    const canvasQti = (await zip.file(`non_cc_assessments/${prefix}${quiz.id}.xml.qti`)?.async("text")) ?? "";
+    const ccQti = (await zip.file(`${prefix}${quiz.id}/assessment_qti.xml`)?.async("text")) ?? "";
 
     const choiceQuestion = quiz.questions.find(
       (question) => (question.type === "multiple_choice" || question.type === "true_false") && question.choices?.length
     );
     expect(choiceQuestion).toBeDefined();
     const correctIndex = (choiceQuestion!.choices ?? []).findIndex((choice) => choice === choiceQuestion!.correctAnswer);
-    const correctLabel = `${choiceQuestion!.id}_a${correctIndex + 1}`;
+    const exportedQuestionId = `${prefix}${choiceQuestion!.id}`;
+    const correctLabel = `${exportedQuestionId}_a${correctIndex + 1}`;
 
     [canvasQti, ccQti].forEach((qti) => {
       // Choices are rendered and the answer key points at the correct label.
-      expect(qti).toContain(`<response_lid ident="response_${choiceQuestion!.id}"`);
+      expect(qti).toContain(`<response_lid ident="response_${exportedQuestionId}"`);
       (choiceQuestion!.choices ?? []).forEach((choice) => expect(qti).toContain(choice));
-      expect(qti).toContain(`<varequal respident="response_${choiceQuestion!.id}">${correctLabel}</varequal>`);
+      expect(qti).toContain(`<varequal respident="response_${exportedQuestionId}">${correctLabel}</varequal>`);
       expect(qti).toContain('<setvar action="Set" varname="SCORE">100</setvar>');
-      expect(qti).toContain(`<itemfeedback ident="${choiceQuestion!.id}_correct_fb">`);
+      expect(qti).toContain(`<itemfeedback ident="${exportedQuestionId}_correct_fb">`);
     });
 
     // Canvas reads native question_type values, never the internal type names.
@@ -417,13 +436,14 @@ describe("RocketCourse export engine", () => {
 
   it("emits open-response quiz questions as manually graded essay items", async () => {
     const zip = await buildImsccZip(sampleProject);
+    const prefix = exportIdPrefix(sampleProject);
     const quiz = sampleProject.quizzes[0];
-    const canvasQti = (await zip.file(`non_cc_assessments/${quiz.id}.xml.qti`)?.async("text")) ?? "";
+    const canvasQti = (await zip.file(`non_cc_assessments/${prefix}${quiz.id}.xml.qti`)?.async("text")) ?? "";
     const openQuestion = quiz.questions.find((question) => question.type === "short_answer" || question.type === "essay");
 
     expect(openQuestion).toBeDefined();
-    expect(canvasQti).toContain(`<response_str ident="response_${openQuestion!.id}"`);
-    expect(canvasQti).toContain(`<render_fib><response_label ident="${openQuestion!.id}_answer"`);
+    expect(canvasQti).toContain(`<response_str ident="response_${prefix}${openQuestion!.id}"`);
+    expect(canvasQti).toContain(`<render_fib><response_label ident="${prefix}${openQuestion!.id}_answer"`);
     expect(canvasQti).toContain("<fieldentry>essay_question</fieldentry>");
   });
 
@@ -434,10 +454,11 @@ describe("RocketCourse export engine", () => {
     });
     const zip = await buildImsccZip(checkProject);
     const assignment = checkProject.assignments[0];
-    const settingsXml = (await zip.file(`${assignment.id}/assignment_settings.xml`)?.async("text")) ?? "";
+    const settingsXml = (await zip.file(`${exportIdPrefix(checkProject)}${assignment.id}/assignment_settings.xml`)?.async("text")) ?? "";
 
     // stripHtml decodes entities before escapeXml runs again, so the checkmark entity
     // must never reach the package as the double-escaped literal "&amp;#10003;".
+    expect(settingsXml).toContain("<assignment");
     expect(settingsXml).not.toContain("&amp;#");
   });
 
@@ -472,10 +493,11 @@ describe("RocketCourse export engine", () => {
     const blockedDates = new Set([...scheduledProject.settings.schedule.holidays, ...scheduledProject.settings.schedule.blackoutDates]);
     const zip = await buildImsccZip(scheduledProject);
     const report = await validateImsccZip(scheduledProject, zip);
-    const assignmentSettingsXml = await zip.file(`${scheduledProject.assignments[0].id}/assignment_settings.xml`)?.async("text");
+    const prefix = exportIdPrefix(scheduledProject);
+    const assignmentSettingsXml = await zip.file(`${prefix}${scheduledProject.assignments[0].id}/assignment_settings.xml`)?.async("text");
     const discussion = scheduledProject.discussions.find((item) => item.points > 0);
-    const discussionMetaXml = discussion ? await zip.file(`${discussion.id}_meta.xml`)?.async("text") : "";
-    const quizMetaXml = await zip.file(`${scheduledProject.quizzes[0].id}/assessment_meta.xml`)?.async("text");
+    const discussionMetaXml = discussion ? await zip.file(`${prefix}${discussion.id}_meta.xml`)?.async("text") : "";
+    const quizMetaXml = await zip.file(`${prefix}${scheduledProject.quizzes[0].id}/assessment_meta.xml`)?.async("text");
 
     expect(gradedDueDates.every(Boolean)).toBe(true);
     expect(gradedDueDates.every((dueAt) => dueAt && !blockedDates.has(dueAt.slice(0, 10)))).toBe(true);
@@ -526,10 +548,12 @@ describe("RocketCourse export engine", () => {
   });
 
   it("warns when exported Canvas HTML points to missing internal content", async () => {
+    // A package-shaped wiki_content/ href survives the export repair pass (bare relative
+    // ".html" hrefs get scrubbed outright), so a missing target must surface as a warning.
     const brokenProject = {
       ...sampleProject,
       pages: sampleProject.pages.map((page) =>
-        page.frontPage ? { ...page, bodyHtml: `${page.bodyHtml}<p><a href="missing-page.html">Broken internal link</a></p>` } : page
+        page.frontPage ? { ...page, bodyHtml: `${page.bodyHtml}<p><a href="wiki_content/missing-page.html">Broken internal link</a></p>` } : page
       )
     };
     const zip = await buildImsccZip(brokenProject);
@@ -540,8 +564,9 @@ describe("RocketCourse export engine", () => {
   });
 
   it("caps the warning penalty so a valid, importable package never scores near zero", async () => {
-    // Many advisory warnings (unresolved internal links) but zero blocking errors.
-    const brokenLinks = Array.from({ length: 20 }, (_, index) => `<a href="missing-${index}.html">Broken link ${index}</a>`).join(" ");
+    // Many advisory warnings (unresolved internal links) but zero blocking errors. The hrefs
+    // are package-shaped (wiki_content/) so the export repair pass keeps them intact.
+    const brokenLinks = Array.from({ length: 20 }, (_, index) => `<a href="wiki_content/missing-${index}.html">Broken link ${index}</a>`).join(" ");
     const warnedProject = {
       ...sampleProject,
       pages: sampleProject.pages.map((page) => (page.frontPage ? { ...page, bodyHtml: `${page.bodyHtml}<p>${brokenLinks}</p>` } : page))
@@ -601,7 +626,8 @@ describe("RocketCourse export engine", () => {
     const zip = await buildImsccZip(course);
     const report = await validateImsccZip(course, zip);
 
-    expect(report.issues.some((issue) => issue.id === `duplicate-resource-${duplicateId}`)).toBe(true);
+    // The validator reports the id as it appears in the manifest, i.e. namespaced.
+    expect(report.issues.some((issue) => issue.id === `duplicate-resource-${exportIdPrefix(course)}${duplicateId}`)).toBe(true);
     expect(report.valid).toBe(false);
   });
 

@@ -25,6 +25,7 @@ import { validateQuizPlan } from "./quizBuilder";
 import { validateRubricPlan } from "./rubricBuilder";
 import { buildReadinessReport } from "./readiness";
 import { repairCourse } from "./courseRepair";
+import { namespaceCourseForExport } from "./exportIdentifiers";
 import { buildBannerSvg, buildCourseTileSvg, buildModuleHeaderSvg } from "./themeDesign";
 import { buildVisualCourseAssetSvg } from "./visualCourseAssets";
 import { canvasRefResolves, canvasRefTargets, isCanvasRef } from "./canvasLinks";
@@ -748,7 +749,9 @@ const printableHtml = (title: string, bodyHtml: string): string =>
 export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   // Safety net: repair structural corruption (dangling refs, moduleId drift, weights, slugs) before
   // building so a messy editing session can never produce a broken package. Idempotent.
-  const { course } = repairCourse(input);
+  // Then namespace every migration identifier per course so two RocketCourse packages imported
+  // into the same Canvas course can never collide/overwrite each other (Canvas dedupes by these ids).
+  const course = namespaceCourseForExport(repairCourse(input).course);
   const zip = new JSZip();
   const syllabusPage = course.pages.find((page) => page.slug === "syllabus");
   const instructorGuidePage = course.pages.find((page) => page.slug === "instructor-guide");
@@ -771,7 +774,8 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   // don't shift the numbering and every reference resolves to the right SVG.
   if (course.settings.imageSettings?.moduleHeaderImages) {
     course.modules.forEach((module) => {
-      const match = /^module_(\d+)$/.exec(module.id);
+      // Ids are export-namespaced ("cfx1y2_module_3"), so match the module number at the end.
+      const match = /(?:^|_)module_(\d+)$/.exec(module.id);
       if (match) {
         const moduleNumber = Number(match[1]);
         zip.file(`web_resources/module-${moduleNumber}-header.svg`, buildModuleHeaderSvg(course.theme, moduleNumber, module.title));
@@ -856,8 +860,9 @@ const isBlockedDate = (iso: string | undefined, blockedDates: Set<string>): bool
 };
 
 export const validateImsccZip = async (input: CourseProject, zip: JSZip): Promise<ExportValidationReport> => {
-  // Validate against the same repaired course the package was built from (repair is deterministic).
-  const { course } = repairCourse(input);
+  // Validate against the same repaired + id-namespaced course the package was built from
+  // (both transforms are deterministic and idempotent).
+  const course = namespaceCourseForExport(repairCourse(input).course);
   const files = Object.keys(zip.files).filter((path) => !zip.files[path].dir).sort();
   const issues: ExportValidationIssue[] = [];
   const readiness = buildReadinessReport(course);

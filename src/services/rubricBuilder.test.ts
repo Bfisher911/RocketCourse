@@ -12,6 +12,7 @@ import {
   validateRubricPlan
 } from "./rubricBuilder";
 import { sampleProject } from "./courseGenerator";
+import { exportIdPrefix } from "./exportIdentifiers";
 
 const clone = (course: CourseProject): CourseProject => structuredClone(course);
 
@@ -104,7 +105,8 @@ describe("rubric builder", () => {
     const zip = await buildImsccZip(course);
     const xml = (await zip.file("course_settings/rubrics.xml")?.async("text")) ?? "";
 
-    expect(xml).toContain(`<rubric identifier="${rubric.id}">`);
+    // Exported rubric identifiers are namespaced with the per-course export id prefix.
+    expect(xml).toContain(`<rubric identifier="${exportIdPrefix(course)}${rubric.id}">`);
     expect(xml).toContain(`<criterion_id>${rubric.criteria[0].id}</criterion_id>`);
     expect(xml).toContain(`<description>${rubric.criteria[0].levels[0].label}</description>`);
 

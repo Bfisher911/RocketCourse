@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { defaultSettings } from "../data/defaultSettings";
 import type { CourseProject, Quiz, QuizQuestion } from "../types";
 import { generateCourseProject, sampleProject } from "./courseGenerator";
+import { exportIdPrefix } from "./exportIdentifiers";
 import { generateImsccBlob } from "./imsccExport";
 
 // ---------------------------------------------------------------------------
@@ -75,15 +76,21 @@ const parseQtiItems = (qti: string): Map<string, ParsedItem> => {
 };
 
 // Unzip a real .imscc blob the same way Canvas would, then return the parsed QTI for a quiz.
+// The export namespaces every migration id (quiz zip folders, item idents) with the
+// deterministic per-course prefix; re-key the parsed items by the original question id so
+// the assertions below stay in source-course terms.
 const exportAndParseQuiz = async (course: CourseProject, quiz: Quiz) => {
+  const prefix = exportIdPrefix(course);
   const { blob } = await generateImsccBlob(course);
   const bytes = await blob.arrayBuffer();
   const reloaded = await JSZip.loadAsync(bytes);
-  const canvasQti = await reloaded.file(`non_cc_assessments/${quiz.id}.xml.qti`)?.async("text");
-  const ccQti = await reloaded.file(`${quiz.id}/assessment_qti.xml`)?.async("text");
+  const canvasQti = await reloaded.file(`non_cc_assessments/${prefix}${quiz.id}.xml.qti`)?.async("text");
+  const ccQti = await reloaded.file(`${prefix}${quiz.id}/assessment_qti.xml`)?.async("text");
   expect(canvasQti, `${quiz.id} canvas qti present`).toBeTruthy();
   expect(ccQti, `${quiz.id} cc qti present`).toBeTruthy();
-  return { canvas: parseQtiItems(canvasQti as string), cc: parseQtiItems(ccQti as string) };
+  const byOriginalId = (items: Map<string, ParsedItem>): Map<string, ParsedItem> =>
+    new Map([...items].map(([ident, item]) => [ident.startsWith(prefix) ? ident.slice(prefix.length) : ident, item]));
+  return { canvas: byOriginalId(parseQtiItems(canvasQti as string)), cc: byOriginalId(parseQtiItems(ccQti as string)) };
 };
 
 const expectedCanvasType = (question: QuizQuestion): string => {

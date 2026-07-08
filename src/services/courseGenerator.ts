@@ -86,16 +86,8 @@ const metadata = (timestamp: string, source: ObjectMetadata["source"] = "generat
   source
 });
 
-const titleFromPrompt = (prompt: string, fallback: string): string => {
-  const match =
-    prompt.match(/course on ([^.]+?)(?:\.|,| for | with |$)/i) ||
-    prompt.match(/class on ([^.]+?)(?:\.|,| for | with |$)/i) ||
-    prompt.match(/build me (?:a|an)?\s*([^.:]+?course[^.:]*)/i);
-
-  if (!match) return fallback;
-  const candidate = match[1].replace(/^about\s+/i, "").trim();
-  if (!candidate) return fallback;
-  return candidate
+const titleCase = (candidate: string): string =>
+  candidate
     .replace(/^a\s+/i, "")
     .replace(/^an\s+/i, "")
     .replace(/\s+course$/i, "")
@@ -106,6 +98,45 @@ const titleFromPrompt = (prompt: string, fallback: string): string => {
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(" ");
+
+const titleFromPrompt = (prompt: string, fallback: string): string => {
+  const match =
+    prompt.match(/course on ([^.]+?)(?:\.|,| for | with |$)/i) ||
+    prompt.match(/class on ([^.]+?)(?:\.|,| for | with |$)/i) ||
+    prompt.match(/course (?:about|covering|exploring|introducing) ([^.]+?)(?:\.|,| for | with |$)/i) ||
+    prompt.match(/build me (?:a|an)?\s*([^.:]+?course[^.:]*)/i);
+
+  if (match) {
+    const candidate = match[1].replace(/^about\s+/i, "").trim();
+    if (candidate) return titleCase(candidate);
+  }
+  // No "course on X" phrasing: a short first line/sentence is almost certainly the
+  // intended title (e.g. a prompt that opens with "Cartography of Lost Things.").
+  const firstSentence = prompt.split(/[.\n]/)[0].trim();
+  if (firstSentence && firstSentence.split(/\s+/).length <= 8 && !/course|week|module/i.test(firstSentence)) {
+    return titleCase(firstSentence);
+  }
+  return fallback;
+};
+
+/**
+ * The user's explicit title always wins; the prompt is only mined for a title when the
+ * intake left it blank. This is the guard that keeps demo/sample copy from ever leaking
+ * into a real generation: nothing here falls back to a branded placeholder.
+ */
+const resolveCourseTitle = (prompt: string, settingsTitle: string): string => {
+  const explicit = settingsTitle.trim();
+  if (explicit) return explicit;
+  const inferred = titleFromPrompt(prompt, "");
+  if (inferred.trim()) return inferred.trim();
+  return "Untitled Course";
+};
+
+const resolveCourseDescription = (settings: CourseSettings, title: string, moduleCount: number): string => {
+  const explicit = settings.description.trim();
+  if (explicit) return explicit;
+  const unitLabel = settings.organizationPattern === "custom" ? settings.customOrganizationLabel || "module" : settings.organizationPattern.replace(/s$/, "");
+  return `A ${settings.lengthWeeks}-week ${settings.level.toLowerCase()} course on ${title}, organized into ${moduleCount} ${unitLabel} units with aligned outcomes, activities, and assessments.`;
 };
 
 const organizationLabel = (settings: CourseSettings, moduleNumber: number): string => {
@@ -1378,9 +1409,19 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
     schedule: { ...defaultSettings.schedule, ...settings.schedule },
     imageSettings: { ...defaultSettings.imageSettings, ...settings.imageSettings } as CourseImageSettings
   };
-  const title = titleFromPrompt(prompt, mergedSettings.title);
+  const title = resolveCourseTitle(prompt, mergedSettings.title);
+  const moduleCountForDescription = Math.max(1, Math.min(18, mergedSettings.moduleCount || mergedSettings.lengthWeeks || 12));
+  mergedSettings.title = title;
+  mergedSettings.description = resolveCourseDescription(mergedSettings, title, moduleCountForDescription);
   const selectedTheme = themeOverride ?? getTheme(mergedSettings.themeId);
-  const theme = applyAccessibilityTier({ ...selectedTheme, intensity: selectedTheme.intensity ?? mergedSettings.themeIntensity }, mergedSettings.accessibilityTier);
+  // Visual-template themes (ids "vt-…") carry a discipline-flavored bannerLabel ("Kinesiology")
+  // that would read as wrong-subject content on this course's banners; the course title is always
+  // the right label. Custom school themes keep their institution label.
+  const bannerLabel = selectedTheme.id.startsWith("vt-") ? title : selectedTheme.bannerLabel;
+  const theme = applyAccessibilityTier(
+    { ...selectedTheme, bannerLabel, intensity: selectedTheme.intensity ?? mergedSettings.themeIntensity },
+    mergedSettings.accessibilityTier
+  );
   const moduleCount = Math.max(1, Math.min(18, mergedSettings.moduleCount || mergedSettings.lengthWeeks || 12));
   const moduleOverviewStyleId = chooseModuleOverviewStyle(mergedSettings, theme);
   const finalTitle = finalModuleTitle(mergedSettings);
@@ -1505,9 +1546,12 @@ ${section("Recommended Actions", checklistHtml(["Review module overview pages fi
     startItems.push(makeItem(id("item", pageTitle), "page", pageTitle, pageId, index + 4, generatedAt));
   });
 
+  // "Rubrics" intake toggle: when off, no rubric objects are generated and graded items
+  // carry no rubricId (Canvas imports cleanly either way; readiness treats absence as valid).
+  const withRubrics = mergedSettings.includeRubrics !== false;
   const introRubricId = "rubric_introduce_yourself";
   const introDiscussionDueAt = dueDateForModule(mergedSettings, 0, 1);
-  rubrics.push(makeRubric(introRubricId, "Introduce Yourself Discussion Rubric", 10, [outcomes[0].id], outcomes, generatedAt, "Community"));
+  if (withRubrics) rubrics.push(makeRubric(introRubricId, "Introduce Yourself Discussion Rubric", 10, [outcomes[0].id], outcomes, generatedAt, "Community"));
   discussions.push({
     id: INTRO_DISCUSSION_ID,
     title: "Introduce Yourself",
@@ -1515,7 +1559,7 @@ ${section("Recommended Actions", checklistHtml(["Review module overview pages fi
     dueAt: introDiscussionDueAt,
     assignmentGroupId: "group_discussions",
     points: 10,
-    rubricId: introRubricId,
+    rubricId: withRubrics ? introRubricId : undefined,
     alignedOutcomeIds: [outcomes[0].id],
     publishState: "published",
     status: "generated",
@@ -1771,7 +1815,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
       const discussionId = id("discussion", moduleNumber);
       const rubricId = id("rubric-discussion", moduleNumber);
       const discussionFormat = discussionFormatFor(moduleNumber);
-      rubrics.push(makeRubric(rubricId, `${moduleLabel} Discussion Rubric`, 20, alignedOutcomeIds, outcomes, generatedAt, "Discussion"));
+      if (withRubrics) rubrics.push(makeRubric(rubricId, `${moduleLabel} Discussion Rubric`, 20, alignedOutcomeIds, outcomes, generatedAt, "Discussion"));
       discussions.push({
         id: discussionId,
         title: `${moduleLabel} ${discussionFormat}: ${moduleTopic}`,
@@ -1779,7 +1823,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
         dueAt: discussionDueAt,
         assignmentGroupId: "group_discussions",
         points: 20,
-        rubricId,
+        rubricId: withRubrics ? rubricId : undefined,
         alignedOutcomeIds,
         publishState: "published",
         status: "generated",
@@ -1832,7 +1876,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
     if (shouldIncludeAssignment(mergedSettings, moduleNumber)) {
       const assignmentId = id("assignment", moduleNumber);
       const rubricId = id("rubric-assignment", moduleNumber);
-      rubrics.push(makeRubric(rubricId, `${moduleLabel} Applied Assignment Rubric`, 60, alignedOutcomeIds, outcomes, generatedAt, "Applied assignment"));
+      if (withRubrics) rubrics.push(makeRubric(rubricId, `${moduleLabel} Applied Assignment Rubric`, 60, alignedOutcomeIds, outcomes, generatedAt, "Applied assignment"));
       assignments.push({
         id: assignmentId,
         title: `${moduleLabel} Applied Analysis: ${moduleTopic}`,
@@ -1842,7 +1886,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
         points: 60,
         estimatedHours: 5,
         submissionType: "Online upload or text entry",
-        rubricId,
+        rubricId: withRubrics ? rubricId : undefined,
         alignedOutcomeIds,
         publishState: "published",
         status: "generated",
@@ -2001,7 +2045,7 @@ ${section("Recommended Process", checklistHtml(["Review module recap pages.", "C
 
   const finalAssignmentId = "assignment_final_project";
   const finalRubricId = "rubric_final_project";
-  rubrics.push(makeRubric(finalRubricId, `${finalTitle} Rubric`, 120, finalOutcomeIds, outcomes, generatedAt, finalTitle));
+  if (withRubrics) rubrics.push(makeRubric(finalRubricId, `${finalTitle} Rubric`, 120, finalOutcomeIds, outcomes, generatedAt, finalTitle));
   assignments.push({
     id: finalAssignmentId,
     title: `Final ${readableFinalProjectType(mergedSettings)}: Course Synthesis`,
@@ -2011,7 +2055,7 @@ ${section("Recommended Process", checklistHtml(["Review module recap pages.", "C
     points: 120,
     estimatedHours: 12,
     submissionType: "Online upload or text entry",
-    rubricId: finalRubricId,
+    rubricId: withRubrics ? finalRubricId : undefined,
     alignedOutcomeIds: finalOutcomeIds,
     publishState: "published",
     status: "generated",
@@ -2356,16 +2400,24 @@ export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme
 export const applyVisualTemplate = (course: CourseProject, template: VisualTemplate): CourseProject => {
   const staged: CourseProject = {
     ...course,
-    theme: template.theme,
+    // Visual templates ship a discipline-flavored bannerLabel ("Kinesiology", "Ocean Field
+    // Station"). On banners/eyebrows inside someone else's course that reads as wrong-subject
+    // content — the label must be THIS course's title.
+    theme: { ...template.theme, bannerLabel: course.title || template.theme.bannerLabel },
     settings: { ...course.settings, themeId: template.theme.id, themeIntensity: template.theme.intensity ?? course.settings.themeIntensity, visualTemplateId: template.id },
     homepage: course.homepage ? { ...course.homepage, templateId: template.homepageTemplateId } : course.homepage,
     syllabus: course.syllabus ? { ...course.syllabus, templateId: template.syllabusTemplateId } : course.syllabus
   };
-  return applyThemeToGeneratedContent(staged, template.theme);
+  return applyThemeToGeneratedContent(staged, staged.theme);
 };
 
 export const sampleProject = generateCourseProject({
   prompt:
     "Build me a 12-week undergraduate course on AI and Modern Society. It is a three-credit course with weekly modules, discussions, short quizzes, a final project, and a clean modern theme.",
-  settings: defaultSettings
+  settings: {
+    ...defaultSettings,
+    title: "AI and Modern Society",
+    description:
+      "An undergraduate course exploring the social, ethical, technical, and civic dimensions of artificial intelligence."
+  }
 });

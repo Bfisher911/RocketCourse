@@ -77,7 +77,6 @@ export function ExportTab({
   onRunValidation,
   onDownload,
   onFillFullContent,
-  onDownloadFull,
   isFillingContent,
   fillProgress,
   fillSummary,
@@ -101,7 +100,6 @@ export function ExportTab({
   onRunValidation: () => void;
   onDownload: () => void;
   onFillFullContent: () => Promise<unknown>;
-  onDownloadFull: () => void;
   isFillingContent: boolean;
   fillProgress: FullFillProgress | null;
   fillSummary: string | null;
@@ -249,18 +247,18 @@ export function ExportTab({
         <div className="export-fullfill">
           <div className="export-fullfill-head">
             <span className="hp-eyebrow">
-              <Sparkles size={14} /> Full course content
+              <Sparkles size={14} /> Step 1 · Generate full content <em className="export-step-optional">recommended</em>
             </span>
             <span className="overview-pill muted">{fillPlan.total} object{fillPlan.total === 1 ? "" : "s"}</span>
           </div>
           <p className="export-fullfill-copy">
-            Generate real, subject-specific content across the whole course — homepage, every Canvas page, announcements,
+            Fill the whole course with real, subject-specific content — homepage, every Canvas page, announcements,
             discussions, assignments, and quizzes — so the package is a complete course instead of a structured template.
             This runs {fillPlan.total} AI request{fillPlan.total === 1 ? "" : "s"} ({fillPlan.pages} page
             {fillPlan.pages === 1 ? "" : "s"}, {fillPlan.assignments} assignment{fillPlan.assignments === 1 ? "" : "s"},{" "}
             {fillPlan.discussions} discussion{fillPlan.discussions === 1 ? "" : "s"}, {fillPlan.quizzes} quiz
             {fillPlan.quizzes === 1 ? "" : "zes"}, {fillPlan.announcements} announcement{fillPlan.announcements === 1 ? "" : "s"}).
-            Anything the AI can't reach keeps its template.
+            Anything the AI can't reach keeps its template. Skip this step to export the structured template as-is.
           </p>
           <p className="export-fullfill-copy export-fullfill-expectation">
             <Clock3 size={13} /> Typically takes a few minutes and uses AI credit for each empty item — you can keep
@@ -272,18 +270,9 @@ export function ExportTab({
               className="secondary"
               onClick={() => void onFillFullContent()}
               disabled={isExporting || isFillingContent || !subscriptionActive || fillPlan.total === 0}
-              title={fillPlan.total === 0 ? "Add modules, assignments, discussions, or quizzes first." : "Fill the whole course with AI content (does not download)"}
+              title={fillPlan.total === 0 ? "Add modules, assignments, discussions, or quizzes first." : "Fill the whole course with AI content (does not download anything)"}
             >
               {isFillingContent ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />} Generate full content
-            </button>
-            <button
-              type="button"
-              className="primary"
-              onClick={onDownloadFull}
-              disabled={isExporting || isFillingContent || !subscriptionActive || fillPlan.total === 0 || !confidence.downloadable}
-              title={!confidence.downloadable ? "Run validation and resolve blocking issues first." : "Generate full content, then download the .imscc"}
-            >
-              <Sparkles size={16} /> Generate &amp; download Canvas package
             </button>
           </div>
           {isFillingContent && fillProgress && (
@@ -298,18 +287,35 @@ export function ExportTab({
           )}
           {!isFillingContent && fillSummary && (
             <p className="export-status-line ok">
-              <CheckCircle2 size={15} /> {fillSummary}
+              <CheckCircle2 size={15} /> {fillSummary} Next: download the Canvas package below.
             </p>
           )}
         </div>
 
-        <div className="export-actions export-actions-primary">
-          <button type="button" className="secondary" onClick={onRunValidation} disabled={isExporting}>
-            {isExporting ? <Loader2 size={16} className="spin" /> : <Play size={16} />} Run local validation
-          </button>
-          <button type="button" className="primary" onClick={onDownload} disabled={isExporting || !subscriptionActive || !confidence.downloadable} title={!confidence.downloadable ? "Run validation and resolve blocking issues first." : "Download the .imscc package"}>
-            <Download size={16} /> Download Canvas package (.imscc)
-          </button>
+        <div className="export-fullfill">
+          <div className="export-fullfill-head">
+            <span className="hp-eyebrow">
+              <Download size={14} /> Step 2 · Download the Canvas package
+            </span>
+          </div>
+          <p className="export-fullfill-copy">
+            Downloading always validates the package first — if anything would break the Canvas import, the download stops
+            and each issue is listed below with a fix. You can also run the validation on its own without downloading.
+          </p>
+          <div className="export-actions export-actions-primary">
+            <button type="button" className="secondary" onClick={onRunValidation} disabled={isExporting || isFillingContent}>
+              {isExporting ? <Loader2 size={16} className="spin" /> : <Play size={16} />} Validate only
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={onDownload}
+              disabled={isExporting || isFillingContent || !subscriptionActive}
+              title={subscriptionActive ? "Validate and download the .imscc package" : "Activate a plan to export"}
+            >
+              <Download size={16} /> Download Canvas package (.imscc)
+            </button>
+          </div>
         </div>
 
         <div className="export-other">
@@ -379,7 +385,8 @@ export function ExportTab({
         )}
         {!isExporting && !exportError && !lastDownloadName && validationReport && !confidence.downloadable && (
           <p className="export-status-line danger">
-            <AlertTriangle size={15} /> Local validation found {confidence.blockers} blocking issue{confidence.blockers === 1 ? "" : "s"}. Resolve them to enable download.
+            <AlertTriangle size={15} /> Local validation found {confidence.blockers} blocking issue{confidence.blockers === 1 ? "" : "s"} — see the list below.
+            Fix them (or use Transform &rarr; Make export-ready), then download again.
           </p>
         )}
       </section>

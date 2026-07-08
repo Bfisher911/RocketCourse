@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultSettings } from "../data/defaultSettings";
 import type { CourseProject, CourseSettings } from "../types";
 import { generateCourseProject, sampleProject } from "./courseGenerator";
+import { exportIdPrefix } from "./exportIdentifiers";
 import { buildImsccZip, validateImsccZip } from "./imsccExport";
 
 // Settings matrix covering the export paths most likely to break Canvas import:
@@ -119,14 +120,18 @@ describe("RocketCourse package matrix", () => {
 
   it.each(courses)("emits answer-bearing QTI for every quiz in $name", async ({ name, course }) => {
     const zip = await buildImsccZip(course);
+    // Every migration id — quiz zip folders and question idents alike — carries the
+    // deterministic per-course export prefix.
+    const prefix = exportIdPrefix(course);
 
     for (const quiz of course.quizzes) {
-      const canvasQti = await zip.file(`non_cc_assessments/${quiz.id}.xml.qti`)?.async("text");
-      const ccQti = await zip.file(`${quiz.id}/assessment_qti.xml`)?.async("text");
+      const canvasQti = await zip.file(`non_cc_assessments/${prefix}${quiz.id}.xml.qti`)?.async("text");
+      const ccQti = await zip.file(`${prefix}${quiz.id}/assessment_qti.xml`)?.async("text");
       expect(canvasQti, `${name} ${quiz.id} canvas qti`).toBeTruthy();
       expect(ccQti, `${name} ${quiz.id} cc qti`).toBeTruthy();
 
       for (const question of quiz.questions) {
+        const exportedId = `${prefix}${question.id}`;
         const autoGraded =
           (question.type === "multiple_choice" || question.type === "true_false") &&
           Array.isArray(question.choices) &&
@@ -135,18 +140,18 @@ describe("RocketCourse package matrix", () => {
         if (autoGraded) {
           // Choices must be rendered and the answer key must point at the correct label.
           const correctIndex = (question.choices ?? []).findIndex((choice) => choice === question.correctAnswer);
-          const expectedLabel = `${question.id}_a${correctIndex + 1}`;
+          const expectedLabel = `${exportedId}_a${correctIndex + 1}`;
           for (const qti of [canvasQti, ccQti]) {
-            expect(qti).toContain(`response_${question.id}`);
+            expect(qti).toContain(`response_${exportedId}`);
             expect(qti).toContain("<render_choice>");
             (question.choices ?? []).forEach((choice) => expect(qti).toContain(choice));
-            expect(qti).toContain(`<varequal respident="response_${question.id}">${expectedLabel}</varequal>`);
+            expect(qti).toContain(`<varequal respident="response_${exportedId}">${expectedLabel}</varequal>`);
             expect(qti).toContain('<setvar action="Set" varname="SCORE">100</setvar>');
           }
         } else {
           // Open prompts become manually graded essay questions with a text response.
           for (const qti of [canvasQti, ccQti]) {
-            expect(qti).toContain(`response_${question.id}`);
+            expect(qti).toContain(`response_${exportedId}`);
             expect(qti).toContain("<render_fib>");
           }
           expect(canvasQti).toContain(

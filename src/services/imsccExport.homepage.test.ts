@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../data/themes";
 import { applyThemeToGeneratedContent, sampleProject } from "./courseGenerator";
+import { exportIdPrefix } from "./exportIdentifiers";
 import { BANNER_SRC, CALENDAR_HREF, SUCCESS_GUIDE_HREF, SYLLABUS_HREF } from "./homepageTemplates";
 import { buildImsccZip } from "./imsccExport";
 
@@ -23,9 +24,13 @@ describe("homepage export", () => {
 
   it("keeps the required internal links and the real banner asset path", async () => {
     const html = await readHomepage();
-    expect(html).toContain(SUCCESS_GUIDE_HREF);
-    expect(html).toContain(SYLLABUS_HREF);
-    expect(html).toContain(CALENDAR_HREF);
+    // Page ids inside wiki tokens are namespaced with the per-course export prefix on export;
+    // file paths (the banner) are not object ids and stay unprefixed.
+    const prefix = exportIdPrefix(sampleProject);
+    const exported = (href: string): string => href.replace("/pages/", `/pages/${prefix}`);
+    expect(html).toContain(exported(SUCCESS_GUIDE_HREF));
+    expect(html).toContain(exported(SYLLABUS_HREF));
+    expect(html).toContain(exported(CALENDAR_HREF));
     expect(html).toContain(BANNER_SRC);
     // These are Canvas substitution tokens, not relative ".html" paths — that is what makes
     // the links and banner resolve once the cartridge is imported into a live course.

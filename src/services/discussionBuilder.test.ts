@@ -13,6 +13,7 @@ import {
   validateDiscussionPlan
 } from "./discussionBuilder";
 import { sampleProject } from "./courseGenerator";
+import { exportIdPrefix } from "./exportIdentifiers";
 
 const clone = (course: CourseProject): CourseProject => structuredClone(course);
 
@@ -124,9 +125,11 @@ describe("discussion builder", () => {
       timestamp: "2026-01-01T00:00:00.000Z"
     });
 
+    // Zip paths carry the deterministic per-course export id prefix.
+    const prefix = exportIdPrefix(course);
     const zip = await buildImsccZip(course);
-    expect(zip.file("discussion_export_created.xml")).toBeTruthy();
-    expect(zip.file("discussion_export_created_meta.xml")).toBeTruthy();
+    expect(zip.file(`${prefix}discussion_export_created.xml`)).toBeTruthy();
+    expect(zip.file(`${prefix}discussion_export_created_meta.xml`)).toBeTruthy();
 
     const broken = clone(course);
     broken.discussions = broken.discussions.map((item) => (item.id === "discussion_export_created" ? { ...item, promptHtml: `${item.promptHtml}<script>alert(1)</script>` } : item));

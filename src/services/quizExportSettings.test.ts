@@ -3,11 +3,13 @@ import type { CourseProject } from "../types";
 import { buildImsccZip } from "./imsccExport";
 import { generateCourseProject } from "./courseGenerator";
 import { defaultSettings } from "../data/defaultSettings";
+import { exportIdPrefix } from "./exportIdentifiers";
 
 const courseWithQuiz = (): CourseProject => generateCourseProject({ prompt: "Intro to Marine Biology", settings: defaultSettings });
 const metaFor = async (course: CourseProject, quizId: string): Promise<string> => {
   const zip = await buildImsccZip(course);
-  return (await zip.file(`${quizId}/assessment_meta.xml`)?.async("text")) ?? "";
+  // Exported quiz zip folders carry the per-course export id prefix.
+  return (await zip.file(`${exportIdPrefix(course)}${quizId}/assessment_meta.xml`)?.async("text")) ?? "";
 };
 
 describe("quiz attempts + shuffle export", () => {

@@ -53,7 +53,10 @@ export const BLUEPRINT_JSON_SHAPE = `{
 export const parseBlueprint = (value: unknown): CourseBlueprint => {
   if (typeof value !== "object" || value === null) throw new Error("Blueprint is not an object.");
   const v = value as Record<string, unknown>;
-  const str = (x: unknown, fallback = ""): string => (typeof x === "string" ? x : fallback);
+  // Blueprint strings feed HTML-escaped template slots (titles, summaries, outcome text), so any
+  // markup the model returns would render literally in Canvas — strip tags, keep the words.
+  const str = (x: unknown, fallback = ""): string =>
+    typeof x === "string" ? x.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || fallback : fallback;
   const num = (x: unknown, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? x : fallback);
   const arr = <T>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
 

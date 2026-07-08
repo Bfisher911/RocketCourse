@@ -258,15 +258,23 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const humanReviewPage = course.pages.find((page) => page.slug === "before-publishing-human-review-checklist");
   const visibleNavigation = visibleNavigationLabels(course.navigation);
   const navigationMatches = navigationMatchesRequiredDefaults(course.navigation);
-  const allRubricsAligned = course.rubrics.length > 0 && course.rubrics.every((rubric) => rubric.alignedOutcomeIds.length > 0 && rubric.alignedOutcomeIds.every((outcomeId) => outcomeIds.has(outcomeId)));
+  // Vacuously true with zero rubrics: a rubric-free course (intake toggle off) has nothing to
+  // misalign, and the rubric-coverage check below decides whether rubrics were expected at all.
+  const allRubricsAligned = course.rubrics.every((rubric) => rubric.alignedOutcomeIds.length > 0 && rubric.alignedOutcomeIds.every((outcomeId) => outcomeIds.has(outcomeId)));
   const shallowRubrics = course.rubrics.filter(
     (rubric) => rubric.criteria.length < 3 || rubric.points <= 0 || rubric.criteria.some((criterion) => criterion.levels.length < 2)
   );
   const gradedItemsHaveOutcomes = gradedItems.every((item) => item.alignedOutcomeIds.length > 0 && item.alignedOutcomeIds.every((outcomeId) => outcomeIds.has(outcomeId)));
   const gradedItemsHaveGroups = gradedItems.every((item) => groupIds.has(item.groupId));
-  const assignmentAndDiscussionRubrics = gradedItems
-    .filter((item) => item.type === "assignment" || item.type === "discussion")
-    .every((item) => Boolean(item.rubricId && rubricIds.has(item.rubricId)));
+  // A course intentionally built without rubrics (intake toggle off, none created) is a valid
+  // design choice — Canvas imports it cleanly — so rubric coverage only gates readiness when the
+  // course opted into rubrics or has any.
+  const rubricsExpected = course.settings.includeRubrics !== false || course.rubrics.length > 0;
+  const assignmentAndDiscussionRubrics =
+    !rubricsExpected ||
+    gradedItems
+      .filter((item) => item.type === "assignment" || item.type === "discussion")
+      .every((item) => Boolean(item.rubricId && rubricIds.has(item.rubricId)));
   const orphanedOutcomes = course.outcomes.filter(
     (outcome) =>
       outcome.alignedModuleIds.length === 0 &&

@@ -63,12 +63,32 @@ export default async (request: Request): Promise<Response> => {
     : rawSources.length
       ? `Instructor attached files that could not be parsed: ${rawSources.map((f) => f.name).filter(Boolean).join(", ")}`
       : "None provided.";
+  // The selected course-structure framework changes the PLANNING PROCESS, not just labels:
+  // backward design plans assessments before content, spiral revisits ideas, etc. Spelling the
+  // workflow out here is what makes the intake's "Course structure" choice genuinely different.
+  const WORKFLOW_INSTRUCTIONS: Record<string, string> = {
+    backward:
+      "Use BACKWARD DESIGN (Understanding by Design): FIRST write the measurable course outcomes. SECOND decide the culminating assessment evidence for each outcome (final project, milestone assignments). THIRD plan each module so its title, summary, and objectives explicitly build toward that assessment evidence — name the evidence a module contributes to in its summary.",
+    spiral:
+      "Use a SPIRAL structure: choose 2-4 core ideas and deliberately revisit each of them in later modules at increasing depth. Module summaries must reference which core idea is being revisited and how it deepens prior work.",
+    thematic:
+      "Use a THEMATIC structure: organize modules around recurring themes and big questions rather than a linear topic sequence. Each module summary should tie back to at least one course-level theme.",
+    competency:
+      "Use a COMPETENCY-BASED structure: each module is built around one or two specific, assessable competencies. Write module objectives as demonstrable skills ('can do' statements) and note the demonstration evidence in the summary.",
+    linear:
+      "Use a LINEAR, cumulative structure: sequence modules so each builds directly on the previous one; make prerequisites explicit in module summaries."
+  };
+  const structureKey = String((settings as Record<string, unknown>).structureFramework ?? "linear");
+  const workflowNote = WORKFLOW_INSTRUCTIONS[structureKey] ?? WORKFLOW_INSTRUCTIONS.linear;
+
   const userPrompt =
     fill(template.userPromptTemplate, {
       courseBriefJson: JSON.stringify({ prompt }, null, 2),
       courseSettingsJson: JSON.stringify(settingsForPrompt, null, 2),
       sourceNotes
-    }) + `\n\nReturn ONLY a JSON object with exactly this shape (no prose, no markdown):\n${BLUEPRINT_JSON_SHAPE}`;
+    }) +
+    `\n\nDesign workflow requirement: ${workflowNote}` +
+    `\n\nReturn ONLY a JSON object with exactly this shape (no prose, no markdown):\n${BLUEPRINT_JSON_SHAPE}`;
 
   const messages = [
     { role: "system", content: template.systemInstructions },

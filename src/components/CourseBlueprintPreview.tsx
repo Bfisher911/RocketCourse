@@ -33,12 +33,13 @@ export function CourseBlueprintPreview({ settings }: { settings: CourseSettings 
   const moduleCount = Math.max(1, settings.moduleCount);
   const shown = Math.min(moduleCount, 8);
 
+  // Only badges backed by a real generation branch belong here — a chip that never
+  // changes the course is decoration, not information.
   const includes = [
     { on: settings.includeRubrics, label: "Rubrics", icon: ClipboardCheck },
-    { on: settings.includeObjectives, label: "Objectives", icon: Target },
     { on: settings.finalProject, label: "Final project", icon: Rocket },
     { on: settings.includeContactHours, label: "Contact hours", icon: Clock },
-    { on: settings.accessibilityFocus, label: "Accessibility", icon: CheckCircle2 }
+    { on: settings.accessibilityTier === "AAA", label: "AAA contrast", icon: CheckCircle2 }
   ];
 
   const cadence = [

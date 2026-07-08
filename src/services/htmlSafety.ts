@@ -121,11 +121,51 @@ export const sanitizeHtmlForPreview = (html: string): string =>
     .replace(/<(iframe|frame|frameset|object|embed|applet|form|input|button|textarea|select|marquee)\b[\s\S]*?<\/\1>/gi, "")
     .replace(/<(iframe|frame|frameset|object|embed|applet|form|input|button|textarea|select|marquee|link|meta|base)\b[^>]*\/?>/gi, "");
 
+// A page may carry at most one <h1> (the page-quality validator treats a second h1 as a
+// blocking export error). Model-authored bodies routinely open with an h1 AND add another,
+// so demote every h1 after the first to an h2 instead of blocking the download.
+export const demoteExtraH1s = (html: string): string => {
+  let seen = 0;
+  return html.replace(/<(\/?)h1(\b[^>]*)>/gi, (match, slash: string, attrs: string) => {
+    if (!slash) {
+      seen += 1;
+      return seen > 1 ? `<h2${attrs}>` : match;
+    }
+    // Close tag: pair it with the demotion decision of its opener.
+    return seen > 1 ? "</h2>" : match;
+  });
+};
+
+// For builders whose contract is plain prose (<p> only): headings the model sneaks in are
+// flattened to bold paragraphs so appended fragments never introduce heading-order or
+// duplicate-h1 export errors on the page they land in.
+export const flattenHeadingsToParagraphs = (html: string): string =>
+  html
+    .replace(/<h[1-6]\b[^>]*>/gi, "<p><strong>")
+    .replace(/<\/h[1-6]>/gi, "</strong></p>");
+
+// An href a Canvas import can actually resolve: absolute web/mail/tel links, in-page anchors,
+// Canvas substitution tokens ($CANVAS_OBJECT_REFERENCE$/…, $IMS-CC-FILEBASE$/…, plus their
+// URL-encoded forms), and package-relative web_resources/wiki_content paths the exporter emits.
+// Everything else — model-hallucinated relative paths ("modules/module_start", "syllabus",
+// "calendar") and template moustaches ("{{link_to_start_here}}") — 404s after import.
+const RESOLVABLE_HREF =
+  /^(?:https?:\/\/|mailto:|tel:|#|\$[A-Z][A-Z0-9_.-]*\$|%24[A-Z][A-Z0-9_.-]*%24|(?:\.\.\/)?web_resources\/|wiki_content\/)/i;
+
+// Drop href attributes Canvas cannot resolve; the anchor text is kept so no words are lost.
+export const stripUnresolvableHrefs = (html: string): string =>
+  html.replace(/\shref\s*=\s*(["'])([^"']*)\1/gi, (match, _quote: string, href: string) =>
+    RESOLVABLE_HREF.test(href.trim()) && !href.includes("{{") ? match : ""
+  );
+
 // Make model-authored HTML safe to STORE and EXPORT (not just preview). On top of the Canvas
 // sanitizer it drops placeholder/empty/"#" hrefs, which the .imscc export validator treats as
-// blocking "placeholder or unsafe link" errors. The anchor text stays; only the dead href attribute
-// is removed. Apply to every AI builder that returns HTML so generated content never blocks export.
+// blocking "placeholder or unsafe link" errors, and any href a Canvas import can't resolve
+// (hallucinated relative paths, moustache tokens). The anchor text stays; only the dead href
+// attribute is removed. Apply to every AI builder that returns HTML.
 export const sanitizeAiHtml = (html: string): string =>
-  sanitizeHtmlForPreview(html)
-    .replace(/\shref\s*=\s*(["'])\s*(?:#[^"']*)?\1/gi, "")
-    .replace(/\shref\s*=\s*(["'])\s*(?:javascript:|vbscript:)[^"']*\1/gi, "");
+  demoteExtraH1s(
+    stripUnresolvableHrefs(
+      sanitizeHtmlForPreview(html).replace(/\shref\s*=\s*(["'])\s*(?:#[^"']*)?\1/gi, "")
+    )
+  );
