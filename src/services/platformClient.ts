@@ -131,9 +131,50 @@ export interface SuperOverview {
   pastDueSubscriptions: number;
   exportsThisMonth: number;
   aiThisMonth: number;
+  imageGenerationsThisMonth: number;
+  imageCreditsUsedThisMonth: number;
+  imageCostCents: number;
   estCostCents: number;
   estRevenueCents: number;
 }
+
+export interface ImageEconomicsConfig {
+  premiumMonthlyCents: number;
+  premiumIncrementCents: number;
+  includedCredits: number;
+  mediumCredits: number;
+  highCredits: number;
+  creditPackCredits: number;
+  creditPackCents: number;
+  targetGrossMarginPercent: number;
+  provider: string;
+  model: string;
+  mediumLandscapeCostUsd: number;
+  highLandscapeCostUsd: number;
+}
+
+export const DEFAULT_IMAGE_ECONOMICS: ImageEconomicsConfig = {
+  premiumMonthlyCents: 2500,
+  premiumIncrementCents: 1000,
+  includedCredits: 50,
+  mediumCredits: 1,
+  highCredits: 4,
+  creditPackCredits: 25,
+  creditPackCents: 500,
+  targetGrossMarginPercent: 70,
+  provider: "openai",
+  model: "gpt-image-2",
+  mediumLandscapeCostUsd: 0.041,
+  highLandscapeCostUsd: 0.165
+};
+
+export const loadImageEconomics = async (): Promise<ImageEconomicsConfig> => {
+  if (isLocal()) return DEFAULT_IMAGE_ECONOMICS;
+  const client = await getSupabaseClient();
+  if (!client) return DEFAULT_IMAGE_ECONOMICS;
+  const { data } = await client.from("image_economics_config").select("config").eq("key", "default").maybeSingle();
+  return { ...DEFAULT_IMAGE_ECONOMICS, ...((data?.config as Partial<ImageEconomicsConfig> | null) ?? {}) };
+};
 
 export const loadSuperOverview = async (): Promise<SuperOverview> => {
   const empty: SuperOverview = {
@@ -143,6 +184,9 @@ export const loadSuperOverview = async (): Promise<SuperOverview> => {
     pastDueSubscriptions: 0,
     exportsThisMonth: 0,
     aiThisMonth: 0,
+    imageGenerationsThisMonth: 0,
+    imageCreditsUsedThisMonth: 0,
+    imageCostCents: 0,
     estCostCents: 0,
     estRevenueCents: 0
   };
@@ -155,13 +199,14 @@ export const loadSuperOverview = async (): Promise<SuperOverview> => {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const c = client as any;
   const num = (r: any): number => r?.count ?? 0;
-  const [wsC, usrC, actC, pastC, expC, aiC] = await Promise.all([
+  const [wsC, usrC, actC, pastC, expC, aiC, imageResult] = await Promise.all([
     c.from("workspaces").select("id", { count: "exact", head: true }),
     c.from("profiles").select("id", { count: "exact", head: true }),
     c.from("subscriptions").select("id", { count: "exact", head: true }).in("status", ["active", "trialing"]),
     c.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "past_due"),
     c.from("usage_events").select("id", { count: "exact", head: true }).eq("event_type", "export").gte("created_at", since),
-    c.from("usage_events").select("id", { count: "exact", head: true }).eq("event_type", "ai_generation").gte("created_at", since)
+    c.from("usage_events").select("id", { count: "exact", head: true }).eq("event_type", "ai_generation").gte("created_at", since),
+    c.from("image_generation_requests").select("credits,estimated_cost_usd").eq("status", "completed").gte("created_at", since)
   ]);
   /* eslint-enable @typescript-eslint/no-explicit-any */
   const totalWorkspaces = num(wsC);
@@ -170,6 +215,10 @@ export const loadSuperOverview = async (): Promise<SuperOverview> => {
   const pastDueSubscriptions = num(pastC);
   const exportsThisMonth = num(expC);
   const aiThisMonth = num(aiC);
+  const imageRows = imageResult?.data ?? [];
+  const imageGenerationsThisMonth = imageRows.length;
+  const imageCreditsUsedThisMonth = imageRows.reduce((sum: number, row: { credits?: number }) => sum + Number(row.credits ?? 0), 0);
+  const imageCostCents = Math.round(imageRows.reduce((sum: number, row: { estimated_cost_usd?: number }) => sum + Number(row.estimated_cost_usd ?? 0), 0) * 100);
 
   // Estimated LLM cost this month from logged jobs.
   const { data: jobs } = await client
@@ -177,7 +226,7 @@ export const loadSuperOverview = async (): Promise<SuperOverview> => {
     .select("estimated_cost_cents,created_at")
     .gte("created_at", since)
     .limit(2000);
-  const estCostCents = (jobs ?? []).reduce((s, j) => s + ((j.estimated_cost_cents as number) ?? 0), 0);
+  const estCostCents = (jobs ?? []).reduce((s, j) => s + ((j.estimated_cost_cents as number) ?? 0), 0) + imageCostCents;
 
   // Estimated annualized revenue from active subscriptions (catalog prices).
   const { data: subs } = await client.from("subscriptions").select("plan_key,status").in("status", ["active", "trialing"]);
@@ -193,6 +242,9 @@ export const loadSuperOverview = async (): Promise<SuperOverview> => {
     pastDueSubscriptions,
     exportsThisMonth,
     aiThisMonth,
+    imageGenerationsThisMonth,
+    imageCreditsUsedThisMonth,
+    imageCostCents,
     estCostCents,
     estRevenueCents
   };

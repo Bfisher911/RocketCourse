@@ -34,15 +34,18 @@ export interface EntitlementSubscription {
   cancelAtPeriodEnd?: boolean;
   exportsUsed?: number;
   aiGenerationsUsed?: number;
+  imageCreditsUsed?: number;
   /** Optional overrides of the plan's catalog limits (e.g. negotiated department caps). */
   exportsLimitOverride?: number | null;
   aiGenerationsLimitOverride?: number | null;
+  imageCreditsLimitOverride?: number | null;
   /**
    * Additive credits from the usage_adjustments ledger (granted by a Super Admin). Added ON TOP of
    * the (possibly overridden) plan limit — never rewrites usage history. Ignored for unlimited plans.
    */
   exportCredits?: number;
   aiCredits?: number;
+  imageCredits?: number;
 }
 
 export type EntitlementAction =
@@ -51,6 +54,7 @@ export type EntitlementAction =
   | "generate_blueprint"
   | "generate_full_course"
   | "revise_ai"
+  | "generate_image"
   | "export"
   | "create_custom_theme"
   | "create_team_workspace";
@@ -59,6 +63,7 @@ export type EntitlementDenyCode =
   | "no_active_subscription"
   | "plan_lacks_capability"
   | "ai_limit_reached"
+  | "image_credit_limit_reached"
   | "export_limit_reached";
 
 export interface EntitlementDecision {
@@ -82,7 +87,8 @@ export const freeSubscription = (): EntitlementSubscription => ({
   planKey: "free_preview",
   status: "none",
   exportsUsed: 0,
-  aiGenerationsUsed: 0
+  aiGenerationsUsed: 0,
+  imageCreditsUsed: 0
 });
 
 /**
@@ -104,6 +110,14 @@ const aiBaseLimit = (plan: Plan, sub: EntitlementSubscription): number | null =>
 
 const exportBaseLimit = (plan: Plan, sub: EntitlementSubscription): number | null =>
   sub.exportsLimitOverride !== undefined ? sub.exportsLimitOverride : plan.exportsLimit;
+
+const imageBaseLimit = (plan: Plan, sub: EntitlementSubscription): number =>
+  sub.imageCreditsLimitOverride !== undefined && sub.imageCreditsLimitOverride !== null
+    ? sub.imageCreditsLimitOverride
+    : (plan.imageCreditsLimit ?? 0);
+
+const imageLimit = (plan: Plan, sub: EntitlementSubscription): number =>
+  imageBaseLimit(plan, sub) + Math.max(0, sub.imageCredits ?? 0);
 
 /** Effective AI limit = base (plan or override) + granted credits. `null` stays unlimited. */
 const aiLimit = (plan: Plan, sub: EntitlementSubscription): number | null => {
@@ -131,6 +145,12 @@ export const exportsRemaining = (sub: EntitlementSubscription): number | null =>
   const limit = exportLimit(plan, sub);
   if (limit === null) return null;
   return Math.max(0, limit - (sub.exportsUsed ?? 0));
+};
+
+/** Remaining image credits. Unlike course-generation quotas, image cost is variable by quality. */
+export const imageCreditsRemaining = (sub: EntitlementSubscription): number => {
+  const plan = getPlan(sub.planKey);
+  return Math.max(0, imageLimit(plan, sub) - (sub.imageCreditsUsed ?? 0));
 };
 
 const requiresCapability = (
@@ -182,6 +202,15 @@ export const can = (
           "ai_limit_reached",
           `You've used all ${aiLimit(plan, sub)} AI generations on your ${plan.name} plan.`
         );
+      }
+      return ALLOWED;
+    }
+
+    case "generate_image": {
+      const blocked = requiresCapability("imageGeneration", sub, now);
+      if (blocked) return blocked;
+      if (imageCreditsRemaining(sub) <= 0) {
+        return deny("image_credit_limit_reached", `You've used all ${imageLimit(plan, sub)} image credits on your ${plan.name} plan.`);
       }
       return ALLOWED;
     }
@@ -238,13 +267,18 @@ export interface EntitlementSummary {
   exportsUsed: number;
   exportsLimit: number | null;
   exportsRemaining: number | null;
+  imageCreditsUsed: number;
+  imageCreditsLimit: number;
+  imageCreditsRemaining: number;
   /** Granted credits folded into the limits above (for honest "+N from credits" UI). */
   exportCredits: number;
   aiCredits: number;
+  imageCredits: number;
   canCreateProject: boolean;
   canGenerate: boolean;
   canExport: boolean;
   canCreateCustomTheme: boolean;
+  canGenerateImages: boolean;
 }
 
 export const summarizeEntitlement = (
@@ -265,11 +299,16 @@ export const summarizeEntitlement = (
     exportsUsed: sub.exportsUsed ?? 0,
     exportsLimit: exportLimit(plan, sub),
     exportsRemaining: exportsRemaining(sub),
+    imageCreditsUsed: sub.imageCreditsUsed ?? 0,
+    imageCreditsLimit: imageLimit(plan, sub),
+    imageCreditsRemaining: imageCreditsRemaining(sub),
     exportCredits: Math.max(0, sub.exportCredits ?? 0),
     aiCredits: Math.max(0, sub.aiCredits ?? 0),
+    imageCredits: Math.max(0, sub.imageCredits ?? 0),
     canCreateProject: allows("create_project", sub, now),
     canGenerate: allows("generate_full_course", sub, now),
     canExport: allows("export", sub, now),
-    canCreateCustomTheme: allows("create_custom_theme", sub, now)
+    canCreateCustomTheme: allows("create_custom_theme", sub, now),
+    canGenerateImages: allows("generate_image", sub, now)
   };
 };

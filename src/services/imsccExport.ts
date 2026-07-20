@@ -33,6 +33,11 @@ import { collectXmlParseErrors, formatXmlParseError } from "./xmlWellFormed";
 import { REQUIRED_VISIBLE_NAVIGATION_IDS } from "./navigationDefaults";
 import { PdfDoc } from "./pdfDoc";
 import { buildSyllabusPdf } from "./syllabusPdf";
+import {
+  activeImageForPlacement,
+  decodeImageDataUrl,
+  packagePathForImage
+} from "./courseImagery";
 
 const CANVAS_NAMESPACE = "http://canvas.instructure.com/xsd/cccv1p0";
 const CANVAS_XSD_URI = "https://canvas.instructure.com/xsd/cccv1p0.xsd";
@@ -690,6 +695,16 @@ const createManifest = (course: CourseProject): string => {
     </resource>`
     )
     .join("\n");
+  const imageResources = (["course-card", "homepage-banner", "supporting"] as const)
+    .map((placement) => activeImageForPlacement(course, placement))
+    .filter((asset): asset is NonNullable<typeof asset> => Boolean(asset))
+    .map((asset) => {
+      const path = packagePathForImage(asset);
+      return `    <resource identifier="${xml(`course_image_${asset.id}`)}" type="${resourceType.webcontent}" href="${xml(path)}">
+      <file href="${xml(path)}" />
+    </resource>`;
+    })
+    .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="${xml(`common_cartridge_${course.id}`)}"
@@ -735,6 +750,7 @@ ${discussionResources}
 ${announcementResources}
 ${quizResources}
 ${assetResources}
+${imageResources}
   </resources>
 </manifest>`;
 };
@@ -768,6 +784,24 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   zip.file("course_settings/syllabus.html", wrappedHtmlDocument("Syllabus", syllabusPage?.bodyHtml ?? ""));
   zip.file("web_resources/course-banner.svg", createBannerSvg(course));
   zip.file("web_resources/course-tile.svg", createCourseTileSvg(course));
+  const activeHomepageBanner = activeImageForPlacement(course, "homepage-banner");
+  const activeCourseCard = activeImageForPlacement(course, "course-card");
+  const selectedImages = (["course-card", "homepage-banner", "supporting"] as const)
+    .map((placement) => activeImageForPlacement(course, placement))
+    .filter((asset): asset is NonNullable<typeof asset> => Boolean(asset));
+  for (const asset of selectedImages) {
+    const decoded = decodeImageDataUrl(asset.dataUrl);
+    if (decoded) {
+      zip.file(packagePathForImage(asset), decoded.base64, { base64: true });
+      continue;
+    }
+    const sourceUrl = asset.signedPreviewUrl;
+    if (sourceUrl) {
+      const response = await fetch(sourceUrl);
+      if (!response.ok) throw new Error(`Could not retrieve ${asset.fileName} for the Canvas package.`);
+      zip.file(packagePathForImage(asset), await response.arrayBuffer());
+    }
+  }
   // Per-module header banners (opt-in). The generator references web_resources/module-<N>-header.svg
   // on each CONTENT module's overview page, where <N> is the module number embedded in its id
   // ("module_3"). Key off that id — not the array index — so Start Here / Final / Instructor modules
@@ -793,7 +827,16 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   zip.file("web_resources/instructor-guide.pdf", buildPagePdf(course, "Instructor Guide", instructorGuidePage?.bodyHtml ?? ""));
 
   course.pages.forEach((page) => {
-    zip.file(pagePath(page), wrappedWikiPage(page));
+    const exportedPage = page.frontPage && activeHomepageBanner
+      ? {
+          ...page,
+          bodyHtml: page.bodyHtml.replace(
+            /\$IMS-CC-FILEBASE\$\/course-banner\.svg/g,
+            `$IMS-CC-FILEBASE$/${packagePathForImage(activeHomepageBanner).replace(/^web_resources\//, "")}`
+          )
+        }
+      : page;
+    zip.file(pagePath(page), wrappedWikiPage(exportedPage));
   });
 
   course.assignments.forEach((assignment) => {
@@ -825,6 +868,9 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
       "This package is generated from structured course data.",
       "The package includes Canvas-flavored course metadata, navigation defaults, assignment groups, rubrics, outcomes, guide assets, and Common Cartridge resources.",
       "Canvas may duplicate edited objects when reimporting into an existing course.",
+      activeCourseCard
+        ? `Canvas course card: upload ${packagePathForImage(activeCourseCard)} after import in Course Settings > Course Details, or use the Canvas Courses API image_id/image_url field.`
+        : "Canvas course card: the generated course-tile.svg is included as a handoff asset; IMSCC does not reliably assign dashboard card imagery.",
       "Canvas sandbox import verification is still required before production compatibility claims."
     ].join("\n")
   );
@@ -869,6 +915,14 @@ export const validateImsccZip = async (input: CourseProject, zip: JSZip): Promis
   const fail = (id: string, message: string): void => {
     issues.push({ id, message, severity: "error" });
   };
+  (["course-card", "homepage-banner", "supporting"] as const)
+    .map((placement) => activeImageForPlacement(course, placement))
+    .filter((asset): asset is NonNullable<typeof asset> => Boolean(asset))
+    .forEach((asset) => {
+      const path = packagePathForImage(asset);
+      if (!zip.file(path)) fail(`missing-course-image-${asset.id}`, `Selected course image ${asset.fileName} is missing from the package.`);
+      if (!asset.decorative && !asset.altText.trim()) fail(`missing-course-image-alt-${asset.id}`, `${asset.fileName} needs alternative text or must be marked decorative.`);
+    });
   const warn = (id: string, message: string): void => {
     issues.push({ id, message, severity: "warning" });
   };

@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { stripHtml } from "../utils/text";
 import type { CourseProject, EditorTab } from "../types";
+import { useModalFocus } from "../hooks/useModalFocus";
 
 // Review mode flips the editing mental model: instead of "edit 14 sections", walk
 // through every generated item once and approve it or flag it. Approving is the
@@ -140,13 +141,7 @@ export function ReviewMode({
     return firstUnreviewed === -1 ? 0 : firstUnreviewed;
   });
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const dialogRef = useModalFocus<HTMLDivElement>(true, onClose);
 
   const reviewedCount = items.filter((item) => state[item.key]).length;
   const flagged = items.filter((item) => state[item.key] === "flagged");
@@ -184,7 +179,7 @@ export function ReviewMode({
   const showSummary = allReviewed || !current;
 
   return (
-    <div className="review-overlay" role="dialog" aria-modal="true" aria-label="Review your course">
+    <div ref={dialogRef} tabIndex={-1} className="review-overlay" role="dialog" aria-modal="true" aria-label="Review your course">
       <div className="review-card">
         <header className="review-head">
           <span className="hp-eyebrow">

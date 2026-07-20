@@ -13,7 +13,7 @@
 //   - assignment or discussion rubricId points to nothing→ clear the dangling rubric link
 //   - page missing slug                                  → derive a slug from the title
 //   - quiz question missing points / multiple-choice with no choices → default points / downgrade
-//   - assignment with an empty description               → insert a minimal placeholder body
+//   - assignment with an empty description               → insert a usable review scaffold
 //   - alignedOutcomeIds referencing deleted outcomes     → strip them
 //   - assignment-group weights not totaling 100          → rebalance
 // It does NOT fabricate content it cannot know (a quiz with zero questions is reported, not invented).
@@ -30,6 +30,9 @@ export interface RepairResult {
 }
 
 const REF_ITEM_TYPES = new Set(["page", "assignment", "discussion", "quiz"]);
+
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 /** Repair a course in-place-immutably. Safe to call before every readiness score and export. */
 export const repairCourse = (input: CourseProject): RepairResult => {
@@ -325,17 +328,38 @@ export const repairCourse = (input: CourseProject): RepairResult => {
   };
   if (linkScrubs) repairs.push(`Removed unresolvable links (kept their text) in ${linkScrubs} content block(s).`);
 
-  // 8. Assignments with an empty description → minimal placeholder so export emits a real body.
+  // 8. Assignments with an empty description → a subject-specific, immediately usable scaffold.
+  // Avoid “coming soon” or fake-complete copy leaking into the student package. The scaffold is
+  // intentionally modest: it restores a safe task/submission/success structure without inventing
+  // institution policy, due dates, sources, or grading claims.
   let descFixes = 0;
+  const courseTitle = escapeHtml(course.title || "this course");
   course = {
     ...course,
     assignments: course.assignments.map((a) => {
       if (a.descriptionHtml && a.descriptionHtml.replace(/<[^>]*>/g, "").trim()) return a;
       descFixes += 1;
-      return { ...a, descriptionHtml: `<p>Assignment details for "${a.title}" are coming soon.</p>` };
+      const assignmentTitle = escapeHtml(a.title || "this assignment");
+      return {
+        ...a,
+        descriptionHtml: `<h2>Assignment overview</h2>
+<p>Complete <strong>${assignmentTitle}</strong> to demonstrate your developing understanding of ${courseTitle}.</p>
+<h2>Your task</h2>
+<ol>
+  <li>Review the related module materials and learning objectives.</li>
+  <li>Create a clear response that uses relevant course concepts and evidence.</li>
+  <li>Check your work against the attached rubric or grading criteria, then submit it in the requested format.</li>
+</ol>
+<h2>Before you submit</h2>
+<ul>
+  <li>Confirm that you addressed every part of the task.</li>
+  <li>Explain how your evidence supports your decisions or conclusions.</li>
+  <li>Use an accessible file format and descriptive link text when links are included.</li>
+</ul>`
+      };
     })
   };
-  if (descFixes) repairs.push(`Added a placeholder description to ${descFixes} empty assignment(s).`);
+  if (descFixes) repairs.push(`Restored a review-ready description scaffold for ${descFixes} empty assignment(s).`);
 
   // 9. Rebalance assignment-group weights to total 100 when they drift.
   if (course.assignmentGroups.length) {

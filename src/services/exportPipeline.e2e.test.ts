@@ -135,3 +135,69 @@ describe("cross-discipline course regression matrix", () => {
     }, 120000);
   }
 });
+
+describe("super-loop edge-case matrix", () => {
+  it("keeps a one-module, assessment-light course editable and exportable", async () => {
+    const course = generateCourseProject({
+      prompt: "A concise orientation to lab notebook practices.",
+      settings: {
+        ...defaultSettings,
+        title: "Lab Notes",
+        description: "A short orientation to clear, reproducible lab documentation.",
+        lengthWeeks: 1,
+        moduleCount: 1,
+        quizFrequency: "none",
+        discussionFrequency: "none",
+        assignmentCadence: "major-milestones",
+        finalProject: false,
+        scaffoldFinalProject: false,
+        includeRubrics: false,
+        includeContactHours: false
+      }
+    });
+
+    expect(course.title).toBe("Lab Notes");
+    expect(course.modules.filter((module) => module.kind === "content")).toHaveLength(1);
+    expect(course.quizzes).toHaveLength(0);
+    expect(course.discussions).toHaveLength(0);
+    expect(course.rubrics).toHaveLength(0);
+    expect(JSON.stringify(course)).not.toMatch(/AI and Modern Society|civic dimensions of artificial intelligence/i);
+
+    const { report } = await generateImsccBlob(course, course.exportMode);
+    expect(report.issues.filter((issue) => issue.severity === "error"), JSON.stringify(report.issues, null, 2)).toEqual([]);
+  }, 120000);
+
+  it("preserves a long title, detailed description, advanced structure choices, and maximum module count", async () => {
+    const title = "Evidence-Based Community Climate Resilience Planning for Rural Municipal Leaders and Regional Partners";
+    const description = "An advanced professional course on risk communication, infrastructure interdependencies, public participation, adaptation finance, and equitable implementation across rural communities.";
+    const course = generateCourseProject({
+      prompt: `${title}. ${description}`,
+      settings: {
+        ...defaultSettings,
+        title,
+        description,
+        level: "Professional",
+        modality: "Hybrid",
+        lengthWeeks: 18,
+        moduleCount: 18,
+        organizationPattern: "units",
+        structureFramework: "backward",
+        modulePattern: "inquiry",
+        tone: "Practical",
+        quizFrequency: "biweekly",
+        discussionFrequency: "biweekly"
+      }
+    });
+
+    expect(course.title).toBe(title);
+    expect(course.description).toBe(description);
+    expect(course.settings.modality).toBe("Hybrid");
+    expect(course.settings.structureFramework).toBe("backward");
+    expect(course.settings.modulePattern).toBe("inquiry");
+    expect(course.modules.filter((module) => module.kind === "content")).toHaveLength(18);
+    expect(course.modules.some((module) => /^Unit 1:/i.test(module.title))).toBe(true);
+
+    const { report } = await generateImsccBlob(course, course.exportMode);
+    expect(report.issues.filter((issue) => issue.severity === "error"), JSON.stringify(report.issues, null, 2)).toEqual([]);
+  }, 120000);
+});

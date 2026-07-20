@@ -53,7 +53,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Export the Canvas package",
-    blurb: "Download a validated Canvas course file (.imscc) with quiz files included — checked before it ever leaves the browser.",
+    blurb: "Download a locally validated, Canvas-oriented course file (.imscc) with quiz files included — checked before it ever leaves the browser.",
     points: ["Manifest & references validated", "QTI quiz package", "Printable PDFs & syllabus"],
     icon: FileDown
   },

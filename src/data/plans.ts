@@ -14,6 +14,7 @@ export type PlanKey =
   | "individual_semester"
   | "individual_annual"
   | "monthly_instructor"
+  | "rocketcourse_premium"
   | "designer_pro"
   | "team"
   | "department_pilot"
@@ -40,6 +41,8 @@ export interface PlanCapabilities {
   advancedRevise: boolean;
   /** Can create a shared team workspace with multiple seats. */
   teamWorkspace: boolean;
+  /** Can generate course imagery through the server-side image provider. */
+  imageGeneration: boolean;
 }
 
 export interface Plan {
@@ -61,6 +64,8 @@ export interface Plan {
   seatsLimit: number | null;
   /** Max private course projects retained. `null` = unlimited. */
   projectsLimit: number | null;
+  /** Monthly image-credit allowance. Omitted/zero means uploads only. */
+  imageCreditsLimit?: number;
   capabilities: PlanCapabilities;
   /** Bullet points shown on the pricing card. */
   features: string[];
@@ -85,7 +90,8 @@ const noCapabilities: PlanCapabilities = {
   customThemes: false,
   sourceParsing: false,
   advancedRevise: false,
-  teamWorkspace: false
+  teamWorkspace: false,
+  imageGeneration: false
 };
 
 export const plans: Plan[] = [
@@ -208,6 +214,40 @@ export const plans: Plan[] = [
     stripePriceEnvVar: "STRIPE_PRICE_MONTHLY_INSTRUCTOR"
   },
   {
+    key: "rocketcourse_premium",
+    name: "RocketCourse Premium",
+    tagline: "Monthly course building with coordinated AI imagery.",
+    priceCents: 2500,
+    billingInterval: "month",
+    checkoutMode: "subscription",
+    entitlementMonths: 1,
+    aiGenerationsLimit: 8,
+    exportsLimit: 12,
+    seatsLimit: 1,
+    projectsLimit: 5,
+    imageCreditsLimit: 50,
+    capabilities: {
+      ...noCapabilities,
+      privateProjects: true,
+      aiGeneration: true,
+      privateExport: true,
+      customThemes: true,
+      imageGeneration: true
+    },
+    audience: "Instructors who want a cohesive, Canvas-oriented visual system",
+    features: [
+      "Everything in Monthly Instructor",
+      "50 AI image credits / month",
+      "Coordinated course-card, banner, and supporting image sets",
+      "Private image library, versions, crop, focal point, and downloads",
+      "Upload your own images without using AI credits"
+    ],
+    highlighted: true,
+    order: 4,
+    active: true,
+    stripePriceEnvVar: "STRIPE_PRICE_ROCKETCOURSE_PREMIUM"
+  },
+  {
     key: "designer_pro",
     name: "Designer Pro",
     tagline: "For instructional designers building many courses.",
@@ -236,7 +276,7 @@ export const plans: Plan[] = [
       "Source upload + parsing",
       "Advanced AI revise tools"
     ],
-    order: 4,
+    order: 5,
     active: true,
     stripePriceEnvVar: "STRIPE_PRICE_DESIGNER_PRO"
   },
@@ -270,7 +310,7 @@ export const plans: Plan[] = [
       "Shared templates & themes",
       "Billing portal & invoices"
     ],
-    order: 5,
+    order: 6,
     active: true,
     stripePriceEnvVar: "STRIPE_PRICE_TEAM"
   },
@@ -304,7 +344,7 @@ export const plans: Plan[] = [
       "Admin controls",
       "Security & data review path"
     ],
-    order: 6,
+    order: 7,
     active: true
   },
   {
@@ -337,7 +377,7 @@ export const plans: Plan[] = [
       "Admin controls & audit",
       "SSO roadmap & DPA"
     ],
-    order: 7,
+    order: 8,
     active: true
   }
 ];

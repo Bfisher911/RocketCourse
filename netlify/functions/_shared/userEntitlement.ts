@@ -22,7 +22,7 @@ export const loadUserSubscription = async (token: string, userId?: string): Prom
     const { data, error } = await supabase
       .from("subscriptions")
       .select(
-        "plan_key,status,current_period_end,cancel_at_period_end,exports_limit,exports_used,ai_generations_limit,ai_generations_used"
+        "plan_key,status,current_period_end,cancel_at_period_end,exports_limit,exports_used,ai_generations_limit,ai_generations_used,image_credits_limit,image_credits_used"
       )
       .order("updated_at", { ascending: false })
       .limit(1)
@@ -35,13 +35,16 @@ export const loadUserSubscription = async (token: string, userId?: string): Prom
       cancelAtPeriodEnd: Boolean(data.cancel_at_period_end),
       exportsUsed: (data.exports_used as number) ?? 0,
       aiGenerationsUsed: (data.ai_generations_used as number) ?? 0,
+      imageCreditsUsed: (data.image_credits_used as number) ?? 0,
       exportsLimitOverride: (data.exports_limit as number | null) ?? undefined,
-      aiGenerationsLimitOverride: (data.ai_generations_limit as number | null) ?? undefined
+      aiGenerationsLimitOverride: (data.ai_generations_limit as number | null) ?? undefined,
+      imageCreditsLimitOverride: (data.image_credits_limit as number | null) ?? undefined
     };
     if (userId) {
       const credits = await loadCredits(userId);
       sub.exportCredits = credits.exportCredits;
       sub.aiCredits = credits.aiCredits;
+      sub.imageCredits = credits.imageCredits;
     }
     return sub;
   } catch {

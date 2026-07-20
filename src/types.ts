@@ -28,6 +28,7 @@ export type Screen =
 
 export type EditorTab =
   | "Overview"
+  | "Imagery"
   | "Homepage"
   | "Syllabus"
   | "Modules"
@@ -101,6 +102,56 @@ export interface CourseImageSettings {
   courseTileUrl?: string;
   moduleHeaderImages: boolean;
   futureImageCreditLimit: number;
+}
+
+export type CourseImagePlacement = "course-card" | "homepage-banner" | "supporting";
+export type CourseImageSource = "upload" | "ai";
+export type CourseImageStatus = "processing" | "ready" | "failed" | "archived";
+
+export interface CourseImageCrop {
+  /** Crop rectangle in source-image percentages, so it survives derivative regeneration. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zoom: number;
+  focalX: number;
+  focalY: number;
+}
+
+/**
+ * A user-owned image plus the export-ready derivative selected for a course placement.
+ * `dataUrl` is an offline/demo fallback only; authenticated projects persist private storage paths
+ * and receive short-lived signed preview URLs from the server.
+ */
+export interface CourseImageAsset {
+  id: string;
+  placement: CourseImagePlacement;
+  source: CourseImageSource;
+  status: CourseImageStatus;
+  version: number;
+  fileName: string;
+  mimeType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+  width: number;
+  height: number;
+  byteSize: number;
+  altText: string;
+  decorative: boolean;
+  crop: CourseImageCrop;
+  storagePath?: string;
+  originalStoragePath?: string;
+  signedPreviewUrl?: string;
+  dataUrl?: string;
+  prompt?: string;
+  visualDirection?: string;
+  provider?: string;
+  providerModel?: string;
+  providerRequestId?: string;
+  idempotencyKey?: string;
+  creditCost?: number;
+  estimatedCostUsd?: number;
+  createdAt: string;
+  archivedAt?: string;
 }
 
 export interface ScheduleSettings {
@@ -708,6 +759,8 @@ export interface CourseProject {
   quality?: CourseQualityReport;
   assignmentGroups: AssignmentGroup[];
   fileAssets: FileAsset[];
+  /** Versioned, user-selected course imagery. Optional for backwards-compatible saved projects. */
+  imageAssets?: CourseImageAsset[];
   navigation: CanvasNavigationItem[];
   contactHours: ContactHourPlan;
   exportHistory: ExportHistoryItem[];

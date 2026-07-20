@@ -121,11 +121,14 @@ describe("repairCourse", () => {
     expect(course.assignments.find((x) => x.id === a.id)!.alignedOutcomeIds).not.toContain("ghost-outcome");
   });
 
-  it("fills an empty assignment description with a placeholder", () => {
+  it("fills an empty assignment description with a subject-specific review scaffold", () => {
     const c = clone(sampleProject);
     c.assignments[0].descriptionHtml = "   ";
     const { course } = repairCourse(c);
-    expect(course.assignments[0].descriptionHtml).toMatch(/coming soon/i);
+    expect(course.assignments[0].descriptionHtml).toContain(c.assignments[0].title);
+    expect(course.assignments[0].descriptionHtml).toContain(c.title);
+    expect(course.assignments[0].descriptionHtml).toMatch(/Your task|Before you submit/i);
+    expect(course.assignments[0].descriptionHtml).not.toMatch(/coming soon|placeholder/i);
   });
 
   it("is idempotent — repairing the repaired course yields no further repairs", () => {

@@ -53,7 +53,7 @@ export default async (request: Request): Promise<Response> => {
     case "grantCredits": {
       const targetType = body.targetType === "user" ? "user" : "workspace";
       const targetId = String(body.targetId ?? "");
-      const kind = body.kind === "ai_credit" ? "ai_credit" : "export_credit";
+      const kind = body.kind === "ai_credit" ? "ai_credit" : body.kind === "image_credit" ? "image_credit" : "export_credit";
       const amount = Math.floor(Number(body.amount));
       const reason = String(body.reason ?? "").trim();
       const expiresInDays = Number(body.expiresInDays);
@@ -73,8 +73,22 @@ export default async (request: Request): Promise<Response> => {
 
       const { data, error } = await admin.from("usage_adjustments").insert(row).select("id").single();
       if (error) return json(500, { error: error.message });
-      await audit("export_credit_granted", targetType, targetId, { kind, amount, reason });
+      await audit("usage_credit_granted", targetType, targetId, { kind, amount, reason });
       return json(200, { ok: true, id: data?.id });
+    }
+
+    case "updateImageEconomics": {
+      const config = body.config;
+      if (!config || typeof config !== "object" || Array.isArray(config)) return json(400, { error: "config is required." });
+      const numeric = ["premiumMonthlyCents", "premiumIncrementCents", "includedCredits", "mediumCredits", "highCredits", "creditPackCredits", "creditPackCents", "targetGrossMarginPercent", "mediumLandscapeCostUsd", "highLandscapeCostUsd"];
+      for (const key of numeric) {
+        const value = Number((config as Record<string, unknown>)[key]);
+        if (!Number.isFinite(value) || value < 0) return json(400, { error: `${key} must be a non-negative number.` });
+      }
+      const { error } = await admin.from("image_economics_config").upsert({ key: "default", config, updated_by: actor.id, updated_at: new Date().toISOString() });
+      if (error) return json(500, { error: error.message });
+      await audit("image_economics_updated", "image_economics_config", "default", { config });
+      return json(200, { ok: true });
     }
 
     // ---- Disable / enable a user account (does not delete data) ----

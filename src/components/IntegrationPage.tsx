@@ -113,7 +113,7 @@ export function IntegrationPage({ onStartBuilding, onTryDemo }: { onStartBuildin
         <div className="integration-soon-banner" role="note">
           <Clock size={18} />
           <p>
-            <strong>{entry.name} support is coming soon.</strong> Canvas is the verified, supported LMS today.
+            <strong>{entry.name} support is coming soon.</strong> Canvas is the active, locally validated export target today; complete a sandbox import before production use.
             RocketCourse can already export a Common Cartridge that {entry.name} can import, but we have not yet
             verified that path end to end, so treat it as experimental and test in a sandbox course first.
           </p>

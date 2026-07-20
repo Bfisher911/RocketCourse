@@ -63,6 +63,7 @@ import { DiscussionsTab } from "./components/DiscussionsTab";
 import { ExportTab } from "./components/ExportTab";
 import { GradebookTab } from "./components/GradebookTab";
 import { HomepageTab } from "./components/HomepageTab";
+import { ImageryTab } from "./components/ImageryTab";
 import { OverviewTab } from "./components/OverviewTab";
 import { PagesTab } from "./components/PagesTab";
 import { PricingPage } from "./components/PricingPage";
@@ -83,6 +84,7 @@ import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
 import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { ReviewMode } from "./components/ReviewMode";
+import { useModalFocus } from "./hooks/useModalFocus";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 import { buildCourseFromBlueprint, generateBlueprint } from "./services/aiGeneration";
@@ -126,6 +128,7 @@ import {
 } from "./services/modulePlanner";
 import { listProjects, persistenceEnabled, saveProject } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
+import { makeCourseExportReady } from "./services/courseTransforms";
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
 import { inferSettingsFromPrompt } from "./services/promptInference";
 import { stripHtml } from "./utils/text";
@@ -162,6 +165,7 @@ const progressSteps = [
 
 const editorTabs = [
   "Overview",
+  "Imagery",
   "Homepage",
   "Syllabus",
   "Modules",
@@ -204,12 +208,12 @@ const storeEditorView = (mode: EditorViewMode): void => {
 };
 
 /**
- * The 14 build steps grouped into 5 phases so the guided rail reads as a short,
- * approachable journey ("Phase 2 of 5") instead of a 14-item wall. Order must
+ * The build steps grouped into 5 phases so the guided rail reads as a short,
+ * approachable journey ("Phase 2 of 5") instead of a wall. Order must
  * match editorTabs — every tab appears in exactly one phase.
  */
 const editorPhases: Array<{ name: string; steps: EditorTab[] }> = [
-  { name: "Foundations", steps: ["Overview", "Homepage", "Syllabus"] },
+  { name: "Foundations", steps: ["Overview", "Imagery", "Homepage", "Syllabus"] },
   { name: "Content", steps: ["Modules", "Pages"] },
   { name: "Assessment", steps: ["Assignments", "Discussions", "Quizzes", "Rubrics"] },
   { name: "Logistics", steps: ["Gradebook Setup", "Contact Hours"] },
@@ -221,6 +225,7 @@ const phaseIndexForTab = (tab: EditorTab): number =>
 
 const stepDescriptions: Record<EditorTab, string> = {
   Overview: "Confirm the course title, description, and learning outcomes.",
+  Imagery: "Prepare accessible course images and Canvas-sized crops.",
   Homepage: "Design the first page students see in Canvas.",
   Syllabus: "Review and polish the syllabus students will read.",
   Modules: "Organize lessons into modules and set their order.",
@@ -1461,8 +1466,8 @@ const landingFeatures = [
   {
     icon: BookOpen,
     tone: "cyan",
-    title: "Canvas-native structure",
-    body: "Homepage, syllabus, modules, pages, assignments, discussions, quizzes, rubrics, outcomes, and gradebook groups — generated as real Canvas objects."
+    title: "Canvas-oriented structure",
+    body: "Homepage, syllabus, modules, pages, assignments, discussions, quizzes, rubrics, outcomes, and gradebook groups — packaged for review and import into Canvas."
   },
   {
     icon: PenLine,
@@ -1595,7 +1600,7 @@ function Landing({
           <div className="rc-trail hero-trail" aria-hidden="true" />
           <div className="hero-meta">
             <span>
-              <CheckCircle2 size={16} /> Canvas-native objects
+              <CheckCircle2 size={16} /> Canvas-oriented objects
             </span>
             <span>
               <CheckCircle2 size={16} /> Editable before export
@@ -1665,7 +1670,7 @@ function Landing({
           <div className="cockpit-foot" aria-hidden="true">
             <span><Layers size={13} /> 12 modules</span>
             <span><FileText size={13} /> 34 pages</span>
-            <span><ShieldCheck size={13} /> IMSCC validated</span>
+            <span><ShieldCheck size={13} /> IMSCC locally validated</span>
           </div>
         </section>
       </section>
@@ -2305,8 +2310,23 @@ function Intake({
               <Toggle label="Final project" hint="Adds a culminating final project with its own module, rubric, and gradebook weight." checked={settings.finalProject} onChange={(value) => { onSettingsChange("finalProject", value); if (!value) onSettingsChange("scaffoldFinalProject", false); }} />
               {settings.finalProject && <Toggle label="Scaffold final project" hint="Spreads the final project across smaller graded check-ins during the term instead of one big deadline." checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />}
               <Toggle label="Rubrics" hint="Generates a Canvas rubric for every graded assignment and discussion, aligned to the course outcomes." checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
-              <Toggle label="Workload/contact hours" hint="Adds a contact-hours plan (Carnegie model) showing how the course meets its credit-hour expectation." checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
               <Toggle label="AAA contrast" hint="Uses the strictest WCAG AAA color-contrast tier for themed content (larger text, stronger contrast). Default is AA, the common institutional standard." checked={settings.accessibilityTier === "AAA"} onChange={(value) => onSettingsChange("accessibilityTier", value ? "AAA" : "AA")} />
+              <Select
+                label="Course card image"
+                value={settings.imageSettings.courseTileMode}
+                options={["generated-svg", "upload", "future-ai", "url"]}
+                labels={{ "generated-svg": "Start with theme artwork", upload: "Upload after build", "future-ai": "Generate with Premium", url: "Keep saved image URL" }}
+                hint="Canvas dashboard cards use a wide crop. Uploading your own image never uses AI credits."
+                onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, courseTileMode: value as CourseSettings["imageSettings"]["courseTileMode"] })}
+              />
+              <Select
+                label="Homepage banner"
+                value={settings.imageSettings.homepageBannerMode}
+                options={["generated-svg", "upload", "future-ai", "url"]}
+                labels={{ "generated-svg": "Start with theme artwork", upload: "Upload after build", "future-ai": "Generate with Premium", url: "Keep saved image URL" }}
+                hint="After the course is built, the Imagery step handles crop, focal point, alt text, versions, and export."
+                onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, homepageBannerMode: value as CourseSettings["imageSettings"]["homepageBannerMode"] })}
+              />
               <Toggle label="Module image hooks" hint="Adds a decorative SVG header image to each module overview page (no external image services)." checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
             </div>
   );
@@ -2611,13 +2631,7 @@ function WelcomeSummary({
   onStartReviewing: () => void;
   onDismiss: () => void;
 }) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") onDismiss();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onDismiss]);
+  const dialogRef = useModalFocus<HTMLDivElement>(true, onDismiss);
 
   const teachingModuleCount = course.modules.filter((module) => module.kind === "content").length;
   const supportModuleCount = course.modules.length - teachingModuleCount;
@@ -2631,7 +2645,7 @@ function WelcomeSummary({
   ];
 
   return (
-    <div className="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title" onClick={onDismiss}>
+    <div ref={dialogRef} tabIndex={-1} className="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title" onClick={onDismiss}>
       <div className="welcome-card" onClick={(event) => event.stopPropagation()}>
         <span className="hp-eyebrow">
           <Sparkles size={14} /> Draft complete
@@ -2810,15 +2824,7 @@ function Editor({
   // Readiness lives in a slide-over drawer (opened from the header chip) so the
   // editor is two calm columns instead of three competing ones.
   const [readinessOpen, setReadinessOpen] = useState(false);
-
-  useEffect(() => {
-    if (!readinessOpen) return;
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setReadinessOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [readinessOpen]);
+  const readinessDialogRef = useModalFocus<HTMLElement>(readinessOpen, () => setReadinessOpen(false));
 
   const stepIndex = editorTabs.indexOf(activeTab);
   const stepCount = editorTabs.length;
@@ -2933,8 +2939,11 @@ function Editor({
         {demoMode && (
           <div className="demo-banner" role="note">
             <span className="demo-banner-text">
-              <Sparkles size={15} /> You're exploring the <strong>RocketCourse demo</strong> — a pre-populated AI and
-              Modern Society course. No AI credits are used and edits here aren't saved.
+              <Sparkles size={15} />
+              <span>
+                You're exploring the <strong>RocketCourse demo</strong> — a pre-populated AI and Modern Society course.
+                No AI credits are used and edits here aren't saved.
+              </span>
             </span>
             <button className="ghost-button" onClick={onExitDemo}>
               <Home size={15} /> Back to RocketCourse Home
@@ -3045,6 +3054,7 @@ function Editor({
         </div>
         <div className="tab-body">
           {activeTab === "Overview" && <OverviewTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
+          {activeTab === "Imagery" && <ImageryTab course={course} onUpdateCourse={onUpdateCourse} subscriptionActive={subscriptionActive} />}
           {activeTab === "Homepage" && <HomepageTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Syllabus" && <SyllabusTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Modules" && (
@@ -3139,6 +3149,8 @@ function Editor({
       {readinessOpen && (
         <div className="readiness-drawer-backdrop" onClick={() => setReadinessOpen(false)}>
           <aside
+            ref={readinessDialogRef}
+            tabIndex={-1}
             className="readiness-drawer"
             role="dialog"
             aria-modal="true"
@@ -3149,10 +3161,12 @@ function Editor({
               <X size={15} /> Close
             </button>
             <ReadinessPanel
+              course={course}
               readiness={readiness}
               quality={quality}
               validationReport={validationReport}
               subscriptionActive={subscriptionActive}
+              onUpdateCourse={onUpdateCourse}
               onJumpToTab={(tab) => {
                 setReadinessOpen(false);
                 setActiveTab(tab);
@@ -3985,18 +3999,23 @@ const readinessTab = (id: string): EditorTab => {
 };
 
 function ReadinessPanel({
+  course,
   readiness,
   quality,
   validationReport,
   subscriptionActive,
+  onUpdateCourse,
   onJumpToTab
 }: {
+  course: CourseProject;
   readiness: ReturnType<typeof buildReadinessReport>;
   quality: ReturnType<typeof buildCourseQualityReport>;
   validationReport: ExportValidationReport | null;
   subscriptionActive: boolean;
+  onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
   onJumpToTab: (tab: EditorTab) => void;
 }) {
+  const [fixSummary, setFixSummary] = useState<string[]>([]);
   // Surface what needs attention first (failed required, then recommended), then the passed checks.
   const ordered = [...readiness.checks].sort((a, b) => {
     const weight = (item: ReadinessCheck): number => (item.passed ? 2 : item.severity === "required" ? 0 : 1);
@@ -4020,6 +4039,27 @@ function ReadinessPanel({
         <strong>Content quality</strong>
         <span>{quality.score}% instructional</span>
       </div>
+      {readiness.checks.some((item) => !item.passed) && (
+        <div className="readiness-safe-fix">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              const result = makeCourseExportReady(course);
+              onUpdateCourse(() => result.course);
+              setFixSummary(result.summary);
+            }}
+          >
+            <ShieldCheck size={15} /> Fix all safe issues
+          </button>
+          <p>Repairs references, slugs, alignments, and gradebook weights. It never rewrites your teaching content, and you can Undo afterward.</p>
+          {fixSummary.length > 0 && (
+            <ul className="transform-summary" role="status" aria-label="Safe-fix results">
+              {fixSummary.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
       <ul className="readiness-list">
         {ordered.map((item) => {
           const target = readinessTab(item.id);

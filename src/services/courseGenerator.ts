@@ -1581,39 +1581,41 @@ ${section("Recommended Actions", checklistHtml(["Review module overview pages fi
   const withRubrics = mergedSettings.includeRubrics !== false;
   const introRubricId = "rubric_introduce_yourself";
   const introDiscussionDueAt = dueDateForModule(mergedSettings, 0, 1);
-  if (withRubrics) rubrics.push(makeRubric(introRubricId, "Introduce Yourself Discussion Rubric", 10, [outcomes[0].id], outcomes, generatedAt, "Community"));
-  discussions.push({
-    id: INTRO_DISCUSSION_ID,
-    title: "Introduce Yourself",
-    moduleId: START_MODULE_ID,
-    dueAt: introDiscussionDueAt,
-    assignmentGroupId: "group_discussions",
-    points: 10,
-    rubricId: withRubrics ? introRubricId : undefined,
-    alignedOutcomeIds: [outcomes[0].id],
-    publishState: "published",
-    status: "generated",
-    metadata: metadata(generatedAt),
-    promptHtml: canvasShell(
-      "Introduce Yourself",
-      "Build course community and practice the discussion workflow.",
-      `${section("Prompt", "<p>Share your background, one question you bring to the course, and one strategy that helps you learn online.</p>", theme)}
+  if (mergedSettings.discussionFrequency !== "none") {
+    if (withRubrics) rubrics.push(makeRubric(introRubricId, "Introduce Yourself Discussion Rubric", 10, [outcomes[0].id], outcomes, generatedAt, "Community"));
+    discussions.push({
+      id: INTRO_DISCUSSION_ID,
+      title: "Introduce Yourself",
+      moduleId: START_MODULE_ID,
+      dueAt: introDiscussionDueAt,
+      assignmentGroupId: "group_discussions",
+      points: 10,
+      rubricId: withRubrics ? introRubricId : undefined,
+      alignedOutcomeIds: [outcomes[0].id],
+      publishState: "published",
+      status: "generated",
+      metadata: metadata(generatedAt),
+      promptHtml: canvasShell(
+        "Introduce Yourself",
+        "Build course community and practice the discussion workflow.",
+        `${section("Prompt", "<p>Share your background, one question you bring to the course, and one strategy that helps you learn online.</p>", theme)}
 ${section("Reply Guidance", "<p>Reply to two classmates with a connection, a useful resource, or a thoughtful question. Use the reply as a short conversation move with substance beyond agreement.</p>", theme)}
 ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience to your own learning strategy.", "Ask one clarifying question that could help them prepare for the course.", "Name a shared question or support need that the class might revisit."]), theme)}`,
-      theme
-    )
-  });
-  startItems.push(makeItem("item_introduce_yourself", "discussion", "Introduce Yourself", INTRO_DISCUSSION_ID, startItems.length + 1, generatedAt));
-  schedule.push({
-    id: id("schedule", INTRO_DISCUSSION_ID),
-    moduleId: START_MODULE_ID,
-    title: "Introduce Yourself discussion",
-    itemId: INTRO_DISCUSSION_ID,
-    itemType: "discussion",
-    dueAt: introDiscussionDueAt,
-    workloadHours: 1,
-    notes: "Orientation discussion due date should give students time to practice Canvas discussion workflow before module work accelerates."
-  });
+        theme
+      )
+    });
+    startItems.push(makeItem("item_introduce_yourself", "discussion", "Introduce Yourself", INTRO_DISCUSSION_ID, startItems.length + 1, generatedAt));
+    schedule.push({
+      id: id("schedule", INTRO_DISCUSSION_ID),
+      moduleId: START_MODULE_ID,
+      title: "Introduce Yourself discussion",
+      itemId: INTRO_DISCUSSION_ID,
+      itemType: "discussion",
+      dueAt: introDiscussionDueAt,
+      workloadHours: 1,
+      notes: "Orientation discussion due date should give students time to practice Canvas discussion workflow before module work accelerates."
+    });
+  }
 
   modules.push({
     id: "module_start",

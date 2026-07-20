@@ -22,9 +22,9 @@ export const INTEGRATIONS: IntegrationEntry[] = [
     slug: "canvas",
     name: "Canvas",
     kind: "lms",
-    tagline: "Generate a Canvas course and export a validated .imscc.",
+    tagline: "Generate a course and export a locally validated, Canvas-oriented .imscc.",
     blurb:
-      "Canvas is Instructure's open LMS used across higher education and K-12. RocketCourse generates Canvas-native objects — modules, pages, assignments, QTI quizzes, rubrics, outcomes, and gradebook groups — and exports an IMS Common Cartridge (.imscc) you import directly into a Canvas course.",
+      "Canvas is Instructure's open LMS used across higher education and K-12. RocketCourse generates Canvas-oriented modules, pages, assignments, QTI quizzes, rubrics, outcomes, and gradebook groups, then exports an IMS Common Cartridge (.imscc) for sandbox-first import and review.",
     steps: [
       "Generate a course from a topic or syllabus, or import an existing Canvas export.",
       "Review the readiness score and resolve any flagged issues.",

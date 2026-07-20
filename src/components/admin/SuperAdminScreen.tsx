@@ -33,6 +33,7 @@ import {
   loadAuditLog,
   loadDiscountRedemptions,
   loadDiscounts,
+  loadImageEconomics,
   loadSuperOverview,
   loadUsersDirectory,
   loadWorkspacesDirectory,
@@ -42,6 +43,7 @@ import {
   type DirectoryWorkspace,
   type DiscountRedemptionRow,
   type DiscountRow,
+  type ImageEconomicsConfig,
   type SuperOverview
 } from "../../services/platformClient";
 import { selfServePlans } from "../../data/plans";
@@ -67,7 +69,7 @@ interface CreditTarget {
 }
 
 function CreditGrantForm({ target, onClose, onGranted }: { target: CreditTarget; onClose: () => void; onGranted: () => void }) {
-  const [kind, setKind] = useState<"export_credit" | "ai_credit">("export_credit");
+  const [kind, setKind] = useState<"export_credit" | "ai_credit" | "image_credit">("export_credit");
   const [amount, setAmount] = useState(10);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -77,9 +79,10 @@ function CreditGrantForm({ target, onClose, onGranted }: { target: CreditTarget;
     <div className="sa-credit-form">
       <strong>Grant credits to {target.label}</strong>
       <div className="sa-credit-row">
-        <select value={kind} onChange={(e) => setKind(e.target.value as "export_credit" | "ai_credit")}>
+        <select value={kind} onChange={(e) => setKind(e.target.value as "export_credit" | "ai_credit" | "image_credit")}>
           <option value="export_credit">Export credits</option>
           <option value="ai_credit">AI generation credits</option>
+          <option value="image_credit">Premium image credits</option>
         </select>
         <input type="number" value={amount} min={1} onChange={(e) => setAmount(Number(e.target.value))} />
         <input placeholder="Reason (required, audited)" value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -114,6 +117,43 @@ function CreditGrantForm({ target, onClose, onGranted }: { target: CreditTarget;
   );
 }
 
+function ImageEconomicsPanel({ config, onSaved }: { config: ImageEconomicsConfig; onSaved: (next: ImageEconomicsConfig) => void }) {
+  const [draft, setDraft] = useState(config);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => setDraft(config), [config]);
+  const setNumber = (key: keyof ImageEconomicsConfig, value: number) => setDraft((current) => ({ ...current, [key]: value }));
+  const revenuePerCredit = draft.creditPackCredits > 0 ? draft.creditPackCents / 100 / draft.creditPackCredits : 0;
+  const mediumMargin = revenuePerCredit > 0 ? (1 - draft.mediumLandscapeCostUsd / (revenuePerCredit * Math.max(1, draft.mediumCredits))) * 100 : 0;
+  const highMargin = revenuePerCredit > 0 ? (1 - draft.highLandscapeCostUsd / (revenuePerCredit * Math.max(1, draft.highCredits))) * 100 : 0;
+  const fields: Array<[keyof ImageEconomicsConfig, string, number]> = [
+    ["premiumMonthlyCents", "Premium monthly price (cents)", 100],
+    ["includedCredits", "Included monthly credits", 1],
+    ["mediumCredits", "Medium credits / image", 1],
+    ["highCredits", "High credits / image", 1],
+    ["creditPackCredits", "Credit pack size", 1],
+    ["creditPackCents", "Credit pack price (cents)", 100],
+    ["targetGrossMarginPercent", "Target gross margin (%)", 1],
+    ["mediumLandscapeCostUsd", "Provider medium cost ($)", 0.001],
+    ["highLandscapeCostUsd", "Provider high cost ($)", 0.001]
+  ];
+  return (
+    <div className="sa-image-economics">
+      <header><div><strong>Premium image economics</strong><p className="blog-muted">Server-authoritative pricing, credit weights, provider assumptions, and margin guardrail.</p></div><span className="ws-role-tag super">{draft.model}</span></header>
+      <div className="sa-discount-grid">
+        {fields.map(([key, label, step]) => <label key={key}><span>{label}</span><input type="number" min={0} step={step} value={Number(draft[key])} onChange={(event) => setNumber(key, Number(event.target.value))} /></label>)}
+      </div>
+      <div className="sa-stat-grid compact">
+        <div className="sa-stat"><strong>{Math.round(mediumMargin)}%</strong><span>Medium pack margin</span></div>
+        <div className="sa-stat"><strong>{Math.round(highMargin)}%</strong><span>High pack margin</span></div>
+        <div className="sa-stat"><strong>${revenuePerCredit.toFixed(2)}</strong><span>Revenue / pack credit</span></div>
+      </div>
+      {notice && <p className="ws-notice ok">{notice}</p>}
+      <button type="button" className="primary" disabled={busy} onClick={async () => { setBusy(true); setNotice(null); try { await superAdminAction("updateImageEconomics", { config: draft }); onSaved(draft); setNotice("Image economics saved and audit-logged."); } finally { setBusy(false); } }}>{busy ? <Loader2 size={14} className="spin" /> : <Coins size={14} />} Save image economics</button>
+    </div>
+  );
+}
+
 export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [overview, setOverview] = useState<SuperOverview | null>(null);
@@ -124,6 +164,7 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
   const [creditTarget, setCreditTarget] = useState<CreditTarget | null>(null);
   const [impersonating, setImpersonating] = useState<DirectoryUser | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [imageEconomics, setImageEconomics] = useState<ImageEconomicsConfig | null>(null);
 
   const refresh = useCallback(async () => {
     if (tab === "overview") setOverview(await loadSuperOverview());
@@ -132,6 +173,7 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
     if (tab === "costs") {
       setOverview(await loadSuperOverview());
       setWorkspaces(await loadWorkspacesDirectory());
+      setImageEconomics(await loadImageEconomics());
     }
     if (tab === "discounts") setDiscounts(await loadDiscounts());
     if (tab === "audit") setAudit(await loadAuditLog());
@@ -298,6 +340,9 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
           <div className="sa-stat-grid">
             <div className="sa-stat"><strong>{overview?.exportsThisMonth ?? "—"}</strong><span>Exports</span></div>
             <div className="sa-stat"><strong>{overview?.aiThisMonth ?? "—"}</strong><span>AI generations</span></div>
+            <div className="sa-stat"><strong>{overview?.imageGenerationsThisMonth ?? "—"}</strong><span>Image sets</span></div>
+            <div className="sa-stat"><strong>{overview?.imageCreditsUsedThisMonth ?? "—"}</strong><span>Image credits</span></div>
+            <div className="sa-stat"><strong>{overview ? dollars(overview.imageCostCents) : "—"}</strong><span>Image provider cost</span></div>
             <div className="sa-stat"><strong>{overview ? dollars(overview.estCostCents) : "—"}</strong><span>Est. LLM/API cost</span></div>
             <div className="sa-stat"><strong>{overview ? dollars(overview.estRevenueCents) : "—"}</strong><span>Est. revenue (annualized)</span></div>
             <div className="sa-stat">
@@ -306,6 +351,7 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
             </div>
           </div>
           <p className="blog-muted">Costs are estimated from logged token usage and the server-side model pricing table (src/data/platform.ts). Revenue is annualized from active-subscription catalog prices.</p>
+          {imageEconomics && <ImageEconomicsPanel config={imageEconomics} onSaved={setImageEconomics} />}
         </section>
       )}
 

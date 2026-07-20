@@ -8,7 +8,7 @@ import { freeSubscription, type EntitlementSubscription, type SubscriptionStatus
 import type { PlanKey } from "../../../src/data/plans";
 
 const SUB_COLUMNS =
-  "id,user_id,workspace_id,plan_key,status,current_period_end,cancel_at_period_end,exports_limit,exports_used,ai_generations_limit,ai_generations_used,updated_at";
+  "id,user_id,workspace_id,plan_key,status,current_period_end,cancel_at_period_end,exports_limit,exports_used,ai_generations_limit,ai_generations_used,image_credits_limit,image_credits_used,updated_at";
 
 interface SubRow {
   id: string;
@@ -22,36 +22,43 @@ interface SubRow {
   exports_used: number | null;
   ai_generations_limit: number | null;
   ai_generations_used: number | null;
+  image_credits_limit: number | null;
+  image_credits_used: number | null;
   updated_at: string | null;
 }
 
-const mapRow = (row: SubRow, credits: { exportCredits: number; aiCredits: number }): EntitlementSubscription => ({
+const mapRow = (row: SubRow, credits: { exportCredits: number; aiCredits: number; imageCredits: number }): EntitlementSubscription => ({
   planKey: (row.plan_key as PlanKey) ?? "free_preview",
   status: (row.status as SubscriptionStatus) ?? "none",
   currentPeriodEnd: row.current_period_end,
   cancelAtPeriodEnd: Boolean(row.cancel_at_period_end),
   exportsUsed: row.exports_used ?? 0,
   aiGenerationsUsed: row.ai_generations_used ?? 0,
+  imageCreditsUsed: row.image_credits_used ?? 0,
   exportsLimitOverride: row.exports_limit ?? undefined,
   aiGenerationsLimitOverride: row.ai_generations_limit ?? undefined,
+  imageCreditsLimitOverride: row.image_credits_limit ?? undefined,
   exportCredits: credits.exportCredits,
-  aiCredits: credits.aiCredits
+  aiCredits: credits.aiCredits,
+  imageCredits: credits.imageCredits
 });
 
 /** Sum of currently-valid granted credits for a user (and their workspaces). Best-effort. */
-export const loadCredits = async (userId: string): Promise<{ exportCredits: number; aiCredits: number }> => {
+export const loadCredits = async (userId: string): Promise<{ exportCredits: number; aiCredits: number; imageCredits: number }> => {
   try {
     const admin = getSupabaseAdmin();
-    const [ex, ai] = await Promise.all([
+    const [ex, ai, image] = await Promise.all([
       admin.rpc("active_credit_balance", { p_user_id: userId, p_kind: "export_credit" }),
-      admin.rpc("active_credit_balance", { p_user_id: userId, p_kind: "ai_credit" })
+      admin.rpc("active_credit_balance", { p_user_id: userId, p_kind: "ai_credit" }),
+      admin.rpc("active_credit_balance", { p_user_id: userId, p_kind: "image_credit" })
     ]);
     return {
       exportCredits: Math.max(0, Number(ex.data ?? 0) || 0),
-      aiCredits: Math.max(0, Number(ai.data ?? 0) || 0)
+      aiCredits: Math.max(0, Number(ai.data ?? 0) || 0),
+      imageCredits: Math.max(0, Number(image.data ?? 0) || 0)
     };
   } catch {
-    return { exportCredits: 0, aiCredits: 0 };
+    return { exportCredits: 0, aiCredits: 0, imageCredits: 0 };
   }
 };
 

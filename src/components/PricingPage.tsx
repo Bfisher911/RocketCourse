@@ -85,7 +85,7 @@ export function PricingPage({
           const busy = busyPlanKey === plan.key;
           return (
             <article key={plan.key} className={`pricing-card ${plan.highlighted ? "featured" : ""}`}>
-              {plan.highlighted && <span className="pricing-flag">Most popular</span>}
+              {plan.highlighted && <span className="pricing-flag">{plan.key === "rocketcourse_premium" ? "Premium imagery" : "Most popular"}</span>}
               <header className="pricing-card-head">
                 <h3>{plan.name}</h3>
                 <p className="pricing-audience">{plan.audience}</p>
