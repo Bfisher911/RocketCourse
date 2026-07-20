@@ -115,6 +115,13 @@ const degraders = {
       outcome.text = "things";
     });
     return c;
+  },
+  repetitiveObjectives: (c: CourseProject) => {
+    c.outcomes.forEach((outcome, index) => {
+      const verbs = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
+      outcome.text = `${verbs[index % verbs.length]} the same course concepts, practices, and implications.`;
+    });
+    return c;
   }
 };
 
@@ -225,6 +232,12 @@ describe("readiness depth", () => {
     const c = degraders.shallowObjectives(clone(sampleProject));
     expect(failed(c, "objective-quality")).toBe(true);
     expect(failed(c, "objective-measurable")).toBe(true);
+  });
+
+  it("flags outcomes that repeat one capability behind different taxonomy verbs", () => {
+    const c = degraders.repetitiveObjectives(clone(sampleProject));
+    expect(failed(c, "objective-distinctness")).toBe(true);
+    expect(checkOf(c, "objective-measurable")?.passed).toBe(true);
   });
 
   it("tracks real course quality: readiness falls in step with the quality scorer as a course degrades", () => {

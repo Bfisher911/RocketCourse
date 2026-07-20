@@ -215,7 +215,7 @@ export function ContactHoursTab({
           <span className="hp-eyebrow">
             <ShieldCheck size={14} /> Workload justification
           </span>
-          <AiGenerateButton running={ai.running} onClick={generateJustification} label="Draft with AI" busyLabel="Drafting…" />
+          <AiGenerateButton running={ai.running} onClick={generateJustification} label="Draft justification" busyLabel="Drafting…" />
         </header>
         <label className="overview-field">
           <span>How the workload was estimated (shown in the syllabus)</span>

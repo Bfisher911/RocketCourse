@@ -65,6 +65,7 @@ const ChecklistIcon = ({ status }: { status: ChecklistStatus }) =>
 
 export function ExportTab({
   course,
+  demoMode,
   readiness,
   validationReport,
   isExporting,
@@ -88,6 +89,7 @@ export function ExportTab({
   onJumpToTab
 }: {
   course: CourseProject;
+  demoMode: boolean;
   readiness: ReadinessReport;
   validationReport: ExportValidationReport | null;
   isExporting: boolean;
@@ -179,8 +181,8 @@ export function ExportTab({
           <div className="rc-launch">
             <LogoMark size={34} decorative />
             <div className="rc-launch__text">
-              <strong>Ready for launch</strong>
-              <span>Validate locally, then export your Canvas-ready package.</span>
+              <strong>Ready for local validation</strong>
+              <span>Validate locally, then export your Canvas-oriented package for sandbox testing.</span>
             </div>
           </div>
         </div>
@@ -231,7 +233,9 @@ export function ExportTab({
           <span className="hp-eyebrow">
             <FileArchive size={14} /> Build &amp; validate
           </span>
-          <span className={`overview-pill ${subscriptionActive ? "ok" : "warn"}`}>{subscriptionActive ? "Export enabled (demo plan)" : "Export locked (demo)"}</span>
+          <span className={`overview-pill ${subscriptionActive ? "ok" : "warn"}`}>
+            {subscriptionActive ? (demoMode ? "Export enabled (public demo)" : "Export enabled") : "Export locked"}
+          </span>
         </header>
 
         <div className="mode-grid" role="radiogroup" aria-label="Export mode">
@@ -244,58 +248,73 @@ export function ExportTab({
         </div>
         {exportMode !== "full" && <p className="overview-empty">This mode validates dependencies for the selection, but the browser-only package still includes supporting metadata, outcomes, rubrics, files, and module references so Canvas has context.</p>}
 
-        <div className="export-fullfill">
-          <div className="export-fullfill-head">
-            <span className="hp-eyebrow">
-              <Sparkles size={14} /> Step 1 · Generate full content <em className="export-step-optional">recommended</em>
-            </span>
-            <span className="overview-pill muted">{fillPlan.total} object{fillPlan.total === 1 ? "" : "s"}</span>
-          </div>
-          <p className="export-fullfill-copy">
-            Fill the whole course with real, subject-specific content — homepage, every Canvas page, announcements,
-            discussions, assignments, and quizzes — so the package is a complete course instead of a structured template.
-            This runs {fillPlan.total} AI request{fillPlan.total === 1 ? "" : "s"} ({fillPlan.pages} page
-            {fillPlan.pages === 1 ? "" : "s"}, {fillPlan.assignments} assignment{fillPlan.assignments === 1 ? "" : "s"},{" "}
-            {fillPlan.discussions} discussion{fillPlan.discussions === 1 ? "" : "s"}, {fillPlan.quizzes} quiz
-            {fillPlan.quizzes === 1 ? "" : "zes"}, {fillPlan.announcements} announcement{fillPlan.announcements === 1 ? "" : "s"}).
-            Anything the AI can't reach keeps its template. Skip this step to export the structured template as-is.
-          </p>
-          <p className="export-fullfill-copy export-fullfill-expectation">
-            <Clock3 size={13} /> Typically takes a few minutes and uses AI credit for each empty item — you can keep
-            editing other tabs while it runs.
-          </p>
-          <div className="export-actions">
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => void onFillFullContent()}
-              disabled={isExporting || isFillingContent || !subscriptionActive || fillPlan.total === 0}
-              title={fillPlan.total === 0 ? "Add modules, assignments, discussions, or quizzes first." : "Fill the whole course with AI content (does not download anything)"}
-            >
-              {isFillingContent ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />} Generate full content
-            </button>
-          </div>
-          {isFillingContent && fillProgress && (
-            <div className="export-fullfill-progress" role="status" aria-live="polite">
-              <div className="export-fullfill-bar">
-                <span style={{ width: `${fillPct}%` }} />
-              </div>
-              <p className="export-status-line info">
-                <Loader2 size={15} className="spin" /> {fillProgress.completed}/{fillProgress.total} · {fillProgress.label}
-              </p>
+        {demoMode ? (
+          <div className="export-fullfill">
+            <div className="export-fullfill-head">
+              <span className="hp-eyebrow">
+                <Sparkles size={14} /> Sample content
+              </span>
+              <span className="overview-pill ok">Pre-populated</span>
             </div>
-          )}
-          {!isFillingContent && fillSummary && (
-            <p className="export-status-line ok">
-              <CheckCircle2 size={15} /> {fillSummary} Next: download the Canvas package below.
+            <p className="export-fullfill-copy">
+              The public demo is already filled with sample content. Full-course AI generation is available only in a
+              signed-in workspace, so exploring this demo never spends AI credit.
             </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="export-fullfill">
+            <div className="export-fullfill-head">
+              <span className="hp-eyebrow">
+                <Sparkles size={14} /> Step 1 · Generate full content <em className="export-step-optional">recommended</em>
+              </span>
+              <span className="overview-pill muted">{fillPlan.total} object{fillPlan.total === 1 ? "" : "s"}</span>
+            </div>
+            <p className="export-fullfill-copy">
+              Fill the whole course with real, subject-specific content — homepage, every Canvas page, announcements,
+              discussions, assignments, and quizzes — so the package is a complete course instead of a structured template.
+              This runs {fillPlan.total} AI request{fillPlan.total === 1 ? "" : "s"} ({fillPlan.pages} page
+              {fillPlan.pages === 1 ? "" : "s"}, {fillPlan.assignments} assignment{fillPlan.assignments === 1 ? "" : "s"},{" "}
+              {fillPlan.discussions} discussion{fillPlan.discussions === 1 ? "" : "s"}, {fillPlan.quizzes} quiz
+              {fillPlan.quizzes === 1 ? "" : "zes"}, {fillPlan.announcements} announcement{fillPlan.announcements === 1 ? "" : "s"}).
+              Anything the AI can't reach keeps its template. Skip this step to export the structured template as-is.
+            </p>
+            <p className="export-fullfill-copy export-fullfill-expectation">
+              <Clock3 size={13} /> Typically takes a few minutes and uses AI credit for each empty item — you can keep
+              editing other tabs while it runs.
+            </p>
+            <div className="export-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => void onFillFullContent()}
+                disabled={isExporting || isFillingContent || !subscriptionActive || fillPlan.total === 0}
+                title={fillPlan.total === 0 ? "Add modules, assignments, discussions, or quizzes first." : "Fill the whole course with AI content (does not download anything)"}
+              >
+                {isFillingContent ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />} Generate full content
+              </button>
+            </div>
+            {isFillingContent && fillProgress && (
+              <div className="export-fullfill-progress" role="status" aria-live="polite">
+                <div className="export-fullfill-bar">
+                  <span style={{ width: `${fillPct}%` }} />
+                </div>
+                <p className="export-status-line info">
+                  <Loader2 size={15} className="spin" /> {fillProgress.completed}/{fillProgress.total} · {fillProgress.label}
+                </p>
+              </div>
+            )}
+            {!isFillingContent && fillSummary && (
+              <p className="export-status-line ok">
+                <CheckCircle2 size={15} /> {fillSummary} Next: download the Canvas package below.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="export-fullfill">
           <div className="export-fullfill-head">
             <span className="hp-eyebrow">
-              <Download size={14} /> Step 2 · Download the Canvas package
+              <Download size={14} /> {demoMode ? "Download the sample Canvas package" : "Step 2 · Download the Canvas package"}
             </span>
           </div>
           <p className="export-fullfill-copy">

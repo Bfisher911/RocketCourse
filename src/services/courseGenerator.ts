@@ -101,6 +101,7 @@ const titleCase = (candidate: string): string =>
 
 const titleFromPrompt = (prompt: string, fallback: string): string => {
   const match =
+    prompt.match(/\bcourse\s*(?:title)?\s*:\s*([^\n.]+)/i) ||
     prompt.match(/course on ([^.]+?)(?:\.|,| for | with |$)/i) ||
     prompt.match(/class on ([^.]+?)(?:\.|,| for | with |$)/i) ||
     prompt.match(/course (?:about|covering|exploring|introducing) ([^.]+?)(?:\.|,| for | with |$)/i) ||
@@ -137,6 +138,34 @@ const resolveCourseDescription = (settings: CourseSettings, title: string, modul
   if (explicit) return explicit;
   const unitLabel = settings.organizationPattern === "custom" ? settings.customOrganizationLabel || "module" : settings.organizationPattern.replace(/s$/, "");
   return `A ${settings.lengthWeeks}-week ${settings.level.toLowerCase()} course on ${title}, organized into ${moduleCount} ${unitLabel} units with aligned outcomes, activities, and assessments.`;
+};
+
+const outcomeFocuses = (topic: string): string[] => {
+  const subject = topic;
+  return [
+    `foundational terminology and principles used in ${subject}`,
+    `relationships among the major ideas, practices, and stakeholders in ${subject}`,
+    `${subject} methods to a concrete academic, professional, or community scenario`,
+    `case evidence to distinguish patterns, causes, consequences, and limitations in ${subject}`,
+    `competing claims about ${subject} using relevant evidence and explicit criteria`,
+    `an evidence-informed response to a meaningful problem in ${subject}`,
+    `historical, cultural, or disciplinary perspectives that shape ${subject}`,
+    `ethical, equity, accessibility, and stakeholder implications of decisions in ${subject}`,
+    `a defensible recommendation for a real audience working with ${subject}`,
+    `course evidence across multiple modules to explain a new question or situation in ${subject}`
+  ];
+};
+
+const outcomeText = (verb: string, focus: string): string => {
+  const normalized = verb.toLowerCase();
+  if (["remember", "identify"].includes(normalized)) return `${verb} ${focus}.`;
+  if (["understand", "describe", "explain", "conceptualize"].includes(normalized)) return `${verb} ${focus}.`;
+  if (normalized === "apply") return `${verb} ${focus}.`;
+  if (["engage", "experiment"].includes(normalized)) return `${verb} with ${focus}.`;
+  if (["analyze", "interpret", "reflect"].includes(normalized)) return `${verb} ${focus}.`;
+  if (normalized === "evaluate") return `${verb} ${focus}.`;
+  if (normalized === "create") return `${verb} ${focus}.`;
+  return `${verb} ${focus}.`;
 };
 
 const organizationLabel = (settings: CourseSettings, moduleNumber: number): string => {
@@ -1448,12 +1477,13 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
   });
 
   const framework = getOutcomeFramework(mergedSettings.outcomeFramework);
+  const focuses = outcomeFocuses(topic);
   const outcomes: CourseOutcome[] = Array.from({ length: 10 }, (_, index) => {
     const level = framework.levels[index % framework.levels.length];
     return {
       id: id("outcome", index + 1),
       code: `CLO ${index + 1}`,
-      text: `${level.verb} key ${topic.toLowerCase()} concepts, practices, and implications in academic and applied contexts.`,
+      text: outcomeText(level.verb, focuses[index]),
       bloomLevel: level.label,
       alignedModuleIds: []
     };

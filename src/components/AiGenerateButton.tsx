@@ -11,11 +11,11 @@ interface AiGenerateButtonProps {
   title?: string;
 }
 
-/** Sparkles "Generate with AI" button with a built-in spinner. */
+/** Generate button with a built-in spinner; the source note reports whether AI or the built-in generator produced the draft. */
 export function AiGenerateButton({
   onClick,
   running,
-  label = "Generate with AI",
+  label = "Generate draft",
   busyLabel = "Generating…",
   className = "secondary",
   disabled = false,
@@ -44,9 +44,5 @@ export function AiSourceNote({ running, error, status }: AiSourceNoteProps) {
   if (error) return <p className="ai-source-note ai-source-error" role="alert">{error}</p>;
   if (!status) return null;
   if (status.source === "ai") return <p className="ai-source-note ai-source-ok">Generated with AI.</p>;
-  return (
-    <p className="ai-source-note ai-source-fallback" role="status">
-      Used the built-in generator (AI unavailable{status.note ? `: ${status.note}` : ""}). Run with <code>netlify dev</code> and set <code>OPENAI_API_KEY</code> for AI output.
-    </p>
-  );
+  return <p className="ai-source-note ai-source-fallback" role="status">Used RocketCourse's built-in generator because AI was unavailable. Review the draft before publishing.</p>;
 }

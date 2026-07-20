@@ -38,7 +38,7 @@ export const buildInviteEmail = (p: InviteEmailParams): EmailContent => {
     `Accept your invite: ${p.inviteLink}`,
     expiry,
     "",
-    "RocketCourse helps teaching teams build Canvas-ready courses fast.",
+    "RocketCourse helps teaching teams build editable, Canvas-oriented courses faster.",
     "If you weren't expecting this, you can safely ignore this email."
   ]
     .filter(Boolean)

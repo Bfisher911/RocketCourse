@@ -26,6 +26,7 @@ import {
   Loader2,
   Lock,
   Mail,
+  Menu,
   MessageSquareText,
   MoveRight,
   Newspaper,
@@ -84,7 +85,7 @@ import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { ReviewMode } from "./components/ReviewMode";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
-import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
+import { buildCourseFromBlueprint, generateBlueprint } from "./services/aiGeneration";
 import { recordCourseAiSpend } from "./services/aiSpendMeter";
 import type { ChatCompletionCost } from "./services/openaiClient";
 import { AiSpendBadge } from "./components/AiSpendBadge";
@@ -123,18 +124,15 @@ import {
   validateModulePlan,
   type ModulePreviewFilter
 } from "./services/modulePlanner";
-import { reviseCourseObject, type RevisionMode } from "./services/objectRevision";
 import { listProjects, persistenceEnabled, saveProject } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
 import { inferSettingsFromPrompt } from "./services/promptInference";
 import { stripHtml } from "./utils/text";
-import { validateRevisionCandidate } from "./services/revisionGuard";
 import { buildCourseTileSvg, buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
 import { colorblindSafetyReport } from "./services/accessibility";
 import type {
   CourseModule,
-  CoursePage,
   CourseProject,
   CourseSettings,
   Discussion,
@@ -341,16 +339,6 @@ function App() {
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   // Card-by-card review of every generated item: approve or flag each once.
   const [reviewOpen, setReviewOpen] = useState(false);
-  // AI revisions preview before/after and require an explicit Apply — trying the AI
-  // never silently mutates content, which makes it safe to experiment with.
-  const [revisePreview, setRevisePreview] = useState<{
-    mode: RevisionMode;
-    targetType: "assignment" | "page";
-    targetId: string;
-    title: string;
-    before: string;
-    after: string;
-  } | null>(null);
   // The public sample course is freely exportable inside the demo (the .imscc/QTI/PDF packages are
   // built entirely in the browser from in-browser data — no server secret is involved). Real
   // user-generated courses still require a paid plan; the costly server-side AI stays entitlement-gated.
@@ -781,87 +769,6 @@ function App() {
     updateCourse((current) => removeModule(current, moduleId, moveItemsToModuleId));
   };
 
-  // AI revise (real, server-side). Tries the secured revise function (auth + entitlement enforced
-  // there) and falls back to the deterministic reviser when the AI route is unreachable/denied.
-  const reviseActiveContent = async (mode: RevisionMode): Promise<void> => {
-    if (mode === "rubric") {
-      const assignment = course.assignments[0];
-      if (!assignment) return;
-      const result = await reviseHtmlWithAi({
-        courseTitle: course.title,
-        objectType: "assignment",
-        title: assignment.title,
-        html: assignment.descriptionHtml,
-        mode,
-        context: {
-          outcomeCodes: assignment.alignedOutcomeIds.map((outcomeId) => course.outcomes.find((outcome) => outcome.id === outcomeId)?.code ?? outcomeId),
-          moduleTitle: course.modules.find((module) => module.id === assignment.moduleId)?.title,
-          futureProvider: "server-side-ai",
-          courseId: course.id
-        }
-      });
-      // Transaction guard: never replace good content with empty/unsafe output. Keep the old object.
-      const check = validateRevisionCandidate(result.value);
-      if (!check.ok) throw new Error(check.reason);
-      // Nothing is applied yet — the user reviews before/after and explicitly accepts.
-      setRevisePreview({
-        mode,
-        targetType: "assignment",
-        targetId: assignment.id,
-        title: assignment.title,
-        before: assignment.descriptionHtml,
-        after: result.value
-      });
-      return;
-    }
-
-    const targetPage = activeTab === "Syllabus" ? syllabus : homepage;
-    const result = await reviseHtmlWithAi({
-      courseTitle: course.title,
-      objectType: "page",
-      title: targetPage.title,
-      html: targetPage.bodyHtml,
-      mode,
-      context: {
-        outcomeCodes: course.outcomes.slice(0, 3).map((outcome) => outcome.code),
-        moduleTitle: course.modules.find((module) => module.id === targetPage.moduleId)?.title,
-        futureProvider: "server-side-ai",
-        courseId: course.id
-      }
-    });
-    const check = validateRevisionCandidate(result.value);
-    if (!check.ok) throw new Error(check.reason);
-    setRevisePreview({
-      mode,
-      targetType: "page",
-      targetId: targetPage.id,
-      title: targetPage.title,
-      before: targetPage.bodyHtml,
-      after: result.value
-    });
-  };
-
-  const applyRevisePreview = (): void => {
-    if (!revisePreview) return;
-    const { targetType, targetId, after } = revisePreview;
-    updateCourse((current) =>
-      targetType === "assignment"
-        ? {
-            ...current,
-            assignments: current.assignments.map((item) =>
-              item.id === targetId ? { ...item, descriptionHtml: after, status: "edited", metadata: editMetadata() } : item
-            )
-          }
-        : {
-            ...current,
-            pages: current.pages.map((page) =>
-              page.id === targetId ? { ...page, bodyHtml: after, status: "edited", metadata: editMetadata() } : page
-            )
-          }
-    );
-    setRevisePreview(null);
-  };
-
   // Build + validate the package locally without downloading. Separating validation from download
   // keeps the workflow honest: the user can inspect the local report before committing to a file.
   const runValidation = async (): Promise<void> => {
@@ -1220,7 +1127,6 @@ function App() {
           lastDownloadName={lastDownloadName}
           onDuplicateModule={duplicateModule}
           onDeleteModule={deleteModule}
-          onRevise={reviseActiveContent}
           exportMode={exportMode}
           onExportModeChange={setExportMode}
           importNotes={importNotes}
@@ -1253,9 +1159,6 @@ function App() {
       )}
       {screen === "editor" && reviewOpen && (
         <ReviewMode course={course} onClose={() => setReviewOpen(false)} onJumpToTab={setActiveTab} />
-      )}
-      {screen === "editor" && revisePreview && (
-        <RevisePreviewDialog preview={revisePreview} onApply={applyRevisePreview} onDiscard={() => setRevisePreview(null)} />
       )}
 
       {screen === "blog" && (
@@ -1332,21 +1235,36 @@ function TopBar({
   onManageBilling: () => void;
 }) {
   const { session, entitlement } = auth;
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const cls = (active: boolean): string => (active ? "active" : "");
+  const navigate = (next: () => void): void => {
+    setMobileNavOpen(false);
+    next();
+  };
   return (
     <header className="topbar">
       <BrandHeader onClick={() => onNavigate("landing")} />
-      <nav className="topnav" aria-label="Primary">
+      <button
+        type="button"
+        className="topnav-toggle"
+        aria-expanded={mobileNavOpen}
+        aria-controls="primary-navigation"
+        onClick={() => setMobileNavOpen((open) => !open)}
+      >
+        {mobileNavOpen ? <X size={18} /> : <Menu size={18} />}
+        <span>{mobileNavOpen ? "Close" : "Menu"}</span>
+      </button>
+      <nav id="primary-navigation" className={`topnav ${mobileNavOpen ? "is-open" : ""}`} aria-label="Primary">
         {session && (
           <div className="topnav-product" role="group" aria-label="Your workspace">
-            <button className={`nav-emph ${cls(screen === "dashboard")}`} onClick={() => onNavigate("dashboard")}>
+            <button className={`nav-emph ${cls(screen === "dashboard")}`} onClick={() => navigate(() => onNavigate("dashboard"))}>
               <LayoutDashboard size={16} /> Dashboard
             </button>
-            <button className={`nav-cta ${cls(screen === "intake")}`} onClick={() => onNavigate("intake")}>
+            <button className={`nav-cta ${cls(screen === "intake")}`} onClick={() => navigate(() => onNavigate("intake"))}>
               <Wand2 size={16} /> Create
             </button>
             {access.workspaces.some((w) => w.myRole === "owner" || w.myRole === "admin") && (
-              <button className={`nav-emph ${cls(screen === "workspace")}`} onClick={() => onNavigate("workspace")}>
+              <button className={`nav-emph ${cls(screen === "workspace")}`} onClick={() => navigate(() => onNavigate("workspace"))}>
                 <Rocket size={16} /> Launchpad
               </button>
             )}
@@ -1355,32 +1273,32 @@ function TopBar({
         {/* Signed-in users reach Home via the logo and are past needing the demo —
             trimming both keeps the workspace nav focused on the product. */}
         {!session && (
-          <button className={cls(screen === "landing")} onClick={() => onNavigate("landing")}>
+          <button className={cls(screen === "landing")} onClick={() => navigate(() => onNavigate("landing"))}>
             <Home size={16} /> Home
           </button>
         )}
         {!session && (
-          <button className={cls(screen === "demo")} onClick={onDemo}>
+          <button className={cls(screen === "demo")} onClick={() => navigate(onDemo)}>
             <PanelLeft size={16} /> Demo
           </button>
         )}
-        <button className={cls(screen === "pricing")} onClick={() => onNavigate("pricing")}>
+        <button className={cls(screen === "pricing")} onClick={() => navigate(() => onNavigate("pricing"))}>
           <CreditCard size={16} /> Pricing
         </button>
-        <button className={cls(screen === "guides")} onClick={() => onNavigate("guides")}>
+        <button className={cls(screen === "guides")} onClick={() => navigate(() => onNavigate("guides"))}>
           <BookOpen size={16} /> Guides
         </button>
-        <button className={cls(screen === "about")} onClick={() => onNavigate("about")}>
+        <button className={cls(screen === "about")} onClick={() => navigate(() => onNavigate("about"))}>
           <Info size={16} /> About
         </button>
-        <button className={cls(screen === "contact")} onClick={() => onNavigate("contact")}>
+        <button className={cls(screen === "contact")} onClick={() => navigate(() => onNavigate("contact"))}>
           <Mail size={16} /> Contact
         </button>
-        <button className={cls(screen === "blog" || screen === "blogPost")} onClick={() => onNavigate("blog")}>
+        <button className={cls(screen === "blog" || screen === "blogPost")} onClick={() => navigate(() => onNavigate("blog"))}>
           <Newspaper size={16} /> Blog
         </button>
         {access.isSuperAdmin && (
-          <button className={cls(screen === "admin")} onClick={() => onNavigate("admin")}>
+          <button className={cls(screen === "admin")} onClick={() => navigate(() => onNavigate("admin"))}>
             <ShieldAlert size={16} /> Super Admin
           </button>
         )}
@@ -2136,8 +2054,9 @@ function Intake({
   const [inferredNotes, setInferredNotes] = useState<string[]>([]);
 
   const applyPromptInference = (): void => {
-    if (!prompt.trim()) return;
-    const { updates, notes } = inferSettingsFromPrompt(prompt);
+    const intakeContext = augmentPromptWithSources(prompt, settings.sourceFiles);
+    if (!intakeContext.trim()) return;
+    const { updates, notes } = inferSettingsFromPrompt(intakeContext);
     const applied: string[] = [];
     (Object.entries(updates) as Array<[keyof typeof updates, never]>).forEach(([key, value]) => {
       if (settings[key] === defaultSettings[key]) {
@@ -2153,14 +2072,15 @@ function Intake({
   const promptRef = useRef(prompt);
   promptRef.current = prompt;
   useEffect(() => {
-    if (intakeMode !== "quick" || !prompt.trim()) return;
+    const hasSourceText = settings.sourceFiles.some((source) => Boolean(source.text?.trim()));
+    if (intakeMode !== "quick" || (!prompt.trim() && !hasSourceText)) return;
     const timer = window.setTimeout(() => {
       if (promptRef.current === prompt) applyPromptInference();
     }, 700);
     return () => window.clearTimeout(timer);
     // applyPromptInference reads current props/state; re-running on prompt/mode change is the point.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prompt, intakeMode]);
+  }, [prompt, intakeMode, settings.sourceFiles]);
   const toggleSection = (key: string): void => setOpenSections((current) => ({ ...current, [key]: !current[key] }));
   const updateSchedule = <K extends keyof CourseSettings["schedule"]>(key: K, value: CourseSettings["schedule"][K]) => {
     onSettingsChange("schedule", { ...settings.schedule, [key]: value });
@@ -2170,12 +2090,15 @@ function Intake({
     setPasteText("");
   };
 
-  // Generation needs at least a course brief or an explicit title — otherwise there is
-  // nothing user-specific to build from and the result would be an empty-shell course.
-  const hasIntake = Boolean(prompt.trim() || settings.title.trim());
+  // Generation needs a course brief, explicit title, or source text. A source-only workflow is
+  // valid (for example, starting from a syllabus), but an entirely empty intake is not.
+  const hasReadableSource = settings.sourceFiles.some(
+    (source) => (source.status === "parsed" || source.status === "needs-review") && Boolean(source.text?.trim())
+  );
+  const hasIntake = Boolean(prompt.trim() || settings.title.trim() || hasReadableSource);
   const emptyIntakeHint = !hasIntake ? (
     <p className="prompt-hint" role="status">
-      Describe your course above (or set a title) to enable generation.
+      Describe your course, set a title, or add a readable source to continue.
     </p>
   ) : null;
 
@@ -2286,7 +2209,7 @@ function Intake({
             </button>
           </div>
           <p className="upload-note privacy-note">
-            <Lock size={13} /> Your prompt and extracted source text are sent to the AI provider only to generate your draft.
+            <Lock size={13} /> When you choose an AI blueprint, your prompt and extracted source text are sent to the AI provider only to generate your draft.
             Generated content is a first draft and must be reviewed for accuracy, accessibility, grading, and policy before use.
           </p>
         </div>
@@ -2323,7 +2246,7 @@ function Intake({
                 onChange={(value) => onSettingsChange("courseLengthPreset", value as CourseSettings["courseLengthPreset"])}
               />
               <NumberInput label="Course length" value={settings.lengthWeeks} min={3} max={18} suffix="weeks" onChange={(value) => onSettingsChange("lengthWeeks", value)} />
-              <NumberInput label="Modules" value={settings.moduleCount} min={3} max={18} onChange={(value) => onSettingsChange("moduleCount", value)} />
+              <NumberInput label="Teaching modules" value={settings.moduleCount} min={3} max={18} onChange={(value) => onSettingsChange("moduleCount", value)} />
               <Select
                 label="Organize by"
                 value={settings.organizationPattern}
@@ -2362,21 +2285,25 @@ function Intake({
   const assessmentsFields = (
             <div className="field-grid">
               <Select label="Quizzes" value={settings.quizFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("quizFrequency", value as CourseSettings["quizFrequency"])} />
-              <NumberInput label="Questions per quiz" value={settings.quizQuestionsPerQuiz} min={1} max={10} onChange={(value) => onSettingsChange("quizQuestionsPerQuiz", value)} />
-              <Select label="Quiz difficulty" value={settings.quizDifficulty} options={["introductory", "balanced", "challenging"]} onChange={(value) => onSettingsChange("quizDifficulty", value as CourseSettings["quizDifficulty"])} />
-              <Select label="Quiz purpose" value={settings.quizPurpose} options={["knowledge-check", "pre-assessment", "application", "scenario", "socratic", "review"]} labels={{ "knowledge-check": "Knowledge check", "pre-assessment": "Pre-assessment", application: "Application", scenario: "Scenario-based", socratic: "Socratic", review: "Review & reinforce" }} hint="What quizzes are for — quick recall checks, applying ideas to scenarios, or end-of-module review." onChange={(value) => onSettingsChange("quizPurpose", value as CourseSettings["quizPurpose"])} />
+              {settings.quizFrequency !== "none" && (
+                <>
+                  <NumberInput label="Questions per quiz" value={settings.quizQuestionsPerQuiz} min={1} max={10} onChange={(value) => onSettingsChange("quizQuestionsPerQuiz", value)} />
+                  <Select label="Quiz difficulty" value={settings.quizDifficulty} options={["introductory", "balanced", "challenging"]} onChange={(value) => onSettingsChange("quizDifficulty", value as CourseSettings["quizDifficulty"])} />
+                  <Select label="Quiz purpose" value={settings.quizPurpose} options={["knowledge-check", "pre-assessment", "application", "scenario", "socratic", "review"]} labels={{ "knowledge-check": "Knowledge check", "pre-assessment": "Pre-assessment", application: "Application", scenario: "Scenario-based", socratic: "Socratic", review: "Review & reinforce" }} hint="What quizzes are for — quick recall checks, applying ideas to scenarios, or end-of-module review." onChange={(value) => onSettingsChange("quizPurpose", value as CourseSettings["quizPurpose"])} />
+                </>
+              )}
               <Select label="Discussions" value={settings.discussionFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("discussionFrequency", value as CourseSettings["discussionFrequency"])} />
-              <Select label="Discussion style" value={settings.discussionStyle} options={["reflective", "case-based", "debate", "peer-review", "application"]} hint="The kind of prompt students respond to — personal reflection, analyzing a case, structured debate, reviewing peer work, or applying ideas to new situations." onChange={(value) => onSettingsChange("discussionStyle", value as CourseSettings["discussionStyle"])} />
+              {settings.discussionFrequency !== "none" && <Select label="Discussion style" value={settings.discussionStyle} options={["reflective", "case-based", "debate", "peer-review", "application"]} hint="The kind of prompt students respond to — personal reflection, analyzing a case, structured debate, reviewing peer work, or applying ideas to new situations." onChange={(value) => onSettingsChange("discussionStyle", value as CourseSettings["discussionStyle"])} />}
               <Select label="Assignments" value={settings.assignmentCadence} options={["every-module", "every-other-module", "major-milestones", "custom"]} labels={{ "every-module": "Every module", "every-other-module": "Every other module", "major-milestones": "Major milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("assignmentCadence", value as CourseSettings["assignmentCadence"])} />
-              <Select label="Final project type" value={settings.finalProjectType} options={["project", "presentation", "paper", "portfolio", "exam", "case-study", "simulation", "other"]} onChange={(value) => onSettingsChange("finalProjectType", value as CourseSettings["finalProjectType"])} />
-              <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} hint="How often students submit final-project check-ins along the way, so the big project isn't one giant deadline." onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />
+              {settings.finalProject && <Select label="Final project type" value={settings.finalProjectType} options={["project", "presentation", "paper", "portfolio", "exam", "case-study", "simulation", "other"]} onChange={(value) => onSettingsChange("finalProjectType", value as CourseSettings["finalProjectType"])} />}
+              {settings.finalProject && settings.scaffoldFinalProject && <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} hint="How often students submit final-project check-ins along the way, so the big project isn't one giant deadline." onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />}
             </div>
   );
 
   const optionsFields = (
             <div className="toggle-grid">
-              <Toggle label="Final project" hint="Adds a culminating final project with its own module, rubric, and gradebook weight." checked={settings.finalProject} onChange={(value) => onSettingsChange("finalProject", value)} />
-              <Toggle label="Scaffold final project" hint="Spreads the final project across smaller graded check-ins during the term instead of one big deadline." checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />
+              <Toggle label="Final project" hint="Adds a culminating final project with its own module, rubric, and gradebook weight." checked={settings.finalProject} onChange={(value) => { onSettingsChange("finalProject", value); if (!value) onSettingsChange("scaffoldFinalProject", false); }} />
+              {settings.finalProject && <Toggle label="Scaffold final project" hint="Spreads the final project across smaller graded check-ins during the term instead of one big deadline." checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />}
               <Toggle label="Rubrics" hint="Generates a Canvas rubric for every graded assignment and discussion, aligned to the course outcomes." checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
               <Toggle label="Workload/contact hours" hint="Adds a contact-hours plan (Carnegie model) showing how the course meets its credit-hour expectation." checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
               <Toggle label="AAA contrast" hint="Uses the strictest WCAG AAA color-contrast tier for themed content (larger text, stronger contrast). Default is AA, the common institutional standard." checked={settings.accessibilityTier === "AAA"} onChange={(value) => onSettingsChange("accessibilityTier", value ? "AAA" : "AA")} />
@@ -2387,36 +2314,24 @@ function Intake({
   const scheduleFields = (
     <>
             <Toggle label="Generate due dates" checked={settings.schedule.enableDueDates} onChange={(value) => updateSchedule("enableDueDates", value)} />
-            <div className="field-grid">
-              <Input label="Term start" type="date" value={settings.schedule.termStartDate ?? ""} onChange={(value) => updateSchedule("termStartDate", value || undefined)} />
-              <Input label="Term end" type="date" value={settings.schedule.termEndDate ?? ""} onChange={(value) => updateSchedule("termEndDate", value || undefined)} />
-              <Select label="Module release day" value={String(settings.schedule.moduleReleaseDay)} options={weekdayOptions} labels={weekdayLabels} onChange={(value) => updateSchedule("moduleReleaseDay", Number(value))} />
-              <Select label="Preferred due day" value={String(settings.schedule.preferredDueDay)} options={weekdayOptions} labels={weekdayLabels} onChange={(value) => updateSchedule("preferredDueDay", Number(value))} />
-              <Input label="Preferred due time" type="time" value={settings.schedule.preferredDueTime} onChange={(value) => updateSchedule("preferredDueTime", value)} />
-            </div>
-            <ListTextArea
-              label="Holidays"
-              helper="One per line or comma-separated. Press Enter for a new line — e.g. Thanksgiving Break, Spring Break."
-              value={settings.schedule.holidays}
-              onChange={(value) => updateSchedule("holidays", value)}
-            />
-            <ListTextArea
-              label="Blackout dates"
-              helper="Dates to keep clear of due dates. One per line or comma-separated — paste freely."
-              value={settings.schedule.blackoutDates}
-              onChange={(value) => updateSchedule("blackoutDates", value)}
-            />
-            <TextArea
-              label="Paste your school academic calendar (optional)"
-              value={settings.schedule.academicCalendar ?? ""}
-              onChange={(value) => updateSchedule("academicCalendar", value)}
-              rows={5}
-            />
-            <p className="field-hint">
-              Paste a term calendar here and RocketCourse uses it as context to avoid holidays, breaks, exam periods, and
-              blackout dates when scheduling. Multi-line text, spacing, and line breaks are preserved.
-            </p>
-            <Toggle label="Allow dates outside term" checked={settings.schedule.allowDueDatesOutsideTerm} onChange={(value) => updateSchedule("allowDueDatesOutsideTerm", value)} />
+            {settings.schedule.enableDueDates ? (
+              <>
+                <div className="field-grid">
+                  <Input label="Term start" type="date" value={settings.schedule.termStartDate ?? ""} onChange={(value) => updateSchedule("termStartDate", value || undefined)} />
+                  <Input label="Term end" type="date" value={settings.schedule.termEndDate ?? ""} onChange={(value) => updateSchedule("termEndDate", value || undefined)} />
+                  <Select label="Module release day" value={String(settings.schedule.moduleReleaseDay)} options={weekdayOptions} labels={weekdayLabels} onChange={(value) => updateSchedule("moduleReleaseDay", Number(value))} />
+                  <Select label="Preferred due day" value={String(settings.schedule.preferredDueDay)} options={weekdayOptions} labels={weekdayLabels} onChange={(value) => updateSchedule("preferredDueDay", Number(value))} />
+                  <Input label="Preferred due time" type="time" value={settings.schedule.preferredDueTime} onChange={(value) => updateSchedule("preferredDueTime", value)} />
+                </div>
+                <ListTextArea label="Holidays" helper="One per line or comma-separated. Press Enter for a new line — e.g. Thanksgiving Break, Spring Break." value={settings.schedule.holidays} onChange={(value) => updateSchedule("holidays", value)} />
+                <ListTextArea label="Blackout dates" helper="Dates to keep clear of due dates. One per line or comma-separated — paste freely." value={settings.schedule.blackoutDates} onChange={(value) => updateSchedule("blackoutDates", value)} />
+                <TextArea label="Paste your school academic calendar (optional)" value={settings.schedule.academicCalendar ?? ""} onChange={(value) => updateSchedule("academicCalendar", value)} rows={5} />
+                <p className="field-hint">Paste a term calendar here and RocketCourse uses it as context to avoid holidays, breaks, exam periods, and blackout dates when scheduling. Multi-line text, spacing, and line breaks are preserved.</p>
+                <Toggle label="Allow dates outside term" checked={settings.schedule.allowDueDatesOutsideTerm} onChange={(value) => updateSchedule("allowDueDatesOutsideTerm", value)} />
+              </>
+            ) : (
+              <p className="field-hint">Turn this on to set term dates, release timing, holidays, and blackout dates.</p>
+            )}
     </>
   );
 
@@ -2538,6 +2453,7 @@ function Intake({
               {guidedStep < lastStep ? (
                 <button
                   className="primary"
+                  disabled={guidedStep === 0 && !hasIntake}
                   onClick={() => {
                     if (guidedStep === 0) applyPromptInference();
                     setGuidedStep((value) => Math.min(lastStep, value + 1));
@@ -2549,6 +2465,7 @@ function Intake({
                 generateButton
               )}
             </div>
+            {guidedStep === 0 && emptyIntakeHint}
           </div>
         </section>
       )}
@@ -2683,68 +2600,6 @@ function BlueprintReview({
   );
 }
 
-const REVISE_MODE_LABELS: Record<RevisionMode, string> = {
-  concise: "Tighter wording",
-  examples: "Added examples",
-  accessibility: "Accessibility pass",
-  rubric: "Rubric note"
-};
-
-// AI revisions are proposals, not mutations: show before/after side by side and
-// apply only on explicit accept, so trying the AI is always safe.
-function RevisePreviewDialog({
-  preview,
-  onApply,
-  onDiscard
-}: {
-  preview: { mode: RevisionMode; title: string; before: string; after: string };
-  onApply: () => void;
-  onDiscard: () => void;
-}) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") onDiscard();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onDiscard]);
-
-  return (
-    <div className="review-overlay" role="dialog" aria-modal="true" aria-labelledby="revise-preview-title" onClick={onDiscard}>
-      <div className="review-card revise-preview-card" onClick={(event) => event.stopPropagation()}>
-        <header className="review-head">
-          <span className="hp-eyebrow">
-            <Sparkles size={14} /> {REVISE_MODE_LABELS[preview.mode]}
-          </span>
-          <button className="ghost-button" onClick={onDiscard}>
-            <X size={15} /> Discard
-          </button>
-        </header>
-        <h2 id="revise-preview-title" className="revise-preview-title">{preview.title}</h2>
-        <p className="revise-preview-note">Nothing is changed yet — compare the drafts and apply only if you like the revision.</p>
-        <div className="revise-compare">
-          <section aria-label="Current version">
-            <h3>Current</h3>
-            <div className="revise-pane">{stripHtml(preview.before)}</div>
-          </section>
-          <section aria-label="AI revision">
-            <h3>AI revision</h3>
-            <div className="revise-pane after">{stripHtml(preview.after)}</div>
-          </section>
-        </div>
-        <div className="review-actions">
-          <button className="ghost-button" onClick={onDiscard}>
-            Discard
-          </button>
-          <button className="review-approve" onClick={onApply}>
-            <CheckCircle2 size={16} /> Apply revision
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Shown once, right after generation finishes: celebrate what was built and hand the
 // user a single obvious next action ("Start reviewing") instead of a cold workspace.
 function WelcomeSummary({
@@ -2764,8 +2619,10 @@ function WelcomeSummary({
     return () => document.removeEventListener("keydown", onKey);
   }, [onDismiss]);
 
+  const teachingModuleCount = course.modules.filter((module) => module.kind === "content").length;
+  const supportModuleCount = course.modules.length - teachingModuleCount;
   const stats: Array<[number, string]> = [
-    [course.modules.length, "modules"],
+    [course.modules.length, "total modules"],
     [course.pages.length, "pages"],
     [course.assignments.length, "assignments"],
     [course.discussions.length, "discussions"],
@@ -2788,6 +2645,9 @@ function WelcomeSummary({
             </div>
           ))}
         </div>
+        {supportModuleCount > 0 && (
+          <p className="welcome-module-note">{teachingModuleCount} teaching modules plus {supportModuleCount} support modules for orientation, final work, or instructor resources.</p>
+        )}
         <p>
           This is a complete first draft — not a finished course. Walk through the five build phases to review and
           polish it, then export to Canvas.
@@ -2883,7 +2743,6 @@ function Editor({
   lastDownloadName,
   onDuplicateModule,
   onDeleteModule,
-  onRevise,
   exportMode,
   onExportModeChange,
   importNotes,
@@ -2931,7 +2790,6 @@ function Editor({
   lastDownloadName: string | null;
   onDuplicateModule: (moduleId: string) => void;
   onDeleteModule: (moduleId: string, moveItemsToModuleId?: string) => void;
-  onRevise: (mode: RevisionMode) => Promise<void>;
   exportMode: ExportMode;
   onExportModeChange: (mode: ExportMode) => void;
   importNotes: string[];
@@ -2948,8 +2806,6 @@ function Editor({
   onRedo?: () => void;
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
-  const [revising, setRevising] = useState<RevisionMode | null>(null);
-  const [reviseError, setReviseError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<EditorViewMode>(readStoredEditorView);
   // Readiness lives in a slide-over drawer (opened from the header chip) so the
   // editor is two calm columns instead of three competing ones.
@@ -2996,20 +2852,6 @@ function Editor({
     const active = tabsRef.current?.querySelector<HTMLButtonElement>("button.active");
     active?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [activeTab]);
-
-  const runRevise = async (mode: RevisionMode): Promise<void> => {
-    if (revising) return;
-    setRevising(mode);
-    setReviseError(null);
-    try {
-      await onRevise(mode);
-    } catch (error) {
-      // Recoverable: the guard kept the previous content. Tell the user, don't crash the editor.
-      setReviseError(error instanceof Error ? error.message : "The revision couldn't be applied. Your content was kept.");
-    } finally {
-      setRevising(null);
-    }
-  };
 
   return (
     <main id="main-content" tabIndex={-1} className="editor-shell">
@@ -3160,28 +3002,6 @@ function Editor({
               <ChevronRight size={14} aria-hidden="true" />
             </button>
             </div>
-          {/* The Homepage tab has its own context-aware "Quick improvements" that edit the
-              structured builder model, so the generic page-level revise toolbar is hidden there
-              to avoid duplication and keep the builder and its HTML in sync. */}
-          {activeTab !== "Homepage" && activeTab !== "Syllabus" && (
-            <div className="ai-toolbar" aria-label="AI revise actions">
-              {([
-                ["concise", PenLine, "Concise"],
-                ["examples", Sparkles, "Add examples"],
-                ["accessibility", CheckCircle2, "Accessibility"],
-                ["rubric", RotateCcw, "Rubric note"]
-              ] as const).map(([mode, Icon, label]) => (
-                <button key={mode} onClick={() => void runRevise(mode)} disabled={revising !== null} aria-busy={revising === mode}>
-                  {revising === mode ? <Loader2 size={15} className="spin" /> : <Icon size={15} />} {label}
-                </button>
-              ))}
-              {reviseError && (
-                <p className="revise-error" role="status">
-                  <AlertTriangle size={14} /> {reviseError}
-                </p>
-              )}
-            </div>
-          )}
           </div>
         </div>
         <div className="editor-viewbar">
@@ -3270,6 +3090,7 @@ function Editor({
           {activeTab === "Export" && (
             <ExportTab
               course={course}
+              demoMode={demoMode}
               readiness={readiness}
               validationReport={validationReport}
               isExporting={isExporting}
@@ -3341,62 +3162,6 @@ function Editor({
         </div>
       )}
     </main>
-  );
-}
-
-function PageTab({
-  title,
-  course,
-  page,
-  onUpdateCourse
-}: {
-  title: string;
-  course: CourseProject;
-  page: CoursePage;
-  onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
-}) {
-  if (!page) return <EmptyState title={`${title} missing`} body="Generate or add this page before export." />;
-  const revisePage = (mode: RevisionMode): void => {
-    onUpdateCourse((current) => {
-      const result = reviseCourseObject({
-        courseTitle: current.title,
-        objectType: "page",
-        title: page.title,
-        html: page.bodyHtml,
-        mode,
-        context: {
-          outcomeCodes: current.outcomes.slice(0, 3).map((outcome) => outcome.code),
-          moduleTitle: current.modules.find((module) => module.id === page.moduleId)?.title,
-          futureProvider: "server-side-ai"
-        }
-      });
-      return {
-        ...current,
-        pages: current.pages.map((item) => (item.id === page.id ? { ...item, bodyHtml: result.html, status: "edited", metadata: editMetadata() } : item))
-      };
-    });
-  };
-  return (
-    <div className="split-editor">
-      <div className="stack">
-        <ObjectReviseBar onRevise={revisePage} />
-        <Input
-          label="Page title"
-          value={page.title}
-          onChange={(value) => onUpdateCourse((current) => ({ ...current, pages: current.pages.map((item) => (item.id === page.id ? { ...item, title: value } : item)) }))}
-        />
-        <TextArea
-          label="Canvas HTML"
-          value={page.bodyHtml}
-          rows={20}
-          onChange={(value) => onUpdateCourse((current) => ({ ...current, pages: current.pages.map((item) => (item.id === page.id ? { ...item, bodyHtml: value } : item)) }))}
-        />
-      </div>
-      <div className="canvas-preview">
-        <small className="block-note">Previewing {course.theme.name} themed Canvas HTML</small>
-        <div dangerouslySetInnerHTML={{ __html: page.bodyHtml }} />
-      </div>
-    </div>
   );
 }
 
@@ -3791,53 +3556,6 @@ function ModulesTab({
           </div>
         </aside>
       </div>
-    </div>
-  );
-}
-
-function CollectionTab<T extends { id: string; title: string; status: CourseProject["status"]; metadata: ObjectMetadata }>({
-  title,
-  objectType,
-  course,
-  items,
-  getBody,
-  setBody,
-  onReplace
-}: {
-  title: string;
-  objectType: "page" | "assignment" | "discussion";
-  course: CourseProject;
-  items: T[];
-  getBody: (item: T) => string;
-  setBody: (item: T, body: string) => T;
-  onReplace: (items: T[]) => void;
-}) {
-  const reviseItem = (item: T, mode: RevisionMode): void => {
-    const result = reviseCourseObject({
-      courseTitle: course.title,
-      objectType,
-      title: item.title,
-      html: getBody(item),
-      mode,
-      context: {
-        outcomeCodes: course.outcomes.slice(0, 4).map((outcome) => outcome.code),
-        futureProvider: "server-side-ai"
-      }
-    });
-    onReplace(items.map((current) => (current.id === item.id ? { ...setBody(current, result.html), status: "edited", metadata: editMetadata() } : current)));
-  };
-
-  return (
-    <div className="stack">
-      <h2>{title}</h2>
-      {items.map((item) => (
-        <details key={item.id} className="detail-editor">
-          <summary>{item.title}</summary>
-          <ObjectReviseBar onRevise={(mode) => reviseItem(item, mode)} />
-          <Input label="Title" value={item.title} onChange={(value) => onReplace(items.map((current) => (current.id === item.id ? { ...current, title: value } : current)))} />
-          <TextArea label="Canvas HTML" value={getBody(item)} rows={10} onChange={(value) => onReplace(items.map((current) => (current.id === item.id ? setBody(current, value) : current)))} />
-        </details>
-      ))}
     </div>
   );
 }
@@ -4323,25 +4041,6 @@ function ReadinessPanel({
         <strong>Canvas package check</strong>
         <span>{validationReport ? `${validationReport.score}% passed` : "Not run yet"}</span>
       </div>
-    </div>
-  );
-}
-
-function ObjectReviseBar({ onRevise }: { onRevise: (mode: RevisionMode) => void }) {
-  return (
-    <div className="object-revise" aria-label="Object revise controls">
-      <button className="small-button" onClick={() => onRevise("concise")}>
-        <PenLine size={14} /> Tighten
-      </button>
-      <button className="small-button" onClick={() => onRevise("examples")}>
-        <Sparkles size={14} /> Examples
-      </button>
-      <button className="small-button" onClick={() => onRevise("accessibility")}>
-        <CheckCircle2 size={14} /> Access
-      </button>
-      <button className="small-button" onClick={() => onRevise("rubric")}>
-        <ClipboardCheck size={14} /> Rubric
-      </button>
     </div>
   );
 }

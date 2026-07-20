@@ -406,6 +406,20 @@ p {
   scrollbar-width: thin;
 }
 
+.topnav-toggle {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: rgba(130, 146, 230, 0.1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .topnav button {
   flex: 0 0 auto;
   display: inline-flex;
@@ -8610,6 +8624,48 @@ p {
   .compact-list,
   .readiness-card ul {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+  }
+
+  .topnav-toggle {
+    display: inline-flex;
+  }
+
+  .topnav {
+    display: none;
+    grid-column: 1 / -1;
+    width: 100%;
+    max-height: calc(100vh - 88px);
+    padding: 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: rgba(10, 13, 38, 0.98);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .topnav.is-open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .topnav-product {
+    display: contents;
+  }
+
+  .topnav button {
+    justify-content: flex-start;
+    width: 100%;
+    min-height: 44px;
   }
 }
 

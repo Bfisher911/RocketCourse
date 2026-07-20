@@ -372,7 +372,7 @@ export const SAMPLE_CAMPAIGN: Campaign = {
   type: "limited_discount",
   headline: "Join the Fall 2026 RocketCourse pilot",
   description:
-    "The first 50 instructors get 40% off an Individual Annual plan, a live onboarding webinar, and direct support building a Canvas-ready course.",
+    "The first 50 instructors get 40% off an Individual Annual plan, a live onboarding webinar, and direct support building a Canvas-oriented course.",
   ctaText: "Claim a pilot seat",
   status: "active",
   placement: "homepage_banner",

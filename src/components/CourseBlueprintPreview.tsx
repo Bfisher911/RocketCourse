@@ -56,7 +56,7 @@ export function CourseBlueprintPreview({ settings }: { settings: CourseSettings 
         </span>
         <h3>{settings.title?.trim() || "Your course"}</h3>
         <div className="blueprint-chips">
-          <span className="bp-chip strong">{moduleCount} modules</span>
+          <span className="bp-chip strong">{moduleCount} teaching modules</span>
           <span className="bp-chip">{settings.lengthWeeks} weeks</span>
           {settings.level && <span className="bp-chip">{settings.level}</span>}
           {settings.modality && <span className="bp-chip">{settings.modality}</span>}

@@ -46,6 +46,15 @@ describe("inferSettingsFromPrompt", () => {
     expect(updates.title).toBe("Cartography of Lost Things");
   });
 
+  it("infers title and length from pasted source metadata", () => {
+    const { updates } = inferSettingsFromPrompt(
+      "The instructor provided source material:\nCourse: Emergency Preparedness for School Leaders. Audience: K-12 administrators. Four-week course."
+    );
+    expect(updates.title).toBe("Emergency Preparedness for School Leaders");
+    expect(updates.lengthWeeks).toBe(4);
+    expect(updates.moduleCount).toBe(4);
+  });
+
   it("returns nothing for prompts without signals", () => {
     const { updates, notes } = inferSettingsFromPrompt(
       "Learners will practice careful observation and thoughtful critique throughout the term with regular studio time."

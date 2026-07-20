@@ -96,7 +96,7 @@ export function applySeo(screen: Screen): void {
   const title = route?.title ?? `${SITE_NAME} — AI Canvas Course Builder & IMSCC Export`;
   const description =
     route?.description ??
-    "RocketCourse turns a course idea into an editable, Canvas-ready course you can export as an IMSCC package.";
+    "RocketCourse turns a course idea into an editable, Canvas-oriented course you can export as an IMSCC package for sandbox testing.";
 
   document.title = title;
   upsertMeta("name", "description", description);

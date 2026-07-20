@@ -8,10 +8,10 @@
       "path": "/",
       "index": true,
       "title": "RocketCourse — AI Canvas Course Builder & IMSCC Export",
-      "description": "RocketCourse turns a topic, syllabus, or notes into a fully editable Canvas course — modules, pages, assignments, quizzes, rubrics, and gradebook — then validates and exports a Canvas-ready .imscc package.",
+      "description": "RocketCourse turns a topic, syllabus, or notes into a fully editable Canvas course — modules, pages, assignments, quizzes, rubrics, and gradebook — then validates and exports a Canvas-oriented .imscc package.",
       "keywords": "AI Canvas course builder, Canvas course generator, IMSCC export, instructional design tool, Canvas course shell, AI course creation",
       "h1": "Turn a course idea into an editable Canvas course",
-      "intro": "RocketCourse generates a structured, fully editable Canvas course from a topic, syllabus, or existing export — then locally validates and exports a Canvas-ready .imscc package."
+      "intro": "RocketCourse generates a structured, fully editable Canvas course from a topic, syllabus, or existing export — then locally validates and exports a Canvas-oriented .imscc package for sandbox testing."
     },
     {
       "screen": "blog",
@@ -48,10 +48,10 @@
       "path": "/guides",
       "index": true,
       "title": "Guides — How to Build & Export a Canvas Course | RocketCourse",
-      "description": "Step-by-step guides: start a Canvas course from scratch, improve an existing one, import a Canvas export, generate quizzes, and export a Canvas-ready .imscc package.",
+      "description": "Step-by-step guides: start a Canvas course from scratch, improve an existing one, import a Canvas export, generate quizzes, and export a Canvas-oriented .imscc package.",
       "keywords": "how to build a Canvas course, Canvas IMSCC export guide, import Canvas course, generate Canvas quizzes",
       "h1": "Guides for building and exporting Canvas courses",
-      "intro": "Practical, step-by-step guides for starting a course from scratch, improving an existing one, importing a Canvas export, generating quizzes, and exporting a Canvas-ready .imscc package."
+      "intro": "Practical, step-by-step guides for starting a course from scratch, improving an existing one, importing a Canvas export, generating quizzes, and exporting a Canvas-oriented .imscc package for sandbox testing."
     },
     {
       "screen": "contact",
@@ -96,7 +96,7 @@
       "path": "/founding-cohort",
       "index": true,
       "title": "RocketCourse Founding Cohort — 40% Off + AI Course Building Workshop",
-      "description": "Join the RocketCourse Founding Cohort: 40% off your first 3 months, a live AI Course Building Workshop, early access, and a launch discount. Turn a course idea into a Canvas-ready course shell.",
+      "description": "Join the RocketCourse Founding Cohort: 40% off your first 3 months, a live AI Course Building Workshop, early access, and a launch discount. Turn a course idea into a Canvas-oriented course shell.",
       "keywords": "RocketCourse founding cohort, AI course building workshop, Canvas course builder early access, instructional design launch discount, founding member offer",
       "h1": "Build your next Canvas course before your coffee gets cold.",
       "intro": "Join the founding cohort for 40% off your first 3 months, a live AI Course Building Workshop, and early access to RocketCourse."

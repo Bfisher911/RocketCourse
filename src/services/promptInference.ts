@@ -24,6 +24,25 @@ const WEEK_PRESETS: Partial<Record<number, CourseLengthPreset>> = {
   16: "16-weeks"
 };
 
+const WEEK_WORDS: Record<string, number> = {
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18
+};
+
 const titleCase = (candidate: string): string =>
   candidate
     .replace(/^a\s+/i, "")
@@ -41,6 +60,7 @@ const titleCase = (candidate: string): string =>
  * field instead of asking the user to retype what they just described. */
 export const inferTitleFromPrompt = (prompt: string): string | undefined => {
   const match =
+    prompt.match(/\bcourse\s*(?:title)?\s*:\s*([^\n.]+)/i) ||
     prompt.match(/course on ([^.]+?)(?:\.|,| for | with |$)/i) ||
     prompt.match(/class on ([^.]+?)(?:\.|,| for | with |$)/i) ||
     prompt.match(/course (?:about|covering|exploring|introducing) ([^.]+?)(?:\.|,| for | with |$)/i);
@@ -67,8 +87,10 @@ export const inferSettingsFromPrompt = (prompt: string): PromptInference => {
   }
 
   const weeksMatch = text.match(/(\d{1,2})\s*-?\s*week/);
-  if (weeksMatch) {
-    const weeks = Math.min(18, Math.max(3, Number(weeksMatch[1])));
+  const weekWordMatch = text.match(/\b(three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen)\s*-?\s*week/);
+  if (weeksMatch || weekWordMatch) {
+    const rawWeeks = weeksMatch ? Number(weeksMatch[1]) : WEEK_WORDS[weekWordMatch![1]];
+    const weeks = Math.min(18, Math.max(3, rawWeeks));
     updates.lengthWeeks = weeks;
     updates.moduleCount = weeks;
     updates.courseLengthPreset = WEEK_PRESETS[weeks] ?? "custom";

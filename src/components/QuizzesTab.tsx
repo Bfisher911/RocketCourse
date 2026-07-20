@@ -177,7 +177,7 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
           prefix="quiz"
           eyebrow={<span className="eyebrow">Canvas quiz builder</span>}
           title="Quizzes"
-          description="Create a first Canvas-ready quiz with editable questions, feedback, outcomes, and export checks."
+          description="Create a first Canvas-oriented quiz with editable questions, feedback, outcomes, and export checks."
           action={
             <button className="primary" onClick={addQuiz}>
               <Plus size={16} /> Add quiz
@@ -309,7 +309,7 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
             <div className="quiz-template-bar">
               <label><Wand2 size={14} /> Template<select value={selectedTemplate} onChange={(event) => setSelectedTemplate(event.target.value as QuizTemplateId)}>{QUIZ_TEMPLATES.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select></label>
               <button className="primary" onClick={() => addQuestion()}><Plus size={15} /> Add question</button>
-              <AiGenerateButton running={ai.running} onClick={generateQuestions} label="Generate questions with AI" />
+              <AiGenerateButton running={ai.running} onClick={generateQuestions} label="Generate question draft" />
               <button disabled={!latestSnapshot} onClick={() => { if (!latestSnapshot) return; onUpdateCourse((current) => restoreQuiz(current, latestSnapshot.quiz)); setSnapshots((current) => current.filter((snapshot) => snapshot.id !== latestSnapshot.id)); }}><RotateCcw size={15} /> Restore previous</button>
             </div>
             <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />

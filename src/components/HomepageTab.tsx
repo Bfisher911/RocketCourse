@@ -380,7 +380,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
                     </button>
                   ))}
                 </div>
-                <AiGenerateButton running={ai.running} onClick={generateWithAi} label="Generate homepage with AI" />
+                <AiGenerateButton running={ai.running} onClick={generateWithAi} label="Generate homepage draft" />
                 <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
               </div>
 

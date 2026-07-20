@@ -91,7 +91,7 @@ export function OverviewTab({
     { label: "Modality", value: course.settings.modality || "—" },
     { label: "Credit hours", value: String(course.settings.creditHours ?? "—") },
     { label: "Length", value: `${course.settings.lengthWeeks || structure.contentModules} weeks` },
-    { label: "Modules", value: String(structure.modules) },
+    { label: "Total modules", value: String(structure.modules) },
     { label: "Status", value: titleCase(course.status) },
     { label: "Updated", value: formatDate(course.updatedAt) }
   ];
@@ -127,7 +127,7 @@ export function OverviewTab({
           <span className="hp-eyebrow">
             <BookOpen size={14} /> Course identity
           </span>
-          <AiGenerateButton running={ai.running} onClick={generateOverview} label="Draft description with AI" busyLabel="Drafting…" />
+          <AiGenerateButton running={ai.running} onClick={generateOverview} label="Draft description" busyLabel="Drafting…" />
         </header>
         <label className="overview-field">
           <span>Course title</span>

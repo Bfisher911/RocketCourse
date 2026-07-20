@@ -202,7 +202,7 @@ export function RubricsTab({ course, onUpdateCourse }: RubricsTabProps) {
             <div><span className={`rubric-status ${selectedIssues.length ? "review" : "ready"}`}>{selectedIssues.length ? `${selectedIssues.length} to review` : "Ready"}</span><h3>{selectedRubric.title}</h3><p>{selectedRubric.points} points • used by {label(selectedUsage.assignments.length, "assignment")} and {label(selectedUsage.discussions.length, "discussion")}.</p></div>
             <div className="rubric-editor-actions">
               <button onClick={() => { pushSnapshot(selectedRubric, "Applied template"); onUpdateCourse((current) => applyRubricTemplate(current, selectedRubric.id, templateId)); }}><Wand2 size={15} /> Apply template</button>
-              <AiGenerateButton running={ai.running} onClick={generateCriteria} label="Generate criteria with AI" />
+              <AiGenerateButton running={ai.running} onClick={generateCriteria} label="Generate criteria draft" />
               <button disabled={!latestSnapshot} onClick={() => { if (!latestSnapshot) return; onUpdateCourse((current) => updateRubric(current, selectedRubric.id, () => latestSnapshot.rubric)); setSnapshots((current) => current.filter((snapshot) => snapshot.id !== latestSnapshot.id)); }}><RotateCcw size={15} /> Restore previous</button>
             </div>
           </header>

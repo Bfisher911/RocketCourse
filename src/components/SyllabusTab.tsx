@@ -422,7 +422,7 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
                     </button>
                   ))}
                 </div>
-                <AiGenerateButton running={ai.running} onClick={generateWithAi} label="Generate syllabus with AI" />
+                <AiGenerateButton running={ai.running} onClick={generateWithAi} label="Generate syllabus draft" />
                 <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
               </div>
 

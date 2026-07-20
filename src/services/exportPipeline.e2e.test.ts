@@ -4,10 +4,12 @@
 // download their course at all.
 
 import { describe, expect, it } from "vitest";
-import { generateCourseProject } from "./courseGenerator";
+import { generateCourseProject, sampleProject } from "./courseGenerator";
 import { fillEntireCourseContent } from "./fullCourseContent";
 import { generateImsccBlob } from "./imsccExport";
 import { buildReadinessReport } from "./readiness";
+import { repairCourse } from "./courseRepair";
+import { namespaceCourseForExport } from "./exportIdentifiers";
 import { defaultSettings } from "../data/defaultSettings";
 
 const PROMPTS = [
@@ -17,6 +19,16 @@ const PROMPTS = [
 ];
 
 describe("export survives AI-shaped content that used to block validation", () => {
+  it("keeps the 100%-ready public demo free of readiness warnings after export transforms", async () => {
+    const prepared = namespaceCourseForExport(repairCourse(sampleProject).course);
+    const readiness = buildReadinessReport(prepared);
+    const requiredFailures = readiness.checks.filter((item) => !item.passed && item.severity === "required");
+    expect(requiredFailures, JSON.stringify(requiredFailures, null, 2)).toEqual([]);
+
+    const { report } = await generateImsccBlob(sampleProject, sampleProject.exportMode);
+    expect(report.issues.filter((issue) => issue.id === "readiness-blockers"), JSON.stringify(report.issues, null, 2)).toEqual([]);
+  }, 120000);
+
   it("repairs duplicate h1 pages and zero-point quiz questions instead of blocking the download", async () => {
     const base = generateCourseProject({
       prompt: "Build me an 8-week course on Field Botany with weekly quizzes.",
@@ -79,6 +91,46 @@ describe("generate -> full-fill -> export pipeline", () => {
       expect(blockers, JSON.stringify(blockers, null, 2)).toEqual([]);
       expect(report.valid).toBe(true);
       expect(fileName).toMatch(/\.imscc$/);
+      expect(blob.size).toBeGreaterThan(1000);
+    }, 120000);
+  }
+});
+
+describe("cross-discipline course regression matrix", () => {
+  const scenarios = [
+    { title: "Introduction to Pharmacology for Nursing Students", prompt: "Build an undergraduate online course on Introduction to Pharmacology for Nursing Students.", weeks: 12, modules: 12 },
+    { title: "The United States Civil War", prompt: "Build a college course on The United States Civil War.", weeks: 14, modules: 14 },
+    { title: "Beginning Spanish I", prompt: "Build an in-person undergraduate course on Beginning Spanish I.", weeks: 16, modules: 16 },
+    { title: "College Algebra", prompt: "Build a hybrid undergraduate course on College Algebra.", weeks: 15, modules: 15 },
+    { title: "Construction Site Safety", prompt: "Build a professional course on Construction Site Safety.", weeks: 8, modules: 8 },
+    { title: "Graduate Research Methods Seminar", prompt: "Build a graduate research methods seminar.", weeks: 12, modules: 12 },
+    { title: "Teaching with Accessible Documents", prompt: "Build a short four-week professional development course on Teaching with Accessible Documents.", weeks: 4, modules: 4 }
+  ];
+
+  for (const scenario of scenarios) {
+    it(`keeps ${scenario.title} subject-specific and exportable`, async () => {
+      const course = generateCourseProject({
+        prompt: scenario.prompt,
+        settings: {
+          ...defaultSettings,
+          title: scenario.title,
+          lengthWeeks: scenario.weeks,
+          moduleCount: scenario.modules,
+          level: /Graduate/.test(scenario.title) ? "Graduate" : defaultSettings.level
+        }
+      });
+      const contentModules = course.modules.filter((module) => module.kind === "content");
+      const serialized = JSON.stringify(course);
+
+      expect(course.title).toBe(scenario.title);
+      expect(course.settings.lengthWeeks).toBe(scenario.weeks);
+      expect(contentModules).toHaveLength(scenario.modules);
+      expect(serialized).toContain(scenario.title);
+      expect(serialized).not.toMatch(/AI and Modern Society|civic dimensions of artificial intelligence/i);
+      expect(new Set(course.outcomes.map((outcome) => outcome.text.toLowerCase().replace(/^[a-z-]+\s+/, ""))).size).toBe(course.outcomes.length);
+
+      const { report, blob } = await generateImsccBlob(course, course.exportMode);
+      expect(report.issues.filter((issue) => issue.severity === "error"), JSON.stringify(report.issues, null, 2)).toEqual([]);
       expect(blob.size).toBeGreaterThan(1000);
     }, 120000);
   }

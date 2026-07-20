@@ -8,8 +8,7 @@ import { validatePagePlan } from "./pageBuilder";
 import { validateQuizPlan } from "./quizBuilder";
 import { validateRubricPlan } from "./rubricBuilder";
 import { validateSyllabus } from "./syllabusValidation";
-import { canvasRefTargets } from "./canvasLinks";
-import { CALENDAR_HREF, SUCCESS_GUIDE_HREF } from "./homepageTemplates";
+import { canvasRefTargets, wikiPageRef } from "./canvasLinks";
 import { validateTheme } from "./themeDesign";
 import { navigationMatchesRequiredDefaults, visibleNavigationLabels } from "./navigationDefaults";
 
@@ -187,6 +186,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const gradeWeightTotal = course.assignmentGroups.reduce((sum, group) => sum + Number(group.weight || 0), 0);
   const homepage = course.pages.find((page) => page.frontPage);
   const syllabus = course.pages.find((page) => page.slug === "syllabus");
+  const successGuidePage = course.pages.find((page) => page.slug === "course-success-guide");
   const calendarPage = course.pages.find((page) => page.slug === "course-calendar-and-workload-plan");
   const alignmentMapPage = course.pages.find((page) => page.slug === "outcome-and-assessment-alignment-map");
   const startHere = course.modules.find((module) => module.kind === "start" || module.title.toLowerCase().includes("start here"));
@@ -237,8 +237,15 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
       })
       .map((href) => `${block.title}: ${href}`)
   );
-  const homepageStartHereResolves = Boolean(homepage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes(SUCCESS_GUIDE_HREF)) && course.pages.some((page) => page.slug === "course-success-guide"));
-  const homepageCalendarResolves = Boolean(homepage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes(CALENDAR_HREF)) && calendarPage);
+  // Export namespacing rewrites migration ids inside Canvas link tokens. Derive the expected
+  // target from the current course objects instead of comparing against the generator's original
+  // well-known id, so readiness is stable before and after export transforms.
+  const homepageStartHereResolves = Boolean(
+    homepage && successGuidePage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes(wikiPageRef(successGuidePage.id)))
+  );
+  const homepageCalendarResolves = Boolean(
+    homepage && calendarPage && hrefsFrom(homepage.bodyHtml).some((href) => href.includes(wikiPageRef(calendarPage.id)))
+  );
   const syllabusPrintable = course.fileAssets.some((asset) => asset.path === "web_resources/syllabus-printable.pdf");
   const syllabusValidation = syllabus
     ? validateSyllabus(syllabus.bodyHtml, { knownTargets: new Set([...pageTargetSet, ...resourceTargetSet, ...tokenTargetSet]), includeContactHours: course.settings.includeContactHours })
@@ -302,6 +309,15 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const distinctOutcomeCodes = new Set(course.outcomes.map((outcome) => outcome.code.trim().toLowerCase())).size === course.outcomes.length;
   const weakObjectives = course.outcomes.filter((outcome) => outcome.code.trim().length === 0 || visibleLength(outcome.text) < 24);
   const nonMeasurableObjectives = course.outcomes.filter((outcome) => !MEASURABLE_VERB.test(outcome.text));
+  const normalizedOutcomeBodies = course.outcomes.map((outcome) =>
+    outcome.text
+      .trim()
+      .toLowerCase()
+      .replace(/^[a-z-]+\s+/, "")
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+  );
+  const distinctOutcomeBodies = new Set(normalizedOutcomeBodies).size;
   const startHereModulePages = startHere
     ? startHere.items
         .map((item) => course.pages.find((page) => page.id === item.refId))
@@ -423,6 +439,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("rubric-depth", "Rubrics have substantive criteria and points", shallowRubrics.length === 0, shallowRubrics.length ? `${shallowRubrics.map((rubric) => rubric.title).slice(0, 3).join(", ")} need 3+ criteria, leveled ratings, and nonzero points.` : "Every rubric has at least three leveled criteria and nonzero points."),
     check("rubric-outcomes", "Rubrics align to outcomes", allRubricsAligned, "Every generated rubric should reference at least one course outcome."),
     check("rubric-quality", "Rubrics pass criteria and level checks", rubricBlockers.length === 0 && rubricPlanValidation.score >= 85, rubricBlockers.length ? `${rubricBlockers.length} rubric blocker(s): ${rubricBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Rubric validation score is ${rubricPlanValidation.score}.`, "recommended"),
+    check("objective-distinctness", "Learning outcomes describe distinct capabilities", distinctOutcomeBodies === course.outcomes.length, distinctOutcomeBodies === course.outcomes.length ? "Each outcome asks students to demonstrate a meaningfully different capability." : `${course.outcomes.length - distinctOutcomeBodies} outcome(s) repeat the same capability with only a different leading verb.`, "recommended"),
     check("graded-outcomes", "Graded items align to outcomes", gradedItemsHaveOutcomes, "Every graded item should reference at least one course outcome."),
     check("orphaned-outcomes", "No orphaned outcomes", orphanedOutcomes.length === 0, orphanedOutcomes.length ? `${orphanedOutcomes.length} outcome(s) are not aligned.` : "All outcomes are represented in modules, rubrics, or graded work.", "recommended"),
     check("syllabus-outcomes", "Syllabus outcomes match course outcomes", syllabusOutcomeMatch, syllabus ? "Syllabus lists the generated course outcomes." : "No syllabus page found."),
