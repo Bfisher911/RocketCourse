@@ -30,10 +30,10 @@ export const OUTCOME_FRAMEWORKS: Record<OutcomeFrameworkKey, OutcomeFramework> =
     label: "Bloom's (Revised) Taxonomy",
     short: "Bloom level",
     description: "Cognitive levels from recall to creation (Remember → Create).",
-    // Bloom's level labels double as the leading verb, preserving the original generator output.
+    // Labels preserve Bloom's levels; leading verbs use observable actions suitable for assessment.
     levels: [
-      { label: "Remember", verb: "Remember" },
-      { label: "Understand", verb: "Understand" },
+      { label: "Remember", verb: "Identify" },
+      { label: "Understand", verb: "Explain" },
       { label: "Apply", verb: "Apply" },
       { label: "Analyze", verb: "Analyze" },
       { label: "Evaluate", verb: "Evaluate" },

@@ -74,6 +74,139 @@ const baseTopics = [
   "Synthesis and Transfer"
 ];
 
+// Deterministic generation must remain useful when AI is unavailable. Broad, identical module
+// titles made otherwise unrelated courses feel like the same template, so common disciplines get
+// a coherent subject sequence before content builders run. Unknown subjects retain the flexible
+// cross-disciplinary sequence above.
+const moduleTopicsFor = (courseTopic: string): string[] => {
+  const topic = courseTopic.toLowerCase();
+  if (/(pharmac|nursing|medication|medicine|clinical|patient care)/.test(topic)) {
+    return [
+      "Medication Safety and Clinical Foundations",
+      "Pharmacokinetics and Pharmacodynamics",
+      "Dosage, Administration, and Patient Factors",
+      "Autonomic and Neurologic Medications",
+      "Cardiovascular and Renal Medications",
+      "Respiratory and Endocrine Medications",
+      "Antimicrobial Therapy and Resistance",
+      "Pain Management and Controlled Substances",
+      "Adverse Effects, Interactions, and Contraindications",
+      "Medication Reconciliation and Patient Education",
+      "Special Populations and Clinical Priorities",
+      "Integrated Medication-Safety Cases",
+      "Evidence-Based Pharmacology Practice",
+      "Clinical Synthesis and Transfer"
+    ];
+  }
+  if (/(spanish|french|language learning|world language|second language)/.test(topic)) {
+    return [
+      "Greetings, Pronunciation, and Classroom Language",
+      "Nouns, Articles, and Descriptive Agreement",
+      "Ser, Estar, and Everyday Identity",
+      "Present-Tense Verbs and Daily Activities",
+      "Questions, Numbers, Time, and Dates",
+      "Family, Relationships, and Possession",
+      "Food, Preferences, and Ordering",
+      "Places, Directions, and Community Life",
+      "Plans, Travel, and Near-Future Expression",
+      "Health, Feelings, and Personal Needs",
+      "Narrating Recent and Past Experiences",
+      "Cultural Comparison and Interpretation",
+      "Integrated Listening and Reading",
+      "Integrated Speaking and Writing",
+      "Interpersonal Communication Practice",
+      "Language Portfolio and Next Steps"
+    ];
+  }
+  if (/(algebra|calculus|geometry|mathematics|statistics|quantitative)/.test(topic)) {
+    return [
+      "Algebraic Foundations and Mathematical Communication",
+      "Functions, Domains, and Multiple Representations",
+      "Linear Equations, Inequalities, and Models",
+      "Systems of Equations and Constraints",
+      "Polynomial Operations and Factoring",
+      "Polynomial Functions and Their Graphs",
+      "Rational Expressions and Functions",
+      "Radical Expressions and Rational Exponents",
+      "Quadratic Equations and Functions",
+      "Exponential Functions and Growth Models",
+      "Logarithmic Functions and Applications",
+      "Sequences, Series, and Recursive Patterns",
+      "Model Selection and Assumption Checking",
+      "Technology-Assisted Problem Solving",
+      "Cumulative Modeling and Transfer",
+      "Mathematical Synthesis"
+    ];
+  }
+  if (/(construction|jobsite|workplace safety|occupational safety|osha|industrial safety)/.test(topic)) {
+    return [
+      "Safety Culture, Responsibilities, and Regulations",
+      "Hazard Recognition and Risk Assessment",
+      "Personal Protective Equipment",
+      "Fall Prevention and Protection",
+      "Ladders, Scaffolds, and Elevated Work",
+      "Electrical Safety and Energy Control",
+      "Excavation, Trenching, and Confined Spaces",
+      "Struck-By and Caught-Between Hazards",
+      "Tools, Equipment, and Material Handling",
+      "Hazard Communication and Chemical Safety",
+      "Emergency Response and Incident Reporting",
+      "Site Inspection and Corrective Action",
+      "Worker Communication and Stop-Work Decisions",
+      "Integrated Site-Safety Planning"
+    ];
+  }
+  if (/(research methods|research methodology|methods seminar)/.test(topic)) {
+    return [
+      "Research Problems, Purpose, and Questions",
+      "Literature Review and Evidence Mapping",
+      "Paradigms, Theory, and Conceptual Frameworks",
+      "Study Design and Causal Reasoning",
+      "Sampling, Recruitment, and Generalizability",
+      "Measurement, Constructs, and Data Quality",
+      "Quantitative Data Collection and Analysis",
+      "Qualitative Data Collection and Analysis",
+      "Mixed-Methods Integration",
+      "Research Ethics and Participant Protection",
+      "Validity, Trustworthiness, and Bias",
+      "Interpreting and Communicating Findings",
+      "Proposal Development and Peer Review",
+      "Research Design Synthesis"
+    ];
+  }
+  if (/(accessible document|document accessibility|digital accessibility|inclusive document)/.test(topic)) {
+    return [
+      "Accessibility Foundations and Learner Needs",
+      "Document Structure, Headings, and Reading Order",
+      "Accessible Images, Color, Links, and Tables",
+      "Testing, Remediation, and Publishing Workflow",
+      "Accessible Word-Processing Documents",
+      "Accessible Presentations and Visual Materials",
+      "Accessible PDFs and Conversion Decisions",
+      "Teaching and Sustaining Accessible Practice"
+    ];
+  }
+  if (/(civil war|american civil war)/.test(topic)) {
+    return [
+      "Historical Questions, Sources, and Interpretation",
+      "Slavery, Sectionalism, and the Antebellum United States",
+      "Secession and the Crisis of Union",
+      "Mobilization, Strategy, and the Early War",
+      "Soldiers, Civilians, and the Experience of War",
+      "Emancipation and the Transformation of the Conflict",
+      "Military Turning Points and Contested Memory",
+      "The Home Front, Economy, and Dissent",
+      "Race, Citizenship, and Black Military Service",
+      "War's End and the Costs of Conflict",
+      "Reconstruction and the Postwar Settlement",
+      "Memory, Monuments, and Historical Debate",
+      "Comparative Evidence and Historical Argument",
+      "Civil War Synthesis and Legacy"
+    ];
+  }
+  return baseTopics;
+};
+
 const START_MODULE_ID = "module_start";
 const INTRO_DISCUSSION_ID = "discussion_introduce_yourself";
 
@@ -140,34 +273,6 @@ const resolveCourseDescription = (settings: CourseSettings, title: string, modul
   return `A ${settings.lengthWeeks}-week ${settings.level.toLowerCase()} course on ${title}, organized into ${moduleCount} ${unitLabel} units with aligned outcomes, activities, and assessments.`;
 };
 
-const outcomeFocuses = (topic: string): string[] => {
-  const subject = topic;
-  return [
-    `foundational terminology and principles used in ${subject}`,
-    `relationships among the major ideas, practices, and stakeholders in ${subject}`,
-    `${subject} methods to a concrete academic, professional, or community scenario`,
-    `case evidence to distinguish patterns, causes, consequences, and limitations in ${subject}`,
-    `competing claims about ${subject} using relevant evidence and explicit criteria`,
-    `an evidence-informed response to a meaningful problem in ${subject}`,
-    `historical, cultural, or disciplinary perspectives that shape ${subject}`,
-    `ethical, equity, accessibility, and stakeholder implications of decisions in ${subject}`,
-    `a defensible recommendation for a real audience working with ${subject}`,
-    `course evidence across multiple modules to explain a new question or situation in ${subject}`
-  ];
-};
-
-const outcomeText = (verb: string, focus: string): string => {
-  const normalized = verb.toLowerCase();
-  if (["remember", "identify"].includes(normalized)) return `${verb} ${focus}.`;
-  if (["understand", "describe", "explain", "conceptualize"].includes(normalized)) return `${verb} ${focus}.`;
-  if (normalized === "apply") return `${verb} ${focus}.`;
-  if (["engage", "experiment"].includes(normalized)) return `${verb} with ${focus}.`;
-  if (["analyze", "interpret", "reflect"].includes(normalized)) return `${verb} ${focus}.`;
-  if (normalized === "evaluate") return `${verb} ${focus}.`;
-  if (normalized === "create") return `${verb} ${focus}.`;
-  return `${verb} ${focus}.`;
-};
-
 const organizationLabel = (settings: CourseSettings, moduleNumber: number): string => {
   const labels: Record<CourseSettings["organizationPattern"], string> = {
     weeks: "Week",
@@ -226,6 +331,78 @@ interface SubjectProfile {
 
 const subjectProfileFor = (courseTopic: string, moduleTopic: string): SubjectProfile => {
   const text = `${courseTopic} ${moduleTopic}`.toLowerCase();
+  if (/(pharmac|nursing|medication|medicine|clinical|patient care)/.test(text)) {
+    return {
+      lens: "clinical reasoning and medication safety",
+      audience: "patient-care team",
+      caseLabel: `${courseTopic} medication-safety brief`,
+      artifactLabel: "patient case or medication record",
+      artifacts: ["patient case", "medication profile", "administration record", "dosage scenario", "adverse-effect report", "patient-education plan"],
+      evidenceTypes: ["patient assessment", "drug mechanism", "dose and route", "contraindication", "adverse effect", "clinical guideline"],
+      actionVerbs: ["assess", "calculate", "prioritize", "monitor"],
+      keyTerms: ["pharmacokinetics", "pharmacodynamics", "contraindication", "adverse effect", "medication reconciliation"]
+    };
+  }
+  if (/(spanish|french|language learning|world language|second language)/.test(text)) {
+    return {
+      lens: "communicative language practice",
+      audience: "conversation partner",
+      caseLabel: `${courseTopic} communication task`,
+      artifactLabel: "spoken, written, or cultural language sample",
+      artifacts: ["short dialogue", "audio exchange", "message", "reading excerpt", "cultural artifact", "role-play scenario"],
+      evidenceTypes: ["target vocabulary", "grammatical form", "pronunciation cue", "context clue", "cultural convention", "communication strategy"],
+      actionVerbs: ["interpret", "exchange", "present", "revise"],
+      keyTerms: ["interpretive communication", "interpersonal communication", "presentational communication", "language form", "cultural context"]
+    };
+  }
+  if (/(algebra|calculus|geometry|mathematics|statistics|quantitative)/.test(text)) {
+    return {
+      lens: "quantitative modeling and problem solving",
+      audience: "problem-solving team",
+      caseLabel: `${courseTopic} modeling solution`,
+      artifactLabel: "equation, graph, table, or quantitative model",
+      artifacts: ["worked equation", "function graph", "data table", "symbolic model", "constraint set", "technology output"],
+      evidenceTypes: ["algebraic step", "graphical feature", "numerical pattern", "unit or scale", "model assumption", "solution check"],
+      actionVerbs: ["represent", "calculate", "model", "verify"],
+      keyTerms: ["function", "equivalence", "domain", "rate of change", "model assumption"]
+    };
+  }
+  if (/(construction|jobsite|workplace safety|occupational safety|osha|industrial safety)/.test(text)) {
+    return {
+      lens: "hazard recognition and risk control",
+      audience: "site-safety team",
+      caseLabel: `${courseTopic} hazard-control plan`,
+      artifactLabel: "jobsite scenario, inspection finding, or safety plan",
+      artifacts: ["jobsite photograph", "inspection note", "task plan", "incident report", "equipment checklist", "emergency scenario"],
+      evidenceTypes: ["hazard observation", "exposure pathway", "control measure", "regulatory requirement", "worker report", "residual-risk estimate"],
+      actionVerbs: ["inspect", "classify", "control", "communicate"],
+      keyTerms: ["hazard", "exposure", "hierarchy of controls", "competent person", "corrective action"]
+    };
+  }
+  if (/(research methods|research methodology|methods seminar)/.test(text)) {
+    return {
+      lens: "research design and evidence appraisal",
+      audience: "research review committee",
+      caseLabel: `${courseTopic} study-design brief`,
+      artifactLabel: "research question, study plan, dataset, or published finding",
+      artifacts: ["research question", "conceptual framework", "sampling plan", "instrument", "data excerpt", "study abstract"],
+      evidenceTypes: ["theoretical rationale", "design choice", "sampling evidence", "measurement evidence", "analytic result", "validity limitation"],
+      actionVerbs: ["formulate", "design", "analyze", "appraise"],
+      keyTerms: ["construct", "sampling", "validity", "research design", "analytic inference"]
+    };
+  }
+  if (/(accessible document|document accessibility|digital accessibility|inclusive document)/.test(text)) {
+    return {
+      lens: "accessible instructional-document design",
+      audience: "instructional accessibility review team",
+      caseLabel: `${courseTopic} remediation plan`,
+      artifactLabel: "document, slide, PDF, or accessibility-check result",
+      artifacts: ["syllabus excerpt", "heading outline", "image and alt text", "data table", "link set", "accessibility-check report"],
+      evidenceTypes: ["heading structure", "reading order", "alternative text", "color contrast", "link purpose", "assistive-technology result"],
+      actionVerbs: ["inspect", "remediate", "test", "teach"],
+      keyTerms: ["semantic structure", "reading order", "alternative text", "color contrast", "accessibility check"]
+    };
+  }
   if (/(history|war|warfare|ancient|medieval|mesoamerican|archive|civilization|empire|revolution|colonial)/.test(text)) {
     return {
       lens: "historical interpretation",
@@ -296,6 +473,52 @@ const subjectProfileFor = (courseTopic: string, moduleTopic: string): SubjectPro
     actionVerbs: ["analyze", "apply", "evaluate", "recommend"],
     keyTerms: ["context", "evidence", "stakeholder", "tradeoff", "recommendation"]
   };
+};
+
+const outcomeText = (verb: string, topic: string, index: number): string => {
+  const profile = subjectProfileFor(topic, topic);
+  const normalized = verb.toLowerCase();
+  // Bloom repeats after six levels. Offset the second pass so repeated verbs do not receive the
+  // same noun phrase simply because profile lists also contain six items.
+  const rotationIndex = index + Math.floor(index / 6);
+  const artifact = profile.artifacts[rotationIndex % profile.artifacts.length];
+  const evidence = profile.evidenceTypes[rotationIndex % profile.evidenceTypes.length];
+  const nextEvidence = profile.evidenceTypes[(rotationIndex + 1) % profile.evidenceTypes.length];
+  const term = profile.keyTerms[rotationIndex % profile.keyTerms.length];
+  const nextTerm = profile.keyTerms[(rotationIndex + 1) % profile.keyTerms.length];
+  const withArticle = (value: string): string => `${/^[aeiou]/i.test(value) ? "an" : "a"} ${value}`;
+
+  if (["remember", "identify"].includes(normalized)) {
+    return `${verb} ${term}, ${nextTerm}, and other foundational concepts used in ${topic}.`;
+  }
+  if (["understand", "describe", "explain", "conceptualize"].includes(normalized)) {
+    return `${verb} how ${evidence} and ${nextEvidence} shape ${profile.lens} in ${topic}.`;
+  }
+  if (normalized === "apply") {
+    return `${verb} ${withArticle(profile.lens)} method to ${withArticle(artifact)} from ${topic}.`;
+  }
+  if (normalized === "engage") {
+    return `${verb} with ${withArticle(artifact)} to document evidence, context, and an initial interpretation in ${topic}.`;
+  }
+  if (normalized === "experiment") {
+    return `${verb} with a course method to test how a change in ${evidence} affects ${withArticle(artifact)} in ${topic}.`;
+  }
+  if (normalized === "reflect") {
+    return `${verb} on how assumptions, evidence, and stakeholder perspectives influence ${withArticle(artifact)} in ${topic}.`;
+  }
+  if (normalized === "interpret") {
+    return `${verb} ${withArticle(artifact)} in ${topic} using ${evidence}, ${nextEvidence}, and appropriate disciplinary context.`;
+  }
+  if (normalized === "analyze") {
+    return `${verb} ${withArticle(artifact)} to distinguish evidence, patterns, limitations, and consequences in ${topic}.`;
+  }
+  if (normalized === "evaluate") {
+    return `${verb} competing interpretations of ${withArticle(artifact)} in ${topic} using ${evidence}, ${nextEvidence}, and explicit criteria.`;
+  }
+  if (normalized === "create") {
+    return `${verb} the ${profile.caseLabel} for the ${profile.audience}, using course evidence and explicit success criteria.`;
+  }
+  return `${verb} ${withArticle(artifact)} using ${evidence} and course-specific criteria from ${topic}.`;
 };
 
 const listJoin = (items: string[]): string => {
@@ -1457,9 +1680,10 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
   const finalTitle = finalModuleTitle(mergedSettings);
   const projectId = `course_${slugify(title)}`;
   const topic = title.replace(/^course\s+on\s+/i, "");
+  const moduleTopics = moduleTopicsFor(topic);
   const syllabusScheduleRows = Array.from({ length: moduleCount }, (_, index) => {
     const moduleNumber = index + 1;
-    const moduleTopic = baseTopics[index] ?? `Applied Topic ${moduleNumber}`;
+    const moduleTopic = moduleTopics[index] ?? `Applied Topic ${moduleNumber}`;
     const moduleLabel = organizationLabel(mergedSettings, moduleNumber);
     const releaseAt = releaseDateForModule(mergedSettings, index);
     const discussionDue = dueDateForModule(mergedSettings, index, 3);
@@ -1478,13 +1702,12 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
   });
 
   const framework = getOutcomeFramework(mergedSettings.outcomeFramework);
-  const focuses = outcomeFocuses(topic);
   const outcomes: CourseOutcome[] = Array.from({ length: 10 }, (_, index) => {
     const level = framework.levels[index % framework.levels.length];
     return {
       id: id("outcome", index + 1),
       code: `CLO ${index + 1}`,
-      text: outcomeText(level.verb, focuses[index]),
+      text: outcomeText(level.verb, topic, index),
       bloomLevel: level.label,
       alignedModuleIds: []
     };
@@ -1636,8 +1859,8 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
   // Deterministic id of any content module's overview page, so a module can link to its
   // neighbours' overviews for Previous/Next navigation. Must mirror the overviewPageId
   // formula used inside the loop below.
-  const contentOverviewPageId = (i: number): string => id("page", `${i + 1}-${baseTopics[i] ?? `Applied Topic ${i + 1}`}-overview`);
-  const contentResourcesPageId = (i: number): string => id("page", `${i + 1}-${baseTopics[i] ?? `Applied Topic ${i + 1}`}-resources`);
+  const contentOverviewPageId = (i: number): string => id("page", `${i + 1}-${moduleTopics[i] ?? `Applied Topic ${i + 1}`}-overview`);
+  const contentResourcesPageId = (i: number): string => id("page", `${i + 1}-${moduleTopics[i] ?? `Applied Topic ${i + 1}`}-resources`);
   // Overview pages continue into the current module instead of skipping to the next overview.
   const overviewNavBar = (index: number): string => {
     const previous =
@@ -1661,7 +1884,7 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
   for (let index = 0; index < moduleCount; index += 1) {
     const moduleNumber = index + 1;
     const moduleId = id("module", moduleNumber);
-    const moduleTopic = baseTopics[index] ?? `Applied Topic ${moduleNumber}`;
+    const moduleTopic = moduleTopics[index] ?? `Applied Topic ${moduleNumber}`;
     const moduleLabel = organizationLabel(mergedSettings, moduleNumber);
     const alignedOutcomeIds = [outcomes[index % outcomes.length].id, outcomes[(index + 2) % outcomes.length].id];
     const moduleObjectives = moduleObjectivesFor(outcomes, alignedOutcomeIds);
@@ -1738,7 +1961,7 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
           learningPathSteps: patternModel.steps,
           navigationHtml: overviewNavBar(index),
           structureApproach: structureModel.approach,
-          nextTopic: baseTopics[index + 1] ?? finalTitle,
+          nextTopic: moduleTopics[index + 1] ?? finalTitle,
           weekBadgeFile: `week-${moduleNumber}-badge.svg`
         })}`,
         moduleId,
@@ -1993,7 +2216,7 @@ ${section("What To Carry Forward", `<p>This checkpoint should leave you with one
           `${section("What You Covered", `<p>You explored ${moduleTopic.toLowerCase()} and practiced applying course concepts in context.</p>`, theme)}
 ${section("You Should Now Be Able To", listHtml(moduleObjectives), theme)}
 ${section("Reflection Questions", checklistHtml(["What concept feels most useful now?", "What question remains unresolved?", "How does this module connect to your final project or professional context?"]), theme)}
-${callout("Coming Next", `<p>The next module extends this work into ${baseTopics[index + 1] ?? finalTitle.toLowerCase()}.</p>`, theme)}
+${callout("Coming Next", `<p>The next module extends this work into ${moduleTopics[index + 1] ?? finalTitle.toLowerCase()}.</p>`, theme)}
 ${section("Module Navigation", wrapNavBar(index), theme)}`,
           theme
         ),

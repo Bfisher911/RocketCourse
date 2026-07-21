@@ -50,6 +50,7 @@ describe("outcome frameworks", () => {
       course.outcomes.forEach((outcome) => {
         expect(labels, `framework ${key} label`).toContain(outcome.bloomLevel);
         expect(outcomeIsMeasurable(outcome), `framework ${key} measurable: "${outcome.text}"`).toBe(true);
+        expect(outcome.text, `framework ${key} subject specificity`).toMatch(/marine biology/i);
       });
       const distinct = new Set(course.outcomes.map((outcome) => outcome.bloomLevel)).size;
       expect(distinct).toBeGreaterThanOrEqual(Math.min(3, framework.levels.length));

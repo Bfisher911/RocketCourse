@@ -73,7 +73,8 @@ describe("generated courses never contain demo placeholder content", () => {
     expect(new Set(normalizedBodies).size).toBe(project.outcomes.length);
     expect(project.outcomes.every((outcome) => /marine biology/i.test(outcome.text))).toBe(true);
     expect(project.outcomes.some((outcome) => /same course concepts, practices, and implications/i.test(outcome.text))).toBe(false);
-    expect(project.outcomes.some((outcome) => /^Apply Marine Biology methods to a concrete/i.test(outcome.text))).toBe(true);
+    expect(project.outcomes.some((outcome) => /^Apply a field and lab analysis method to/i.test(outcome.text))).toBe(true);
+    expect(project.outcomes.some((outcome) => /^Apply Marine Biology methods to a concrete/i.test(outcome.text))).toBe(false);
     expect(project.outcomes.some((outcome) => /^Apply with/i.test(outcome.text))).toBe(false);
   });
 

@@ -41,6 +41,28 @@ describe("quiz builder", () => {
     expect(normalized.instructorReviewRequired).toBe(true);
   });
 
+  it("turns declarative essay stems into an actionable written-response prompt", () => {
+    const normalized = normalizeQuizQuestionForCanvas({
+      id: "essay_claim_1",
+      type: "essay",
+      stem: "True or false: Medication reconciliation is only needed at hospital discharge.",
+      correctAnswer: "False",
+      choices: ["True", "False"],
+      points: 6,
+      difficulty: "challenging",
+      alignedOutcomeIds: [],
+      moduleId: "module_1"
+    });
+
+    expect(normalized.type).toBe("essay");
+    expect(normalized.stem).toBe(
+      "Analyze the following statement or scenario using course evidence: Medication reconciliation is only needed at hospital discharge."
+    );
+    expect(normalized.choices).toBeUndefined();
+    expect(normalized.correctAnswer).toBeUndefined();
+    expect(normalized.instructorReviewRequired).toBe(true);
+  });
+
   it("generates safe question templates for Canvas-supported question types", () => {
     const course = clone(sampleProject);
     const quiz = course.quizzes[0];

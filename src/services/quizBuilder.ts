@@ -40,12 +40,29 @@ export const normalizeTrueFalseAnswer = (rawAnswer: string | undefined): "True" 
 };
 
 const OPEN_RESPONSE_STEM = /^(?:in\s+\d|explain|analy[sz]e|evaluate|compare|contrast|discuss|describe\s+how|reflect|justify|defend|how\b|why\b)/i;
+const ACTIONABLE_ESSAY_STEM = /^(?:in\s+\d|explain|analy[sz]e|evaluate|compare|contrast|discuss|describe|reflect|justify|defend|assess|interpret|develop|propose|recommend|how\b|why\b|what\b)/i;
+
+const ensureActionableEssayStem = (stem: string): string => {
+  const plainStem = stripHtml(stem).trim();
+  if (!plainStem || ACTIONABLE_ESSAY_STEM.test(plainStem) || /\?$/.test(plainStem)) return stem;
+  const claim = plainStem.replace(/^true\s+or\s+false\s*:\s*/i, "");
+  return `Analyze the following statement or scenario using course evidence: ${claim}`;
+};
 
 // Canvas short answer is a one-line, auto-graded fill-in-the-blank. Analytical prompts with
 // paragraph-length keys need a manually graded response control instead.
 export const normalizeQuizQuestionForCanvas = (question: QuizQuestion): QuizQuestion => {
   if (question.type === "true_false") {
     return { ...question, choices: ["True", "False"], correctAnswer: normalizeTrueFalseAnswer(question.correctAnswer) ?? question.correctAnswer };
+  }
+  if (question.type === "essay") {
+    return {
+      ...question,
+      stem: ensureActionableEssayStem(question.stem),
+      choices: undefined,
+      correctAnswer: undefined,
+      instructorReviewRequired: true
+    };
   }
   const answer = (question.correctAnswer ?? "").trim();
   const longAnswerKey = answer.length > 80 || answer.split(/\s+/).filter(Boolean).length > 10;

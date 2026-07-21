@@ -98,13 +98,13 @@ describe("generate -> full-fill -> export pipeline", () => {
 
 describe("cross-discipline course regression matrix", () => {
   const scenarios = [
-    { title: "Introduction to Pharmacology for Nursing Students", prompt: "Build an undergraduate online course on Introduction to Pharmacology for Nursing Students.", weeks: 12, modules: 12 },
-    { title: "The United States Civil War", prompt: "Build a college course on The United States Civil War.", weeks: 14, modules: 14 },
-    { title: "Beginning Spanish I", prompt: "Build an in-person undergraduate course on Beginning Spanish I.", weeks: 16, modules: 16 },
-    { title: "College Algebra", prompt: "Build a hybrid undergraduate course on College Algebra.", weeks: 15, modules: 15 },
-    { title: "Construction Site Safety", prompt: "Build a professional course on Construction Site Safety.", weeks: 8, modules: 8 },
-    { title: "Graduate Research Methods Seminar", prompt: "Build a graduate research methods seminar.", weeks: 12, modules: 12 },
-    { title: "Teaching with Accessible Documents", prompt: "Build a short four-week professional development course on Teaching with Accessible Documents.", weeks: 4, modules: 4 }
+    { title: "Introduction to Pharmacology for Nursing Students", prompt: "Build an undergraduate online course on Introduction to Pharmacology for Nursing Students.", weeks: 12, modules: 12, firstTopic: "Medication Safety and Clinical Foundations", vocabulary: /pharmacokinetics|medication safety/i },
+    { title: "The United States Civil War", prompt: "Build a college course on The United States Civil War.", weeks: 14, modules: 14, firstTopic: "Historical Questions, Sources, and Interpretation", vocabulary: /source context|material evidence/i },
+    { title: "Beginning Spanish I", prompt: "Build an in-person undergraduate course on Beginning Spanish I.", weeks: 16, modules: 16, firstTopic: "Greetings, Pronunciation, and Classroom Language", vocabulary: /interpretive communication|language form/i },
+    { title: "College Algebra", prompt: "Build a hybrid undergraduate course on College Algebra.", weeks: 15, modules: 15, firstTopic: "Algebraic Foundations and Mathematical Communication", vocabulary: /function|domain|rate of change/i },
+    { title: "Construction Site Safety", prompt: "Build a professional course on Construction Site Safety.", weeks: 8, modules: 8, firstTopic: "Safety Culture, Responsibilities, and Regulations", vocabulary: /hierarchy of controls|corrective action/i },
+    { title: "Graduate Research Methods Seminar", prompt: "Build a graduate research methods seminar.", weeks: 12, modules: 12, firstTopic: "Research Problems, Purpose, and Questions", vocabulary: /sampling|validity|research design/i },
+    { title: "Teaching with Accessible Documents", prompt: "Build a short four-week professional development course on Teaching with Accessible Documents.", weeks: 4, modules: 4, firstTopic: "Accessibility Foundations and Learner Needs", vocabulary: /semantic structure|alternative text|reading order/i }
   ];
 
   for (const scenario of scenarios) {
@@ -125,7 +125,10 @@ describe("cross-discipline course regression matrix", () => {
       expect(course.title).toBe(scenario.title);
       expect(course.settings.lengthWeeks).toBe(scenario.weeks);
       expect(contentModules).toHaveLength(scenario.modules);
+      expect(contentModules[0]?.title).toContain(scenario.firstTopic);
       expect(serialized).toContain(scenario.title);
+      expect(course.outcomes.some((outcome) => scenario.vocabulary.test(outcome.text))).toBe(true);
+      expect(course.outcomes.map((outcome) => outcome.text).join(" ")).not.toMatch(/Apply a defensible recommendation|Apply [^.]+ methods to/i);
       expect(serialized).not.toMatch(/AI and Modern Society|civic dimensions of artificial intelligence/i);
       expect(new Set(course.outcomes.map((outcome) => outcome.text.toLowerCase().replace(/^[a-z-]+\s+/, ""))).size).toBe(course.outcomes.length);
 
