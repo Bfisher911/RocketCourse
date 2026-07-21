@@ -80,13 +80,26 @@ export default async (request: Request): Promise<Response> => {
     case "updateImageEconomics": {
       const config = body.config;
       if (!config || typeof config !== "object" || Array.isArray(config)) return json(400, { error: "config is required." });
-      const numeric = ["premiumMonthlyCents", "premiumIncrementCents", "includedCredits", "mediumCredits", "highCredits", "creditPackCredits", "creditPackCents", "targetGrossMarginPercent", "mediumLandscapeCostUsd", "highLandscapeCostUsd"];
+      const numeric = ["premiumMonthlyCents", "premiumIncrementCents", "includedCredits", "mediumCredits", "highCredits", "creditPackCredits", "creditPackCents", "targetGrossMarginPercent", "mediumLandscapeCostUsd", "highLandscapeCostUsd", "maxBatchImages", "maxImagesPerCourse", "perUserDailyLimit", "monthlyHardSpendUsd", "retryReservePercent", "storageCostPerGbUsd", "processingCostPerImageUsd", "paymentFeePercent", "paymentFeeFixedUsd", "supportReservePercent", "trialImageAllowance", "institutionalImageAllowance"];
       for (const key of numeric) {
         const value = Number((config as Record<string, unknown>)[key]);
         if (!Number.isFinite(value) || value < 0) return json(400, { error: `${key} must be a non-negative number.` });
       }
+      const premiumPlanName = String((config as Record<string, unknown>).premiumPlanName ?? "").trim();
+      if (!premiumPlanName || premiumPlanName.length > 80) return json(400, { error: "premiumPlanName is required and must be 80 characters or fewer." });
       const { error } = await admin.from("image_economics_config").upsert({ key: "default", config, updated_by: actor.id, updated_at: new Date().toISOString() });
       if (error) return json(500, { error: error.message });
+      await admin.from("plans").update({
+        name: premiumPlanName,
+        price_cents: Number((config as Record<string, unknown>).premiumMonthlyCents),
+        image_credits_limit: Number((config as Record<string, unknown>).includedCredits)
+      }).eq("key", "rocketcourse_premium");
+      await admin.from("subscriptions").update({
+        image_credits_limit: Number((config as Record<string, unknown>).trialImageAllowance)
+      }).eq("status", "trialing").eq("plan_key", "rocketcourse_premium");
+      await admin.from("subscriptions").update({
+        image_credits_limit: Number((config as Record<string, unknown>).institutionalImageAllowance)
+      }).in("status", ["active", "trialing"]).eq("plan_key", "institution");
       await audit("image_economics_updated", "image_economics_config", "default", { config });
       return json(200, { ok: true });
     }

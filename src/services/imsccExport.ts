@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import type {
   Announcement,
   Assignment,
+  CourseImageAsset,
   CourseModule,
   CoursePage,
   CourseProject,
@@ -36,8 +37,11 @@ import { buildSyllabusPdf } from "./syllabusPdf";
 import {
   activeImageForPlacement,
   decodeImageDataUrl,
-  packagePathForImage
+  imageAltAttribute,
+  packagePathForImage,
+  selectedCourseImages
 } from "./courseImagery";
+import { requestImageDownloadUrl } from "./imageClient";
 
 const CANVAS_NAMESPACE = "http://canvas.instructure.com/xsd/cccv1p0";
 const CANVAS_XSD_URI = "https://canvas.instructure.com/xsd/cccv1p0.xsd";
@@ -700,9 +704,7 @@ const createManifest = (course: CourseProject): string => {
     </resource>`
     )
     .join("\n");
-  const imageResources = (["course-card", "homepage-banner", "supporting"] as const)
-    .map((placement) => activeImageForPlacement(course, placement))
-    .filter((asset): asset is NonNullable<typeof asset> => Boolean(asset))
+  const imageResources = selectedCourseImages(course)
     .map((asset) => {
       const path = packagePathForImage(asset);
       return `    <resource identifier="${xml(`course_image_${asset.id}`)}" type="${resourceType.webcontent}" href="${xml(path)}">
@@ -791,21 +793,21 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   zip.file("web_resources/course-tile.svg", createCourseTileSvg(course));
   const activeHomepageBanner = activeImageForPlacement(course, "homepage-banner");
   const activeCourseCard = activeImageForPlacement(course, "course-card");
-  const selectedImages = (["course-card", "homepage-banner", "supporting"] as const)
-    .map((placement) => activeImageForPlacement(course, placement))
-    .filter((asset): asset is NonNullable<typeof asset> => Boolean(asset));
+  const selectedImages = selectedCourseImages(course);
   for (const asset of selectedImages) {
     const decoded = decodeImageDataUrl(asset.dataUrl);
     if (decoded) {
       zip.file(packagePathForImage(asset), decoded.base64, { base64: true });
       continue;
     }
-    const sourceUrl = asset.signedPreviewUrl;
-    if (sourceUrl) {
-      const response = await fetch(sourceUrl);
-      if (!response.ok) throw new Error(`Could not retrieve ${asset.fileName} for the Canvas package.`);
-      zip.file(packagePathForImage(asset), await response.arrayBuffer());
+    let sourceUrl = asset.signedPreviewUrl;
+    let response = sourceUrl ? await fetch(sourceUrl).catch(() => null) : null;
+    if ((!response || !response.ok) && asset.storagePath) {
+      sourceUrl = (await requestImageDownloadUrl(asset.id)).url;
+      response = await fetch(sourceUrl);
     }
+    if (!response?.ok) throw new Error(`Could not retrieve ${asset.fileName} for the Canvas package.`);
+    zip.file(packagePathForImage(asset), await response.arrayBuffer());
   }
   // Per-module header banners (opt-in). The generator references web_resources/module-<N>-header.svg
   // on each CONTENT module's overview page, where <N> is the module number embedded in its id
@@ -831,26 +833,37 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   zip.file("web_resources/instructor-guide-printable.html", printableHtml("Instructor Guide", instructorGuidePage?.bodyHtml ?? ""));
   zip.file("web_resources/instructor-guide.pdf", buildPagePdf(course, "Instructor Guide", instructorGuidePage?.bodyHtml ?? ""));
 
+  const supportingHtml = (asset: CourseImageAsset): string =>
+    `<img src="$IMS-CC-FILEBASE$/${xml(packagePathForImage(asset).replace(/^web_resources\//, ""))}" ${imageAltAttribute(asset)} style="display:block;width:100%;height:auto;object-fit:cover;margin:0 0 1.25rem;" loading="lazy" />`;
+  const supportingFor = (type: CourseImageAsset["contentObjectType"], id: string): CourseImageAsset | undefined =>
+    selectedImages.find((asset) => asset.placement === "supporting" && asset.contentObjectType === type && asset.contentObjectId === id);
+  const firstPageForModule = (moduleId: string): CoursePage | undefined => course.pages.find((page) => page.moduleId === moduleId);
+
   course.pages.forEach((page) => {
-    const exportedPage = page.frontPage && activeHomepageBanner
-      ? {
-          ...page,
-          bodyHtml: page.bodyHtml.replace(
+    const pageAsset = supportingFor("page", page.id)
+      ?? (page.moduleId && firstPageForModule(page.moduleId)?.id === page.id ? supportingFor("module", page.moduleId) : undefined);
+    let bodyHtml = page.bodyHtml;
+    if (page.frontPage && activeHomepageBanner) {
+      bodyHtml = bodyHtml.replace(
             /\$IMS-CC-FILEBASE\$\/course-banner\.svg/g,
             `$IMS-CC-FILEBASE$/${packagePathForImage(activeHomepageBanner).replace(/^web_resources\//, "")}`
-          )
-        }
-      : page;
+          );
+    }
+    if (pageAsset) bodyHtml = `${supportingHtml(pageAsset)}\n${bodyHtml}`;
+    const exportedPage = { ...page, bodyHtml };
     zip.file(pagePath(page), wrappedWikiPage(exportedPage));
   });
 
   course.assignments.forEach((assignment) => {
-    zip.file(assignmentPath(assignment), wrappedHtmlDocument(`Assignment: ${assignment.title}`, prepareStudentFacingHtmlForCanvas(assignment.descriptionHtml)));
+    const asset = supportingFor("assignment", assignment.id);
+    const html = `${asset ? `${supportingHtml(asset)}\n` : ""}${assignment.descriptionHtml}`;
+    zip.file(assignmentPath(assignment), wrappedHtmlDocument(`Assignment: ${assignment.title}`, prepareStudentFacingHtmlForCanvas(html)));
     zip.file(assignmentSettingsPath(assignment), createAssignmentXml(assignment));
   });
 
   course.discussions.forEach((discussion) => {
-    zip.file(discussionPath(discussion), createDiscussionXml(discussion));
+    const asset = supportingFor("discussion", discussion.id);
+    zip.file(discussionPath(discussion), createDiscussionXml(asset ? { ...discussion, promptHtml: `${supportingHtml(asset)}\n${discussion.promptHtml}` } : discussion));
     zip.file(discussionMetaPath(discussion), createDiscussionMetaXml(discussion));
   });
 
@@ -860,8 +873,10 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   });
 
   course.quizzes.forEach((quiz) => {
+    const asset = supportingFor("quiz", quiz.id);
+    const exportedQuiz = asset ? { ...quiz, purpose: `${supportingHtml(asset)}\n${quiz.purpose}` } : quiz;
     zip.file(quizCcPath(quiz), createAssessmentQtiXml(quiz, false));
-    zip.file(quizMetaPath(quiz), createAssessmentMetaXml(quiz));
+    zip.file(quizMetaPath(quiz), createAssessmentMetaXml(exportedQuiz));
     zip.file(quizCanvasQtiPath(quiz), createAssessmentQtiXml(quiz, true));
   });
 
@@ -920,9 +935,7 @@ export const validateImsccZip = async (input: CourseProject, zip: JSZip): Promis
   const fail = (id: string, message: string): void => {
     issues.push({ id, message, severity: "error" });
   };
-  (["course-card", "homepage-banner", "supporting"] as const)
-    .map((placement) => activeImageForPlacement(course, placement))
-    .filter((asset): asset is NonNullable<typeof asset> => Boolean(asset))
+  selectedCourseImages(course)
     .forEach((asset) => {
       const path = packagePathForImage(asset);
       if (!zip.file(path)) fail(`missing-course-image-${asset.id}`, `Selected course image ${asset.fileName} is missing from the package.`);

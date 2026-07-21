@@ -65,7 +65,7 @@ const upsertSubscription = async (params: {
   const db = supabase();
   const { data: existing } = await db
     .from("subscriptions")
-    .select("id,plan_key,status,exports_used,ai_generations_used")
+    .select("id,plan_key,status,current_period_start,exports_used,ai_generations_used,image_credits_limit,image_credits_used,workspace_id")
     .eq("user_id", params.userId)
     .order("updated_at", { ascending: false })
     .limit(1)
@@ -73,8 +73,36 @@ const upsertSubscription = async (params: {
 
   const freshActivation =
     !existing || existing.plan_key !== params.planKey || !["active", "trialing"].includes(existing.status as string);
-  const exportsUsed = freshActivation ? 0 : (existing?.exports_used as number) ?? 0;
-  const aiUsed = freshActivation ? 0 : (existing?.ai_generations_used as number) ?? 0;
+  const periodChanged = Boolean(params.periodStart && existing?.current_period_start
+    && new Date(String(existing.current_period_start)).getTime() !== params.periodStart.getTime());
+  const resetUsage = freshActivation || periodChanged;
+  const exportsUsed = resetUsage ? 0 : (existing?.exports_used as number) ?? 0;
+  const aiUsed = resetUsage ? 0 : (existing?.ai_generations_used as number) ?? 0;
+  const imageCreditsUsed = resetUsage ? 0 : (existing?.image_credits_used as number) ?? 0;
+  const { data: economics } = await db.from("image_economics_config").select("config").eq("key", "default").maybeSingle();
+  const imageConfig = (economics?.config as Record<string, unknown> | null) ?? {};
+  const configuredImageLimit = params.status === "trialing"
+    ? Math.max(0, Number(imageConfig.trialImageAllowance ?? plan.imageCreditsLimit ?? 0))
+    : params.planKey === "institution"
+      ? Math.max(0, Number(imageConfig.institutionalImageAllowance ?? plan.imageCreditsLimit ?? 0))
+      : plan.imageCreditsLimit ?? 0;
+
+  if (periodChanged && existing) {
+    const previousLimit = Math.max(0, Number(existing.image_credits_limit ?? 0));
+    const previousUsed = Math.max(0, Number(existing.image_credits_used ?? 0));
+    const rollover = imageConfig.unusedCreditsRollOver === true ? Math.max(0, previousLimit - Math.min(previousLimit, previousUsed)) : 0;
+    const purchasedCreditsConsumed = Math.max(0, previousUsed - previousLimit);
+    const adjustments = [
+      ...(rollover > 0 ? [{ user_id: params.userId, workspace_id: existing.workspace_id ?? null, adjustment_type: "image_credit", amount: rollover, reason: "Unused included image credits rolled over at renewal", created_by: null }] : []),
+      ...(purchasedCreditsConsumed > 0 ? [{ user_id: params.userId, workspace_id: existing.workspace_id ?? null, adjustment_type: "image_credit", amount: -purchasedCreditsConsumed, reason: "Purchased image credits consumed before renewal", created_by: null }] : [])
+    ];
+    if (adjustments.length) await db.from("usage_adjustments").insert(adjustments);
+    const ledger = [
+      ...(rollover > 0 ? [{ user_id: params.userId, workspace_id: existing.workspace_id ?? null, subscription_id: existing.id, entry_type: "adjustment", credits: rollover, reason: "Included image credits rolled over", metadata: { previousLimit, previousUsed } }] : []),
+      ...(purchasedCreditsConsumed > 0 ? [{ user_id: params.userId, workspace_id: existing.workspace_id ?? null, subscription_id: existing.id, entry_type: "adjustment", credits: -purchasedCreditsConsumed, reason: "Credit-pack balance consumed", metadata: { previousLimit, previousUsed } }] : [])
+    ];
+    if (ledger.length) await db.from("image_credit_ledger").insert(ledger);
+  }
 
   const row = {
     user_id: params.userId,
@@ -92,8 +120,10 @@ const upsertSubscription = async (params: {
     billing_interval: params.billingInterval ?? plan.billingInterval,
     exports_limit: plan.exportsLimit,
     ai_generations_limit: plan.aiGenerationsLimit,
+    image_credits_limit: configuredImageLimit,
     exports_used: exportsUsed,
     ai_generations_used: aiUsed,
+    image_credits_used: imageCreditsUsed,
     updated_at: new Date().toISOString()
   };
 
@@ -153,6 +183,32 @@ const handleCheckoutCompleted = async (session: Stripe.Checkout.Session): Promis
   if (!userId) return;
 
   await recordRedemption(session, userId);
+
+  if (session.mode === "payment" && session.metadata?.purchase_type === "image_credit_pack") {
+    const credits = Math.max(1, Math.floor(Number(session.metadata.image_credit_amount ?? 0)));
+    await supabase().from("usage_adjustments").insert({
+      user_id: userId,
+      adjustment_type: "image_credit",
+      amount: credits,
+      reason: `Stripe image credit pack ${session.id}`,
+      created_by: null
+    });
+    await supabase().from("image_credit_ledger").insert({
+      user_id: userId,
+      entry_type: "adjustment",
+      credits,
+      reason: "Stripe image credit pack purchased",
+      metadata: { stripeCheckoutSessionId: session.id, amountTotal: session.amount_total, currency: session.currency }
+    });
+    await supabase().from("audit_events").insert({
+      actor_user_id: userId,
+      event_type: "image_credit_pack_purchased",
+      target_type: "stripe_checkout_session",
+      target_id: session.id,
+      metadata: { credits, amount_total: session.amount_total, currency: session.currency }
+    });
+    return;
+  }
 
   // Best-effort: if this paying customer came from a campaign waitlist, mark them converted and
   // advance any inbound referral to `paid`. Fully isolated — never affects the billing writes below.

@@ -8,13 +8,15 @@ import {
   defaultImageCrop,
   type ImagePlacementSpec
 } from "../../src/services/courseImagery";
-import type { CourseImageAsset, CourseImageCrop, CourseImagePlacement } from "../../src/types";
+import type { CourseImageAsset, CourseImageContentType, CourseImageCrop, CourseImagePlacement } from "../../src/types";
 
 const BUCKET = "course-images";
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
 const isPlacement = (value: unknown): value is CourseImagePlacement =>
   value === "course-card" || value === "homepage-banner" || value === "supporting";
+const isContentType = (value: unknown): value is CourseImageContentType =>
+  value === "module" || value === "page" || value === "assignment" || value === "discussion" || value === "quiz";
 
 const safeSegment = (value: string): string => value.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "image";
 
@@ -75,6 +77,9 @@ const cropGeometry = (
 const asClientAsset = (row: Record<string, unknown>, signedPreviewUrl?: string): CourseImageAsset => ({
   id: String(row.id),
   placement: row.placement as CourseImagePlacement,
+  contentObjectId: row.content_object_id ? String(row.content_object_id) : undefined,
+  contentObjectType: isContentType(row.content_object_type) ? row.content_object_type : undefined,
+  contentObjectTitle: row.content_object_title ? String(row.content_object_title) : undefined,
   source: row.source as "upload" | "ai",
   status: row.status as CourseImageAsset["status"],
   version: Number(row.version),
@@ -97,6 +102,7 @@ const asClientAsset = (row: Record<string, unknown>, signedPreviewUrl?: string):
   idempotencyKey: row.idempotency_key ? String(row.idempotency_key) : undefined,
   creditCost: row.credit_cost === null || row.credit_cost === undefined ? undefined : Number(row.credit_cost),
   estimatedCostUsd: row.estimated_cost_usd === null || row.estimated_cost_usd === undefined ? undefined : Number(row.estimated_cost_usd),
+  rightsAcknowledgedAt: row.rights_acknowledged_at ? String(row.rights_acknowledged_at) : undefined,
   createdAt: String(row.created_at),
   archivedAt: row.archived_at ? String(row.archived_at) : undefined
 });
@@ -111,6 +117,19 @@ export default async (request: Request): Promise<Response> => {
   const admin = getSupabaseAdmin();
   const action = String(body.action ?? "");
 
+  if (action === "list") {
+    const courseId = String(body.courseId ?? "");
+    if (!courseId || !await ownsCourse(user.id, courseId)) return json(403, { error: "Course images are unavailable." });
+    const { data, error } = await admin.from("image_assets").select("*")
+      .eq("owner_id", user.id).eq("course_app_id", courseId).order("created_at");
+    if (error) return json(500, { error: error.message });
+    const assets = await Promise.all((data ?? []).map(async (row) => {
+      const { data: signed } = await admin.storage.from(BUCKET).createSignedUrl(String(row.storage_path), 3600);
+      return asClientAsset(row as Record<string, unknown>, signed?.signedUrl);
+    }));
+    return json(200, { assets });
+  }
+
   if (action === "create-upload") {
     const courseId = String(body.courseId ?? "");
     const fileName = String(body.fileName ?? "");
@@ -118,8 +137,12 @@ export default async (request: Request): Promise<Response> => {
     const byteSize = Number(body.byteSize);
     if (!courseId || !isPlacement(body.placement)) return json(400, { error: "courseId and a valid placement are required." });
     if (!await ownsCourse(user.id, courseId)) return json(403, { error: "You do not own this course project." });
-    if (!ALLOWED.has(mimeType) || !Number.isFinite(byteSize) || byteSize <= 0 || byteSize > MAX_IMAGE_BYTES) {
+    const spec = IMAGE_PLACEMENT_SPECS[body.placement];
+    if (!ALLOWED.has(mimeType) || !spec.acceptedTypes.includes(mimeType as CourseImageAsset["mimeType"]) || !Number.isFinite(byteSize) || byteSize <= 0 || byteSize > MAX_IMAGE_BYTES) {
       return json(400, { error: "Use a supported JPG, PNG, GIF, or WebP image no larger than 10 MB." });
+    }
+    if (body.placement === "supporting" && (!String(body.contentObjectId ?? "") || !isContentType(body.contentObjectType))) {
+      return json(400, { error: "Choose the course item that should receive this supporting image." });
     }
     const extension = extname(fileName).toLowerCase().replace(/[^.a-z0-9]/g, "").slice(0, 6) || ".bin";
     const path = `${user.id}/${safeSegment(courseId)}/${crypto.randomUUID()}/original${extension}`;
@@ -136,6 +159,13 @@ export default async (request: Request): Promise<Response> => {
     }
     if (!await ownsCourse(user.id, courseId)) return json(403, { error: "You do not own this course project." });
     const placement = body.placement;
+    if (!Boolean(body.rightsAcknowledged)) return json(400, { error: "Confirm that you have permission to use this image." });
+    const contentObjectId = placement === "supporting" ? String(body.contentObjectId ?? "") : null;
+    const contentObjectType = placement === "supporting" && isContentType(body.contentObjectType) ? body.contentObjectType : null;
+    const contentObjectTitle = placement === "supporting" ? String(body.contentObjectTitle ?? "").trim().slice(0, 300) : null;
+    if (placement === "supporting" && (!contentObjectId || !contentObjectType)) {
+      return json(400, { error: "Choose the course item that should receive this supporting image." });
+    }
     const spec = IMAGE_PLACEMENT_SPECS[placement];
     const crop = normalizedCrop(body.crop);
     const { data: original, error: downloadError } = await admin.storage.from(BUCKET).download(originalPath);
@@ -160,13 +190,24 @@ export default async (request: Request): Promise<Response> => {
       await admin.storage.from(BUCKET).remove([originalPath]);
       return json(400, { error: "The uploaded file is not a decodable image." });
     }
+    const detectedMime = metadata.format === "jpeg" ? "image/jpeg" : `image/${metadata.format}`;
+    if (!spec.acceptedTypes.includes(detectedMime as CourseImageAsset["mimeType"])) {
+      await admin.storage.from(BUCKET).remove([originalPath]);
+      return json(400, { error: `${spec.label} does not support this image format.` });
+    }
+    if ((metadata.pages ?? 1) > 1) {
+      await admin.storage.from(BUCKET).remove([originalPath]);
+      return json(400, { error: "Animated images are not supported. Upload a still JPG, PNG, or GIF frame." });
+    }
     const geometry = cropGeometry(width, height, spec, crop);
     const derivative = await image
       .extract(geometry)
       .resize(spec.outputWidth, spec.outputHeight, { fit: "fill" })
       .jpeg({ quality: 88, progressive: true, mozjpeg: true })
       .toBuffer();
-    const { data: versionRows } = await admin.from("image_assets").select("version").eq("owner_id", user.id).eq("course_app_id", courseId).eq("placement", placement).order("version", { ascending: false }).limit(1);
+    let versionQuery = admin.from("image_assets").select("version").eq("owner_id", user.id).eq("course_app_id", courseId).eq("placement", placement);
+    versionQuery = contentObjectId ? versionQuery.eq("content_object_id", contentObjectId) : versionQuery.is("content_object_id", null);
+    const { data: versionRows } = await versionQuery.order("version", { ascending: false }).limit(1);
     const version = Number(versionRows?.[0]?.version ?? 0) + 1;
     const assetId = crypto.randomUUID();
     const derivativePath = `${user.id}/${safeSegment(courseId)}/${assetId}/${placement}-v${version}.jpg`;
@@ -177,6 +218,9 @@ export default async (request: Request): Promise<Response> => {
       owner_id: user.id,
       course_app_id: courseId,
       placement,
+      content_object_id: contentObjectId,
+      content_object_type: contentObjectType,
+      content_object_title: contentObjectTitle,
       source: "upload",
       status: "ready",
       version,
@@ -189,7 +233,8 @@ export default async (request: Request): Promise<Response> => {
       original_storage_path: originalPath,
       crop_json: crop,
       alt_text: String(body.altText ?? "").slice(0, 500),
-      decorative: Boolean(body.decorative)
+      decorative: Boolean(body.decorative),
+      rights_acknowledged_at: new Date().toISOString()
     };
     const { data, error } = await admin.from("image_assets").insert(row).select("*").single();
     if (error || !data) {
@@ -197,6 +242,59 @@ export default async (request: Request): Promise<Response> => {
       return json(500, { error: error?.message ?? "Image metadata could not be saved." });
     }
     const { data: signed } = await admin.storage.from(BUCKET).createSignedUrl(derivativePath, 3600);
+    return json(200, { asset: asClientAsset(data as Record<string, unknown>, signed?.signedUrl) });
+  }
+
+  if (action === "update") {
+    const assetId = String(body.assetId ?? "");
+    const decorative = Boolean(body.decorative);
+    const altText = decorative ? "" : String(body.altText ?? "").trim().slice(0, 500);
+    const { data, error } = await admin.from("image_assets")
+      .update({ alt_text: altText, decorative })
+      .eq("id", assetId).eq("owner_id", user.id).select("*").maybeSingle();
+    if (error) return json(500, { error: error.message });
+    if (!data) return json(404, { error: "Image not found." });
+    const { data: signed } = await admin.storage.from(BUCKET).createSignedUrl(String(data.storage_path), 3600);
+    return json(200, { asset: asClientAsset(data as Record<string, unknown>, signed?.signedUrl) });
+  }
+
+  if (action === "archive-target") {
+    const courseId = String(body.courseId ?? "");
+    if (!courseId || !isPlacement(body.placement) || !await ownsCourse(user.id, courseId)) return json(403, { error: "Course image target not found." });
+    let archiveQuery = admin.from("image_assets")
+      .update({ status: "archived", archived_at: new Date().toISOString() })
+      .eq("course_app_id", courseId).eq("placement", body.placement).eq("owner_id", user.id);
+    archiveQuery = body.contentObjectId
+      ? archiveQuery.eq("content_object_id", String(body.contentObjectId))
+      : archiveQuery.is("content_object_id", null);
+    const { data, error } = await archiveQuery.select("id");
+    if (error) return json(500, { error: error.message });
+    if (!data?.length) return json(404, { error: "Image not found." });
+    return json(200, { ok: true });
+  }
+
+  if (action === "restore") {
+    const assetId = String(body.assetId ?? "");
+    const { data: source, error: sourceError } = await admin.from("image_assets").select("*")
+      .eq("id", assetId).eq("owner_id", user.id).maybeSingle();
+    if (sourceError) return json(500, { error: sourceError.message });
+    if (!source) return json(404, { error: "Image not found." });
+    let versionQuery = admin.from("image_assets").select("version")
+      .eq("owner_id", user.id).eq("course_app_id", source.course_app_id).eq("placement", source.placement);
+    versionQuery = source.content_object_id
+      ? versionQuery.eq("content_object_id", source.content_object_id)
+      : versionQuery.is("content_object_id", null);
+    const { data: versionRows } = await versionQuery.order("version", { ascending: false }).limit(1);
+    const restored = { ...source } as Record<string, unknown>;
+    delete restored.created_at;
+    delete restored.archived_at;
+    restored.id = crypto.randomUUID();
+    restored.version = Number(versionRows?.[0]?.version ?? 0) + 1;
+    restored.status = "ready";
+    restored.file_name = `${safeSegment(String(source.course_app_id))}-${source.placement}-v${restored.version}.jpg`;
+    const { data, error } = await admin.from("image_assets").insert(restored).select("*").single();
+    if (error || !data) return json(500, { error: error?.message ?? "The version could not be restored." });
+    const { data: signed } = await admin.storage.from(BUCKET).createSignedUrl(String(data.storage_path), 3600);
     return json(200, { asset: asClientAsset(data as Record<string, unknown>, signed?.signedUrl) });
   }
 

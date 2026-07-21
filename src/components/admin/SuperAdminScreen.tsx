@@ -3,7 +3,7 @@
 // overview, workspace directory, user directory (+ read-only audited "view as"), usage/cost,
 // discount codes (Stripe, server-side), blog manager, and the audit log.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Archive,
@@ -47,6 +47,7 @@ import {
   type SuperOverview
 } from "../../services/platformClient";
 import { selfServePlans } from "../../data/plans";
+import { simulateImageEconomics } from "../../services/imageEconomics";
 
 type Tab = "overview" | "workspaces" | "users" | "costs" | "discounts" | "campaigns" | "blog" | "audit";
 const TABS: { key: Tab; label: string; icon: typeof Gauge }[] = [
@@ -121,13 +122,16 @@ function ImageEconomicsPanel({ config, onSaved }: { config: ImageEconomicsConfig
   const [draft, setDraft] = useState(config);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [scenario, setScenario] = useState({ activePremiumUsers: 100, averageImagesPerUser: 20, averageImagesPerCourse: 8, highQualityPercent: 10, creditPackRevenueUsd: 0, averageStoredMbPerImage: 0.4 });
   useEffect(() => setDraft(config), [config]);
   const setNumber = (key: keyof ImageEconomicsConfig, value: number) => setDraft((current) => ({ ...current, [key]: value }));
   const revenuePerCredit = draft.creditPackCredits > 0 ? draft.creditPackCents / 100 / draft.creditPackCredits : 0;
   const mediumMargin = revenuePerCredit > 0 ? (1 - draft.mediumLandscapeCostUsd / (revenuePerCredit * Math.max(1, draft.mediumCredits))) * 100 : 0;
   const highMargin = revenuePerCredit > 0 ? (1 - draft.highLandscapeCostUsd / (revenuePerCredit * Math.max(1, draft.highCredits))) * 100 : 0;
+  const simulation = useMemo(() => simulateImageEconomics(draft, scenario), [draft, scenario]);
   const fields: Array<[keyof ImageEconomicsConfig, string, number]> = [
     ["premiumMonthlyCents", "Premium monthly price (cents)", 100],
+    ["premiumIncrementCents", "Premium increment over standard (cents)", 100],
     ["includedCredits", "Included monthly credits", 1],
     ["mediumCredits", "Medium credits / image", 1],
     ["highCredits", "High credits / image", 1],
@@ -136,11 +140,24 @@ function ImageEconomicsPanel({ config, onSaved }: { config: ImageEconomicsConfig
     ["targetGrossMarginPercent", "Target gross margin (%)", 1],
     ["mediumLandscapeCostUsd", "Provider medium cost ($)", 0.001],
     ["highLandscapeCostUsd", "Provider high cost ($)", 0.001]
+    , ["maxBatchImages", "Maximum images / batch", 1]
+    , ["maxImagesPerCourse", "Maximum images / course", 1]
+    , ["perUserDailyLimit", "Per-user daily limit", 1]
+    , ["monthlyHardSpendUsd", "Monthly hard spend ($)", 10]
+    , ["retryReservePercent", "Retry reserve (%)", 1]
+    , ["storageCostPerGbUsd", "Storage / GB ($)", 0.001]
+    , ["processingCostPerImageUsd", "Processing / image ($)", 0.001]
+    , ["paymentFeePercent", "Payment fee (%)", 0.1]
+    , ["paymentFeeFixedUsd", "Payment fee fixed ($)", 0.01]
+    , ["supportReservePercent", "Support reserve (%)", 1]
+    , ["trialImageAllowance", "Trial image allowance", 1]
+    , ["institutionalImageAllowance", "Institutional image allowance", 1]
   ];
   return (
     <div className="sa-image-economics">
       <header><div><strong>Premium image economics</strong><p className="blog-muted">Server-authoritative pricing, credit weights, provider assumptions, and margin guardrail.</p></div><span className="ws-role-tag super">{draft.model}</span></header>
       <div className="sa-discount-grid">
+        <label><span>Premium plan name</span><input value={draft.premiumPlanName} onChange={(event) => setDraft((current) => ({ ...current, premiumPlanName: event.target.value }))} /></label>
         {fields.map(([key, label, step]) => <label key={key}><span>{label}</span><input type="number" min={0} step={step} value={Number(draft[key])} onChange={(event) => setNumber(key, Number(event.target.value))} /></label>)}
       </div>
       <div className="sa-stat-grid compact">
@@ -148,6 +165,29 @@ function ImageEconomicsPanel({ config, onSaved }: { config: ImageEconomicsConfig
         <div className="sa-stat"><strong>{Math.round(highMargin)}%</strong><span>High pack margin</span></div>
         <div className="sa-stat"><strong>${revenuePerCredit.toFixed(2)}</strong><span>Revenue / pack credit</span></div>
       </div>
+      <label className="toggle-row"><input type="checkbox" checked={draft.unusedCreditsRollOver} onChange={(event) => setDraft((current) => ({ ...current, unusedCreditsRollOver: event.target.checked }))} /><span><strong>Unused credits roll over</strong><small>Off by default to cap deferred generation liability.</small></span></label>
+      <section className="sa-image-simulator">
+        <header><strong>Monthly scenario simulator</strong><span className={simulation.grossMarginPercent >= draft.targetGrossMarginPercent ? "ws-role-tag" : "ws-role-tag super"}>{simulation.grossMarginPercent.toFixed(1)}% margin</span></header>
+        <div className="sa-discount-grid">
+          {([
+            ["activePremiumUsers", "Active Premium users", 1],
+            ["averageImagesPerUser", "Images / user", 1],
+            ["averageImagesPerCourse", "Images / course", 1],
+            ["highQualityPercent", "High-quality mix (%)", 1],
+            ["creditPackRevenueUsd", "Credit-pack revenue ($)", 10],
+            ["averageStoredMbPerImage", "Stored MB / image", 0.1]
+          ] as const).map(([key, label, step]) => <label key={key}><span>{label}</span><input type="number" min={0} step={step} value={scenario[key]} onChange={(event) => setScenario((current) => ({ ...current, [key]: Number(event.target.value) }))} /></label>)}
+        </div>
+        <div className="sa-stat-grid compact">
+          <div className="sa-stat"><strong>${simulation.totalRevenueUsd.toFixed(0)}</strong><span>Revenue</span></div>
+          <div className="sa-stat"><strong>${simulation.totalCostUsd.toFixed(0)}</strong><span>All-in image cost</span></div>
+          <div className="sa-stat"><strong>${simulation.grossProfitUsd.toFixed(0)}</strong><span>Gross profit</span></div>
+          <div className="sa-stat"><strong>{simulation.breakEvenImagesPerUser.toFixed(0)}</strong><span>Break-even images / user</span></div>
+          <div className="sa-stat"><strong>${simulation.providerCostUsd.toFixed(0)}</strong><span>Provider + ${simulation.retryReserveUsd.toFixed(0)} retries</span></div>
+          <div className="sa-stat"><strong>${simulation.storageAndProcessingUsd.toFixed(0)}</strong><span>Storage + processing</span></div>
+        </div>
+        {simulation.warnings.length > 0 && <ul className="sa-pricing-warnings">{simulation.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>}
+      </section>
       {notice && <p className="ws-notice ok">{notice}</p>}
       <button type="button" className="primary" disabled={busy} onClick={async () => { setBusy(true); setNotice(null); try { await superAdminAction("updateImageEconomics", { config: draft }); onSaved(draft); setNotice("Image economics saved and audit-logged."); } finally { setBusy(false); } }}>{busy ? <Loader2 size={14} className="spin" /> : <Coins size={14} />} Save image economics</button>
     </div>

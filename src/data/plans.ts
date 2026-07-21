@@ -359,6 +359,7 @@ export const plans: Plan[] = [
     exportsLimit: null,
     seatsLimit: null,
     projectsLimit: null,
+    imageCreditsLimit: 0,
     capabilities: {
       ...noCapabilities,
       privateProjects: true,
@@ -367,7 +368,8 @@ export const plans: Plan[] = [
       customThemes: true,
       sourceParsing: true,
       advancedRevise: true,
-      teamWorkspace: true
+      teamWorkspace: true,
+      imageGeneration: true
     },
     audience: "Institutions",
     features: [

@@ -139,6 +139,7 @@ export interface SuperOverview {
 }
 
 export interface ImageEconomicsConfig {
+  premiumPlanName: string;
   premiumMonthlyCents: number;
   premiumIncrementCents: number;
   includedCredits: number;
@@ -151,9 +152,23 @@ export interface ImageEconomicsConfig {
   model: string;
   mediumLandscapeCostUsd: number;
   highLandscapeCostUsd: number;
+  maxBatchImages: number;
+  maxImagesPerCourse: number;
+  perUserDailyLimit: number;
+  monthlyHardSpendUsd: number;
+  retryReservePercent: number;
+  storageCostPerGbUsd: number;
+  processingCostPerImageUsd: number;
+  paymentFeePercent: number;
+  paymentFeeFixedUsd: number;
+  supportReservePercent: number;
+  unusedCreditsRollOver: boolean;
+  trialImageAllowance: number;
+  institutionalImageAllowance: number;
 }
 
 export const DEFAULT_IMAGE_ECONOMICS: ImageEconomicsConfig = {
+  premiumPlanName: "RocketCourse Premium",
   premiumMonthlyCents: 2500,
   premiumIncrementCents: 1000,
   includedCredits: 50,
@@ -165,7 +180,20 @@ export const DEFAULT_IMAGE_ECONOMICS: ImageEconomicsConfig = {
   provider: "openai",
   model: "gpt-image-2",
   mediumLandscapeCostUsd: 0.041,
-  highLandscapeCostUsd: 0.165
+  highLandscapeCostUsd: 0.165,
+  maxBatchImages: 12,
+  maxImagesPerCourse: 100,
+  perUserDailyLimit: 50,
+  monthlyHardSpendUsd: 2000,
+  retryReservePercent: 10,
+  storageCostPerGbUsd: 0.03,
+  processingCostPerImageUsd: 0.002,
+  paymentFeePercent: 2.9,
+  paymentFeeFixedUsd: 0.3,
+  supportReservePercent: 5,
+  unusedCreditsRollOver: false,
+  trialImageAllowance: 0,
+  institutionalImageAllowance: 0
 };
 
 export const loadImageEconomics = async (): Promise<ImageEconomicsConfig> => {

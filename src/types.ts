@@ -107,6 +107,7 @@ export interface CourseImageSettings {
 export type CourseImagePlacement = "course-card" | "homepage-banner" | "supporting";
 export type CourseImageSource = "upload" | "ai";
 export type CourseImageStatus = "processing" | "ready" | "failed" | "archived";
+export type CourseImageContentType = "module" | "page" | "assignment" | "discussion" | "quiz";
 
 export interface CourseImageCrop {
   /** Crop rectangle in source-image percentages, so it survives derivative regeneration. */
@@ -127,6 +128,10 @@ export interface CourseImageCrop {
 export interface CourseImageAsset {
   id: string;
   placement: CourseImagePlacement;
+  /** Supporting-image destination. Identity images intentionally leave these fields empty. */
+  contentObjectId?: string;
+  contentObjectType?: CourseImageContentType;
+  contentObjectTitle?: string;
   source: CourseImageSource;
   status: CourseImageStatus;
   version: number;
@@ -150,6 +155,7 @@ export interface CourseImageAsset {
   idempotencyKey?: string;
   creditCost?: number;
   estimatedCostUsd?: number;
+  rightsAcknowledgedAt?: string;
   createdAt: string;
   archivedAt?: string;
 }

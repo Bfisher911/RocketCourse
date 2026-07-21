@@ -1,5 +1,5 @@
 import type { CourseImagePlacement } from "../../../src/types";
-import { buildImagePrompt, type ImageQuality } from "../../../src/services/courseImagery";
+import { buildImagePrompt, type ImageGenerationTarget, type ImageQuality } from "../../../src/services/courseImagery";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -7,6 +7,8 @@ export interface ImageProviderRequest {
   courseTitle: string;
   courseDescription: string;
   placement: CourseImagePlacement;
+  target?: ImageGenerationTarget;
+  courseContext?: string;
   visualDirection: string;
   quality: ImageQuality;
   requestId: string;
@@ -20,6 +22,7 @@ export interface ImageProviderResult {
   providerRequestId: string | null;
   prompt: string;
   estimatedCostUsd: number;
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
 }
 
 export interface ImageProvider {
@@ -44,9 +47,10 @@ export class OpenAiImageProvider implements ImageProvider {
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) throw new Error("Image generation is not configured (OPENAI_API_KEY missing).");
     const prompt = buildImagePrompt(
-      { title: input.courseTitle, description: input.courseDescription },
+      { title: input.courseTitle, description: [input.courseDescription, input.courseContext].filter(Boolean).join("\n") },
       input.placement,
-      input.visualDirection
+      input.visualDirection,
+      input.target
     );
 
     let lastError = "OpenAI image generation failed.";
@@ -75,6 +79,7 @@ export class OpenAiImageProvider implements ImageProvider {
         });
         const payload = (await response.json()) as {
           data?: Array<{ b64_json?: string }>;
+          usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
           error?: { message?: string; code?: string };
         };
         if (!response.ok) {
@@ -96,7 +101,12 @@ export class OpenAiImageProvider implements ImageProvider {
           model: MODEL,
           providerRequestId: response.headers.get("x-request-id"),
           prompt,
-          estimatedCostUsd: LANDSCAPE_COST_USD[input.quality]
+          estimatedCostUsd: LANDSCAPE_COST_USD[input.quality],
+          usage: payload.usage ? {
+            inputTokens: Number(payload.usage.input_tokens ?? 0),
+            outputTokens: Number(payload.usage.output_tokens ?? 0),
+            totalTokens: Number(payload.usage.total_tokens ?? 0)
+          } : undefined
         };
       } catch (cause) {
         if (cause instanceof Error && cause.name === "AbortError") lastError = "Image generation timed out. No credits were used.";

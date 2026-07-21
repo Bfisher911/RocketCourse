@@ -54,6 +54,28 @@ describe("IMSCC course imagery", () => {
     expect(zip.file(packagePathForImage(current))).toBeTruthy();
   });
 
+  it("embeds supporting images in their selected page and declares every targeted asset", async () => {
+    const page = sampleProject.pages.find((item) => !item.frontPage)!;
+    const first = makeAsset({ id: "support1-aaaa-bbbb-cccc-123456789abc", placement: "supporting", contentObjectId: page.id, contentObjectType: "page", contentObjectTitle: page.title, width: 1200, height: 675 });
+    const course: CourseProject = { ...sampleProject, imageAssets: [first] };
+    const zip = await buildImsccZip(course);
+    const exported = await zip.file(`wiki_content/${page.slug}.html`)?.async("text");
+    expect(exported).toContain(`$IMS-CC-FILEBASE$/${packagePathForImage(first).replace("web_resources/", "")}`);
+    expect(exported).toContain(first.altText);
+    expect(await zip.file("imsmanifest.xml")?.async("text")).toContain(packagePathForImage(first));
+  });
+
+  it("embeds a quiz-targeted image in Canvas quiz metadata", async () => {
+    const quiz = sampleProject.quizzes[0];
+    const image = makeAsset({ id: "quizimg1-aaaa-bbbb-cccc-123456789abc", placement: "supporting", contentObjectId: quiz.id, contentObjectType: "quiz", contentObjectTitle: quiz.title, width: 1200, height: 675 });
+    const course: CourseProject = { ...sampleProject, imageAssets: [image] };
+    const zip = await buildImsccZip(course);
+    const metadataPath = Object.keys(zip.files).find((path) => path.includes(quiz.id) && path.endsWith("/assessment_meta.xml"));
+    const exported = metadataPath ? await zip.file(metadataPath)?.async("text") : undefined;
+    expect(exported).toContain(packagePathForImage(image).replace("web_resources/", ""));
+    expect(exported).toContain(image.altText);
+  });
+
   it("keeps legacy courses with no imagery exportable using generated SVG fallbacks", async () => {
     const course: CourseProject = { ...sampleProject, imageAssets: undefined };
     const zip = await buildImsccZip(course);

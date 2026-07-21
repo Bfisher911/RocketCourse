@@ -46,6 +46,16 @@ export const startCheckout = async (planKey: PlanKey): Promise<{ ok: boolean; er
   return { ok: false, error: result.error };
 };
 
+/** Purchase the server-configured image-credit pack. The Stripe webhook grants credits. */
+export const startImageCreditPackCheckout = async (): Promise<{ ok: boolean; error?: string }> => {
+  const result = await postForUrl("/.netlify/functions/create-checkout-session", { purchaseType: "image_credit_pack" });
+  if (result.ok && result.url) {
+    window.location.href = result.url;
+    return { ok: true };
+  }
+  return { ok: false, error: result.error };
+};
+
 /** Open the Stripe Billing Portal (manage payment method, invoices, cancel). Redirects on success. */
 export const openBillingPortal = async (): Promise<{ ok: boolean; error?: string }> => {
   const result = await postForUrl("/.netlify/functions/customer-portal", {});

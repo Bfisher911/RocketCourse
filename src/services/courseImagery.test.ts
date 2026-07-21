@@ -8,6 +8,7 @@ import {
   imageReadiness,
   imageSetCreditCost,
   packagePathForImage,
+  selectedCourseImages,
   safeImageDownloadName,
   validateImageUpload
 } from "./courseImagery";
@@ -67,6 +68,13 @@ describe("course imagery", () => {
     const processing = asset({ id: "processing", version: 3, status: "processing" });
     const current = asset({ id: "current", version: 2 });
     expect(activeImageForPlacement({ imageAssets: [old, processing, current] }, "course-card")?.id).toBe("current");
+  });
+
+  it("keeps one active supporting version per concrete course-object target", () => {
+    const pageOne = asset({ id: "page-one-old", placement: "supporting", contentObjectId: "page-1", contentObjectType: "page", version: 1 });
+    const pageOneNew = asset({ id: "page-one-new", placement: "supporting", contentObjectId: "page-1", contentObjectType: "page", version: 2 });
+    const pageTwo = asset({ id: "page-two", placement: "supporting", contentObjectId: "page-2", contentObjectType: "page", version: 1 });
+    expect(selectedCourseImages({ imageAssets: [pageOne, pageTwo, pageOneNew] }).map((item) => item.id).sort()).toEqual(["page-one-new", "page-two"]);
   });
 
   it("computes set costs using quality weights", () => {

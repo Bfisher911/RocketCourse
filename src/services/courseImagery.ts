@@ -1,5 +1,6 @@
 import type {
   CourseImageAsset,
+  CourseImageContentType,
   CourseImageCrop,
   CourseImagePlacement,
   CourseProject
@@ -64,6 +65,13 @@ export const IMAGE_PLACEMENT_SPECS: Record<CourseImagePlacement, ImagePlacementS
 
 export type ImageQuality = "medium" | "high";
 export type ImageGenerationSet = "essential" | "expanded" | "custom";
+
+export interface ImageGenerationTarget {
+  placement: CourseImagePlacement;
+  contentObjectId?: string;
+  contentObjectType?: CourseImageContentType;
+  contentObjectTitle?: string;
+}
 
 export const IMAGE_CREDIT_COST: Record<ImageQuality, number> = { medium: 1, high: 4 };
 export const IMAGE_SET_PLACEMENTS: Record<ImageGenerationSet, CourseImagePlacement[]> = {
@@ -142,16 +150,36 @@ export const validateImageUpload = (
 
 export const activeImageForPlacement = (
   course: Pick<CourseProject, "imageAssets">,
-  placement: CourseImagePlacement
+  placement: CourseImagePlacement,
+  contentObjectId?: string
 ): CourseImageAsset | null =>
   [...(course.imageAssets ?? [])]
-    .filter((asset) => asset.placement === placement && asset.status === "ready" && !asset.archivedAt)
+    .filter((asset) => asset.placement === placement
+      && (contentObjectId === undefined || asset.contentObjectId === contentObjectId)
+      && asset.status === "ready" && !asset.archivedAt)
     .sort((a, b) => b.version - a.version || b.createdAt.localeCompare(a.createdAt))[0] ?? null;
+
+export const imageTargetKey = (asset: Pick<CourseImageAsset, "placement" | "contentObjectId">): string =>
+  `${asset.placement}:${asset.contentObjectId ?? "course"}`;
+
+/** Latest ready version for every distinct identity/content destination. */
+export const selectedCourseImages = (course: Pick<CourseProject, "imageAssets">): CourseImageAsset[] => {
+  const selected = new Map<string, CourseImageAsset>();
+  [...(course.imageAssets ?? [])]
+    .filter((asset) => asset.status === "ready" && !asset.archivedAt)
+    .sort((a, b) => b.version - a.version || b.createdAt.localeCompare(a.createdAt))
+    .forEach((asset) => {
+      const key = imageTargetKey(asset);
+      if (!selected.has(key)) selected.set(key, asset);
+    });
+  return [...selected.values()];
+};
 
 export const nextImageVersion = (
   assets: CourseImageAsset[] | undefined,
-  placement: CourseImagePlacement
-): number => Math.max(0, ...(assets ?? []).filter((asset) => asset.placement === placement).map((asset) => asset.version)) + 1;
+  placement: CourseImagePlacement,
+  contentObjectId?: string
+): number => Math.max(0, ...(assets ?? []).filter((asset) => asset.placement === placement && asset.contentObjectId === contentObjectId).map((asset) => asset.version)) + 1;
 
 export const packagePathForImage = (asset: CourseImageAsset): string => {
   const base = IMAGE_PLACEMENT_SPECS[asset.placement].packagePath.replace(/\.[^.]+$/, "");
@@ -178,7 +206,7 @@ export interface ImageReadiness {
 export const imageReadiness = (course: Pick<CourseProject, "imageAssets">): ImageReadiness => {
   const card = activeImageForPlacement(course, "course-card");
   const banner = activeImageForPlacement(course, "homepage-banner");
-  const active = [card, banner].filter(Boolean) as CourseImageAsset[];
+  const active = selectedCourseImages(course);
   const accessible = active.every((asset) => asset.decorative || asset.altText.trim().length > 0);
   const checks = [
     { label: "Course card image", passed: Boolean(card), detail: card ? "Export-ready derivative selected." : "Add an image or keep the generated theme tile." },
@@ -191,12 +219,14 @@ export const imageReadiness = (course: Pick<CourseProject, "imageAssets">): Imag
 export const buildImagePrompt = (
   course: Pick<CourseProject, "title" | "description">,
   placement: CourseImagePlacement,
-  direction: string
+  direction: string,
+  target?: Pick<ImageGenerationTarget, "contentObjectTitle" | "contentObjectType">
 ): string => {
   const spec = IMAGE_PLACEMENT_SPECS[placement];
   return [
     `Create a polished, inclusive higher-education course image for “${course.title}”.`,
     course.description ? `Course context: ${course.description}` : "",
+    target?.contentObjectTitle ? `Specific ${target.contentObjectType ?? "course content"}: ${target.contentObjectTitle}.` : "",
     `Placement: ${spec.label}; compose for ${spec.outputWidth}:${spec.outputHeight} (${spec.aspectRatio.toFixed(2)}:1).`,
     "Keep the focal subject inside the central safe area. Do not include words, letters, logos, UI, watermarks, or identifiable students.",
     "Use an editorial, credible, contemporary visual style with sufficient tonal separation for responsive crops.",
