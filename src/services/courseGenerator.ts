@@ -29,6 +29,7 @@ import type {
 } from "../types";
 import { escapeXml, nowIso, slugify } from "../utils/text";
 import { buildCourseQualityReport } from "./courseQuality";
+import { applyCourseInteractions } from "./interactionSelection";
 import { getOutcomeFramework } from "./outcomeFrameworks";
 import { getModulePattern, getStructureFramework } from "./courseDesignModels";
 import { getQuizPurpose } from "./quizPurposes";
@@ -2676,7 +2677,12 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     pages: project.pages.map((page) => (page.frontPage ? { ...page, bodyHtml: polishedHomepageHtml } : page))
   };
 
-  return { ...polishedProject, quality: buildCourseQualityReport(polishedProject) };
+  // Attach Canvas interaction blocks (data/interactionPatterns.ts) as structured
+  // content on pages/assignments/discussions. Generic templates stay bare — their
+  // whole point is an unopinionated shell the instructor fills in.
+  const interactiveProject = isGenericTemplate(mergedSettings) ? polishedProject : applyCourseInteractions(polishedProject);
+
+  return { ...interactiveProject, quality: buildCourseQualityReport(interactiveProject) };
 };
 
 export const applyThemeToGeneratedContent = (course: CourseProject, theme: Theme): CourseProject => {

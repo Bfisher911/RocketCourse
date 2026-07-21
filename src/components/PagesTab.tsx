@@ -41,6 +41,7 @@ import {
   type PageIssue,
   type PageTemplateId
 } from "../services/pageBuilder";
+import { composeBodyWithInteractions } from "../services/interactionRender";
 import { stripHtml } from "../utils/text";
 import { aiGeneratePageBody } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
@@ -614,7 +615,7 @@ export function PagesTab({
                 <span className={selectedIssues.some((issue) => issue.severity === "error") ? "danger" : selectedIssues.length ? "warn" : "ok"}>{issueLabel(selectedIssues)}</span>
                 <span>{previewMode}</span>
               </div>
-              <div className={`canvas-preview page-canvas-preview ${previewMode}`} dangerouslySetInnerHTML={{ __html: sanitizePageHtmlForPreview(selectedPage.bodyHtml) }} />
+              <div className={`canvas-preview page-canvas-preview ${previewMode}`} dangerouslySetInnerHTML={{ __html: sanitizePageHtmlForPreview(composeBodyWithInteractions(selectedPage.bodyHtml, selectedPage.interactionBlocks, course.theme)) }} />
               <div className="page-preview-footer">
                 <button className="secondary" onClick={() => void copyCanvasHtml(selectedPage)}>
                   <Copy size={14} /> {copyState}

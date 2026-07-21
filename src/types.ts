@@ -33,6 +33,7 @@ export type EditorTab =
   | "Syllabus"
   | "Modules"
   | "Pages"
+  | "Interactions"
   | "Assignments"
   | "Discussions"
   | "Quizzes"
@@ -444,6 +445,55 @@ export interface CourseModule {
   metadata: ObjectMetadata;
 }
 
+// ── Canvas interaction blocks ───────────────────────────────────────────────
+// Structured, editable interaction content attached to pages, assignments, and
+// discussions. Blocks are stored separately from bodyHtml (which stays the
+// instructor-authored prose) and are composed into the exported/previewed HTML
+// by services/interactionRender.ts. See data/interactionPatterns.ts for the
+// 113-pattern registry.
+
+export interface InteractionItem {
+  heading: string;
+  body: string;
+  href?: string;
+  meta?: string;
+  open?: boolean;
+}
+
+export interface InteractionContent {
+  title: string;
+  intro?: string;
+  items: InteractionItem[];
+  reveal?: { label: string; body: string };
+  quote?: string;
+  note?: string;
+  columns?: string[];
+  rows?: string[][];
+}
+
+export interface ExternalInteractiveConfig {
+  url: string;
+  title: string;
+  allowedDomain: string;
+  height?: number;
+  textAlternative: string;
+  transmitsStudentData?: boolean;
+  requiresAuthentication?: boolean;
+}
+
+export interface InteractionBlock {
+  id: string;
+  patternId: string;
+  content: InteractionContent;
+  /** Why the generator selected this pattern (shown in the editor). */
+  rationale?: string;
+  source: "generated" | "inserted";
+  /** Locked blocks are never overwritten by later AI regeneration. */
+  locked?: boolean;
+  external?: ExternalInteractiveConfig;
+  createdAt: string;
+}
+
 export interface CoursePage {
   id: string;
   title: string;
@@ -452,6 +502,8 @@ export interface CoursePage {
   moduleId?: string;
   frontPage?: boolean;
   assetPath?: string;
+  /** Structured Canvas interaction blocks appended after bodyHtml on export. */
+  interactionBlocks?: InteractionBlock[];
   publishState: PublishState;
   status: CourseStatus;
   metadata: ObjectMetadata;
@@ -469,6 +521,8 @@ export interface Assignment {
   assignmentGroupId: string;
   rubricId?: string;
   alignedOutcomeIds: string[];
+  /** Structured Canvas interaction blocks appended after descriptionHtml on export. */
+  interactionBlocks?: InteractionBlock[];
   publishState: PublishState;
   status: CourseStatus;
   metadata: ObjectMetadata;
@@ -484,6 +538,8 @@ export interface Discussion {
   assignmentGroupId: string;
   rubricId?: string;
   alignedOutcomeIds: string[];
+  /** Structured Canvas interaction blocks appended after promptHtml on export. */
+  interactionBlocks?: InteractionBlock[];
   publishState: PublishState;
   status: CourseStatus;
   metadata: ObjectMetadata;

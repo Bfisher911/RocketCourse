@@ -64,6 +64,7 @@ import { ExportTab } from "./components/ExportTab";
 import { GradebookTab } from "./components/GradebookTab";
 import { HomepageTab } from "./components/HomepageTab";
 import { ImageryTab } from "./components/ImageryTab";
+import { InteractionsTab } from "./components/InteractionsTab";
 import { OverviewTab } from "./components/OverviewTab";
 import { PagesTab } from "./components/PagesTab";
 import { PricingPage } from "./components/PricingPage";
@@ -171,6 +172,7 @@ const editorTabs = [
   "Syllabus",
   "Modules",
   "Pages",
+  "Interactions",
   "Assignments",
   "Discussions",
   "Quizzes",
@@ -215,7 +217,7 @@ const storeEditorView = (mode: EditorViewMode): void => {
  */
 const editorPhases: Array<{ name: string; steps: EditorTab[] }> = [
   { name: "Foundations", steps: ["Overview", "Imagery", "Homepage", "Syllabus"] },
-  { name: "Content", steps: ["Modules", "Pages"] },
+  { name: "Content", steps: ["Modules", "Pages", "Interactions"] },
   { name: "Assessment", steps: ["Assignments", "Discussions", "Quizzes", "Rubrics"] },
   { name: "Logistics", steps: ["Gradebook Setup", "Contact Hours"] },
   { name: "Finish", steps: ["Theme", "Transform", "Export"] }
@@ -231,6 +233,7 @@ const stepDescriptions: Record<EditorTab, string> = {
   Syllabus: "Review and polish the syllabus students will read.",
   Modules: "Organize lessons into modules and set their order.",
   Pages: "Edit the content pages inside your modules.",
+  Interactions: "Review and adjust the Canvas interaction patterns placed on your pages.",
   Assignments: "Set up graded assignments and their instructions.",
   Discussions: "Write discussion prompts and participation guidance.",
   Quizzes: "Build quizzes, questions, and answer keys.",
@@ -3076,6 +3079,7 @@ function Editor({
             />
           )}
           {activeTab === "Pages" && <PagesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
+          {activeTab === "Interactions" && <InteractionsTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Assignments" && <AssignmentsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Discussions" && <DiscussionsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Quizzes" && (

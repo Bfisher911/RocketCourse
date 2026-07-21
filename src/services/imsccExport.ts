@@ -42,6 +42,7 @@ import {
   selectedCourseImages
 } from "./courseImagery";
 import { requestImageDownloadUrl } from "./imageClient";
+import { composeBodyWithInteractions } from "./interactionRender";
 
 const CANVAS_NAMESPACE = "http://canvas.instructure.com/xsd/cccv1p0";
 const CANVAS_XSD_URI = "https://canvas.instructure.com/xsd/cccv1p0.xsd";
@@ -850,20 +851,30 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
           );
     }
     if (pageAsset) bodyHtml = `${supportingHtml(pageAsset)}\n${bodyHtml}`;
+    bodyHtml = composeBodyWithInteractions(bodyHtml, page.interactionBlocks, course.theme);
     const exportedPage = { ...page, bodyHtml };
     zip.file(pagePath(page), wrappedWikiPage(exportedPage));
   });
 
   course.assignments.forEach((assignment) => {
     const asset = supportingFor("assignment", assignment.id);
-    const html = `${asset ? `${supportingHtml(asset)}\n` : ""}${assignment.descriptionHtml}`;
+    const html = composeBodyWithInteractions(
+      `${asset ? `${supportingHtml(asset)}\n` : ""}${assignment.descriptionHtml}`,
+      assignment.interactionBlocks,
+      course.theme
+    );
     zip.file(assignmentPath(assignment), wrappedHtmlDocument(`Assignment: ${assignment.title}`, prepareStudentFacingHtmlForCanvas(html)));
     zip.file(assignmentSettingsPath(assignment), createAssignmentXml(assignment));
   });
 
   course.discussions.forEach((discussion) => {
     const asset = supportingFor("discussion", discussion.id);
-    zip.file(discussionPath(discussion), createDiscussionXml(asset ? { ...discussion, promptHtml: `${supportingHtml(asset)}\n${discussion.promptHtml}` } : discussion));
+    const promptHtml = composeBodyWithInteractions(
+      asset ? `${supportingHtml(asset)}\n${discussion.promptHtml}` : discussion.promptHtml,
+      discussion.interactionBlocks,
+      course.theme
+    );
+    zip.file(discussionPath(discussion), createDiscussionXml({ ...discussion, promptHtml }));
     zip.file(discussionMetaPath(discussion), createDiscussionMetaXml(discussion));
   });
 
@@ -898,10 +909,12 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   return zip;
 };
 
+// Validation sees the same composed HTML the package ships: authored body plus
+// any structured interaction blocks.
 const htmlBlocks = (course: CourseProject): Array<{ id: string; title: string; html: string }> => [
-  ...course.pages.map((page) => ({ id: page.id, title: page.title, html: page.bodyHtml })),
-  ...course.assignments.map((assignment) => ({ id: assignment.id, title: assignment.title, html: assignment.descriptionHtml })),
-  ...course.discussions.map((discussion) => ({ id: discussion.id, title: discussion.title, html: discussion.promptHtml }))
+  ...course.pages.map((page) => ({ id: page.id, title: page.title, html: composeBodyWithInteractions(page.bodyHtml, page.interactionBlocks, course.theme) })),
+  ...course.assignments.map((assignment) => ({ id: assignment.id, title: assignment.title, html: composeBodyWithInteractions(assignment.descriptionHtml, assignment.interactionBlocks, course.theme) })),
+  ...course.discussions.map((discussion) => ({ id: discussion.id, title: discussion.title, html: composeBodyWithInteractions(discussion.promptHtml, discussion.interactionBlocks, course.theme) }))
 ];
 
 const hrefsFrom = (html: string): string[] => Array.from(html.matchAll(/href\s*=\s*["']([^"']*)["']/gi)).map((match) => match[1].trim());
