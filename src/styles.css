@@ -163,6 +163,11 @@
 .imagery-export-note { padding: 18px; display: grid; gap: 14px; }
 .imagery-alt input,
 .imagery-direction textarea { width: 100%; }
+.toggle-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; color: var(--ink-dim); }
+.toggle-row input[type="checkbox"] { margin-top: 3px; accent-color: var(--cyan); flex: 0 0 auto; }
+.toggle-row span { display: grid; gap: 2px; }
+.toggle-row span strong { color: var(--ink); font-size: 13px; }
+.toggle-row span small { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .imagery-accessibility .toggle-row { margin: 0; }
 .imagery-version-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .imagery-version-list button { position: relative; display: grid; gap: 3px; text-align: left; padding: 10px 30px 10px 11px; color: var(--ink-dim); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); }

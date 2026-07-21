@@ -124,12 +124,14 @@ describe("homepage templates", () => {
       sampleProject.modules
         .filter((module) => module.kind === "content" || module.kind === "final")
         .forEach((module) => expect(html, `${template.id} ${module.title}`).toContain(moduleRef(module.id)));
-      expect(html, template.id).toContain("This Week at a Glance");
+      expect(html, template.id).toContain("at a Glance");
       expect(html, template.id).toContain("Welcome From Your Instructor");
       expect(html, template.id).toContain("Need Help?");
       expect(html, template.id).toContain("How to Succeed");
       expect(html, template.id).toContain("Course Promise");
-      expect(html, template.id).toContain("Course Trailer");
+      // The video placeholder block stays available in the picker but is no longer part of the
+      // default presets — an unedited placeholder rendered as student-facing homepage content.
+      expect(html, template.id).not.toContain("Video placeholder");
     });
   });
 

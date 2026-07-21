@@ -370,7 +370,7 @@ export function ImageryTab({
           <h2>One visual system, ready for Canvas</h2>
           <p>Upload your own images at no AI charge, or use Premium credits to generate a coordinated set. Every image stays private until you export it.</p>
         </div>
-        <ReadinessRing score={readiness.score} size={72} caption="images" ariaLabel={`Image readiness ${readiness.score} out of 100`} />
+        <ReadinessRing score={readiness.score} size={72} caption="readiness" ariaLabel={`Image readiness ${readiness.score} out of 100`} />
       </section>
 
       <div className="imagery-workspace">
@@ -418,13 +418,19 @@ export function ImageryTab({
                 ref={fileInput}
                 className="sr-only"
                 type="file"
+                aria-label={`Choose a ${IMAGE_PLACEMENT_SPECS[placement].label.toLowerCase()} file`}
+                tabIndex={-1}
                 accept={IMAGE_PLACEMENT_SPECS[placement].acceptedTypes.join(",")}
                 onChange={(event) => { const file = event.target.files?.[0]; if (file) void processFile(file); }}
               />
-              <button className="primary-button" type="button" disabled={working || !rightsAcknowledged} onClick={() => fileInput.current?.click()}>
+              <button className="primary" type="button" disabled={working || !rightsAcknowledged} onClick={() => fileInput.current?.click()}>
                 <Upload size={15} /> {working ? "Processing…" : active ? "Upload a new version" : "Upload image"}
               </button>
-              <span>Uploads never use AI credits. You can also drag and drop a file here.</span>
+              <span>
+                {rightsAcknowledged
+                  ? "Uploads never use AI credits. You can also drag and drop a file here."
+                  : "Confirm image permission below to enable uploads — they never use AI credits."}
+              </span>
             </div>
             <label className="toggle-row imagery-rights"><input type="checkbox" checked={rightsAcknowledged} onChange={(event) => setRightsAcknowledged(event.target.checked)} /><span><strong>I have permission to use this image</strong><small>Required for uploads; RocketCourse records the acknowledgment with the asset.</small></span></label>
           </div>
@@ -456,7 +462,7 @@ export function ImageryTab({
           {balance?.premium ? (
             <div className="imagery-credit-meter"><div><strong>{balance.remaining}</strong><span>credits remaining</span></div><div className="credit-track"><span style={{ width: `${Math.min(100, (balance.remaining / Math.max(1, balance.included + balance.granted)) * 100)}%` }} /></div><small>{balance.used} used · {balance.included} included{balance.renewsAt ? ` · renews ${new Date(balance.renewsAt).toLocaleDateString()}` : ""}</small><button className="ghost-button" type="button" onClick={() => void startImageCreditPackCheckout().then((result) => { if (!result.ok) setError(result.error ?? "Credit-pack checkout could not start."); })}><Coins size={13} /> Buy {balance.creditPackCredits}-credit pack · ${(balance.creditPackCents / 100).toFixed(0)}</button></div>
           ) : (
-            <div className="imagery-locked"><LockKeyhole size={20} /><strong>Generate a coordinated image set</strong><p>Premium adds 50 monthly credits for course-safe AI imagery. Your own uploads remain available on every paid plan.</p><button className="secondary-button" type="button" onClick={() => { window.location.assign("/pricing"); }}>Compare plans</button></div>
+            <div className="imagery-locked"><LockKeyhole size={20} /><strong>Generate a coordinated image set</strong><p>Premium adds 50 monthly credits for course-safe AI imagery. Your own uploads remain available on every paid plan.</p><button className="secondary" type="button" onClick={() => { window.location.assign("/pricing"); }}>Compare plans</button></div>
           )}
 
           <fieldset disabled={!balance?.premium || working}>
@@ -478,7 +484,7 @@ export function ImageryTab({
 
           <label className="imagery-direction"><span>Visual direction</span><textarea rows={4} value={direction} disabled={!balance?.premium || working} onChange={(event) => setDirection(event.target.value)} placeholder="Warm documentary photography, hands-on science, natural light…" /></label>
           <div className="imagery-generation-summary"><span>{generationTargets.length} image{generationTargets.length === 1 ? "" : "s"}</span><span>{generationCost} credits</span><span>{balance ? `${balance.remaining} → ${Math.max(0, balance.remaining - generationCost)} remaining` : "Balance shown after sign-in"}</span></div>
-          <button className="primary-button imagery-generate" type="button" disabled={!balance?.premium || working || generationTargets.length === 0 || (balance.remaining < generationCost)} onClick={() => { if (generationTargets.length <= 4 || window.confirm(`Generate ${generationTargets.length} images for ${generationCost} credits?`)) void generate(); }}><Sparkles size={15} /> {working ? "Generating…" : `Generate set · ${generationCost} credits`}</button>
+          <button className="primary imagery-generate" type="button" disabled={!balance?.premium || working || generationTargets.length === 0 || (balance.remaining < generationCost)} onClick={() => { if (generationTargets.length <= 4 || window.confirm(`Generate ${generationTargets.length} images for ${generationCost} credits?`)) void generate(); }}><Sparkles size={15} /> {working ? "Generating…" : `Generate set · ${generationCost} credits`}</button>
           <p className="imagery-provider-note"><Coins size={13} /> Credits reserve before generation and automatically return if the provider fails.</p>
         </aside>
       </div>

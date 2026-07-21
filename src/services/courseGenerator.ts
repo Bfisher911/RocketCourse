@@ -57,6 +57,10 @@ export interface GenerateCourseInput {
   /** Use this exact theme instead of resolving settings.themeId — needed for custom/visual-template
    * themes that aren't in the base registry, so regenerated content gets the right palette. */
   themeOverride?: Theme;
+  /** Per-module subject topics (index 0 = first content module). When an AI blueprint plans the
+   * module sequence, passing its topics here keeps module titles, page titles, discussion prompts,
+   * and quiz framing on the same subject instead of the generic fallback topic list. */
+  moduleTopicsOverride?: string[];
 }
 
 const baseTopics = [
@@ -1661,7 +1665,7 @@ const buildHomepage = (settings: CourseSettings, title: string, moduleCount: num
   return { html: renderHomepage(DEFAULT_TEMPLATE_ID, content, theme), content };
 };
 
-export const generateCourseProject = ({ prompt, settings, themeOverride }: GenerateCourseInput): CourseProject => {
+export const generateCourseProject = ({ prompt, settings, themeOverride, moduleTopicsOverride }: GenerateCourseInput): CourseProject => {
   const generatedAt = nowIso();
   const mergedSettings: CourseSettings = {
     ...defaultSettings,
@@ -1687,7 +1691,7 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
   const finalTitle = finalModuleTitle(mergedSettings);
   const projectId = `course_${slugify(title)}`;
   const topic = title.replace(/^course\s+on\s+/i, "");
-  const moduleTopics = moduleTopicsFor(topic);
+  const moduleTopics = moduleTopicsOverride?.length ? moduleTopicsOverride : moduleTopicsFor(topic);
   const syllabusScheduleRows = Array.from({ length: moduleCount }, (_, index) => {
     const moduleNumber = index + 1;
     const moduleTopic = moduleTopics[index] ?? `Applied Topic ${moduleNumber}`;
@@ -2239,12 +2243,12 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
       const milestoneLabel =
         mergedSettings.scaffoldPattern === "key-milestones"
           ? moduleNumber === 1
-            ? "Project Proposal Checkpoint"
+            ? "Proposal Checkpoint"
             : moduleNumber >= moduleCount - 1
               ? "Draft and Readiness Checkpoint"
               : "Evidence and Design Checkpoint"
           : "Milestone Reminder";
-      const milestoneStage = milestoneLabel.startsWith("Project Proposal")
+      const milestoneStage = milestoneLabel.startsWith("Proposal")
         ? "proposal"
         : milestoneLabel.startsWith("Draft")
           ? "draft"

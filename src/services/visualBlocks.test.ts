@@ -94,12 +94,15 @@ describe("visual blocks", () => {
     });
   });
 
-  it("includes visible alt-text guidance for media placeholders", () => {
-    ["hero-banner", "course-trailer-video-placeholder"].forEach((id) => {
-      const html = buildVisualBlockHtml(id as VisualBlockId, { course: sampleProject });
-      expect(html, id).toContain("Alt text placeholder");
-      expect(html, id).toContain('role="img"');
-    });
+  it("keeps alt text in attributes and never leaks editor guidance into student-facing text", () => {
+    const hero = buildVisualBlockHtml("hero-banner" as VisualBlockId, { course: sampleProject });
+    expect(hero).toMatch(/<img[^>]+alt="[^"]+"/);
+    expect(hero).not.toContain("Alt text placeholder");
+    expect(hero).not.toContain("Replace this alt text");
+
+    const trailer = buildVisualBlockHtml("course-trailer-video-placeholder" as VisualBlockId, { course: sampleProject });
+    expect(trailer).toContain("Replace this box");
+    expect(trailer).not.toContain("Alt text placeholder");
   });
 
   it("uses accessible table headers for table-style blocks", () => {

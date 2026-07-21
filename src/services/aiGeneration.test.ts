@@ -38,7 +38,13 @@ describe("buildCourseFromBlueprint", () => {
   it("reflects the AI blueprint in title, description, and module titles", () => {
     expect(course.title).toBe("Introduction to Marine Biology");
     expect(course.description).toContain("marine ecosystems");
-    expect(course.modules[0].title).toContain("Ocean Zones");
+    // Blueprint modules land on CONTENT modules only: orientation keeps its own identity, and the
+    // AI's "Module N:" numbering is stripped so it cannot conflict with the organization label.
+    expect(course.modules[0].title).toBe("Start Here");
+    const contentModules = course.modules.filter((module) => module.kind === "content");
+    expect(contentModules[0].title).toContain("Ocean Zones");
+    expect(contentModules[0].title).not.toMatch(/Module\s*\d/i);
+    expect(contentModules[7].title).toContain("Conservation");
   });
 
   it("produces NO false readiness blockers immediately after generation", () => {

@@ -357,8 +357,7 @@ const REQUIRED_PRESET_BLOCKS: ContentBlockId[] = [
   "instructor-welcome-card",
   "need-help-support-panel",
   "how-to-succeed-checklist",
-  "course-promise-statement",
-  "course-trailer-video-placeholder"
+  "course-promise-statement"
 ];
 
 const presetOrders: Record<string, ContentBlockId[]> = {
@@ -372,8 +371,7 @@ const presetOrders: Record<string, ContentBlockId[]> = {
     "how-to-succeed-checklist",
     "need-help-support-panel",
     "instructor-welcome-card",
-    "course-promise-statement",
-    "course-trailer-video-placeholder"
+    "course-promise-statement"
   ],
   "journey-map": [
     "hero-banner",
@@ -384,8 +382,7 @@ const presetOrders: Record<string, ContentBlockId[]> = {
     "course-promise-statement",
     "instructor-welcome-card",
     "how-to-succeed-checklist",
-    "need-help-support-panel",
-    "course-trailer-video-placeholder"
+    "need-help-support-panel"
   ],
   "studio-course": [
     "hero-banner",
@@ -396,8 +393,7 @@ const presetOrders: Record<string, ContentBlockId[]> = {
     "navigation-tile-grid",
     "instructor-welcome-card",
     "how-to-succeed-checklist",
-    "need-help-support-panel",
-    "course-trailer-video-placeholder"
+    "need-help-support-panel"
   ],
   "lab-course": [
     "hero-banner",
@@ -408,8 +404,7 @@ const presetOrders: Record<string, ContentBlockId[]> = {
     "how-to-succeed-checklist",
     "need-help-support-panel",
     "instructor-welcome-card",
-    "course-promise-statement",
-    "course-trailer-video-placeholder"
+    "course-promise-statement"
   ],
   "field-guide": [
     "hero-banner",
@@ -420,8 +415,7 @@ const presetOrders: Record<string, ContentBlockId[]> = {
     "this-week-at-a-glance",
     "instructor-welcome-card",
     "need-help-support-panel",
-    "how-to-succeed-checklist",
-    "course-trailer-video-placeholder"
+    "how-to-succeed-checklist"
   ],
   "command-center": [
     "hero-banner",
@@ -432,8 +426,7 @@ const presetOrders: Record<string, ContentBlockId[]> = {
     "how-to-succeed-checklist",
     "course-journey-map",
     "instructor-welcome-card",
-    "course-promise-statement",
-    "course-trailer-video-placeholder"
+    "course-promise-statement"
   ],
   "seminar-table": [
     "hero-banner",
@@ -444,8 +437,7 @@ const presetOrders: Record<string, ContentBlockId[]> = {
     "navigation-tile-grid",
     "this-week-at-a-glance",
     "how-to-succeed-checklist",
-    "need-help-support-panel",
-    "course-trailer-video-placeholder"
+    "need-help-support-panel"
   ],
   "project-launchpad": [
     "hero-banner",
@@ -456,12 +448,10 @@ const presetOrders: Record<string, ContentBlockId[]> = {
     "this-week-at-a-glance",
     "how-to-succeed-checklist",
     "instructor-welcome-card",
-    "need-help-support-panel",
-    "course-trailer-video-placeholder"
+    "need-help-support-panel"
   ],
   "visual-magazine": [
     "hero-banner",
-    "course-trailer-video-placeholder",
     "course-promise-statement",
     "navigation-tile-grid",
     "course-journey-map",

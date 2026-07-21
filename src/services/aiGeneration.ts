@@ -110,24 +110,37 @@ export const buildCourseFromBlueprint = (
     moduleCount
   };
 
-  const base = generateCourseProject({ prompt, settings: mergedSettings });
+  // AI module titles often carry their own numbering ("Module 3: Ethics of AI"). The generator
+  // prefixes every content module with the organization label ("Week 3: ..."), so a raw overlay
+  // produced double or conflicting numbering. Strip any leading counter and use the clean subject
+  // as the module topic so pages, discussions, and quizzes inherit the same subject language.
+  const blueprintTopics = blueprint.modules.map(
+    (planned, index) => planned.title.replace(/^\s*(Module|Week|Unit|Topic|Chapter|Quarter|Part|Session)\s*\d+\s*[:.–—-]\s*/i, "").trim() || `Applied Topic ${index + 1}`
+  );
+
+  const base = generateCourseProject({ prompt, settings: mergedSettings, moduleTopicsOverride: blueprintTopics });
 
   // Keep the base course's outcomes verbatim. The deterministic generator builds a fully
   // self-consistent course (outcomes, the syllabus page that embeds them, and every assignment/
   // quiz/rubric/discussion reference all line up). Replacing outcomes after the fact — even just
   // their ids or text — desynchronizes those references and the syllabus, which surfaced as false
   // readiness blockers right after generation. The AI still shapes the course through the title,
-  // description, and per-module titles/summaries/objectives below.
+  // description, and per-module topics/summaries/objectives below.
 
-  // Overlay blueprint module titles/summaries/objectives onto the generated modules (by order).
-  const modules = base.modules.map((module, index) => {
-    const planned = blueprint.modules[index];
-    if (!planned) return module;
-    return {
-      ...module,
-      title: planned.title || module.title,
-      description: planned.summary || module.description,
-      objectives: planned.objectives.length ? planned.objectives : module.objectives
+  // Overlay blueprint summaries/objectives onto CONTENT modules only, matched by content position.
+  // A raw index overlay previously landed the AI's first module on the "Start Here" orientation
+  // module, shifting every later title off by one (Canvas import showed "Module 2" holding Week 1).
+  const contentPositions = base.modules
+    .map((module, index) => ({ module, index }))
+    .filter((entry) => entry.module.kind === "content");
+  const modules = base.modules.slice();
+  blueprint.modules.forEach((planned, order) => {
+    const slot = contentPositions[order];
+    if (!slot) return;
+    modules[slot.index] = {
+      ...slot.module,
+      description: planned.summary || slot.module.description,
+      objectives: planned.objectives.length ? planned.objectives : slot.module.objectives
     };
   });
 

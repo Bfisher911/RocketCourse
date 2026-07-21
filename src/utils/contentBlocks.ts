@@ -96,11 +96,11 @@ const actionLink = (theme: Theme, label: string, href: string, variant: "primary
     : `<span style="${style}">${escapeHtml(label)}</span>`;
 };
 
-const mediaPlaceholder = (theme: Theme, title: string, altText: string): string => {
+const mediaPlaceholder = (theme: Theme, title: string, guidance: string): string => {
   const styles = getThemeStyles(theme);
-  return `<div role="img" aria-label="${escapeAttr(altText)}" style="margin: 14px 0; padding: 22px; min-height: 130px; background: ${styles.soft}; border: 2px dashed ${withAlpha(styles.accentDark, 0.46)}; border-radius: 12px; color: ${styles.accentDark}; text-align: center;">
+  return `<div style="margin: 14px 0; padding: 22px; min-height: 130px; background: ${styles.soft}; border: 2px dashed ${withAlpha(styles.accentDark, 0.46)}; border-radius: 12px; color: ${styles.accentDark}; text-align: center;">
     <p style="margin: 0 0 8px; font-size: 18px; font-weight: 900;">${escapeHtml(title)}</p>
-    <p style="margin: 0; color: #374151;">Alt text placeholder: ${escapeHtml(altText)}</p>
+    <p style="margin: 0; color: #374151;">${escapeHtml(guidance)}</p>
   </div>`;
 };
 
@@ -253,10 +253,10 @@ const courseModuleDirectory = (course: CourseProject): string => {
     .map((module, index) => {
       const release = course.schedule.find((entry) => entry.moduleId === module.id && entry.itemType === "module")?.releaseAt?.slice(0, 10);
       const metadata = [
-        release ? `Opens ${release}` : "Check Canvas for dates",
-        module.workloadHours > 0 ? `${module.workloadHours} estimated hours` : "Workload to be confirmed",
-        `${module.objectives.length} objective${module.objectives.length === 1 ? "" : "s"}`
-      ];
+        release ? `Opens ${release}` : "",
+        module.workloadHours > 0 ? `${module.workloadHours} estimated hours` : "",
+        module.objectives.length ? `${module.objectives.length} objective${module.objectives.length === 1 ? "" : "s"}` : ""
+      ].filter(Boolean);
       return `<li style="position: relative; margin: 0 0 12px; padding: 15px 16px 15px 54px; background: #ffffff; border: 1px solid ${styles.border}; border-left: 5px solid ${styles.accent}; border-radius: 11px; overflow-wrap: anywhere;">
         <span aria-hidden="true" style="position: absolute; left: 14px; top: 15px; width: 26px; height: 26px; border-radius: 50%; background: ${styles.accent}; color: ${styles.onAccent}; text-align: center; line-height: 26px; font-weight: 900;">${index + 1}</span>
         <h3 style="margin: 0 0 6px; color: #111827; font-size: 17px; line-height: 1.3; font-weight: 900; overflow-wrap: anywhere;"><a href="${escapeAttr(moduleRef(module.id))}" style="color: ${styles.accentDark}; text-decoration: underline; text-underline-offset: 2px;">${escapeHtml(module.title)}</a></h3>
@@ -290,8 +290,7 @@ export const buildContentBlockHtml = (id: ContentBlockId, context: ContentBlockC
       return `<section style="margin: 22px 0; padding: 30px 28px; ${heroBackgroundCss(styles)} border-radius: 16px; color: ${styles.onGradient}; font-family: ${styles.font}; line-height: 1.55;">
   <h2 style="margin: 0 0 10px; color: ${styles.onGradient}; font-size: 32px; line-height: 1.12; font-weight: 900;">${escapeHtml(title)}</h2>
   <p style="margin: 0 0 16px; max-width: 68ch; color: ${styles.onGradient}; font-size: 17px;">${escapeHtml(sentence(course.description || course.settings.description || "Students start here to understand the course path, expectations, and first steps."))}</p>
-  <p style="margin: 16px 0 8px;"><img src="${fileRef("course-banner.svg")}" role="img" alt="${escapeAttr(`${title} course banner image. Replace this alt text if you replace the generated banner.`)}" style="display: block; width: 100%; height: auto; border-radius: 12px; border: 2px solid ${withAlpha(styles.onGradient, 0.28)};" /></p>
-  <p style="margin: 0; color: ${styles.onGradient}; font-size: 13px;">Alt text placeholder: ${escapeHtml(`${title} course banner image. Replace with a meaningful visual and concise alt text if you replace the generated banner.`)}</p>
+  <p style="margin: 16px 0 0;"><img src="${fileRef("course-banner.svg")}" alt="${escapeAttr(`${title} course banner`)}" style="display: block; width: 100%; height: auto; border-radius: 12px; border: 2px solid ${withAlpha(styles.onGradient, 0.28)};" /></p>
 </section>`;
     case "start-here-button-panel":
       return blockShell(
@@ -302,17 +301,25 @@ export const buildContentBlockHtml = (id: ContentBlockId, context: ContentBlockC
       );
     case "course-journey-map":
       return blockShell(theme, "Course Module Directory", courseModuleDirectory(course));
-    case "this-week-at-a-glance":
+    case "this-week-at-a-glance": {
+      // Title from the module's own label ("Week 1", "Topic 1") — "This Week" reads as live data
+      // on a static homepage and goes stale immediately.
+      const glanceLabel = (module?.title.split(":")[0] ?? "").trim();
+      // Only count graded work that belongs to this module; the shared helpers fall back to the
+      // first item in the course, which surfaced a Week 3 assignment inside the Week 1 summary.
+      const moduleAssignment = module ? course.assignments.find((item) => item.moduleId === module.id) : undefined;
+      const moduleQuiz = module ? course.quizzes.find((item) => item.moduleId === module.id) : undefined;
       return blockShell(
         theme,
-        "This Week at a Glance",
+        glanceLabel ? `${glanceLabel} at a Glance` : "The First Week at a Glance",
         `${paragraph(`Focus on ${topic}. Plan time for preparation, practice, and any graded work.`)}${statBand(theme, [
           { value: `${workloadHours(course, module)}h`, label: "Estimated workload", sub: "Adjust for your pace" },
           { value: String(objectives.length), label: "Objectives", sub: "What to practice" },
-          { value: assignment ? "1" : "0", label: "Assignment", sub: assignment?.title ?? "Add if needed" },
-          { value: quiz ? "1" : "0", label: "Quiz or check", sub: quiz?.title ?? "Optional review" }
+          { value: moduleAssignment ? "1" : "0", label: "Assignment", sub: moduleAssignment?.title ?? "No assignment due" },
+          { value: moduleQuiz ? "1" : "0", label: "Quiz or check", sub: moduleQuiz?.title ?? "No quiz due" }
         ])}`
       );
+    }
     case "course-promise-statement":
       return blockShell(
         theme,
@@ -326,8 +333,8 @@ export const buildContentBlockHtml = (id: ContentBlockId, context: ContentBlockC
         "Welcome From Your Instructor",
         `${paragraph("Welcome to the course. This space is designed to help you know what to do, why it matters, and where to go for help.")}${cardGrid(theme, [
           { title: "How I Can Help", body: "Send a specific question that names the page, task, or concept where you got stuck.", accent: "Support" },
-          { title: "Response Window", body: "Replace with the instructor's local response-time policy.", accent: "Communication" },
-          { title: "Office Hours", body: "Replace with live meeting, appointment, or campus support details.", accent: "Access" }
+          { title: "Response Window", body: "Check the syllabus for how quickly to expect replies to messages and feedback.", accent: "Communication" },
+          { title: "Office Hours", body: "Find office hours, meeting options, and campus support details in the syllabus.", accent: "Access" }
         ])}`
       );
     case "navigation-tile-grid":
@@ -362,7 +369,7 @@ export const buildContentBlockHtml = (id: ContentBlockId, context: ContentBlockC
       return blockShell(
         theme,
         "Course Trailer",
-        `${mediaPlaceholder(theme, "Video placeholder", `Short course trailer for ${title}. Add captions, transcript, and a concise description of what appears in the video.`)}${checklist(["Add captions before publishing.", "Add a transcript or text alternative.", "Make the link or embedded media available to enrolled students.", "Replace this placeholder with approved media."])}`,
+        `${mediaPlaceholder(theme, "Video placeholder", `Replace this box with a short course trailer for ${title} before publishing.`)}${checklist(["Add captions before publishing.", "Add a transcript or text alternative.", "Make the link or embedded media available to enrolled students.", "Replace this placeholder with approved media."])}`,
         { compact: true }
       );
     case "module-mission-briefing":
@@ -524,7 +531,7 @@ export const buildContentBlockHtml = (id: ContentBlockId, context: ContentBlockC
     case "weekly-schedule-visual-table":
       return blockShell(theme, "Weekly Schedule", table(theme, "Schedule preview", ["Week", "Focus", "Workload", "Due work"], scheduleRows(course, 8)));
     case "communication-expectations-block":
-      return blockShell(theme, "Communication Expectations", cardGrid(theme, [{ title: "Instructor Response", body: "Replace with local response-time expectations for messages and feedback.", accent: "Timing" }, { title: "Student Messages", body: "Use descriptive subjects and include the task, page, or question.", accent: "Clarity" }, { title: "Public Questions", body: "Use the class questions space when the answer may help others.", accent: "Community" }]));
+      return blockShell(theme, "Communication Expectations", cardGrid(theme, [{ title: "Instructor Response", body: "The syllabus lists response-time expectations for messages and feedback.", accent: "Timing" }, { title: "Student Messages", body: "Use descriptive subjects and include the task, page, or question.", accent: "Clarity" }, { title: "Public Questions", body: "Use the class questions space when the answer may help others.", accent: "Community" }]));
     case "technology-needed-block":
       return blockShell(theme, "Technology Needed", `${paragraph("Confirm these requirements before the course opens.")}${checklist(["Reliable internet access or a campus access plan.", "A device that can open Canvas, files, media, and submission tools.", "Software or accounts required by the instructor.", "A plan for captions, transcripts, readable PDFs, and accessible file formats."])}`);
     case "late-work-policy-at-a-glance":
