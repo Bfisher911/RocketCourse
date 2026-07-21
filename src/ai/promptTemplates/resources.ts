@@ -12,14 +12,14 @@ export const resourcePromptTemplates = makePromptTemplateSeries({
   systemInstructions:
     "Resources should guide instructor curation. Do not invent source details.",
   developerInstructions:
-    "Include textbook chapter placeholder, OER suggestion placeholder, article placeholder, video placeholder, podcast or media placeholder when useful, local resource placeholder, and a note requiring instructor verification.",
+    "Include textbook chapter placeholder, OER suggestion placeholder, article placeholder, video placeholder, podcast or media placeholder when useful, local resource placeholder, and a note requiring instructor verification. For every resource, explain why it matters, what students should do with it, estimated time, provenance or verification status, access or cost constraints, and the required accessible alternative for media.",
   userPromptTemplate: `Module draft:
 {{moduleDraftJson}}
 
 Available verified sources:
 {{sourceMaterialJson}}
 
-Generate ResourceDraft JSON. Create editable resource placeholders and recommendations for this module. Include textbook, OER, article, video or media, podcast when appropriate, and instructor-added local resource placeholders. Do not invent citations, URLs, authors, titles, or publication details unless they are supplied in verified source material.`,
+Generate ResourceDraft JSON. Create editable resource placeholders and recommendations for this module. Include textbook, OER, article, video or media, podcast when appropriate, and instructor-added local resource placeholders. Do not invent citations, quotations, URLs, authors, titles, or publication details unless they are supplied in verified source material. Do not present a paid, account-gated, or inaccessible item as required without an equivalent accessible alternative.`,
   qualityChecklist: [
     "Resources are useful for module objectives.",
     "Placeholders make verification work obvious.",

@@ -385,6 +385,7 @@ describe("RocketCourse export engine", () => {
 
     expect(xml).toContain(`$CANVAS_OBJECT_REFERENCE$/modules/${prefix}module_start`);
     expect(xml).toContain(`$CANVAS_OBJECT_REFERENCE$/discussion_topics/${prefix}discussion_introduce_yourself`);
+    expect(xml).toContain(`$CANVAS_OBJECT_REFERENCE$/discussion_topics/${prefix}discussion_ask_course_questions`);
     expect(xml).toContain(`$WIKI_REFERENCE$/pages/${prefix}page_course_success_guide`);
     expect(xml).toContain(`$WIKI_REFERENCE$/pages/${prefix}page_syllabus`);
     expect(xml).toContain(`$WIKI_REFERENCE$/pages/${prefix}page_course_calendar_workload_plan`);

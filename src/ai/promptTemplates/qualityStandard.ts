@@ -25,7 +25,11 @@ export const antiBeigeRules = {
     "Obvious or shallow quiz questions.",
     "Rubrics with generic criteria only.",
     "Pages that summarize instead of teaching.",
-    "Fake readings, fake citations, fake URLs, or fake institutional policies."
+    "Fake readings, fake citations, fake quotations, fake URLs, or fake institutional policies.",
+    "Derivative scenarios that imitate protected characters, franchises, living authors, or recognizable fictional worlds unless licensed source material is explicitly supplied.",
+    "Paid, inaccessible, or account-gated media presented as required without an equivalent accessible alternative.",
+    "Excessive emoji, theatrical roleplay, metaphor, or decorative copy that obscures the learning task.",
+    "The same discussion, quiz, assignment, or project pattern repeated in every module without regard to workload and settings."
   ],
   require: [
     "Concrete examples.",
@@ -35,7 +39,11 @@ export const antiBeigeRules = {
     "Meaningful assessment criteria.",
     "Outcome alignment.",
     "Instructor-editable placeholders.",
-    "Module-specific learning paths."
+    "Module-specific learning paths.",
+    "Original, public-domain, or instructor-supplied cases and examples by default.",
+    "Plain-language instructions with a restrained, professional, encouraging tone.",
+    "Provenance and access notes for every recommended resource.",
+    "Text alternatives for required visual, audio, video, or interactive information."
   ]
 };
 

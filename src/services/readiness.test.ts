@@ -122,6 +122,41 @@ const degraders = {
       outcome.text = `${verbs[index % verbs.length]} the same course concepts, practices, and implications.`;
     });
     return c;
+  },
+  removeCourseQuestions: (c: CourseProject) => {
+    c.discussions = c.discussions.filter((discussion) => discussion.id !== "discussion_ask_course_questions");
+    c.modules.forEach((module) => {
+      module.items = module.items.filter((item) => item.refId !== "discussion_ask_course_questions");
+    });
+    return c;
+  },
+  removeRecapChecklist: (c: CourseProject) => {
+    const recap = c.pages.find((page) => /wrap-up/i.test(page.slug))!;
+    recap.bodyHtml = recap.bodyHtml.replace(/Before You Continue/gi, "Module Notes");
+    return c;
+  },
+  duplicateHeading: (c: CourseProject) => {
+    const page = c.pages.find((candidate) => /lecture/i.test(candidate.slug))!;
+    page.bodyHtml += "<h2>Mini-Lecture</h2><p>Repeated section.</p>";
+    return c;
+  },
+  overlongPage: (c: CourseProject) => {
+    const page = c.pages.find((candidate) => /lecture/i.test(candidate.slug))!;
+    page.bodyHtml += `<p>${"Repeated explanatory prose ".repeat(800)}</p>`;
+    return c;
+  },
+  weakenResourceDetails: (c: CourseProject) => {
+    c.resources[0].whyItMatters = "";
+    c.resources[0].studentInstructions = "";
+    c.resources[0].instructorEditNote = "";
+    c.resources[0].estimatedMinutes = 0;
+    return c;
+  },
+  overloadModule: (c: CourseProject) => {
+    const module = c.modules.find((candidate) => candidate.kind === "content" && candidate.items.some((item) => item.type === "assignment"))!;
+    const assignment = module.items.find((item) => item.type === "assignment")!;
+    module.items.push({ ...assignment, id: `${assignment.id}_duplicate`, order: module.items.length + 1 });
+    return c;
   }
 };
 
@@ -150,7 +185,7 @@ describe("readiness depth", () => {
       expect(result.blockers, `${name} blockers`).toBe(0);
       expect(result.score, `${name} score`).toBeGreaterThanOrEqual(95);
       // The deepened checks all pass on a real course.
-      ["empty-content", "content-module-depth", "rubric-depth", "reference-integrity", "accessibility", "weight-bounds", "start-here-content", "objective-quality"].forEach((id) => {
+      ["empty-content", "content-module-depth", "rubric-depth", "reference-integrity", "accessibility", "weight-bounds", "start-here-content", "objective-quality", "homepage-module-directory", "start-here-question-forum", "module-completion-checklist", "content-heading-duplicates", "content-length", "resource-verification", "activity-density"].forEach((id) => {
         expect(checkOf(course, id)?.passed, `${name} ${id}`).toBe(true);
       });
     });
@@ -238,6 +273,15 @@ describe("readiness depth", () => {
     const c = degraders.repetitiveObjectives(clone(sampleProject));
     expect(failed(c, "objective-distinctness")).toBe(true);
     expect(checkOf(c, "objective-measurable")?.passed).toBe(true);
+  });
+
+  it("flags the student-experience patterns found in imported Canvas courses", () => {
+    expect(failed(degraders.removeCourseQuestions(clone(sampleProject)), "start-here-question-forum")).toBe(true);
+    expect(failed(degraders.removeRecapChecklist(clone(sampleProject)), "module-completion-checklist")).toBe(true);
+    expect(failed(degraders.duplicateHeading(clone(sampleProject)), "content-heading-duplicates")).toBe(true);
+    expect(failed(degraders.overlongPage(clone(sampleProject)), "content-length")).toBe(true);
+    expect(failed(degraders.weakenResourceDetails(clone(sampleProject)), "resource-verification")).toBe(true);
+    expect(failed(degraders.overloadModule(clone(sampleProject)), "activity-density")).toBe(true);
   });
 
   it("tracks real course quality: readiness falls in step with the quality scorer as a course degrades", () => {

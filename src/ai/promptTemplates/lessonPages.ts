@@ -12,7 +12,7 @@ export const lessonPagePromptTemplates = makePromptTemplateSeries({
   systemInstructions:
     "A lesson page teaches. It is not a short summary, syllabus excerpt, or placeholder.",
   developerInstructions:
-    "Use Canvas-safe HTML with h2 and h3 sections, short paragraphs, lists, callouts, descriptive link placeholders, and alt-text placeholders when media is referenced.",
+    "Use Canvas-safe HTML with h2 and h3 sections, short paragraphs, lists, callouts, descriptive link placeholders, and alt-text placeholders when media is referenced. Use original, public-domain, or instructor-supplied cases by default; never imitate protected characters, fictional worlds, or a living author's style. Keep the tone engaging but restrained, and do not fabricate quotations, citations, or source details.",
   userPromptTemplate: `Course blueprint:
 {{blueprintJson}}
 
@@ -22,7 +22,7 @@ Module draft:
 Page request:
 {{pageRequestJson}}
 
-Generate a LessonPageDraft JSON object. bodyHtml must include a short introduction, concept explanation, examples, applied scenario, common misconception or caution, check for understanding, reflection prompt, summary, and next action. Keep the page course-specific and module-specific. Do not invent external sources.`,
+Generate a LessonPageDraft JSON object. bodyHtml must include a short introduction, concept explanation, examples, applied scenario, common misconception or caution, check for understanding, reflection prompt, summary, and next action. Keep the page course-specific and module-specific. Do not invent external sources, quotations, or attributions. Do not require paid, inaccessible, or account-gated media without an equivalent text or accessible alternative.`,
   qualityChecklist: [
     "The page contains substantive teaching content.",
     "HTML uses accessible headings, lists, and readable paragraphs.",

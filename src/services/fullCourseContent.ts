@@ -98,6 +98,8 @@ export const isFillablePage = (page: CoursePage): boolean =>
 
 const isHomepage = (page: CoursePage): boolean => Boolean(page.frontPage);
 const isSyllabusPage = (page: CoursePage): boolean => page.slug === "syllabus";
+const isPersistentCourseQuestions = (discussion: Discussion): boolean =>
+  discussion.points === 0 && /ask.*course.*question|course.*question/i.test(discussion.title);
 
 // Every page that isn't the homepage, the syllabus, or a full-rewrite lecture page gets a
 // subject-specific prose section appended while keeping its existing structure (glance tables, nav).
@@ -112,7 +114,7 @@ export const planFullCourseFill = (course: CourseProject): FullFillPlan => {
   const pages =
     course.pages.filter(isFillablePage).length + course.pages.filter(isEnrichablePage).length + homepageTasks + syllabusTasks;
   const assignments = course.assignments.length;
-  const discussions = course.discussions.length;
+  const discussions = course.discussions.filter((discussion) => !isPersistentCourseQuestions(discussion)).length;
   const quizzes = course.quizzes.length;
   const announcements = (course.announcements ?? []).length;
   return { pages, assignments, discussions, quizzes, announcements, total: pages + assignments + discussions + quizzes + announcements };
@@ -192,7 +194,7 @@ export const fillEntireCourseContent = async (
         tally(result.source);
       }
     })),
-    ...course.discussions.map((discussion) => ({
+    ...course.discussions.filter((discussion) => !isPersistentCourseQuestions(discussion)).map((discussion) => ({
       label: `Discussion: ${discussion.title}`,
       run: async () => {
         const result = await aiGenerateDiscussionPrompt(course, discussion);

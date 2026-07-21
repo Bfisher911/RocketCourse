@@ -248,7 +248,7 @@ const cleanCanvas = (content: HomepageContent, theme: Theme): string =>
     `<div style="background: ${theme.soft}; border: 1px solid #e2e8f0; padding: 28px; border-radius: 14px;">
     ${banner(content)}
     <p style="margin: 0 0 6px; letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; font-weight: 700; color: ${theme.accentDark};">${escHtml(content.heroEyebrow)}</p>
-    <h1 style="margin: 0 0 12px; font-size: 32px; color: #111827;">${escHtml(content.heroHeading)}</h1>
+    <h1 style="margin: 0 0 12px; max-width: 100%; font-size: 32px; line-height: 1.18; color: #111827; overflow-wrap: anywhere; word-break: normal;">${escHtml(content.heroHeading)}</h1>
     <p style="margin: 0 0 18px; color: #374151; font-size: 17px;">${escHtml(content.welcome)}</p>
     <p style="margin: 0;">${primaryButton(content.primaryButton, theme)}${secondaryButton(content.secondaryButton, theme)}</p>
     ${metaChipsRow(content, theme)}
@@ -268,7 +268,7 @@ const boldUniversity = (content: HomepageContent, theme: Theme): string => {
     `<div style="background: ${theme.accent}; border-radius: 16px; padding: 28px; color: ${heroText};">
     ${banner(content, 10)}
     <p style="margin: 0 0 8px; letter-spacing: 0.1em; text-transform: uppercase; font-size: 13px; font-weight: 700; opacity: 0.9;">${escHtml(content.heroEyebrow)}</p>
-    <h1 style="margin: 0 0 14px; font-size: 38px; line-height: 1.15; color: ${heroText};">${escHtml(content.heroHeading)}</h1>
+    <h1 style="margin: 0 0 14px; max-width: 100%; font-size: 38px; line-height: 1.15; color: ${heroText}; overflow-wrap: anywhere; word-break: normal;">${escHtml(content.heroHeading)}</h1>
     <p style="margin: 0 0 22px; font-size: 18px; max-width: 640px; color: ${heroText}; opacity: 0.95;">${escHtml(content.welcome)}</p>
     <p style="margin: 0;">${primaryButton(content.primaryButton, theme, "#ffffff")}${secondaryButton({ ...content.secondaryButton }, theme)}</p>
   </div>
@@ -288,7 +288,7 @@ const warmInstructor = (content: HomepageContent, theme: Theme): string =>
     `${banner(content, 14)}
   <section style="margin: 0 0 18px; padding: 24px; background: ${theme.soft}; border-left: 6px solid ${theme.accent}; border-radius: 12px;">
     <p style="margin: 0 0 6px; letter-spacing: 0.06em; text-transform: uppercase; font-size: 12px; font-weight: 700; color: ${theme.accentDark};">${escHtml(content.heroEyebrow)}</p>
-    <h1 style="margin: 0 0 12px; font-size: 30px; color: #111827;">${escHtml(content.heroHeading)}</h1>
+    <h1 style="margin: 0 0 12px; max-width: 100%; font-size: 30px; line-height: 1.18; color: #111827; overflow-wrap: anywhere; word-break: normal;">${escHtml(content.heroHeading)}</h1>
     <p style="margin: 0 0 ${content.metaChips && content.metaChips.length ? "4px" : "0"}; font-size: 17px; color: #374151;">${escHtml(content.instructorNote.trim() || content.welcome)}</p>
     ${metaChipsRow(content, theme)}
   </section>
@@ -310,7 +310,7 @@ const highContrast = (content: HomepageContent, theme: Theme): string => {
   return wrapper(
     `<div style="background: #ffffff; border: 3px solid #000000; border-radius: 8px; padding: 28px;">
     <p style="margin: 0 0 8px; letter-spacing: 0.04em; text-transform: uppercase; font-size: 14px; font-weight: 700; color: #0b1020;">${escHtml(content.heroEyebrow)}</p>
-    <h1 style="margin: 0 0 14px; font-size: 34px; color: #000000;">${escHtml(content.heroHeading)}</h1>
+    <h1 style="margin: 0 0 14px; max-width: 100%; font-size: 34px; line-height: 1.16; color: #000000; overflow-wrap: anywhere; word-break: normal;">${escHtml(content.heroHeading)}</h1>
     <p style="margin: 0 0 20px; font-size: 18px; color: #1a1a1a;">${escHtml(content.welcome)}</p>
     <p style="margin: 0;">${hcButton(content.primaryButton, buttonBg)}${hcButton(content.secondaryButton, "#ffffff")}</p>
   </div>
@@ -332,7 +332,7 @@ const projectBased = (content: HomepageContent, theme: Theme): string => {
     `<div style="background: ${theme.soft}; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px;">
     ${banner(content)}
     <p style="margin: 0 0 6px; letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; font-weight: 700; color: ${theme.accentDark};">${escHtml(content.heroEyebrow)}</p>
-    <h1 style="margin: 0 0 12px; font-size: 32px; color: #111827;">${escHtml(content.heroHeading)}</h1>
+    <h1 style="margin: 0 0 12px; max-width: 100%; font-size: 32px; line-height: 1.18; color: #111827; overflow-wrap: anywhere; word-break: normal;">${escHtml(content.heroHeading)}</h1>
     <p style="margin: 0 0 18px; color: #374151; font-size: 17px;">${escHtml(content.welcome)}</p>
     <p style="margin: 0;">${primaryButton(content.primaryButton, theme)}${secondaryButton(content.secondaryButton, theme)}</p>
     ${metaChipsRow(content, theme)}
@@ -480,7 +480,7 @@ const visualBlockPreset = (presetId: string): TemplateRenderer => (content, them
   return wrapper(
     `<section style="margin: 0 0 22px; padding: 26px 28px; background: ${theme.soft}; border: 1px solid ${withAlpha(theme.accent, 0.34)}; border-left: 7px solid ${theme.accent}; border-radius: 14px;">
     <p style="margin: 0 0 7px; color: ${theme.accentDark}; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">${escHtml(templateMeta(presetId).tagline)}</p>
-    <h1 style="margin: 0 0 12px; color: #111827; font-size: 34px; line-height: 1.12;">${escHtml(content.heroHeading)}</h1>
+    <h1 style="margin: 0 0 12px; max-width: 100%; color: #111827; font-size: 34px; line-height: 1.12; overflow-wrap: anywhere; word-break: normal;">${escHtml(content.heroHeading)}</h1>
     <p style="margin: 0 0 16px; color: #374151; font-size: 17px;">${escHtml(content.welcome)}</p>
     <p style="margin: 0;">${primaryButton(content.primaryButton, theme)}${secondaryButton(content.secondaryButton, theme)}${secondaryButton({ label: "Open calendar and workload plan", target: CALENDAR_HREF }, theme)}</p>
     ${metaChipsRow(content, theme)}

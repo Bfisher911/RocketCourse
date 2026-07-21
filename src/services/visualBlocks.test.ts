@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sampleProject } from "./courseGenerator";
+import { moduleRef } from "./canvasLinks";
 import { VISUAL_BLOCKS, buildVisualBlockHtml, type VisualBlockId } from "./visualBlocks";
 
 const expectedBlockIds: VisualBlockId[] = [
@@ -108,5 +109,15 @@ describe("visual blocks", () => {
       expect(html, id).toContain('<th scope="col"');
       expect(html, id).toContain('<th scope="row"');
     });
+  });
+
+  it("renders a wrapping, linked directory for every student module", () => {
+    const html = buildVisualBlockHtml("course-journey-map", { course: sampleProject });
+
+    expect(html).toContain("Course Module Directory");
+    expect(html).toContain("overflow-wrap: anywhere");
+    sampleProject.modules
+      .filter((module) => module.kind === "content" || module.kind === "final")
+      .forEach((module) => expect(html, module.title).toContain(moduleRef(module.id)));
   });
 });

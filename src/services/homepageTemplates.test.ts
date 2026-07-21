@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getTheme, themes } from "../data/themes";
 import { sampleProject } from "./courseGenerator";
-import { canvasRefTargets } from "./canvasLinks";
+import { canvasRefTargets, moduleRef } from "./canvasLinks";
 import {
   BANNER_SRC,
   CALENDAR_HREF,
@@ -120,13 +120,26 @@ describe("homepage templates", () => {
 
       expect(html, template.id).toContain("Start Here");
       expect(html, template.id).toContain("Course Navigation");
-      expect(html, template.id).toContain("Course Journey Map");
+      expect(html, template.id).toContain("Course Module Directory");
+      sampleProject.modules
+        .filter((module) => module.kind === "content" || module.kind === "final")
+        .forEach((module) => expect(html, `${template.id} ${module.title}`).toContain(moduleRef(module.id)));
       expect(html, template.id).toContain("This Week at a Glance");
       expect(html, template.id).toContain("Welcome From Your Instructor");
       expect(html, template.id).toContain("Need Help?");
       expect(html, template.id).toContain("How to Succeed");
       expect(html, template.id).toContain("Course Promise");
       expect(html, template.id).toContain("Course Trailer");
+    });
+  });
+
+  it("wraps unusually long homepage titles in every template", () => {
+    const longContent = { ...content, heroHeading: "Interstellar Logistics and Oort Cloud Settlement Patterns Across Distributed Supply Networks" };
+    HOMEPAGE_TEMPLATES.forEach((template) => {
+      const html = renderHomepage(template.id, longContent, theme, sampleProject);
+      const h1 = html.match(/<h1\b[^>]*>/i)?.[0] ?? "";
+      expect(h1, template.id).toContain("max-width: 100%");
+      expect(h1, template.id).toContain("overflow-wrap: anywhere");
     });
   });
 });

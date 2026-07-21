@@ -12,7 +12,7 @@ export const assignmentPromptTemplates = makePromptTemplateSeries({
   systemInstructions:
     "Assignments should be usable first drafts that ask students to do meaningful work, not generic reflections.",
   developerInstructions:
-    "Each assignment must include context, authentic scenario, deliverables, required format, step-by-step instructions, grading summary, submission instructions, estimated workload, points, outcome alignment, rubric recommendation, examples or model elements, and instructor notes.",
+    "Each assignment must include context, authentic scenario, deliverables, required format, step-by-step instructions, grading summary, submission instructions, estimated workload, points, outcome alignment, rubric recommendation, examples or model elements, and instructor notes. Use original, public-domain, or instructor-supplied cases by default. Do not imitate protected characters, franchises, fictional worlds, or a living author's style, and do not fabricate quotations or attributions.",
   userPromptTemplate: `Approved blueprint:
 {{blueprintJson}}
 

@@ -52,8 +52,8 @@ export const CONTENT_BLOCKS = [
   },
   {
     id: "course-journey-map",
-    name: "Course Journey Map",
-    description: "A visual path from orientation through final synthesis.",
+    name: "Course Module Directory",
+    description: "A linked, readable directory of every student module with workload and release cues.",
     category: "Course Start",
     surfaces: ["homepage", "syllabus", "startHere"]
   },

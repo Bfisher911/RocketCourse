@@ -43,6 +43,16 @@ describe("homepage export", () => {
     expect(zip.file("web_resources/course-banner.svg")).toBeTruthy();
   });
 
+  it("exports a direct Canvas link for every student module", async () => {
+    const html = await readHomepage();
+    const prefix = exportIdPrefix(sampleProject);
+
+    expect(html).toContain("Course Module Directory");
+    sampleProject.modules
+      .filter((module) => module.kind === "content" || module.kind === "final")
+      .forEach((module) => expect(html, module.title).toContain(`$CANVAS_OBJECT_REFERENCE$/modules/${prefix}${module.id}`));
+  });
+
   it("contains no RocketCourse UI-only artifacts or preview-only assets", async () => {
     const html = await readHomepage();
     // Builder chrome must never leak into the exported page.

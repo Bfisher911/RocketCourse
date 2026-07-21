@@ -523,7 +523,7 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
     ${buildHeroSceneSvg(styles.heroScene, styles)}
     <div style="position: relative; padding: 52px 40px;">
       ${eyebrow}
-      <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 40px; line-height: 1.12; font-weight: 900; max-width: 100%; overflow-wrap: anywhere; text-shadow: ${textShadow};">${escHtml(title)}</h1>
+      <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 40px; line-height: 1.12; font-weight: 900; max-width: 100%; overflow-wrap: anywhere; word-break: normal; text-shadow: ${textShadow};">${escHtml(title)}</h1>
       <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: 0 0 14px;"></div>
       <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.97; font-size: 17px; max-width: 50ch; text-shadow: ${textShadow};">${escHtml(subtitle)}</p>
     </div>
@@ -534,7 +534,7 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
   if (styles.heroStyle === "minimal") {
     return wrap(`<div style="margin: 0 0 24px; background: ${styles.soft}; border: 1px solid ${withAlpha(styles.accent, 0.3)}; border-top: 5px solid ${styles.accent}; border-radius: 14px; padding: 30px 32px;">
     <div style="margin: 0 0 12px; color: ${styles.accentDark}; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>
-    <h1 style="margin: 0 0 10px; color: ${styles.accentDark}; font-size: 34px; line-height: 1.15; font-weight: 900;">${escHtml(title)}</h1>
+    <h1 style="margin: 0 0 10px; max-width: 100%; color: ${styles.accentDark}; font-size: 34px; line-height: 1.15; font-weight: 900; overflow-wrap: anywhere; word-break: normal;">${escHtml(title)}</h1>
     <p style="margin: 0; color: ${styles.contrastText}; font-size: 17px; max-width: 62ch;">${escHtml(subtitle)}</p>
   </div>`);
   }
@@ -544,7 +544,7 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
     return wrap(`<div style="margin: 0 0 24px; border-radius: 18px; overflow: hidden; box-shadow: ${SHADOW_MD}; font-size: 0;">
     <div style="display: inline-block; width: 70%; vertical-align: top; box-sizing: border-box; padding: 36px 34px; ${heroBackgroundCss(styles)} color: ${styles.onGradient}; font-size: 16px;">
       ${eyebrow}
-      <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 34px; line-height: 1.14; font-weight: 900;">${escHtml(title)}</h1>
+      <h1 style="margin: 0 0 12px; max-width: 100%; color: ${styles.onGradient}; font-size: 34px; line-height: 1.14; font-weight: 900; overflow-wrap: anywhere; word-break: normal;">${escHtml(title)}</h1>
       <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.96; font-size: 17px; max-width: 56ch;">${escHtml(subtitle)}</p>
     </div><div style="display: inline-block; width: 30%; vertical-align: top; box-sizing: border-box; padding: 32px 18px; border-left: 3px dashed ${withAlpha(onInk, 0.55)}; background: linear-gradient(135deg, ${styles.gradientTo} 0%, ${styles.gradientFrom} 100%); color: ${styles.onGradient}; text-align: center; font-size: 16px;">
       <div style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.85; margin: 0 0 10px;">${escHtml(theme.bannerLabel)}</div>
@@ -561,7 +561,7 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
     return wrap(`<div style="position: relative; overflow: hidden; margin: 0 0 24px; padding: 34px 34px; ${heroBackgroundCss(styles)} border-radius: 18px; color: ${styles.onGradient}; box-shadow: ${SHADOW_MD};">
     ${postmark}${stamp}
     ${eyebrow}
-    <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 34px; line-height: 1.14; font-weight: 900; max-width: 60%;">${escHtml(title)}</h1>
+    <h1 style="margin: 0 0 12px; max-width: 100%; padding-right: 130px; box-sizing: border-box; color: ${styles.onGradient}; font-size: 34px; line-height: 1.14; font-weight: 900; overflow-wrap: anywhere; word-break: normal;">${escHtml(title)}</h1>
     <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: 0 0 14px;"></div>
     <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.96; font-size: 17px; max-width: 52ch;">${escHtml(subtitle)}</p>
     <div style="margin: 18px 0 0; border-top: 1px solid ${withAlpha(onInk, 0.4)}; padding-top: 6px;"><span style="display: inline-block; width: 38%; border-bottom: 1px solid ${withAlpha(onInk, 0.3)}; margin: 8px 4% 0 0; height: 1px;"></span><span style="display: inline-block; width: 30%; border-bottom: 1px solid ${withAlpha(onInk, 0.3)}; height: 1px;"></span></div>
@@ -578,7 +578,7 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
     </div>
     <div style="${heroBackgroundCss(styles)} padding: 30px 32px; color: ${styles.onGradient}; font-family: ${mono};">
       <div style="opacity: 0.82; font-size: 14px; margin: 0 0 10px;">$ rocketcourse open "${escHtml(theme.bannerLabel)}"</div>
-      <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 30px; line-height: 1.2; font-weight: 800;"><span style="opacity: 0.7;">&gt; </span>${escHtml(title)}</h1>
+      <h1 style="margin: 0 0 12px; max-width: 100%; color: ${styles.onGradient}; font-size: 30px; line-height: 1.2; font-weight: 800; overflow-wrap: anywhere; word-break: normal;"><span style="opacity: 0.7;">&gt; </span>${escHtml(title)}</h1>
       <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.94; font-size: 16px; max-width: 64ch;">${escHtml(subtitle)}<span aria-hidden="true" style="display: inline-block; width: 9px; height: 18px; background: ${styles.onGradient}; vertical-align: -3px; margin-left: 4px; opacity: 0.8;"></span></p>
     </div>
   </div>`);
@@ -588,7 +588,7 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
   if (styles.heroStyle === "editorial") {
     return wrap(`<div style="margin: 0 0 28px; padding: 6px 0 22px; border-bottom: 3px solid ${styles.accentDark};">
     <div style="margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid ${styles.border};"><span style="color: ${styles.accentDark}; font-size: 12px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</span></div>
-    <h1 style="margin: 0 0 14px; color: #111827; font-size: 46px; line-height: 1.04; font-weight: 900; letter-spacing: -0.01em; max-width: 18ch;">${escHtml(title)}</h1>
+    <h1 style="margin: 0 0 14px; max-width: 100%; color: #111827; font-size: 46px; line-height: 1.04; font-weight: 900; letter-spacing: -0.01em; overflow-wrap: anywhere; word-break: normal;">${escHtml(title)}</h1>
     <p style="margin: 0; color: ${styles.contrastText}; font-size: 19px; line-height: 1.5; max-width: 60ch;">${escHtml(subtitle)}</p>
   </div>`);
   }
@@ -599,7 +599,7 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
     return wrap(`<div style="margin: 0 0 24px; padding: 44px 32px; ${heroBackgroundCss(styles)} border-radius: 18px; color: ${styles.onGradient}; box-shadow: ${SHADOW_MD}; text-align: center;">
     ${seal}
     <div style="display: inline-block; margin: 0 0 14px; padding: 6px 14px; border-radius: 999px; background: ${withAlpha(onInk, 0.18)}; color: ${styles.onGradient}; font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>
-    <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 40px; line-height: 1.12; font-weight: 900;">${escHtml(title)}</h1>
+    <h1 style="margin: 0 0 12px; max-width: 100%; color: ${styles.onGradient}; font-size: 40px; line-height: 1.12; font-weight: 900; overflow-wrap: anywhere; word-break: normal;">${escHtml(title)}</h1>
     <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: 0 auto 14px;"></div>
     <p style="margin: 0 auto; color: ${styles.onGradient}; opacity: 0.96; font-size: 17px; max-width: 56ch;">${escHtml(subtitle)}</p>
   </div>`);
@@ -615,7 +615,7 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
   const eyebrowBlock = styles.heroStyle === "split" ? "" : eyebrow;
   const hero = `<div style="position: relative; overflow: hidden; margin: 0 0 24px; padding: ${pad}; ${leftBar} ${heroBackgroundCss(styles)} border-radius: 18px; color: ${styles.onGradient}; box-shadow: ${SHADOW_MD}; ${align}">
     ${eyebrowBlock}
-    <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: ${h1Size}; line-height: 1.14; font-weight: 900;">${escHtml(title)}</h1>
+    <h1 style="margin: 0 0 12px; max-width: 100%; color: ${styles.onGradient}; font-size: ${h1Size}; line-height: 1.14; font-weight: 900; overflow-wrap: anywhere; word-break: normal;">${escHtml(title)}</h1>
     <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: ${underlineMargin};"></div>
     <p style="margin: ${center ? "0 auto" : "0"}; color: ${styles.onGradient}; opacity: 0.96; font-size: 17px; max-width: 62ch;">${escHtml(subtitle)}</p>
   </div>`;

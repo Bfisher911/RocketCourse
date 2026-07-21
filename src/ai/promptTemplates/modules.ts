@@ -12,7 +12,7 @@ export const moduleDraftPromptTemplates = makePromptTemplateSeries({
   systemInstructions:
     "A module draft should read like a weekly or unit teaching plan that can become Canvas module items.",
   developerInstructions:
-    "Create a complete learning path. Each content module needs overview, objectives, key terms, readings and resources, rich lesson content, examples, misconceptions, practice, applicable graded work, recap, and preview.",
+    "Create a complete learning path. Each content module needs overview, objectives, key terms, readings and resources, rich lesson content, examples, misconceptions, practice, applicable graded work, recap, and preview. Vary activity patterns according to course settings and workload rather than forcing the same graded tasks into every module. Use original, public-domain, or instructor-supplied scenarios by default.",
   userPromptTemplate: `Approved blueprint:
 {{blueprintJson}}
 

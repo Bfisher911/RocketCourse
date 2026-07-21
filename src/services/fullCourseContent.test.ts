@@ -60,7 +60,7 @@ describe("planFullCourseFill", () => {
     // Every page is touched: lecture rewrite, enrichment, homepage, or syllabus.
     expect(plan.pages).toBe(course.pages.length);
     expect(plan.assignments).toBe(course.assignments.length);
-    expect(plan.discussions).toBe(course.discussions.length);
+    expect(plan.discussions).toBe(course.discussions.filter((discussion) => discussion.id !== "discussion_ask_course_questions").length);
     expect(plan.quizzes).toBe(course.quizzes.length);
     expect(plan.announcements).toBe(course.announcements.length);
     expect(plan.announcements).toBeGreaterThan(1); // welcome + periodic check-ins
@@ -86,7 +86,8 @@ describe("fillEntireCourseContent", () => {
 
     // Activities replaced with AI content.
     expect(result.course.assignments.every((a) => a.descriptionHtml.includes("AI assignment"))).toBe(true);
-    expect(result.course.discussions.every((d) => d.promptHtml.includes("AI discussion"))).toBe(true);
+    expect(result.course.discussions.filter((discussion) => discussion.id !== "discussion_ask_course_questions").every((d) => d.promptHtml.includes("AI discussion"))).toBe(true);
+    expect(result.course.discussions.find((discussion) => discussion.id === "discussion_ask_course_questions")?.promptHtml).toContain("ungraded");
     expect(result.course.announcements.every((a) => a.bodyHtml.includes("AI announcement"))).toBe(true);
 
     // Lecture pages fully rewritten; quiz questions replaced + points recomputed.

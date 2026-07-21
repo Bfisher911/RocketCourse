@@ -1,7 +1,7 @@
 import { CONTENT_BLOCKS, type ContentBlockId, type ContentBlockMeta, type ContentBlockSurface } from "../data/contentBlocks";
 import type { Assignment, CourseModule, CoursePage, CourseProject, Discussion, Quiz, Theme } from "../types";
 import { withAlpha } from "./color";
-import { fileRef, modulesIndexRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "../services/canvasLinks";
+import { fileRef, moduleRef, modulesIndexRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "../services/canvasLinks";
 import { getThemeStyles, heroBackgroundCss } from "../services/themeDesign";
 
 export type { ContentBlockId, ContentBlockMeta, ContentBlockSurface };
@@ -242,15 +242,35 @@ const resourceCardData = (course: CourseProject, module?: CourseModule): Array<{
   ];
 };
 
-const modulesPath = (course: CourseProject): Array<{ title: string; body: string }> => {
-  const modules = course.modules.filter((module) => module.kind === "content").slice(0, 5);
-  if (modules.length) return modules.map((module) => ({ title: module.title, body: sentence(module.description || "Students build toward the course outcomes through this module.") }));
-  return [
-    { title: "Start", body: "Get oriented to the course and expectations." },
-    { title: "Build", body: "Work through core concepts and examples." },
-    { title: "Practice", body: "Apply ideas in low-stakes and graded tasks." },
-    { title: "Synthesize", body: "Use feedback to prepare final work." }
-  ];
+const courseModuleDirectory = (course: CourseProject): string => {
+  const styles = getThemeStyles(course.theme);
+  const modules = course.modules.filter((module) => module.kind === "content" || module.kind === "final");
+  if (!modules.length) {
+    return `${paragraph("Your instructor will publish the module sequence here before the course begins.")}${actionLink(course.theme, "Open Modules", modulesIndexRef())}`;
+  }
+
+  const rows = modules
+    .map((module, index) => {
+      const release = course.schedule.find((entry) => entry.moduleId === module.id && entry.itemType === "module")?.releaseAt?.slice(0, 10);
+      const metadata = [
+        release ? `Opens ${release}` : "Check Canvas for dates",
+        module.workloadHours > 0 ? `${module.workloadHours} estimated hours` : "Workload to be confirmed",
+        `${module.objectives.length} objective${module.objectives.length === 1 ? "" : "s"}`
+      ];
+      return `<li style="position: relative; margin: 0 0 12px; padding: 15px 16px 15px 54px; background: #ffffff; border: 1px solid ${styles.border}; border-left: 5px solid ${styles.accent}; border-radius: 11px; overflow-wrap: anywhere;">
+        <span aria-hidden="true" style="position: absolute; left: 14px; top: 15px; width: 26px; height: 26px; border-radius: 50%; background: ${styles.accent}; color: ${styles.onAccent}; text-align: center; line-height: 26px; font-weight: 900;">${index + 1}</span>
+        <h3 style="margin: 0 0 6px; color: #111827; font-size: 17px; line-height: 1.3; font-weight: 900; overflow-wrap: anywhere;"><a href="${escapeAttr(moduleRef(module.id))}" style="color: ${styles.accentDark}; text-decoration: underline; text-underline-offset: 2px;">${escapeHtml(module.title)}</a></h3>
+        <p style="margin: 0 0 8px; color: #374151;">${escapeHtml(sentence(module.description || "Students build toward the course outcomes through this module."))}</p>
+        <p style="margin: 0; color: #4b5563; font-size: 13px;">${metadata
+          .map((value) => `<span style="display: inline-block; margin: 0 8px 6px 0; padding: 4px 9px; border-radius: 999px; background: ${styles.soft}; border: 1px solid ${withAlpha(styles.accent, 0.38)}; color: ${styles.accentDark}; font-weight: 700;">${escapeHtml(value)}</span>`)
+          .join("")}</p>
+      </li>`;
+    })
+    .join("");
+
+  return `<p style="margin: 0 0 12px; color: #374151;">Use this directory for a quick view of the course. Module titles stay separate from dates and status details so they remain readable on smaller screens.</p>
+    <ol style="list-style: none; margin: 0; padding: 0;">${rows}</ol>
+    <p style="margin: 8px 0 0;">${actionLink(course.theme, "Open the complete Modules page", modulesIndexRef(), "secondary")}</p>`;
 };
 
 export const buildContentBlockHtml = (id: ContentBlockId, context: ContentBlockContext): string => {
@@ -281,7 +301,7 @@ export const buildContentBlockHtml = (id: ContentBlockId, context: ContentBlockC
         { soft: true }
       );
     case "course-journey-map":
-      return blockShell(theme, "Course Journey Map", steps(theme, modulesPath(course).slice(0, 5)));
+      return blockShell(theme, "Course Module Directory", courseModuleDirectory(course));
     case "this-week-at-a-glance":
       return blockShell(
         theme,

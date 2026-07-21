@@ -8,7 +8,7 @@ import { validatePagePlan } from "./pageBuilder";
 import { validateQuizPlan } from "./quizBuilder";
 import { validateRubricPlan } from "./rubricBuilder";
 import { validateSyllabus } from "./syllabusValidation";
-import { canvasRefTargets, wikiPageRef } from "./canvasLinks";
+import { canvasRefTargets, moduleRef, wikiPageRef } from "./canvasLinks";
 import { validateTheme } from "./themeDesign";
 import { navigationMatchesRequiredDefaults, visibleNavigationLabels } from "./navigationDefaults";
 
@@ -38,6 +38,21 @@ const bodyBlocks = (course: CourseProject): Array<{ id: string; title: string; h
 // Visible (rendered) text length, after stripping markup — markup length alone would rate an
 // empty <div></div> shell as substantial.
 const visibleLength = (html: string): number => stripHtml(html).length;
+
+const headingTexts = (html: string): string[] =>
+  Array.from(html.matchAll(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi))
+    .map((match) => stripHtml(match[1]).trim().toLowerCase().replace(/\s+/g, " "))
+    .filter(Boolean);
+
+const repeatedHeadings = (html: string): string[] => {
+  const seen = new Set<string>();
+  const repeats = new Set<string>();
+  headingTexts(html).forEach((heading) => {
+    if (seen.has(heading)) repeats.add(heading);
+    seen.add(heading);
+  });
+  return [...repeats];
+};
 
 const hrefsFrom = (html: string): string[] => Array.from(html.matchAll(/href\s*=\s*["']([^"']*)["']/gi)).map((match) => match[1].trim());
 
@@ -336,6 +351,55 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
   const overviewPages = contentModuleOverviewPages(course);
   const overviewPagesByModule = new Set(overviewPages.map((page) => page.moduleTitle));
   const contentModules = course.modules.filter((module) => module.kind === "content");
+  const directoryModules = course.modules.filter((module) => module.kind === "content" || module.kind === "final");
+  const homepageModuleDirectoryReady = Boolean(
+    homepage &&
+      /Course Module Directory/i.test(homepage.bodyHtml) &&
+      directoryModules.every((module) => homepage.bodyHtml.includes(moduleRef(module.id)))
+  );
+  const courseQuestionsDiscussion = course.discussions.find(
+    (discussion) =>
+      discussion.points === 0 &&
+      /ask.*course.*question|course.*question/i.test(discussion.title) &&
+      startHere?.items.some((item) => item.type === "discussion" && item.refId === discussion.id)
+  );
+  const questionForumReady =
+    course.settings.discussionFrequency === "none" ||
+    Boolean(
+      courseQuestionsDiscussion &&
+        /ungraded/i.test(courseQuestionsDiscussion.promptHtml) &&
+        /Initial Post Guidance/i.test(courseQuestionsDiscussion.promptHtml) &&
+        /Reply Guidance/i.test(courseQuestionsDiscussion.promptHtml)
+    );
+  const recapChecklistGaps = contentModules.flatMap((module) => {
+    const recapItem = module.items.find((item) => item.type === "page" && /(wrap|recap|end of )/i.test(item.title));
+    const recapPage = recapItem ? course.pages.find((page) => page.id === recapItem.refId) : undefined;
+    if (!recapPage) return [`${module.title}: recap page is missing`];
+    const expectations = [
+      { needed: true, pattern: /Before You Continue/i, label: "completion checklist" },
+      { needed: module.items.some((item) => item.type === "discussion"), pattern: /posted and replied/i, label: "discussion completion step" },
+      { needed: module.items.some((item) => item.type === "quiz"), pattern: /reviewed feedback/i, label: "quiz feedback step" },
+      { needed: module.items.some((item) => item.type === "assignment"), pattern: /submitted the applied assignment/i, label: "assignment submission step" },
+      { needed: module.items.some((item) => /checkpoint|milestone/i.test(item.title)), pattern: /checkpoint artifact/i, label: "project checkpoint step" }
+    ];
+    const missing = expectations.filter((expectation) => expectation.needed && !expectation.pattern.test(recapPage.bodyHtml)).map((expectation) => expectation.label);
+    return missing.length ? [`${module.title}: missing ${missing.join(", ")}`] : [];
+  });
+  const resourceDetailGaps = course.resources.filter(
+    (resource) =>
+      resource.whyItMatters.trim().length < 12 ||
+      resource.studentInstructions.trim().length < 12 ||
+      resource.instructorEditNote.trim().length < 12 ||
+      resource.estimatedMinutes <= 0
+  );
+  const activityDensityIssues = contentModules.flatMap((module) => {
+    const gradedCount = module.items.filter((item) => {
+      if (item.type === "assignment" || item.type === "quiz") return true;
+      if (item.type === "discussion") return (course.discussions.find((discussion) => discussion.id === item.refId)?.points ?? 0) > 0;
+      return false;
+    }).length;
+    return gradedCount > 3 ? [`${module.title}: ${gradedCount} graded activities`] : [];
+  });
   const overviewPagesComplete = contentModules.every((module) => overviewPagesByModule.has(module.title));
   const overviewRichPages = overviewPages.filter(
     (page) =>
@@ -350,7 +414,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     homepage &&
       hasAny(homepage.bodyHtml, [/Start Here/i]) &&
       hasAny(homepage.bodyHtml, [/Course Navigation|Navigation/i]) &&
-      hasAny(homepage.bodyHtml, [/Journey|Map/i]) &&
+      homepageModuleDirectoryReady &&
       hasAny(homepage.bodyHtml, [/Need Help|Support/i]) &&
       (homepage.bodyHtml.match(/<h2\b/gi)?.length ?? 0) >= 4
   );
@@ -371,6 +435,12 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
       hasAny(syllabus.bodyHtml, [/Accessibility and Inclusion|Accessibility and Accommodations/i])
   );
   const allHeadingIssues = bodyBlocks(course).flatMap((block) => headingOrderIssues(block.html).map((issue) => `${block.title}: ${issue}`));
+  const studentFacingBodyBlocks = bodyBlocks(course).filter((block) => course.pages.find((page) => page.id === block.id)?.publishState !== "unpublished");
+  const repeatedHeadingBlocks = studentFacingBodyBlocks.flatMap((block) => {
+    const headings = repeatedHeadings(block.html);
+    return headings.length ? [`${block.title}: ${headings.join(", ")}`] : [];
+  });
+  const overlongBodyBlocks = studentFacingBodyBlocks.filter((block) => visibleLength(block.html) > 16000);
   const malformedLinks = htmlBlocks(course).flatMap((block) => malformedLinksFromHtml(block.html).map((href) => `${block.title}: ${href}`));
   const missingAltImages = htmlBlocks(course).flatMap((block) => {
     const count = imageTagsMissingAltCount(block.html);
@@ -414,8 +484,11 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("page-quality", "Pages pass safety and structure checks", pageBlockers.length === 0 && pagePlanValidation.score >= 85, pageBlockers.length ? `${pageBlockers.length} page blocker(s): ${pageBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Page validation score is ${pagePlanValidation.score}.`, "recommended"),
     check("reference-integrity", "Cross-object references resolve", danglingRefs.length === 0, danglingRefs.length ? `${danglingRefs.length} broken reference(s): ${danglingRefs.slice(0, 3).join("; ")}.` : "Group, rubric, outcome, module, and item references all resolve."),
     check("start-here-content", "Start Here module carries orientation content", startHereMissing.length === 0, startHereMissing.length ? `Start Here is missing: ${startHereMissing.join(", ")}.` : "Start Here includes the homepage, syllabus, success guide, and calendar."),
+    check("start-here-question-forum", "Start Here includes an ungraded course questions forum when discussions are enabled", questionForumReady, course.settings.discussionFrequency === "none" ? "Discussion activities are disabled; communication guidance uses the instructor contact route." : questionForumReady ? "Ask Course Questions is linked from Start Here with posting and reply guidance." : "Add a persistent, ungraded Ask Course Questions discussion to Start Here.", "recommended"),
+    check("module-completion-checklist", "Module recaps match the work students completed", recapChecklistGaps.length === 0, recapChecklistGaps.length ? recapChecklistGaps.slice(0, 3).join("; ") : "Every content-module recap includes an activity-aware Before You Continue checklist.", "recommended"),
     check("visual-polish-score", "Visual readiness score is strong", visualPolishScore >= 85, `Visual polish score is ${visualPolishScore}.`, "recommended"),
-    check("visual-homepage-structure", "Homepage has strong visual structure", homepageVisualReady, homepage ? "Homepage includes Start Here, navigation, journey/support cues, and multiple sections." : "No homepage found.", "recommended"),
+    check("visual-homepage-structure", "Homepage has strong visual structure", homepageVisualReady, homepage ? "Homepage includes Start Here, navigation, a linked module directory, support cues, and multiple sections." : "No homepage found.", "recommended"),
+    check("homepage-module-directory", "Homepage lists and links every student module", homepageModuleDirectoryReady, homepageModuleDirectoryReady ? `${directoryModules.length} content and final module links appear in the homepage directory.` : "Add a Course Module Directory with direct links to every content and final module.", "recommended"),
     check("visual-start-here-guidance", "Start Here guidance exists", startHereMissing.length === 0 && supportInfoPresent, startHereMissing.length ? `Start Here is missing: ${startHereMissing.join(", ")}.` : "Start Here and support/help guidance are present.", "recommended"),
     check("visual-module-overviews", "Each module has a polished overview page", overviewPagesComplete && overviewRichPages.length === contentModules.length, overviewPagesComplete ? `${overviewRichPages.length}/${contentModules.length} content module overview page(s) include mission, question, objectives, path, map, and checklist.` : `${contentModules.length - overviewPagesByModule.size} content module(s) are missing overview pages.`, "recommended"),
     check("visual-module-action-steps", "Module overview pages include objectives and student action steps", overviewRichPages.length === contentModules.length, overviewRichPages.length === contentModules.length ? "Overview pages include objectives and student action steps." : `${contentModules.length - overviewRichPages.length} overview page(s) need objectives, a learning path, or next steps.`, "recommended"),
@@ -423,6 +496,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("visual-discussion-guidance", "Discussions include reply guidance", discussionGuidance.length === course.discussions.length, `${discussionGuidance.length}/${course.discussions.length} discussion(s) include reply guidance and conversation moves.`, "recommended"),
     check("visual-syllabus-sections", "Syllabus includes visual grading and communication sections", syllabusVisualReady, syllabusVisualReady ? "Syllabus includes grading, communication, technology, and accessibility sections." : "Syllabus needs grading, communication, technology, or accessibility sections.", "recommended"),
     check("visual-heading-order", "Pages use valid heading order", allHeadingIssues.length === 0, allHeadingIssues.length ? allHeadingIssues.slice(0, 3).join("; ") : "No heading-order jumps found in page, assignment, or discussion bodies.", "recommended"),
+    check("content-heading-duplicates", "Content avoids repeated section headings", repeatedHeadingBlocks.length === 0, repeatedHeadingBlocks.length ? repeatedHeadingBlocks.slice(0, 3).join("; ") : "No repeated heading labels found within a content block.", "recommended"),
     check("visual-html-safety", "Blocks avoid unsafe or malformed HTML", unsafeBlocks.length === 0 && malformedLinks.length === 0, unsafeBlocks.length ? `${unsafeBlocks.length} content block(s) include unsafe HTML.` : malformedLinks.length ? malformedLinks.slice(0, 3).join("; ") : "No unsafe HTML or malformed links found.", "recommended"),
     check("visual-theme-contrast", "Theme contrast is acceptable", themeValidation.status === "pass", `Theme contrast score is ${themeValidation.score}; ${themeValidation.warnings} warning(s).`, "recommended"),
     check("visual-image-alt", "Image placeholders include alt-text guidance", missingAltImages.length === 0, missingAltImages.length ? missingAltImages.slice(0, 3).join("; ") : "Images include alt text or decorative marking.", "recommended"),
@@ -434,6 +508,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("assignment-quality", "Assignments pass safety and design checks", assignmentBlockers.length === 0 && assignmentPlanValidation.score >= 85, assignmentBlockers.length ? `${assignmentBlockers.length} assignment blocker(s): ${assignmentBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Assignment validation score is ${assignmentPlanValidation.score}.`, "recommended"),
     check("discussion-quality", "Discussions pass prompt and participation checks", discussionBlockers.length === 0 && discussionPlanValidation.score >= 85, discussionBlockers.length ? `${discussionBlockers.length} discussion blocker(s): ${discussionBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Discussion validation score is ${discussionPlanValidation.score}.`, "recommended"),
     check("quiz-quality", "Quizzes pass question and QTI checks", quizBlockers.length === 0 && quizPlanValidation.score >= 85, quizBlockers.length ? `${quizBlockers.length} quiz blocker(s): ${quizBlockers.slice(0, 3).map((issue) => issue.detail).join("; ")}` : `Quiz validation score is ${quizPlanValidation.score}.`, "recommended"),
+    check("activity-density", "Module workload avoids excessive graded-item density", activityDensityIssues.length === 0, activityDensityIssues.length ? activityDensityIssues.slice(0, 3).join("; ") : "No content module contains more than three graded activities.", "recommended"),
     check("nonzero-weight-groups", "Active assignment groups are weighted", zeroWeightActiveGroups.length === 0, zeroWeightActiveGroups.length ? `${zeroWeightActiveGroups.map((group) => group.name).join(", ")} has graded items but 0% weight.` : "No active graded group is weighted at 0%."),
     check("rubrics", "Assignments and graded discussions have rubrics", assignmentAndDiscussionRubrics, "Assignments and graded discussions should include attached rubric references."),
     check("rubric-depth", "Rubrics have substantive criteria and points", shallowRubrics.length === 0, shallowRubrics.length ? `${shallowRubrics.map((rubric) => rubric.title).slice(0, 3).join(", ")} need 3+ criteria, leveled ratings, and nonzero points.` : "Every rubric has at least three leveled criteria and nonzero points."),
@@ -465,8 +540,10 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("accessibility", "No unsafe Canvas HTML", unsafeBlocks.length === 0, unsafeBlocks.length ? `${unsafeBlocks.length} content block(s) include unsafe HTML.` : "Content avoids scripts, embeds, forms, event handlers, and dangerous URIs."),
     check("placeholder-links", "No placeholder links", placeholderLinks.length === 0, placeholderLinks.length ? placeholderLinks.slice(0, 3).join("; ") : "No empty, hash, JavaScript, or TODO links found."),
     check("internal-links", "Internal links resolve locally", missingInternalLinks.length === 0, missingInternalLinks.length ? missingInternalLinks.slice(0, 3).join("; ") : "Internal page and asset links resolve.", "recommended"),
+    check("resource-verification", "Resources include purpose, use, time, and verification notes", resourceDetailGaps.length === 0, resourceDetailGaps.length ? `${resourceDetailGaps.slice(0, 3).map((resource) => resource.title).join("; ")} need stronger purpose, student instructions, estimated time, or instructor verification notes.` : "Every structured resource includes purpose, student use, estimated time, and instructor verification guidance.", "recommended"),
     check("empty-content", "No empty content blocks", emptyBodyBlocks.length === 0, emptyBodyBlocks.length ? `${emptyBodyBlocks.map((block) => block.title).slice(0, 3).join(", ")} have effectively no body content.` : "Pages, assignments, and discussions all carry body content."),
-    check("thin-content", "No thin content blocks", thinBodyBlocks.length === 0, thinBodyBlocks.length ? `${thinBodyBlocks.map((block) => block.title).slice(0, 3).join(", ")} are too short for an import-ready course shell.` : "Pages, assignments, and discussions have substantial body content.", "recommended")
+    check("thin-content", "No thin content blocks", thinBodyBlocks.length === 0, thinBodyBlocks.length ? `${thinBodyBlocks.map((block) => block.title).slice(0, 3).join(", ")} are too short for an import-ready course shell.` : "Pages, assignments, and discussions have substantial body content.", "recommended"),
+    check("content-length", "Content blocks remain scannable", overlongBodyBlocks.length === 0, overlongBodyBlocks.length ? `${overlongBodyBlocks.slice(0, 3).map((block) => block.title).join("; ")} exceed 16,000 visible characters and should be split or condensed.` : "No page, assignment, or discussion exceeds the long-content review threshold.", "recommended")
   ];
 
   const totalWeight = checks.reduce((sum, item) => sum + (item.severity === "required" ? 10 : 6), 0);

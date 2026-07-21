@@ -13,12 +13,12 @@ const metaFor = async (course: CourseProject, quizId: string): Promise<string> =
 };
 
 describe("quiz attempts + shuffle export", () => {
-  it("defaults to 1 attempt and no shuffle when unset", async () => {
+  it("uses mastery-friendly generated defaults", async () => {
     const course = courseWithQuiz();
     expect(course.quizzes.length).toBeGreaterThan(0);
     const meta = await metaFor(course, course.quizzes[0].id);
-    expect(meta).toContain("<allowed_attempts>1</allowed_attempts>");
-    expect(meta).toContain("<shuffle_answers>false</shuffle_answers>");
+    expect(meta).toContain("<allowed_attempts>2</allowed_attempts>");
+    expect(meta).toContain("<shuffle_answers>true</shuffle_answers>");
   });
 
   it("exports per-quiz allowedAttempts and shuffleAnswers when set", async () => {

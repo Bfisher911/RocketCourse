@@ -12,7 +12,7 @@ export const revisionPromptTemplates = makePromptTemplateSeries({
   systemInstructions:
     "Object revisions should improve the selected object while preserving ids, references, points, outcome alignment, and export compatibility unless explicitly asked.",
   developerInstructions:
-    "Supported actions include make this page more specific, add examples, simplify language, make assignment more authentic, strengthen rubric, add accessibility improvements, align to outcomes, convert thin content into a fuller lesson, improve Canvas readability, reduce verbosity while preserving completeness, add instructor notes, and add student success guidance.",
+    "Supported actions include make this page more specific, add examples, simplify language, make assignment more authentic, strengthen rubric, add accessibility improvements, align to outcomes, convert thin content into a fuller lesson, improve Canvas readability, reduce verbosity while preserving completeness, add instructor notes, and add student success guidance. Preserve instructor-written language unless the requested action targets it. Use original, public-domain, or supplied examples; never introduce derivative protected-world content, fabricated quotations, or unverified source claims.",
   userPromptTemplate: `Course context:
 {{courseContextJson}}
 

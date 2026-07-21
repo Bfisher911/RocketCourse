@@ -106,6 +106,18 @@ describe("themeDesign kit — new heroes, cards, motifs, patterns", () => {
     const cards = cardStyles.map((cardStyle) => buildThemedCard({ ...base, cardStyle }, "T", "<p>b</p>"));
     expect(new Set(cards).size).toBe(cardStyles.length);
   });
+
+  it("keeps long titles inside every hero treatment", () => {
+    const longTitle = "Interstellar Logistics and Oort Cloud Settlement Patterns Across Distributed Supply Networks";
+    const heroStyles = ["minimal", "ticket", "postcard", "console", "editorial", "medallion", "stage", "spotlight", "split", "banner"] as const;
+
+    heroStyles.forEach((heroStyle) => {
+      const shell = buildThemedShell({ ...base, heroStyle }, longTitle, "Subtitle", "<p>body</p>");
+      const h1 = shell.match(/<h1\b[^>]*>/i)?.[0] ?? "";
+      expect(h1, heroStyle).toContain("max-width: 100%");
+      expect(h1, heroStyle).toContain("overflow-wrap: anywhere");
+    });
+  });
 });
 
 describe("themeDesign kit — per-module identity", () => {

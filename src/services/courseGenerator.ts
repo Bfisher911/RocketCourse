@@ -209,6 +209,7 @@ const moduleTopicsFor = (courseTopic: string): string[] => {
 
 const START_MODULE_ID = "module_start";
 const INTRO_DISCUSSION_ID = "discussion_introduce_yourself";
+const COURSE_QUESTIONS_DISCUSSION_ID = "discussion_ask_course_questions";
 
 const id = (prefix: string, value: string | number): string => `${prefix}_${slugify(String(value))}`;
 
@@ -1290,20 +1291,26 @@ ${callout("Grading Criteria", "<p>Strong posts use evidence, connect to course o
 
 // A warm, visually rich welcome announcement. Canvas shows the latest announcements above the home
 // page (the export turns that setting on), so this is often the first thing a student reads.
-const buildWelcomeAnnouncementHtml = (courseTitle: string, theme: Theme): string =>
-  canvasShell(
+const buildWelcomeAnnouncementHtml = (courseTitle: string, theme: Theme, includeDiscussions: boolean): string => {
+  const firstSteps = [
+    `${secondaryLink(moduleRef(START_MODULE_ID), "Open Start Here", theme)} and read the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.successGuide), "Course Success Guide", theme)}.`,
+    ...(includeDiscussions ? [`Post in the ${secondaryLink(discussionRef(INTRO_DISCUSSION_ID), "Introduce Yourself discussion", theme)} so we get to know you.`] : []),
+    `Check the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar), "Course Calendar and Workload Plan", theme)} so the pace is no surprise.`,
+    ...(includeDiscussions ? [`Use ${secondaryLink(discussionRef(COURSE_QUESTIONS_DISCUSSION_ID), "Ask Course Questions", theme)} whenever an answer could help the whole class.`] : [])
+  ];
+  const questionRoute = includeDiscussions
+    ? `Post a course-wide question in ${secondaryLink(discussionRef(COURSE_QUESTIONS_DISCUSSION_ID), "Ask Course Questions", theme)} or contact the instructor privately for personal matters.`
+    : "Contact the instructor using the communication method listed in the syllabus. Use a private message for personal matters.";
+  return canvasShell(
     `Welcome to ${courseTitle}!`,
     "Read this first. It is your launch pad for the whole course.",
     `${tipNote("Start here", `<p>Open the ${secondaryLink(moduleRef(START_MODULE_ID), "Start Here module", theme)} then read the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.successGuide), "Course Success Guide", theme)} and skim the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.syllabus), "Syllabus", theme)}. Then begin Module 1. The course is laid out so you always know exactly what to do next.</p>`, theme)}
-${section("Your first three steps", checklistHtml([
-      `${secondaryLink(moduleRef(START_MODULE_ID), "Open Start Here", theme)} and read the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.successGuide), "Course Success Guide", theme)}.`,
-      `Post in the ${secondaryLink(discussionRef(INTRO_DISCUSSION_ID), "Introduce Yourself discussion", theme)} so we get to know you.`,
-      `Check the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar), "Course Calendar and Workload Plan", theme)} so the pace is no surprise.`
-    ]), theme)}
+${section("Your first steps", checklistHtml(firstSteps), theme)}
 ${exampleNote("How to stay on track", `<p>Check <strong>Announcements</strong> and the ${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.homepage), "course home page", theme)} regularly. That is where reminders, updates, and encouragement will show up throughout the term.</p>`, theme)}
-${callout("Questions? Reach out early", `<p>Use the ${secondaryLink(moduleRef(START_MODULE_ID), "Start Here module", theme)} or contact me during office hours. I would much rather hear from you sooner than later. You are not on your own here.</p>`, theme)}`,
+${callout("Questions? Reach out early", `<p>${questionRoute} Ask early; you are not on your own here.</p>`, theme)}`,
     theme
   );
+};
 
 // A periodic check-in announcement (kickoff / midpoint / final stretch). Templated by default; the
 // "Generate full content" pass rewrites the body with subject-specific prose via aiGenerateAnnouncementBody.
@@ -1778,34 +1785,93 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
     makeItem("item_course_success_guide", "page", "Course Success Guide", studentGuideId, 2, generatedAt),
     makeItem("item_syllabus", "syllabus", "Syllabus", syllabusId, 3, generatedAt)
   ];
+  const discussionsEnabled = mergedSettings.discussionFrequency !== "none";
 
-  ["How to Use This Course", "Course Navigation Guide", "Technology Requirements", "Communication Expectations"].forEach((pageTitle, index) => {
-    const pageId = id("page", pageTitle);
+  const startHerePages = [
+    {
+      title: "How to Use This Course",
+      subtitle: "Follow one predictable path through the course.",
+      body:
+        section("Your Course Path", orderedListHtml(["Start with the module overview and check the due dates.", "Complete required readings and lesson pages in order.", "Use the practice activity before graded work.", "Finish any discussion, quiz, assignment, or project checkpoint shown in the module.", "Use the wrap-up checklist before moving on."]), theme) +
+        section("Key Destinations", checklistHtml(["Home: announcements, course updates, and quick links.", "Modules: the authoritative sequence for course work.", "Calendar: due dates and workload planning.", "Grades: scores, feedback, and submission status."]), theme) +
+        callout("When in doubt", "<p>Return to " + secondaryLink(modulesIndexRef(), "Modules", theme) + " and complete the next published item in order.</p>", theme)
+    },
+    {
+      title: "Technology and Access Check",
+      subtitle: "Confirm the tools and accessible formats you need before graded work begins.",
+      body:
+        section("Before You Begin", checklistHtml(["Use a current version of Chrome, Firefox, Safari, or Edge.", "Confirm that you can open course files and play any assigned media.", "Turn on Canvas notifications for announcements, due dates, and feedback.", "Locate captions, transcripts, readable documents, or text alternatives for required media."]), theme) +
+        section("Quick Access Test", orderedListHtml(["Open the syllabus and one module page.", "Download or preview one course file.", discussionsEnabled ? "Open a discussion reply box without posting." : "Open one published activity or file preview.", "Confirm that your screen reader, keyboard navigation, zoom, or other access tools work as expected."]), theme) +
+        callout("If something does not work", "<p>Capture the page title and a short description of the problem. Contact the instructor for course-content access and your institution's Canvas or accessibility support for account, browser, or accommodation help.</p>", theme)
+    },
+    {
+      title: "Communication and Help",
+      subtitle: "Use the right channel so questions receive a useful response.",
+      body:
+        section("Where To Ask", checklistHtml([discussionsEnabled ? secondaryLink(discussionRef(COURSE_QUESTIONS_DISCUSSION_ID), "Ask Course Questions", theme) + " for questions about instructions, concepts, deadlines, or Canvas steps that may help classmates." : "Use the instructor's stated contact method for questions about instructions, concepts, deadlines, or Canvas steps.", "Use a private Canvas message for grades, accommodations, personal circumstances, or other confidential matters.", "Use office hours or the instructor's stated contact method when a conversation would be faster than a message thread."]), theme) +
+        section("What To Include", checklistHtml(["Name the module and activity.", "Describe what you already tried.", "Quote the instruction or error message that is unclear.", "State the specific decision or next step you need help with."]), theme) +
+        callout("Instructor check before publishing", "<p>Add your usual response-time expectation, office-hours details, emergency guidance, and institution-specific support links.</p>", theme)
+    },
+    {
+      title: "Optional Preparation and Refreshers",
+      subtitle: "Use these only when they support your learning; they are not graded unless your instructor says otherwise.",
+      body:
+        section("Choose What You Need", checklistHtml(["Review prerequisite vocabulary named in the syllabus or first module.", "Practice the file, activity, or quiz workflow used in this Canvas course.", "Refresh note-taking, source evaluation, citation, or study strategies relevant to the course.", "Skip a refresher when you already feel ready; optional preparation should not become hidden required work."]), theme) +
+        section("Resource Quality Check", checklistHtml(["Use instructor-provided or institution-supported resources first.", "Confirm that external links are current, accessible, and available without an unexpected fee or account.", "Treat generated citations, quotations, and links as unverified until an instructor checks them.", "Provide a text alternative when a video, image, or interactive resource carries required information."]), theme) +
+        callout("Instructor check before publishing", "<p>Replace this guidance with verified, discipline-specific refreshers or keep the page as an optional preparation checklist. Do not publish placeholder links.</p>", theme)
+    }
+  ];
+
+  startHerePages.forEach((startPage, index) => {
+    const pageId = id("page", startPage.title);
     pages.push(
       makePage(
         pageId,
-        pageTitle,
-        slugify(pageTitle),
+        startPage.title,
+        slugify(startPage.title),
         canvasShell(
-          pageTitle,
-          `Practical guidance for navigating ${title}.`,
-          `${section("What This Page Covers", `<p>Use this page to understand one part of the course experience before beginning weekly work.</p>`, theme)}
-${section("Recommended Actions", checklistHtml(["Review module overview pages first.", "Use Canvas notifications and calendar reminders.", "Download or bookmark key support resources.", "Contact the instructor before small issues become urgent."]), theme)}`,
+          startPage.title,
+          startPage.subtitle,
+          startPage.body,
           theme
         ),
         START_MODULE_ID,
         generatedAt
       )
     );
-    startItems.push(makeItem(id("item", pageTitle), "page", pageTitle, pageId, index + 4, generatedAt));
+    startItems.push(makeItem(id("item", startPage.title), "page", startPage.title, pageId, index + 4, generatedAt));
   });
+
+  if (discussionsEnabled) {
+    discussions.push({
+      id: COURSE_QUESTIONS_DISCUSSION_ID,
+      title: "Ask Course Questions",
+      moduleId: START_MODULE_ID,
+      assignmentGroupId: "group_discussions",
+      points: 0,
+      alignedOutcomeIds: [],
+      publishState: "published",
+      status: "generated",
+      metadata: metadata(generatedAt),
+      promptHtml: canvasShell(
+        "Ask Course Questions",
+        "A persistent, ungraded place for questions whose answers may help the whole class.",
+        section("Initial Post Guidance", checklistHtml(["Name the module, page, or activity.", "Describe what you understand and where you became stuck.", "Share the step you already tried.", "Ask one specific question classmates or the instructor can answer."]), theme) +
+          section("Reply Guidance", checklistHtml(["Reply when you can point to a course instruction, explain a useful step, or add a clarifying question.", "Do not guess about grades, accommodations, deadlines, or instructor policy.", "Move personal or confidential matters to a private Canvas message."]), theme) +
+          section("Conversation Moves", checklistHtml(["Link back to the relevant module item.", "Summarize the answer in plain language.", "Name what remains unresolved.", "Mark a corrected answer clearly if guidance changes."]), theme) +
+          callout("Grading Criteria", "<p>This forum is ungraded. Thoughtful questions and helpful replies support the course community, but participation does not earn points unless the instructor announces a change.</p>", theme),
+        theme
+      )
+    });
+    startItems.push(makeItem("item_ask_course_questions", "discussion", "Ask Course Questions", COURSE_QUESTIONS_DISCUSSION_ID, startItems.length + 1, generatedAt));
+  }
 
   // "Rubrics" intake toggle: when off, no rubric objects are generated and graded items
   // carry no rubricId (Canvas imports cleanly either way; readiness treats absence as valid).
   const withRubrics = mergedSettings.includeRubrics !== false;
   const introRubricId = "rubric_introduce_yourself";
   const introDiscussionDueAt = dueDateForModule(mergedSettings, 0, 1);
-  if (mergedSettings.discussionFrequency !== "none") {
+  if (discussionsEnabled) {
     if (withRubrics) rubrics.push(makeRubric(introRubricId, "Introduce Yourself Discussion Rubric", 10, [outcomes[0].id], outcomes, generatedAt, "Community"));
     discussions.push({
       id: INTRO_DISCUSSION_ID,
@@ -1914,6 +1980,7 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
     const hasDiscussion = shouldIncludeDiscussion(mergedSettings, moduleNumber);
     const hasQuiz = shouldIncludeQuiz(mergedSettings, moduleNumber);
     const hasAssignment = shouldIncludeAssignment(mergedSettings, moduleNumber);
+    const hasProjectMilestone = shouldIncludeFinalMilestone(mergedSettings, moduleNumber, moduleCount);
     const glanceRows: string[][] = [
       ["Overview", "Page", "-", "Read first"],
       ["Readings &amp; Resources", "Page", readableDate(resourceDueAt), "Required reading"],
@@ -1923,6 +1990,7 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
     if (hasDiscussion) glanceRows.push(["Discussion", "Discussion", readableDate(discussionDueAt), "Graded"]);
     if (hasQuiz) glanceRows.push([quizPurposeModel.titleWord, "Quiz", readableDate(quizDueAt), "Graded"]);
     if (hasAssignment) glanceRows.push(["Applied Assignment", "Assignment", readableDate(assignmentDueAt), "Graded"]);
+    if (hasProjectMilestone) glanceRows.push([`${finalTitle} Checkpoint`, "Page", readableDate(milestoneDueAt), "Project planning"]);
     glanceRows.push(["Wrap-Up &amp; Reflection", "Page", "-", "Recap"]);
     // Use live HTML as the visible header so Canvas can wrap long titles and cannot strip the design
     // into a blank SVG box. The companion SVG remains packaged as an instructor handoff asset.
@@ -2112,6 +2180,8 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
         assignmentGroupId: "group_quizzes",
         purpose: `${quizPurposeModel.framing(moduleTopic)} Aligned outcomes: ${alignedOutcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.code).join(", ")}.<p><img src="${fileRef("quiz-icon.svg")}" alt="Quiz support icon" style="width: 74px; height: auto; display: inline-block;" /></p><h2>Quiz Support</h2><ul><li>Review the module overview, key terms, and common mistake callout before starting.</li><li>${isGenericTemplate(mergedSettings) ? "Use feedback after submission to decide what to review next." : `Use feedback to revisit the source brief, ${moduleProfile.artifactLabel}, and evidence types for ${moduleTopic.toLowerCase()}.`}</li><li>Ask the instructor about any item that still feels unclear after remediation.</li></ul>`,
         points: questions.reduce((sum, question) => sum + question.points, 0),
+        allowedAttempts: mergedSettings.quizPurpose === "pre-assessment" ? 1 : 2,
+        shuffleAnswers: true,
         alignedOutcomeIds,
         publishState: "published",
         status: "generated",
@@ -2164,7 +2234,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
       });
     }
 
-    if (shouldIncludeFinalMilestone(mergedSettings, moduleNumber, moduleCount)) {
+    if (hasProjectMilestone) {
       const milestonePageId = id("page", `${moduleNumber}-final-project-milestone`);
       const milestoneLabel =
         mergedSettings.scaffoldPattern === "key-milestones"
@@ -2174,6 +2244,30 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
               ? "Draft and Readiness Checkpoint"
               : "Evidence and Design Checkpoint"
           : "Milestone Reminder";
+      const milestoneStage = milestoneLabel.startsWith("Project Proposal")
+        ? "proposal"
+        : milestoneLabel.startsWith("Draft")
+          ? "draft"
+          : milestoneLabel.startsWith("Evidence")
+            ? "evidence"
+            : "reminder";
+      const milestoneTime = milestoneStage === "proposal" ? "1-2 hours" : milestoneStage === "draft" ? "2-3 hours" : milestoneStage === "evidence" ? "about 2 hours" : "30-60 minutes";
+      const milestoneSteps =
+        milestoneStage === "proposal"
+          ? ["State the project focus, intended audience, and problem or question.", "Explain why this focus matters in the context of the course.", "Connect the proposal to at least one course outcome.", "List the first evidence, example, or source you will verify."]
+          : milestoneStage === "evidence"
+            ? ["Gather two or more credible sources, examples, data points, or artifacts.", "Record where each item came from and what claim it can support.", "Choose a structure, framework, outline, or prototype for the final product.", "Identify one evidence gap or design risk to resolve next."]
+            : milestoneStage === "draft"
+              ? ["Complete a full draft or working prototype.", "Use the final-project rubric as a self-check.", "Request feedback on one specific decision or weak section.", "Record a revision plan with the highest-impact changes first."]
+              : ["Connect the current module to one final-project requirement.", "Save one credible source, example, artifact, or design decision.", "Update your working outline, draft, or project notes.", "Name one question to resolve before final submission."];
+      const milestoneSubmission =
+        milestoneStage === "proposal"
+          ? "Keep a one-page proposal or equivalent planning artifact with the focus, audience, rationale, course-outcome connection, and first evidence lead."
+          : milestoneStage === "evidence"
+            ? "Keep an annotated evidence set plus an outline, storyboard, framework, or prototype that shows how the final work will be organized."
+            : milestoneStage === "draft"
+              ? "Keep the complete draft or prototype, rubric self-check, feedback notes, and a prioritized revision plan."
+              : "Keep the updated project artifact and one sentence naming the next action.";
       pages.push(
         makePage(
           milestonePageId,
@@ -2183,8 +2277,12 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
             `${moduleLabel} ${finalTitle} Milestone`,
             `Use this checkpoint to keep the ${finalTitle.toLowerCase()} moving before the final module.`,
             `<p style="margin: 0 0 14px;"><img src="${fileRef("project-milestone-badge.svg")}" alt="Project milestone badge" style="width: 86px; height: auto; display: inline-block;" /></p>
-${section("Milestone Task", checklistHtml(["Connect this module to your final work.", "Save one source, example, or design decision.", "Note one question to resolve before final submission."]), theme)}
-${section("What To Carry Forward", `<p>This checkpoint should leave you with one concrete artifact, decision, or question to revisit in the ${finalTitle} module.</p>`, theme)}`,
+${section("Purpose", `<p>Use this ${milestoneLabel.toLowerCase()} to turn the current module into visible progress on the ${finalTitle.toLowerCase()}.</p>`, theme)}
+${section("Estimated Time", `<p>Plan for <strong>${milestoneTime}</strong>. This is project-building time, not a separate major assignment.</p>`, theme)}
+${section("Steps", checklistHtml(milestoneSteps), theme)}
+${section("What To Keep or Submit", `<p>${milestoneSubmission}</p>`, theme)}
+${section("Success Check", checklistHtml(["The work is specific enough for useful feedback.", "Evidence or source details are recorded rather than remembered.", "The artifact clearly connects to a course outcome or final-project requirement.", "A next action is named before leaving the checkpoint."]), theme)}
+${section("What To Carry Forward", `<p>Bring this artifact, the feedback it receives, and the next action into the ${finalTitle} module.</p>`, theme)}`,
             theme
           ),
           moduleId,
@@ -2204,6 +2302,16 @@ ${section("What To Carry Forward", `<p>This checkpoint should leave you with one
       });
     }
 
+    const completionChecklist = [
+      "Reviewed the module overview, objectives, and due dates.",
+      "Completed the required readings and resources.",
+      "Studied the lecture and notes page.",
+      "Completed the low-stakes practice activity.",
+      ...(hasDiscussion ? ["Posted and replied in the module discussion."] : []),
+      ...(hasQuiz ? [`Completed the ${quizPurposeModel.titleWord.toLowerCase()} and reviewed feedback.`] : []),
+      ...(hasAssignment ? ["Submitted the applied assignment and checked the rubric."] : []),
+      ...(hasProjectMilestone ? [`Saved the ${finalTitle.toLowerCase()} checkpoint artifact and next action.`] : [])
+    ];
     const wrapPageId = id("page", `${moduleNumber}-${moduleTopic}-wrap-up`);
     pages.push(
       makePage(
@@ -2215,6 +2323,7 @@ ${section("What To Carry Forward", `<p>This checkpoint should leave you with one
           "Close the module by consolidating what changed in your thinking.",
           `${section("What You Covered", `<p>You explored ${moduleTopic.toLowerCase()} and practiced applying course concepts in context.</p>`, theme)}
 ${section("You Should Now Be Able To", listHtml(moduleObjectives), theme)}
+${section("Before You Continue", checklistHtml(completionChecklist), theme)}
 ${section("Reflection Questions", checklistHtml(["What concept feels most useful now?", "What question remains unresolved?", "How does this module connect to your final project or professional context?"]), theme)}
 ${callout("Coming Next", `<p>The next module extends this work into ${moduleTopics[index + 1] ?? finalTitle.toLowerCase()}.</p>`, theme)}
 ${section("Module Navigation", wrapNavBar(index), theme)}`,
@@ -2510,7 +2619,7 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     {
       id: "announcement_welcome",
       title: `Welcome to ${title}! 🚀`,
-      bodyHtml: buildWelcomeAnnouncementHtml(title, theme),
+      bodyHtml: buildWelcomeAnnouncementHtml(title, theme, mergedSettings.discussionFrequency !== "none"),
       publishState: "published",
       status: "generated",
       metadata: metadata(generatedAt)

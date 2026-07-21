@@ -47,6 +47,7 @@ const moduleHasPage = (course: CourseProject, moduleId: string, pattern: RegExp)
 export const buildCourseQualityReport = (course: CourseProject): CourseQualityReport => {
   const modules = contentModules(course);
   const readiness = buildReadinessReport(course);
+  const readinessPassed = (id: string): boolean => readiness.checks.find((readinessCheck) => readinessCheck.id === id)?.passed ?? false;
   const htmlBlocks = [
     ...course.pages.map((page) => ({ title: page.title, html: page.bodyHtml })),
     ...course.assignments.map((assignment) => ({ title: assignment.title, html: assignment.descriptionHtml })),
@@ -76,7 +77,8 @@ export const buildCourseQualityReport = (course: CourseProject): CourseQualityRe
 
   const accessibilityIssues = [
     ...htmlBlocks.filter((block) => hasUnsafeHtml(block.html)).map((block) => `${block.title} contains Canvas-hostile HTML.`),
-    ...course.resources.filter((resource) => /video|podcast/.test(resource.type) && !/caption|transcript/i.test(`${resource.instructorEditNote} ${resource.placeholder}`)).map((resource) => `${resource.title} needs caption or transcript guidance.`)
+    ...course.resources.filter((resource) => /video|podcast/.test(resource.type) && !/caption|transcript/i.test(`${resource.instructorEditNote} ${resource.placeholder}`)).map((resource) => `${resource.title} needs caption or transcript guidance.`),
+    ...(readinessPassed("resource-verification") ? [] : ["Structured resources need clearer purpose, student-use, time, or verification guidance."])
   ];
 
   const alignmentIssues = gradedItems.filter((entry) => entry.outcomes.length === 0).map((entry) => `${entry.title} is missing outcome alignment.`);
@@ -103,7 +105,8 @@ export const buildCourseQualityReport = (course: CourseProject): CourseQualityRe
   const assessmentIssues = [
     ...(varietyTypes.size < 3 ? ["Generated course should include at least three graded activity types when settings allow."] : []),
     ...course.quizzes.filter((quiz) => quiz.questions.length < Math.min(5, course.settings.quizQuestionsPerQuiz)).map((quiz) => `${quiz.title} has too few questions.`),
-    ...course.quizzes.filter((quiz) => quiz.questions.some((question) => !question.correctFeedback || !question.incorrectFeedback)).map((quiz) => `${quiz.title} has questions missing feedback.`)
+    ...course.quizzes.filter((quiz) => quiz.questions.some((question) => !question.correctFeedback || !question.incorrectFeedback)).map((quiz) => `${quiz.title} has questions missing feedback.`),
+    ...(readinessPassed("activity-density") ? [] : ["At least one module contains too many graded activities for a clear weekly path."])
   ];
   const instructorIssues = [
     ...(instructorModule?.publishState === "unpublished" ? [] : ["Instructor module must be unpublished."]),
@@ -120,6 +123,11 @@ export const buildCourseQualityReport = (course: CourseProject): CourseQualityRe
   const studentClarityIssues = [
     ...(course.pages.some((page) => page.slug === "course-success-guide") ? [] : ["Course Success Guide is missing."]),
     ...(calendarPage ? [] : ["Course Calendar and Workload Plan is missing."]),
+    ...(readinessPassed("homepage-module-directory") ? [] : ["Homepage is missing a complete linked module directory."]),
+    ...(readinessPassed("start-here-question-forum") ? [] : ["Start Here is missing an ungraded course questions forum."]),
+    ...(readinessPassed("module-completion-checklist") ? [] : ["One or more module recaps lack an activity-aware completion checklist."]),
+    ...(readinessPassed("content-heading-duplicates") ? [] : ["One or more content blocks repeat the same section heading."]),
+    ...(readinessPassed("content-length") ? [] : ["One or more content blocks are too long to scan comfortably in Canvas."]),
     ...course.assignments.filter((assignment) => !/Scenario|Deliverable Requirements|Submission Instructions/i.test(assignment.descriptionHtml)).map((assignment) => `${assignment.title} is missing student-facing assignment detail.`),
     ...course.discussions.filter((discussion) => !/Initial Post|Replies|Grading Criteria/i.test(discussion.promptHtml)).map((discussion) => `${discussion.title} is missing clear discussion expectations.`)
   ];
@@ -141,7 +149,8 @@ export const buildCourseQualityReport = (course: CourseProject): CourseQualityRe
     ...modules.filter((module) => !module.items.some((moduleItem) => /(Overview|About )/i.test(moduleItem.title))).map((module) => `${module.title} is missing an overview item.`),
     ...modules.filter((module) => !module.items.some((moduleItem) => /Readings and Resources/i.test(moduleItem.title))).map((module) => `${module.title} is missing a resource item.`),
     ...modules.filter((module) => !module.items.some((moduleItem) => /Practice Activity/i.test(moduleItem.title))).map((module) => `${module.title} is missing a practice item.`),
-    ...modules.filter((module) => !module.items.some((moduleItem) => /(Wrap|Recap|End of )/i.test(moduleItem.title))).map((module) => `${module.title} is missing a recap item.`)
+    ...modules.filter((module) => !module.items.some((moduleItem) => /(Wrap|Recap|End of )/i.test(moduleItem.title))).map((module) => `${module.title} is missing a recap item.`),
+    ...(readinessPassed("module-completion-checklist") ? [] : ["Module recap checklists do not consistently match the activities students completed."])
   ];
   const exportIssues = readiness.checks.filter((check) => !check.passed && check.severity === "required").map((check) => check.label);
 
