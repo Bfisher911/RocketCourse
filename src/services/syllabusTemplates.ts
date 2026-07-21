@@ -197,14 +197,14 @@ const gradingVisual = (content: SyllabusContent, theme: Theme): string => {
 const hero = (content: SyllabusContent, theme: Theme, title = "Course Syllabus"): string =>
   `<header style="margin: 0 0 20px; padding: 28px; background: ${theme.soft}; border: 1px solid #dbe4f0; border-radius: 12px;">
     <h1 style="margin: 0 0 10px; color: #111827; font-size: 34px;">${escHtml(title)}</h1>
-    <p style="margin: 0; color: #374151; font-size: 17px;">${escHtml(content.courseDescription)}</p>
+    <p style="margin: 0; color: #374151; font-size: 17px;">Course expectations, learning outcomes, schedule, grading, policies, and support.</p>
     <p style="margin: 16px 0 0;">${linkButton("Open print-friendly syllabus", PRINTABLE_HTML_HREF, theme)}${outlineButton("Download simple PDF copy", PRINTABLE_PDF_HREF, theme)}</p>
     ${syllabusSnapshot(content, theme)}
   </header>`;
 
 const coreSections = (content: SyllabusContent, theme: Theme): string => [
-  themedSection("Course Info Card and Course Description", `${paragraph(content.courseDescription)}${syllabusSnapshot(content, theme)}`, theme),
-  themedSection("Instructor Info Card: Instructor Contact and Availability", paragraph(content.instructorContactBlock), theme),
+  themedSection("Course Description", paragraph(content.courseDescription), theme),
+  themedSection("Instructor Contact and Availability", paragraph(content.instructorContactBlock), theme),
   themedSection("Course Learning Outcomes", list(content.learningOutcomes), theme),
   themedSection("Required and Optional Materials", list(content.requiredMaterials), theme),
   themedSection("Course Rhythm", `${paragraph(content.scheduleSummary)}${list(["Begin each module with the overview page.", "Use the weekly schedule and Canvas modules together.", "Check announcements and feedback before starting the next graded task.", "Ask for help early when timing, technology, or instructions become unclear."])}`, theme),
@@ -221,51 +221,41 @@ const coreSections = (content: SyllabusContent, theme: Theme): string => [
   themedSection("Workload and Contact Hours", paragraph(content.workloadContactHours), theme)
 ].join("");
 
-const reviewNotes = (content: SyllabusContent, theme: Theme): string =>
-  content.instructorReviewNotes.length
-    ? compactSection("Instructor Review Notes", `${paragraph("Before publishing, review these editable syllabus areas.")}${list(content.instructorReviewNotes)}`, theme)
-    : "";
-
-const standardUniversity = (content: SyllabusContent, theme: Theme): string => wrapper(`${hero(content, theme)}${coreSections(content, theme)}${reviewNotes(content, theme)}`);
+const standardUniversity = (content: SyllabusContent, theme: Theme): string => wrapper(`${hero(content, theme)}${coreSections(content, theme)}`);
 
 const onlineCourse = (content: SyllabusContent, theme: Theme): string =>
   wrapper(
     `${hero(content, theme, "Online Course Syllabus")}
     ${compactSection("How This Online Course Works", `${paragraph("Most course activity happens in Canvas. Plan to check announcements, modules, discussions, grades, and feedback several times each week.")}${list(["Begin each module with the overview page.", "Complete readings and media before discussion or quiz work.", "Use the calendar and workload plan to manage asynchronous pacing.", "Contact the instructor early when technology or workload becomes a barrier."])}`, theme)}
-    ${coreSections(content, theme)}
-    ${reviewNotes(content, theme)}`
+    ${coreSections(content, theme)}`
   );
 
 const hybridCourse = (content: SyllabusContent, theme: Theme): string =>
   wrapper(
     `${hero(content, theme, "Hybrid Course Syllabus")}
-    ${compactSection("Hybrid Meeting Rhythm", `${paragraph("This syllabus separates what happens in Canvas from what should happen during scheduled meetings. The instructor should update meeting days, room, attendance expectations, and lab or field requirements before publishing.")}${list(["Use Canvas modules for preparation, submission, feedback, and make-up guidance.", "Use scheduled meetings for practice, discussion, lab, fieldwork, or applied collaboration.", "Check Canvas after every meeting for follow-up notes and deadlines."])}`, theme)}
-    ${coreSections(content, theme)}
-    ${reviewNotes(content, theme)}`
+    ${compactSection("Hybrid Meeting Rhythm", `${paragraph("This syllabus separates what happens in Canvas from what happens during scheduled meetings. Check the Canvas Calendar and course announcements for current meeting details.")}${list(["Use Canvas modules for preparation, submission, feedback, and make-up guidance.", "Use scheduled meetings for practice, discussion, lab, fieldwork, or applied collaboration.", "Check Canvas after every meeting for follow-up notes and deadlines."])}`, theme)}
+    ${coreSections(content, theme)}`
   );
 
 const projectBased = (content: SyllabusContent, theme: Theme): string =>
   wrapper(
     `${hero(content, theme, "Project-Based Course Syllabus")}
     ${compactSection("Project Milestones", `${paragraph("Major assignments and weekly work build toward the final synthesis. Use the milestones below to keep the project moving.")}${list(content.assignmentOverview, true)}`, theme)}
-    ${coreSections(content, theme)}
-    ${reviewNotes(content, theme)}`
+    ${coreSections(content, theme)}`
   );
 
 const compressedTerm = (content: SyllabusContent, theme: Theme): string =>
   wrapper(
     `${hero(content, theme, "Compressed Term Syllabus")}
     ${compactSection("Compressed Course Pace", `${paragraph("This course moves quickly. Missing one module can affect the next several assignments, so students should plan work blocks early and communicate before deadlines.")}${list(["Check Canvas daily during the term.", "Start graded work before the deadline day.", "Use support resources as soon as a barrier appears.", "Ask the instructor how make-up work is handled in the compressed format."])}`, theme)}
-    ${coreSections(content, theme)}
-    ${reviewNotes(content, theme)}`
+    ${coreSections(content, theme)}`
   );
 
 const accreditationFriendly = (content: SyllabusContent, theme: Theme): string =>
   wrapper(
     `${hero(content, theme, "Accreditation-Friendly Syllabus")}
-    ${compactSection("Alignment Evidence", `${paragraph("This version foregrounds outcomes, assessment categories, contact-hour logic, and instructor review notes so the syllabus can support program review.")}${list(["Confirm outcomes match the official course record.", "Confirm grading categories match the approved assessment plan.", "Confirm contact-hour assumptions match local policy.", "Keep instructor review notes unpublished or remove them before student publication when appropriate."])}`, theme)}
-    ${coreSections(content, theme)}
-    ${reviewNotes(content, theme)}`
+    ${compactSection("Alignment Evidence", `${paragraph("This version foregrounds outcomes, assessment categories, and contact-hour logic so the syllabus can support program review.")}${list(["Course outcomes", "Assessment categories", "Contact-hour assumptions", "Module-to-assessment alignment"])}`, theme)}
+    ${coreSections(content, theme)}`
   );
 
 const RENDERERS: Record<string, (content: SyllabusContent, theme: Theme) => string> = {
@@ -437,10 +427,10 @@ export const defaultSyllabusContent = (context: SyllabusContext): SyllabusConten
       "Use Canvas help or campus technology support for login, file, browser, upload, or access issues.",
       "Ask course-content questions in the instructor-designated channel so answers can help the whole class when appropriate.",
       "Use library support for research, source access, citation help, and evaluating evidence.",
-      "Use tutoring, writing, advising, accessibility, counseling, or student success services before a small issue becomes urgent. The instructor should add local office names and links."
+      "Use tutoring, writing, advising, accessibility, counseling, or student success services before a small issue becomes urgent. Find current campus services through your institution's student support directory."
     ],
     instructorContactBlock:
-      "Instructor contact information, office hours, preferred contact method, and response-time expectations should be confirmed in Canvas before the course opens. Students should use the stated channel, include the course and assignment name when asking for help, and follow up early when a problem affects participation or deadlines.",
+      "Use the instructor contact details and office hours listed in Canvas. Include the course and assignment name when asking for help, and reach out early when a problem affects participation or deadlines.",
     workloadContactHours:
       context.contactHours.totalHours > 0
         ? `${context.contactHours.justification} Planned hours include ${context.contactHours.instructionalTime} instructional, ${context.contactHours.readingMediaTime} reading/media, ${context.contactHours.assignmentTime} assignment, ${context.contactHours.discussionTime} discussion, ${context.contactHours.quizStudyTime} quiz/study, and ${context.contactHours.finalProjectTime} final project hours.`
@@ -517,7 +507,7 @@ export const reviseSyllabusContent = (action: SyllabusReviseAction, content: Syl
         accessibilityAccommodations:
           "Students who need accommodations should contact the appropriate campus office and the instructor as early as possible. Course pages should use headings, descriptive links, alt text for images, captions or transcripts for media, readable files, and no color-only instructions.",
         technologyRequirements:
-          `${content.technologyRequirements} Instructor should verify that required tools are keyboard-accessible where possible and provide alternatives when a required technology creates an access barrier.`
+          `${content.technologyRequirements} If a required tool creates an accessibility barrier, contact the instructor or accessibility office for an alternative.`
       };
     case "grading-clarity":
       return {
@@ -534,7 +524,7 @@ export const reviseSyllabusContent = (action: SyllabusReviseAction, content: Syl
       return {
         ...content,
         aiUsePolicy:
-          "Instructor should add the official AI-use policy for this course. If AI tools are permitted, students must disclose meaningful AI assistance, verify facts and citations, protect private data, and remain responsible for the accuracy and originality of submitted work."
+          "Follow the AI-use directions shown on each assignment. When AI tools are permitted, disclose meaningful assistance, verify facts and citations, protect private data, and remain responsible for the accuracy and originality of submitted work."
       };
     case "support-resources":
       return {
@@ -558,13 +548,13 @@ export const reviseSyllabusContent = (action: SyllabusReviseAction, content: Syl
     case "accreditation-details":
       return {
         ...content,
-        workloadContactHours: `${content.workloadContactHours} Instructor should verify these assumptions against local credit-hour and contact-hour policy before publication.`,
+        workloadContactHours: content.workloadContactHours,
         instructorReviewNotes: dedupe([...content.instructorReviewNotes, "Confirm that outcomes, assessments, grading weights, and contact-hour language match official program or accreditation records."])
       };
     case "placeholder-notes":
       return {
         ...content,
-        requiredMaterials: content.requiredMaterials.map((item) => (/(instructor|add|required|placeholder)/i.test(item) ? item : `Instructor-editable placeholder: ${item}`)),
+        requiredMaterials: content.requiredMaterials,
         instructorReviewNotes: dedupe([...content.instructorReviewNotes, "Any section that depends on local policy, required materials, or support offices should remain clearly marked until verified."])
       };
     default:

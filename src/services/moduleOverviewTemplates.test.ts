@@ -39,12 +39,12 @@ describe("module overview presets", () => {
     [
       "Module Mission Briefing",
       "Big Question",
-      "Objectives Chips",
+      "Learning Objectives",
       "Estimated Time",
-      "Read-Watch-Do Path",
+      "Learning Path",
       "Module Map",
       "Key Terms",
-      "Before You Begin Checklist",
+      "Before You Begin",
       "Common Mistake to Avoid",
       "Wrap-Up Preview"
     ].forEach((label) => expect(html).toContain(label));

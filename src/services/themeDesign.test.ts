@@ -156,4 +156,13 @@ describe("theme design system", () => {
     expect(svg).toContain(theme.bannerLabel);
     expect(svg).not.toMatch(/<script|\son[a-z]+\s*=/i);
   });
+
+  it("keeps long course titles out of fixed-width SVG text while retaining accessible naming", () => {
+    const title = "Interstellar Logistics and Oort Cloud Settlement Patterns Across Multiple Jurisdictions";
+    const svg = buildBannerSvg(title, getTheme("deep-ocean"));
+
+    expect(svg).toContain(`<title id="bannerTitle">${title} course banner</title>`);
+    expect(svg).toContain(">Course home</text>");
+    expect(svg).not.toContain(`>${title}</text>`);
+  });
 });

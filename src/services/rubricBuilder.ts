@@ -71,7 +71,8 @@ const levelsFor = (points: number) => [
   { label: "Exemplary", points, description: "Complete, specific, polished, and strongly aligned to the task." },
   { label: "Proficient", points: Math.round(points * 0.75), description: "Mostly complete and accurate with minor gaps or unevenness." },
   { label: "Developing", points: Math.round(points * 0.45), description: "Partially complete, vague, or missing important expectations." },
-  { label: "Beginning", points: Math.round(points * 0.2), description: "Limited, incomplete, or not yet connected to the criteria." }
+  { label: "Beginning", points: Math.round(points * 0.2), description: "Limited, incomplete, or not yet connected to the criteria." },
+  { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
 ];
 
 export const getRubricUsage = (course: CourseProject, rubricId: string): RubricUsage => ({

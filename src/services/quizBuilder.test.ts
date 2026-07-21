@@ -9,6 +9,7 @@ import {
   deleteQuiz,
   duplicateQuiz,
   restoreQuiz,
+  normalizeQuizQuestionForCanvas,
   validateQuizPlan
 } from "./quizBuilder";
 import { sampleProject } from "./courseGenerator";
@@ -23,6 +24,23 @@ const targetModuleFor = (course: CourseProject, sourceModuleId: string) => {
 };
 
 describe("quiz builder", () => {
+  it("exports analytical short answers as manually graded essay responses", () => {
+    const normalized = normalizeQuizQuestionForCanvas({
+      id: "analysis_1",
+      type: "short_answer",
+      stem: "Explain how the evidence changes the recommended decision.",
+      correctAnswer: "A strong response identifies the pattern, explains its limitation, and uses evidence to justify a recommendation for the stakeholder.",
+      points: 4,
+      difficulty: "balanced",
+      alignedOutcomeIds: [],
+      moduleId: "module_1"
+    });
+
+    expect(normalized.type).toBe("essay");
+    expect(normalized.correctAnswer).toBeUndefined();
+    expect(normalized.instructorReviewRequired).toBe(true);
+  });
+
   it("generates safe question templates for Canvas-supported question types", () => {
     const course = clone(sampleProject);
     const quiz = course.quizzes[0];

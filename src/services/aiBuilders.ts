@@ -32,7 +32,7 @@ import { flattenHeadingsToParagraphs, sanitizeAiHtml } from "./htmlSafety";
 import { buildAssignmentTemplateHtml } from "./assignmentBuilder";
 import { buildDiscussionTemplateHtml } from "./discussionBuilder";
 import { buildPageTemplateHtml } from "./pageBuilder";
-import { buildQuizQuestionTemplate, normalizeTrueFalseAnswer, reconcileChoiceAnswer } from "./quizBuilder";
+import { buildQuizQuestionTemplate, normalizeQuizQuestionForCanvas, normalizeTrueFalseAnswer, reconcileChoiceAnswer } from "./quizBuilder";
 import { buildRubricFromTemplate } from "./rubricBuilder";
 import { defaultHomepageContent, homepageContextFromCourse } from "./homepageTemplates";
 import { defaultSyllabusContent, syllabusContextFromCourse } from "./syllabusTemplates";
@@ -202,7 +202,7 @@ const coerceQuestion = (raw: unknown, quiz: Quiz, course: CourseProject, index: 
     correctAnswer = matched;
   }
 
-  return {
+  return normalizeQuizQuestionForCanvas({
     id: `${quiz.id}_ai_${Date.now().toString(36)}_${index + 1}`,
     type,
     stem,
@@ -217,7 +217,7 @@ const coerceQuestion = (raw: unknown, quiz: Quiz, course: CourseProject, index: 
     // Zero/negative points are a blocking export error, so only accept positive values.
     points: typeof record.points === "number" && Number.isFinite(record.points) && record.points > 0 ? record.points : type === "essay" ? 6 : type === "short_answer" ? 4 : 2,
     instructorReviewRequired: type === "essay" || type === "short_answer" ? true : undefined
-  };
+  });
 };
 
 const fallbackQuestions = (course: CourseProject, quiz: Quiz): QuizQuestion[] =>
@@ -261,7 +261,8 @@ const defaultLevels = (): RubricCriterion["levels"] => [
   { label: "Exemplary", points: 4, description: "Exceeds expectations with clear, well-supported work." },
   { label: "Proficient", points: 3, description: "Meets expectations with minor gaps." },
   { label: "Developing", points: 2, description: "Partially meets expectations; key elements are thin." },
-  { label: "Beginning", points: 1, description: "Does not yet meet expectations." }
+  { label: "Beginning", points: 1, description: "Does not yet meet expectations." },
+  { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
 ];
 
 const coerceCriterion = (raw: unknown, rubricId: string, index: number): RubricCriterion | null => {
@@ -283,7 +284,12 @@ const coerceCriterion = (raw: unknown, rubricId: string, index: number): RubricC
     id: `${rubricId}_ai_${index + 1}`,
     title,
     description: toCleanString(record.description) ?? `Student work demonstrates ${title.toLowerCase()}.`,
-    levels: levels.length >= 2 ? levels : defaultLevels()
+    levels: (() => {
+      const usable = levels.length >= 2 ? levels : defaultLevels();
+      return usable.some((level) => level.points === 0)
+        ? usable
+        : [...usable, { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }];
+    })()
   };
 };
 
@@ -323,7 +329,7 @@ export const aiGenerateHomepageContent = (course: CourseProject, current: Homepa
           themeJson: { name: course.theme.name, accent: course.theme.accent }
         },
         outputContract:
-          'Return {"heroEyebrow": string, "heroHeading": string, "welcome": string, "purpose": string, "instructorNote": string, "pathItems": string[], "weeklyItems": string[]}. Every value must be PLAIN TEXT — no HTML tags, no markdown, no link syntax; these fields are rendered inside a styled template that escapes markup.'
+          'Return {"heroEyebrow": string, "heroHeading": string, "welcome": string, "purpose": string, "pathItems": string[], "weeklyItems": string[]}. Every value must be PLAIN TEXT — no HTML tags, no markdown, no link syntax, and no instructor notes or authoring metadata; these fields are rendered inside a styled template that escapes markup.'
       });
       // Plain-text coercion is load-bearing: these fields are HTML-escaped by the homepage
       // template, so any tag the model returns would render literally in Canvas.
@@ -333,7 +339,7 @@ export const aiGenerateHomepageContent = (course: CourseProject, current: Homepa
         heroHeading: toPlainText(json.heroHeading) ?? current.heroHeading,
         welcome: toPlainText(json.welcome) ?? current.welcome,
         purpose: toPlainText(json.purpose) ?? current.purpose,
-        instructorNote: toPlainText(json.instructorNote) ?? current.instructorNote,
+        instructorNote: current.instructorNote,
         pathItems: toPlainTextList(json.pathItems).length ? toPlainTextList(json.pathItems) : current.pathItems,
         weeklyItems: toPlainTextList(json.weeklyItems).length ? toPlainTextList(json.weeklyItems) : current.weeklyItems
       };
@@ -352,17 +358,17 @@ export const aiGenerateSyllabusContent = (course: CourseProject, current: Syllab
         courseId: course.id,
         context: { blueprintJson: buildBlueprintContext(course) },
         outputContract:
-          'Return {"courseDescription": string, "communicationExpectations": string, "lateWorkPolicy": string, "academicIntegrityPolicy": string, "aiUsePolicy": string, "learningOutcomes": string[], "requiredMaterials": string[]}. Every value must be PLAIN TEXT prose — no HTML tags, no markdown, no headings; these fields are rendered inside a styled syllabus template that escapes markup. courseDescription is 2-4 sentences, not a full syllabus.'
+          'Return {"courseDescription": string, "learningOutcomes": string[], "requiredMaterials": string[]}. Every value must be PLAIN TEXT prose — no HTML tags, no markdown, no headings, no institutional policy claims, and no instructor notes; these fields are rendered inside a styled syllabus template that escapes markup. courseDescription is 2-4 sentences, not a full syllabus.'
       });
       // Plain-text coercion is load-bearing: the syllabus template escapes these fields, so any
       // markup the model returns would render literally in Canvas.
       return {
         ...current,
         courseDescription: toPlainText(json.courseDescription) ?? current.courseDescription,
-        communicationExpectations: toPlainText(json.communicationExpectations) ?? current.communicationExpectations,
-        lateWorkPolicy: toPlainText(json.lateWorkPolicy) ?? current.lateWorkPolicy,
-        academicIntegrityPolicy: toPlainText(json.academicIntegrityPolicy) ?? current.academicIntegrityPolicy,
-        aiUsePolicy: toPlainText(json.aiUsePolicy) ?? current.aiUsePolicy,
+        communicationExpectations: current.communicationExpectations,
+        lateWorkPolicy: current.lateWorkPolicy,
+        academicIntegrityPolicy: current.academicIntegrityPolicy,
+        aiUsePolicy: current.aiUsePolicy,
         learningOutcomes: toPlainTextList(json.learningOutcomes).length ? toPlainTextList(json.learningOutcomes) : current.learningOutcomes,
         requiredMaterials: toPlainTextList(json.requiredMaterials).length ? toPlainTextList(json.requiredMaterials) : current.requiredMaterials
       };

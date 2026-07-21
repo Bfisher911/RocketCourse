@@ -144,6 +144,31 @@ export const flattenHeadingsToParagraphs = (html: string): string =>
     .replace(/<h[1-6]\b[^>]*>/gi, "<p><strong>")
     .replace(/<\/h[1-6]>/gi, "</strong></p>");
 
+const AUTHORING_NOTE_LABEL =
+  "(?:instructor (?:note|notes|edit note|review notes|facilitation tips?)|validation warnings?|model gaps?|rubric recommendations?|accessibility check)";
+
+// Keep authoring and model-review metadata in the RocketCourse editor, never in content students
+// receive. The patterns are deliberately label-based and conservative so legitimate prose that
+// happens to mention an instructor is left intact.
+export const stripStudentFacingAuthoringNotes = (html: string): string => {
+  const labelledBlock = new RegExp(
+    `<(?:p|li)\\b[^>]*>\\s*(?:<strong\\b[^>]*>)?\\s*${AUTHORING_NOTE_LABEL}\\s*:?\\s*(?:<\\/strong>)?[\\s\\S]*?<\\/(?:p|li)>`,
+    "gi"
+  );
+  const labelledSection = new RegExp(
+    `<section\\b[^>]*>[\\s\\S]*?<h[2-6]\\b[^>]*>\\s*${AUTHORING_NOTE_LABEL}\\s*<\\/h[2-6]>[\\s\\S]*?<\\/section>`,
+    "gi"
+  );
+  return html.replace(labelledSection, "").replace(labelledBlock, "");
+};
+
+// Canvas displays its own title above wiki pages, assignments, and discussions. Demoting body H1s
+// prevents duplicate page titles while preserving the document outline and all visible wording.
+export const prepareStudentFacingHtmlForCanvas = (html: string, canvasProvidesTitle = true): string => {
+  const clean = stripStudentFacingAuthoringNotes(html);
+  return canvasProvidesTitle ? clean.replace(/<(\/?)h1(\b[^>]*)>/gi, "<$1h2$2>") : clean;
+};
+
 // An href a Canvas import can actually resolve: absolute web/mail/tel links, in-page anchors,
 // Canvas substitution tokens ($CANVAS_OBJECT_REFERENCE$/…, $IMS-CC-FILEBASE$/…, plus their
 // URL-encoded forms), and package-relative web_resources/wiki_content paths the exporter emits.
@@ -164,8 +189,8 @@ export const stripUnresolvableHrefs = (html: string): string =>
 // (hallucinated relative paths, moustache tokens). The anchor text stays; only the dead href
 // attribute is removed. Apply to every AI builder that returns HTML.
 export const sanitizeAiHtml = (html: string): string =>
-  demoteExtraH1s(
+  stripStudentFacingAuthoringNotes(demoteExtraH1s(
     stripUnresolvableHrefs(
       sanitizeHtmlForPreview(html).replace(/\shref\s*=\s*(["'])\s*(?:#[^"']*)?\1/gi, "")
     )
-  );
+  ));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { headingOrderIssues, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, sanitizeAiHtml, sanitizeHtmlForPreview, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
+import { headingOrderIssues, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, prepareStudentFacingHtmlForCanvas, sanitizeAiHtml, sanitizeHtmlForPreview, stripStudentFacingAuthoringNotes, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
 import { hrefsFromHtml } from "./htmlSafety";
 
 describe("html safety (shared Canvas HTML safety)", () => {
@@ -60,6 +60,14 @@ describe("html safety (shared Canvas HTML safety)", () => {
     expect(clean).not.toMatch(/<style|<iframe|<form|<input|onclick=|javascript:|data:text\/html/i);
     expect(clean).toContain("Hi");
     expect(clean).toContain("ok");
+  });
+
+  it("removes authoring metadata from student content and demotes the duplicate Canvas H1", () => {
+    const html = '<h1>Assignment title</h1><p>Student directions.</p><p><strong>Instructor Notes:</strong> Replace this example.</p><section><h2>Validation Warnings</h2><p>Internal model gap.</p></section>';
+
+    expect(stripStudentFacingAuthoringNotes(html)).not.toMatch(/Instructor Notes|Validation Warnings|Internal model gap/i);
+    expect(prepareStudentFacingHtmlForCanvas(html)).toContain("<h2>Assignment title</h2>");
+    expect(prepareStudentFacingHtmlForCanvas(html)).toContain("Student directions");
   });
 
   it("flags malformed links without treating every relative Canvas link as bad", () => {

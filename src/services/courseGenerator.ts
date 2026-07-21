@@ -477,10 +477,12 @@ const releaseDateForModule = (settings: CourseSettings, moduleIndex: number): st
   return withTime(release, "08:00");
 };
 
-const readableDate = (iso: string | undefined): string => (iso ? new Date(iso).toISOString().slice(0, 10) : "Set by instructor");
+const readableDate = (iso: string | undefined): string => (iso ? new Date(iso).toISOString().slice(0, 10) : "See Canvas");
 
 const resourceTypeLabel = (type: CourseResource["type"]): string =>
-  type
+  type === "supplemental"
+    ? "Course-generated activity"
+    : type
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
@@ -524,8 +526,7 @@ const resourceCardsHtml = (resources: CourseResource[], theme: Theme): string =>
   <h2 style="margin: 0 0 8px; color: ${theme.accentDark}; font-size: 18px; font-weight: 800;">${resource.title}</h2>
   <p style="margin: 0 0 8px; color: #374151;"><strong>Why it matters:</strong> ${resource.whyItMatters}</p>
   <p style="margin: 0 0 8px; color: #374151;"><strong>Student instructions:</strong> ${resource.studentInstructions}</p>
-  <p style="margin: 0 0 8px; color: #374151;"><strong>Source brief:</strong> ${resource.placeholder}</p>
-  <p style="margin: 0; color: ${theme.accentDark}; font-size: 13px;"><strong>Instructor edit note:</strong> ${resource.instructorEditNote}</p>
+  <p style="margin: 0; color: #374151;"><strong>Course activity:</strong> ${resource.placeholder}</p>
 </div>`.trim();
     })
     .join("\n");
@@ -573,7 +574,7 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
         true,
         timestamp
       )
-    ];
+    ].map((resource) => ({ ...resource, publishState: "unpublished" as const }));
   }
   const evidenceChoices = listJoin(profile.evidenceTypes.slice(0, 4));
   const artifactChoices = listJoin(profile.artifacts.slice(0, 4));
@@ -582,7 +583,7 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
       id("resource", `${moduleId}-core-brief`),
       moduleId,
       `${moduleLabel} Core Brief: ${moduleTopic}`,
-      "textbook",
+      "supplemental",
       `Gives students an anchor explanation of how ${moduleTopic.toLowerCase()} functions inside ${courseTopic}.`,
       45,
       `Read the brief as a map for this module. Mark one concept, one example from ${courseTopic}, and one question you can use in discussion or applied work.`,
@@ -595,7 +596,7 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
       id("resource", `${moduleId}-evidence-dossier`),
       moduleId,
       `${moduleLabel} Evidence Dossier`,
-      "scholarly-article",
+      "supplemental",
       `Models how evidence supports claims about ${courseTopic.toLowerCase()} and ${moduleTopic.toLowerCase()}.`,
       35,
       `Identify one claim, one piece of evidence, and one limitation from the ${profile.caseLabel}. Use those notes in the discussion or assignment.`,
@@ -608,7 +609,7 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
       id("resource", `${moduleId}-example`),
       moduleId,
       `${moduleLabel} Applied Example`,
-      "video",
+      "supplemental",
       `Provides a concrete example students can connect to ${moduleTopic.toLowerCase()}.`,
       20,
       `Review the example and name the moment where ${moduleTopic.toLowerCase()} becomes visible. Prepare one observation for class discussion.`,
@@ -645,7 +646,8 @@ const makeRubric = (
       levels: [
         { label: "Exemplary", points: outcomeMax, description: "Clearly demonstrates the outcome with accurate course concepts, specific evidence, and focused reasoning." },
         { label: "Proficient", points: Math.max(1, Math.round(outcomeMax * 0.75)), description: "Demonstrates the outcome with mostly accurate concepts and relevant evidence." },
-        { label: "Developing", points: Math.max(1, Math.round(outcomeMax * 0.5)), description: "Partially demonstrates the outcome, but the connection to course evidence or reasoning is incomplete." }
+        { label: "Developing", points: Math.max(1, Math.round(outcomeMax * 0.5)), description: "Partially demonstrates the outcome, but the connection to course evidence or reasoning is incomplete." },
+        { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
       ]
     };
   });
@@ -659,7 +661,8 @@ const makeRubric = (
       levels: [
         { label: "Exemplary", points: evidenceMax, description: "Specific evidence supports thoughtful analysis and practical application." },
         { label: "Proficient", points: Math.max(1, Math.round(evidenceMax * 0.75)), description: "Evidence is relevant and mostly explained." },
-        { label: "Developing", points: Math.max(1, Math.round(evidenceMax * 0.5)), description: "Evidence is limited, generic, or underexplained." }
+        { label: "Developing", points: Math.max(1, Math.round(evidenceMax * 0.5)), description: "Evidence is limited, generic, or underexplained." },
+        { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
       ]
     },
     {
@@ -670,7 +673,8 @@ const makeRubric = (
       levels: [
         { label: "Exemplary", points: communicationMax, description: "Clear, polished, complete, and easy to navigate." },
         { label: "Proficient", points: Math.max(1, Math.round(communicationMax * 0.75)), description: "Generally clear with minor organization or editing issues." },
-        { label: "Developing", points: Math.max(1, Math.round(communicationMax * 0.5)), description: "Difficult to follow, incomplete, or missing accessible structure." }
+        { label: "Developing", points: Math.max(1, Math.round(communicationMax * 0.5)), description: "Difficult to follow, incomplete, or missing accessible structure." },
+        { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
       ]
     }
   ];
@@ -1056,7 +1060,6 @@ ${section("Sample Strong Reply", "<p><em>I see your point about [specific idea].
 ${section("Peer Response Starters", checklistHtml(["I want to build on your point about...", "The evidence that complicates this is...", "A different stakeholder might see this as...", "One assumption worth testing is...", "Your post made me reconsider..."]), theme)}
 ${section("Respectful Disagreement Guidance", "<p>Challenge ideas, evidence, assumptions, or implications rather than classmates. Represent the other view fairly and name what evidence would help resolve the disagreement.</p>", theme)}
 ${section("Optional Group Discussion Variant", "<p>For small groups, assign a facilitator, evidence tracker, connector, and summarizer. Post one synthesis that names the strongest idea, the unresolved question, and one next step.</p>", theme)}
-${section("Instructor Facilitation Tips", checklistHtml(["Look for posts that stay too general and ask for a concrete example.", "Invite students to connect claims back to the module outcomes.", "Use one strong student question as a bridge into the next module."]), theme)}
 ${callout("Grading Criteria", "<p>Strong posts use evidence, connect to course outcomes, respond substantively to peers, and move the conversation forward.</p>", theme)}`,
     theme
   );
@@ -1130,7 +1133,7 @@ ${section("First Steps", `<p>${buttonLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.syllab
 const scheduleTableHtml = (schedule: CourseScheduleEntry[]): string =>
   `<div style="overflow-x: auto;">
   <table style="width: 100%; border-collapse: collapse; min-width: 720px;">
-    <caption style="text-align: left; margin: 0 0 10px; font-weight: 700;">Generated module calendar, workload estimates, and instructor notes</caption>
+    <caption style="text-align: left; margin: 0 0 10px; font-weight: 700;">Course schedule and workload estimates</caption>
     <thead>
       <tr>
         <th scope="col" style="text-align: left; padding: 9px; border: 1px solid #dbe4f0; background: #f8fafc;">Item</th>
@@ -1138,7 +1141,6 @@ const scheduleTableHtml = (schedule: CourseScheduleEntry[]): string =>
         <th scope="col" style="text-align: left; padding: 9px; border: 1px solid #dbe4f0; background: #f8fafc;">Release</th>
         <th scope="col" style="text-align: left; padding: 9px; border: 1px solid #dbe4f0; background: #f8fafc;">Due</th>
         <th scope="col" style="text-align: left; padding: 9px; border: 1px solid #dbe4f0; background: #f8fafc;">Hours</th>
-        <th scope="col" style="text-align: left; padding: 9px; border: 1px solid #dbe4f0; background: #f8fafc;">Notes</th>
       </tr>
     </thead>
     <tbody>
@@ -1150,7 +1152,6 @@ const scheduleTableHtml = (schedule: CourseScheduleEntry[]): string =>
         <td style="vertical-align: top; padding: 9px; border: 1px solid #dbe4f0;">${escapeXml(readableDate(entry.releaseAt))}</td>
         <td style="vertical-align: top; padding: 9px; border: 1px solid #dbe4f0;">${escapeXml(readableDate(entry.dueAt))}</td>
         <td style="vertical-align: top; padding: 9px; border: 1px solid #dbe4f0;">${entry.workloadHours}</td>
-        <td style="vertical-align: top; padding: 9px; border: 1px solid #dbe4f0;">${escapeXml(entry.notes)}</td>
       </tr>`
         )
         .join("")}
@@ -1162,16 +1163,16 @@ const buildCourseCalendarHtml = (courseTitle: string, schedule: CourseScheduleEn
   const totalWorkload = schedule.reduce((sum, entry) => sum + entry.workloadHours, 0);
   const gradedItems = schedule.filter((entry) => ["assignment", "discussion", "quiz"].includes(entry.itemType));
   const generatedDateNote = settings.schedule.enableDueDates
-    ? `This calendar was generated from term start ${settings.schedule.termStartDate ?? "not set"} with preferred due day ${settings.schedule.preferredDueDay}. Faculty should still compare it against the official academic calendar before publishing.`
-    : "Due dates are intentionally marked Set by instructor. Faculty should add official dates in Canvas before publishing.";
+    ? `Dates are shown here for planning. Canvas Assignments and Calendar remain the authoritative source if a date changes.`
+    : "Dates will appear in Canvas when the instructor schedules them.";
 
   return canvasShell(
     "Course Calendar and Workload Plan",
     `Student-facing pacing guide for ${courseTitle}.`,
     `${section("How To Use This Calendar", checklistHtml(["Use release dates to know when to begin each module.", "Use due dates to plan graded discussions, quizzes, assignments, and the final project.", "Compare workload hours across the week before waiting until the deadline.", "Ask the instructor when Canvas calendar dates and this page disagree."]), theme)}
-${section("Calendar Status", `<p>${escapeXml(generatedDateNote)}</p>${checklistHtml([`${gradedItems.length} graded items are represented in the schedule.`, `${totalWorkload} estimated workload hours are distributed across modules, practice, graded work, and the final project.`, "Instructor should adjust dates around holidays, breaks, exam periods, local policy, and section-specific pacing."])}`, theme)}
+${section("Calendar Status", `<p>${escapeXml(generatedDateNote)}</p>${checklistHtml([`${gradedItems.length} graded items are represented in the schedule.`, `${totalWorkload} estimated workload hours are distributed across modules, practice, graded work, and the final project.`])}`, theme)}
 ${section("Schedule Table", scheduleTableHtml(schedule), theme)}
-${callout("Instructor Review Required", "<p>Before publishing, verify dates in Canvas Assignments, Discussions, Quizzes, Modules, and the Syllabus page. This generated page is a planning aid and should match the official Canvas calendar.</p>", theme)}`,
+${callout("Date changes", "<p>If this planning page and the Canvas Calendar disagree, follow the date shown on the graded Canvas item and ask your instructor for clarification.</p>", theme)}`,
     theme
   );
 };
@@ -1636,18 +1637,20 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
   // neighbours' overviews for Previous/Next navigation. Must mirror the overviewPageId
   // formula used inside the loop below.
   const contentOverviewPageId = (i: number): string => id("page", `${i + 1}-${baseTopics[i] ?? `Applied Topic ${i + 1}`}-overview`);
-  // A themed Previous/Next bar built from real Canvas wiki tokens. The first module steps back to
-  // the Course Success Guide; the last steps forward to the Modules index (which holds the Final
-  // Project module), so every module has working forward/backward navigation in the imported course.
-  const moduleNavBar = (index: number): string => {
+  const contentResourcesPageId = (i: number): string => id("page", `${i + 1}-${baseTopics[i] ?? `Applied Topic ${i + 1}`}-resources`);
+  // Overview pages continue into the current module instead of skipping to the next overview.
+  const overviewNavBar = (index: number): string => {
     const previous =
       index > 0
         ? secondaryLink(wikiPageRef(contentOverviewPageId(index - 1)), `Previous: ${organizationLabel(mergedSettings, index)}`, theme)
         : secondaryLink(wikiPageRef(studentGuideId), "Back to Course Success Guide", theme);
-    const next =
-      index < moduleCount - 1
-        ? buttonLink(wikiPageRef(contentOverviewPageId(index + 1)), `Next: ${organizationLabel(mergedSettings, index + 2)}`, theme)
-        : buttonLink(modulesIndexRef(), "Continue to Modules and Final Project", theme);
+    return `<p>${previous}${buttonLink(wikiPageRef(contentResourcesPageId(index)), "Continue: Readings and Resources", theme)}</p>`;
+  };
+  const wrapNavBar = (index: number): string => {
+    const previous = secondaryLink(wikiPageRef(contentOverviewPageId(index)), `Review ${organizationLabel(mergedSettings, index + 1)}`, theme);
+    const next = index < moduleCount - 1
+      ? buttonLink(wikiPageRef(contentOverviewPageId(index + 1)), `Next: ${organizationLabel(mergedSettings, index + 2)}`, theme)
+      : buttonLink(modulesIndexRef(), "Continue to Modules and Final Project", theme);
     return `<p>${previous}${next}</p>`;
   };
 
@@ -1698,9 +1701,8 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
     if (hasQuiz) glanceRows.push([quizPurposeModel.titleWord, "Quiz", readableDate(quizDueAt), "Graded"]);
     if (hasAssignment) glanceRows.push(["Applied Assignment", "Assignment", readableDate(assignmentDueAt), "Graded"]);
     glanceRows.push(["Wrap-Up &amp; Reflection", "Page", "-", "Recap"]);
-    // Per-module header image (opt-in via imageSettings.moduleHeaderImages). Mirrors the homepage
-    // banner pattern: an SVG written to web_resources + referenced with a Canvas file token. The SVG
-    // itself is generated at export time (imsccExport) from this same module number/title.
+    // Use live HTML as the visible header so Canvas can wrap long titles and cannot strip the design
+    // into a blank SVG box. The companion SVG remains packaged as an instructor handoff asset.
     let moduleHeaderImg = "";
     if (mergedSettings.imageSettings.moduleHeaderImages) {
       const headerFile = `module-${moduleNumber}-header.svg`;
@@ -1715,7 +1717,7 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
           "Per-module themed header banner (module-number monogram + motif + rotated accent)."
         )
       );
-      moduleHeaderImg = `<p style="margin: 0 0 18px;"><img src="${fileRef(headerFile)}" alt="${escapeXml(`${moduleLabel}: ${moduleTopic} header`)}" style="display: block; width: 100%; height: auto; border-radius: 14px;" /></p>`;
+      moduleHeaderImg = `<div style="margin: 0 0 18px; padding: 18px 22px; border-radius: 14px; background-color: ${theme.accentDark}; color: #ffffff;"><div style="font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">${escapeXml(moduleLabel)}</div><div style="margin-top: 4px; font-size: 24px; line-height: 1.25; font-weight: 800; overflow-wrap: anywhere;">${escapeXml(moduleTopic)}</div></div>`;
     }
     pages.push(
       makePage(
@@ -1734,7 +1736,7 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
           outcomeHtml: outcomeBadges(outcomes, alignedOutcomeIds, theme),
           glanceRows,
           learningPathSteps: patternModel.steps,
-          navigationHtml: moduleNavBar(index),
+          navigationHtml: overviewNavBar(index),
           structureApproach: structureModel.approach,
           nextTopic: baseTopics[index + 1] ?? finalTitle,
           weekBadgeFile: `week-${moduleNumber}-badge.svg`
@@ -1756,14 +1758,15 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
           isGenericTemplate(mergedSettings) ? "Use these instructor-editable resources to build the evidence base for this module." : `Use these generated source briefs to build an evidence base for ${moduleTopic.toLowerCase()} in ${topic}.`,
           `${section("How To Use These Resources", checklistHtml(isGenericTemplate(mergedSettings) ? ["Prioritize required resources first.", "Record one concept, one example, and one question from each required source.", "Treat generated citations and URLs as placeholders until an instructor replaces them with verified sources."] : [`Start with the core brief and identify the ${moduleProfile.artifactLabel} it asks you to examine.`, `Record one claim, one example, and one limitation related to ${topic}.`, `Use the evidence dossier to gather ${listJoin(moduleProfile.evidenceTypes.slice(0, 3))}.`, "If your instructor adds verified readings or media, use those sources as the authoritative version."]), theme)}
 ${section("Resource List", resourceCardsHtml(moduleResources, theme), theme)}
-${callout("Accessibility Check", "<p>Instructor should confirm that videos include captions or transcripts, files are readable by screen readers where possible, and links use descriptive text.</p>", theme)}`,
+${callout("Using added media", "<p>When your instructor adds readings or media, use the linked captions, transcripts, or accessible file versions when available.</p>", theme)}`,
           theme
         ),
         moduleId,
-        generatedAt
+        generatedAt,
+        { publishState: isGenericTemplate(mergedSettings) ? "unpublished" : "published" }
       )
     );
-    moduleItems.push(makeItem(id("item", resourcesPageId), "page", "Readings and Resources", resourcesPageId, moduleItems.length + 1, generatedAt));
+    moduleItems.push(makeItem(id("item", resourcesPageId), "page", "Readings and Resources", resourcesPageId, moduleItems.length + 1, generatedAt, isGenericTemplate(mergedSettings) ? "unpublished" : "published"));
     schedule.push({
       id: id("schedule", `${resourcesPageId}-work`),
       moduleId,
@@ -1991,7 +1994,7 @@ ${section("What To Carry Forward", `<p>This checkpoint should leave you with one
 ${section("You Should Now Be Able To", listHtml(moduleObjectives), theme)}
 ${section("Reflection Questions", checklistHtml(["What concept feels most useful now?", "What question remains unresolved?", "How does this module connect to your final project or professional context?"]), theme)}
 ${callout("Coming Next", `<p>The next module extends this work into ${baseTopics[index + 1] ?? finalTitle.toLowerCase()}.</p>`, theme)}
-${section("Module Navigation", moduleNavBar(index), theme)}`,
+${section("Module Navigation", wrapNavBar(index), theme)}`,
           theme
         ),
         moduleId,

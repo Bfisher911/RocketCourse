@@ -39,6 +39,29 @@ export const normalizeTrueFalseAnswer = (rawAnswer: string | undefined): "True" 
   return null;
 };
 
+const OPEN_RESPONSE_STEM = /^(?:in\s+\d|explain|analy[sz]e|evaluate|compare|contrast|discuss|describe\s+how|reflect|justify|defend|how\b|why\b)/i;
+
+// Canvas short answer is a one-line, auto-graded fill-in-the-blank. Analytical prompts with
+// paragraph-length keys need a manually graded response control instead.
+export const normalizeQuizQuestionForCanvas = (question: QuizQuestion): QuizQuestion => {
+  if (question.type === "true_false") {
+    return { ...question, choices: ["True", "False"], correctAnswer: normalizeTrueFalseAnswer(question.correctAnswer) ?? question.correctAnswer };
+  }
+  const answer = (question.correctAnswer ?? "").trim();
+  const longAnswerKey = answer.length > 80 || answer.split(/\s+/).filter(Boolean).length > 10;
+  if (question.type === "short_answer" && (OPEN_RESPONSE_STEM.test(stripHtml(question.stem).trim()) || longAnswerKey)) {
+    return {
+      ...question,
+      type: "essay",
+      choices: undefined,
+      correctAnswer: undefined,
+      instructorReviewRequired: true,
+      feedback: question.feedback || question.correctFeedback || "Use the grading guidance to evaluate evidence, reasoning, and clarity."
+    };
+  }
+  return question;
+};
+
 export type QuizTemplateId =
   | "concept-check"
   | "application-scenario"

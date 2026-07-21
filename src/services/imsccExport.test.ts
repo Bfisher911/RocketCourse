@@ -9,6 +9,7 @@ import { exportIdPrefix, namespaceCourseForExport } from "./exportIdentifiers";
 import { buildImsccZip, generateImsccBlob, validateImsccZip } from "./imsccExport";
 import { importCanvasCourseFromImscc } from "./imsccImport";
 import { buildReadinessReport } from "./readiness";
+import { prepareStudentFacingHtmlForCanvas } from "./htmlSafety";
 
 describe("RocketCourse export engine", () => {
   it("scores a generated course as ready with Canvas-specific checks", () => {
@@ -87,9 +88,10 @@ describe("RocketCourse export engine", () => {
     expect(calendarPage).toBeDefined();
     expect(calendarPage?.publishState).toBe("published");
     expect(calendarPage?.bodyHtml).toContain("Schedule Table");
-    expect(calendarPage?.bodyHtml).toContain("Generated module calendar");
+    expect(calendarPage?.bodyHtml).toContain("Course schedule and workload estimates");
     expect(calendarPage?.bodyHtml).toContain("<table");
-    expect(calendarPage?.bodyHtml).toContain("Set by instructor");
+    expect(calendarPage?.bodyHtml).toContain("See Canvas");
+    expect(calendarPage?.bodyHtml).not.toContain("Instructor Review Required");
     expect(start?.items.some((item) => item.refId === calendarPage?.id && item.title === "Course Calendar and Workload Plan")).toBe(true);
     expect(homepage?.bodyHtml).toContain(CALENDAR_HREF);
     expect(syllabus?.bodyHtml).toContain(CALENDAR_HREF);
@@ -104,12 +106,12 @@ describe("RocketCourse export engine", () => {
       expect(page.bodyHtml).toContain("Module Navigation");
       expect(page.bodyHtml).toContain("$WIKI_REFERENCE$/pages/");
     });
-    // First content module steps back to the Course Success Guide; the last steps forward to Modules.
+    // Every overview continues into its own module instead of skipping straight to the next week.
     expect(overviews[0].bodyHtml).toContain("Back to Course Success Guide");
-    expect(overviews[overviews.length - 1].bodyHtml).toContain("Continue to Modules and Final Project");
+    overviews.forEach((page) => expect(page.bodyHtml).toContain("Continue: Readings and Resources"));
     if (overviews.length >= 3) {
       expect(overviews[1].bodyHtml).toContain("Previous:");
-      expect(overviews[1].bodyHtml).toContain("Next:");
+      expect(overviews[1].bodyHtml).not.toContain("Next: Week 3");
     }
   });
 
@@ -119,6 +121,7 @@ describe("RocketCourse export engine", () => {
       expect(resource.placeholder).toMatch(/Generated source brief|Generated evidence dossier|Generated media or example prompt/i);
       expect(resource.instructorEditNote).toMatch(/Optional|replace|verified|captioned|institution-approved/i);
       expect(resource.studentInstructions.length).toBeGreaterThan(40);
+      expect(resource.type).toBe("supplemental");
     });
   });
 
@@ -328,6 +331,8 @@ describe("RocketCourse export engine", () => {
     expect(courseSettingsXml).toContain(
       '<tab_configuration>[{"id":0},{"id":14},{"id":1},{"id":10},{"id":5},{"id":6},{"id":3,"hidden":true},{"id":8,"hidden":true},{"id":4,"hidden":true},{"id":2,"hidden":true},{"id":11,"hidden":true},{"id":15,"hidden":true},{"id":17,"hidden":true},{"id":16,"hidden":true},{"id":12,"hidden":true},{"id":13,"hidden":true}]</tab_configuration>'
     );
+    expect(courseSettingsXml).toContain("<show_announcements_on_home_page>false</show_announcements_on_home_page>");
+    expect(courseSettingsXml).toContain("<home_page_announcement_limit>1</home_page_announcement_limit>");
     ["Home", "Announcements", "Syllabus", "Modules", "Grades", "People"].forEach((label) => {
       expect(navigationXml).toContain(`<label>${label}</label>`);
       expect(navigationXml).toContain("<hidden>false</hidden>");
@@ -352,6 +357,7 @@ describe("RocketCourse export engine", () => {
     expect(rubricsXml).toContain("<rating_order>descending</rating_order>");
     expect(rubricsXml).toContain("<learning_outcome_identifierref>");
     expect(rubricsXml).toContain("Outcome criterion:");
+    expect(rubricsXml).toContain("<description>Not yet demonstrated</description>");
     expect(report.files).toContain(`${prefix}quiz_1/assessment_qti.xml`);
     expect(report.files).toContain(`${prefix}quiz_1/assessment_meta.xml`);
     expect(report.files).toContain(`non_cc_assessments/${prefix}quiz_1.xml.qti`);
@@ -363,7 +369,9 @@ describe("RocketCourse export engine", () => {
     expect(syllabusHtml).not.toContain("$IMS-CC-FILEBASE$/syllabus-printable");
     // The exported body carries namespaced ids inside Canvas link tokens, so compare against
     // the same deterministic transform of the source page.
-    expect(syllabusHtml).toContain(namespaceCourseForExport(sampleProject).pages.find((page) => page.slug === "syllabus")?.bodyHtml);
+    const namespacedSyllabus = namespaceCourseForExport(sampleProject).pages.find((page) => page.slug === "syllabus")?.bodyHtml ?? "";
+    expect(syllabusHtml).toContain(prepareStudentFacingHtmlForCanvas(namespacedSyllabus));
+    expect(syllabusHtml).not.toContain("<h1");
     expect(printableHtml).toContain("<title>Printable Syllabus</title>");
     expect(printableHtml).toContain(sampleProject.title);
     expect(report.sandboxImportStatus).toBe("not_tested");

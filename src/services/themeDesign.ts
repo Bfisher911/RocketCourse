@@ -351,7 +351,8 @@ const motifBannerArt = (motif: ThemeMotif): string => {
 
 // A themed 1440×360 banner SVG: gradient + pattern + motif illustration with a white title card. Used
 // verbatim by the .imscc export (web_resources/course-banner.svg) and, as a data URI, by the in-app
-// homepage preview, so the two never diverge. Title text sits on a white card, readable for any theme.
+// homepage preview, so the two never diverge. The course title stays in live HTML on the homepage;
+// the SVG uses a short, fixed label so long titles can never overflow a rasterized Canvas banner.
 export const buildBannerSvg = (title: string, theme: Theme): string => {
   const styles = getThemeStyles(theme);
   const pattern = svgBannerPattern(styles.pattern);
@@ -374,8 +375,8 @@ export const buildBannerSvg = (title: string, theme: Theme): string => {
   <rect width="1440" height="360" fill="url(#bannerBg)"/>
   ${background}
   ${seededBannerDecor(title, styles.onGradient)}
-  <rect x="96" y="92" width="640" height="176" rx="18" fill="#ffffff" opacity="0.94"/>
-  <text x="132" y="166" font-family="${styles.font}" font-size="44" font-weight="700" fill="#111827">${escapeXml(title)}</text>
+  <rect x="96" y="92" width="520" height="176" rx="18" fill="#ffffff" opacity="0.94"/>
+  <text x="132" y="166" font-family="${styles.font}" font-size="40" font-weight="700" fill="#111827">Course home</text>
   <text x="132" y="214" font-family="${styles.font}" font-size="24" fill="#374151">${escapeXml(theme.bannerLabel)}</text>
 </svg>`;
 };
@@ -518,11 +519,11 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
   // (NOT a CSS background) so Canvas keeps it.
   if (styles.heroScene) {
     const textShadow = styles.onGradient === "#ffffff" ? "0 1px 14px rgba(0,0,0,0.5)" : "0 1px 14px rgba(255,255,255,0.55)";
-    return wrap(`<div style="position: relative; overflow: hidden; margin: 0 0 24px; border-radius: 18px; box-shadow: ${SHADOW_MD}; min-height: 220px;">
+    return wrap(`<div style="position: relative; overflow: hidden; margin: 0 0 24px; border-radius: 18px; box-shadow: ${SHADOW_MD}; min-height: 220px; background-color: ${styles.gradientTo}; color: ${styles.onGradient};">
     ${buildHeroSceneSvg(styles.heroScene, styles)}
     <div style="position: relative; padding: 52px 40px;">
       ${eyebrow}
-      <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 40px; line-height: 1.12; font-weight: 900; max-width: 62%; text-shadow: ${textShadow};">${escHtml(title)}</h1>
+      <h1 style="margin: 0 0 12px; color: ${styles.onGradient}; font-size: 40px; line-height: 1.12; font-weight: 900; max-width: 100%; overflow-wrap: anywhere; text-shadow: ${textShadow};">${escHtml(title)}</h1>
       <div style="width: 70px; height: 4px; border-radius: 3px; background: ${underline}; margin: 0 0 14px;"></div>
       <p style="margin: 0; color: ${styles.onGradient}; opacity: 0.97; font-size: 17px; max-width: 50ch; text-shadow: ${textShadow};">${escHtml(subtitle)}</p>
     </div>
@@ -962,7 +963,7 @@ export const buildThemedStatBand = (
   if (!stats.length) return "";
   const tiles = stats
     .map(
-      (stat) => `<div style="display: inline-block; vertical-align: top; box-sizing: border-box; width: 24%; min-width: 150px; margin: 0 1% 12px 0; padding: 18px 16px; text-align: center; background: linear-gradient(135deg, ${styles.soft} 0%, ${withAlpha(styles.accent, 0.08)} 100%); border: 1px solid ${withAlpha(styles.accent, 0.28)}; border-radius: ${RADIUS.card}px; font-size: 15px;">
+      (stat) => `<div style="display: inline-block; vertical-align: top; box-sizing: border-box; width: 48%; min-width: 180px; margin: 0 2% 12px 0; padding: 18px 16px; text-align: center; background-color: ${styles.soft}; background-image: linear-gradient(135deg, ${styles.soft} 0%, ${withAlpha(styles.accent, 0.08)} 100%); border: 1px solid ${withAlpha(styles.accent, 0.28)}; border-radius: ${RADIUS.card}px; font-size: 15px;">
     <div style="font-size: 30px; font-weight: 900; color: ${styles.accentDark}; line-height: 1.1; font-family: ${styles.font};">${escHtml(stat.value)}</div>
     <div style="margin: 4px 0 0; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: ${styles.accent};">${escHtml(stat.label)}</div>
     ${stat.sub ? `<div style="margin: 3px 0 0; font-size: 12px; color: #64748b;">${escHtml(stat.sub)}</div>` : ""}

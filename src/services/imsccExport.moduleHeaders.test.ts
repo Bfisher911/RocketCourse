@@ -31,8 +31,9 @@ describe("per-module header images (imageSettings.moduleHeaderImages)", () => {
       expect(svg, `module-${n}-header.svg is an svg`).toContain("<svg");
       expect(svg).toContain(`>${n}<`); // the module-number monogram
     }
-    // Overview pages reference the header file via the Canvas file token.
-    expect(course.pages.some((page) => page.bodyHtml.includes("module-1-header.svg"))).toBe(true);
+    // Overview pages use a live HTML header so Canvas can wrap titles and cannot strip it blank.
+    expect(course.pages.some((page) => page.bodyHtml.includes("Foundations and Course Orientation") && page.bodyHtml.includes("background-color"))).toBe(true);
+    expect(course.pages.some((page) => page.bodyHtml.includes("module-1-header.svg"))).toBe(false);
     // Registered as a manifest file asset — exactly one per content module, no extras.
     expect(course.fileAssets.some((asset) => asset.path === `web_resources/module-1-header.svg`)).toBe(true);
     expect(course.fileAssets.filter((asset) => /web_resources\/module-\d+-header\.svg/.test(asset.path))).toHaveLength(contentNumbers.length);

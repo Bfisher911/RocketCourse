@@ -407,15 +407,15 @@ export const renderModuleOverviewHtml = (context: ModuleOverviewRenderContext): 
     `${badge}
 ${overviewCallout(theme, "Module Mission Briefing", `${paragraph(copy.mission)}${paragraph(context.structureApproach)}`)}
 ${overviewNote(theme, "tip", "Big Question", paragraph(copy.bigQuestion))}
-${buildThemedCard(theme, "Objectives Chips", objectiveChips)}
+${buildThemedCard(theme, "Learning Objectives", objectiveChips)}
 ${buildThemedCard(theme, "Estimated Time", timeHtml)}
-${buildThemedCard(theme, "Read-Watch-Do Path", pathCards)}
+${buildThemedCard(theme, "Learning Path", pathCards)}
 ${buildThemedCard(theme, "Module Map", moduleMap)}
 ${buildThemedCard(theme, "Key Terms", keyTerms)}
 ${buildThemedCard(theme, "This Module at a Glance", buildThemedTable(theme, "Everything in this module and when it is due", ["Activity", "Type", "Due", "Counts toward grade"], glanceRows))}
-${buildThemedCard(theme, "Before You Begin Checklist", checklist(copy.beforeBegin))}
+${buildThemedCard(theme, "Before You Begin", checklist(copy.beforeBegin))}
 ${overviewNote(theme, "misconception", "Common Mistake to Avoid", paragraph(copy.commonMistake))}
-${buildThemedCard(theme, "Student Action Steps", buildThemedSteps(theme, learningSteps))}
+${buildThemedCard(theme, "Next Steps", buildThemedSteps(theme, learningSteps))}
 ${buildThemedTimeline(theme, [
       { label: "Begin", body: "Read this overview and gather materials." },
       { label: "Build", body: "Work through resources, lesson notes, practice, and interaction." },

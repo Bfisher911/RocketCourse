@@ -16,12 +16,12 @@ import type {
   Rubric
 } from "../types";
 import { escapeXml, slugify, stripHtml } from "../utils/text";
-import { headingOrderIssues, imageTagsMissingAltCount, malformedLinksFromHtml, unsafeHtmlReasons } from "./htmlSafety";
+import { headingOrderIssues, imageTagsMissingAltCount, malformedLinksFromHtml, prepareStudentFacingHtmlForCanvas, unsafeHtmlReasons } from "./htmlSafety";
 import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
 import { validatePagePlan } from "./pageBuilder";
-import { validateQuizPlan } from "./quizBuilder";
+import { normalizeQuizQuestionForCanvas, validateQuizPlan } from "./quizBuilder";
 import { validateRubricPlan } from "./rubricBuilder";
 import { buildReadinessReport } from "./readiness";
 import { repairCourse } from "./courseRepair";
@@ -94,7 +94,7 @@ ${bodyHtml}
 </html>`;
 
 const wrappedWikiPage = (page: CoursePage): string =>
-  wrappedHtmlDocument(page.title, page.bodyHtml, {
+  wrappedHtmlDocument(page.title, prepareStudentFacingHtmlForCanvas(page.bodyHtml, !page.frontPage), {
     identifier: page.id,
     editing_roles: "teachers",
     notify_of_update: "false",
@@ -175,8 +175,8 @@ const createCourseSettingsXml = (course: CourseProject): string => `<?xml versio
   <allow_student_discussion_topics>false</allow_student_discussion_topics>
   <allow_student_forum_attachments>true</allow_student_forum_attachments>
   <show_total_grade_as_points>false</show_total_grade_as_points>
-  <show_announcements_on_home_page>true</show_announcements_on_home_page>
-  <home_page_announcement_limit>3</home_page_announcement_limit>
+  <show_announcements_on_home_page>false</show_announcements_on_home_page>
+  <home_page_announcement_limit>1</home_page_announcement_limit>
   <course_color>${xml(course.theme.accent)}</course_color>
   <tab_configuration>${canvasTabConfiguration(course)}</tab_configuration>
 </course>`;
@@ -229,7 +229,7 @@ const createAssignmentXml = (assignment: Assignment): string => `<?xml version="
 const createDiscussionXml = (discussion: Discussion): string => `<?xml version="1.0" encoding="UTF-8"?>
 <topic xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imsdt_v1p1" xmlns:xsi="${XSI}" xsi:schemaLocation="http://www.imsglobal.org/xsd/imsccv1p1/imsdt_v1p1 http://www.imsglobal.org/profile/cc/ccv1p1/ccv1p1_imsdt_v1p1.xsd">
   <title>${xml(discussion.title)}</title>
-  <text texttype="text/html">${xml(discussion.promptHtml)}</text>
+  <text texttype="text/html">${xml(prepareStudentFacingHtmlForCanvas(discussion.promptHtml))}</text>
 </topic>`;
 
 const createDiscussionMetaXml = (discussion: Discussion): string => `<?xml version="1.0" encoding="UTF-8"?>
@@ -282,6 +282,11 @@ const createAnnouncementMetaXml = (announcement: Announcement): string => `<?xml
   <position>1</position>
 </topicMeta>`;
 
+const rubricLevelsForExport = (criterion: Rubric["criteria"][number]): Rubric["criteria"][number]["levels"] =>
+  criterion.levels.some((level) => level.points === 0)
+    ? criterion.levels
+    : [...criterion.levels, { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }];
+
 const createRubricsXml = (rubrics: Rubric[]): string => `<?xml version="1.0" encoding="UTF-8"?>
 <rubrics ${canvasSchemaAttrs}>
 ${rubrics
@@ -312,12 +317,12 @@ ${rubric.criteria
       if (criterion.outcomeId) alignedOutcomeSeen.add(criterion.outcomeId);
       return `      <criterion>
         <criterion_id>${xml(criterion.id)}</criterion_id>
-        <points>${Math.max(...criterion.levels.map((level) => level.points))}</points>
+        <points>${Math.max(...rubricLevelsForExport(criterion).map((level) => level.points))}</points>
         <description>${xml(criterion.title)}</description>
         <long_description>${xml(criterion.description)}</long_description>
         ${emitOutcomeRef ? `<learning_outcome_identifierref>${xml(criterion.outcomeId)}</learning_outcome_identifierref>` : ""}
         <ratings>
-${criterion.levels
+${rubricLevelsForExport(criterion)
   .map(
     (level) => `          <rating>
             <description>${xml(level.label)}</description>
@@ -598,7 +603,7 @@ const createAssessmentQtiXml = (quiz: Quiz, canvasFlavor: boolean): string => `<
       <qtimetadatafield><fieldlabel>aligned_outcome_identifierrefs</fieldlabel><fieldentry>${xml(quiz.alignedOutcomeIds.join(","))}</fieldentry></qtimetadatafield>
     </qtimetadata>
     <section ident="root_section">
-${quiz.questions.map((question) => createQtiItem(question, canvasFlavor)).join("\n")}
+${quiz.questions.map((question) => createQtiItem(normalizeQuizQuestionForCanvas(question), canvasFlavor)).join("\n")}
     </section>
   </assessment>
 </questestinterop>`;
@@ -781,7 +786,7 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   zip.file("course_settings/course_navigation.xml", createCourseNavigationXml(course));
   zip.file("course_settings/context.xml", createContextInfoXml(course));
   zip.file("course_settings/canvas_export.txt", createCanvasExportFlag());
-  zip.file("course_settings/syllabus.html", wrappedHtmlDocument("Syllabus", syllabusPage?.bodyHtml ?? ""));
+  zip.file("course_settings/syllabus.html", wrappedHtmlDocument("Syllabus", prepareStudentFacingHtmlForCanvas(syllabusPage?.bodyHtml ?? "")));
   zip.file("web_resources/course-banner.svg", createBannerSvg(course));
   zip.file("web_resources/course-tile.svg", createCourseTileSvg(course));
   const activeHomepageBanner = activeImageForPlacement(course, "homepage-banner");
@@ -840,7 +845,7 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   });
 
   course.assignments.forEach((assignment) => {
-    zip.file(assignmentPath(assignment), wrappedHtmlDocument(`Assignment: ${assignment.title}`, assignment.descriptionHtml));
+    zip.file(assignmentPath(assignment), wrappedHtmlDocument(`Assignment: ${assignment.title}`, prepareStudentFacingHtmlForCanvas(assignment.descriptionHtml)));
     zip.file(assignmentSettingsPath(assignment), createAssignmentXml(assignment));
   });
 

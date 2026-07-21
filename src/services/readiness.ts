@@ -341,8 +341,8 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     (page) =>
       hasAny(page.html, [/Module Mission Briefing/i]) &&
       hasAny(page.html, [/Big Question/i]) &&
-      hasAny(page.html, [/Objectives Chips|Module Learning Objectives/i]) &&
-      hasAny(page.html, [/Read-Watch-Do Path|Student Action Steps/i]) &&
+      hasAny(page.html, [/Learning Objectives|Module Learning Objectives/i]) &&
+      hasAny(page.html, [/Learning Path|Next Steps/i]) &&
       hasAny(page.html, [/Module Map/i]) &&
       hasAny(page.html, [/Before You Begin Checklist/i])
   );
@@ -418,7 +418,7 @@ export const buildReadinessReport = (course: CourseProject): ReadinessReport => 
     check("visual-homepage-structure", "Homepage has strong visual structure", homepageVisualReady, homepage ? "Homepage includes Start Here, navigation, journey/support cues, and multiple sections." : "No homepage found.", "recommended"),
     check("visual-start-here-guidance", "Start Here guidance exists", startHereMissing.length === 0 && supportInfoPresent, startHereMissing.length ? `Start Here is missing: ${startHereMissing.join(", ")}.` : "Start Here and support/help guidance are present.", "recommended"),
     check("visual-module-overviews", "Each module has a polished overview page", overviewPagesComplete && overviewRichPages.length === contentModules.length, overviewPagesComplete ? `${overviewRichPages.length}/${contentModules.length} content module overview page(s) include mission, question, objectives, path, map, and checklist.` : `${contentModules.length - overviewPagesByModule.size} content module(s) are missing overview pages.`, "recommended"),
-    check("visual-module-action-steps", "Module overview pages include objectives and student action steps", overviewRichPages.length === contentModules.length, overviewRichPages.length === contentModules.length ? "Overview pages include objectives and student action steps." : `${contentModules.length - overviewRichPages.length} overview page(s) need objectives, Read-Watch-Do, or action steps.`, "recommended"),
+    check("visual-module-action-steps", "Module overview pages include objectives and student action steps", overviewRichPages.length === contentModules.length, overviewRichPages.length === contentModules.length ? "Overview pages include objectives and student action steps." : `${contentModules.length - overviewRichPages.length} overview page(s) need objectives, a learning path, or next steps.`, "recommended"),
     check("visual-assignment-launchpads", "Assignments include deliverable checklists", assignmentLaunchpads.length === course.assignments.length, `${assignmentLaunchpads.length}/${course.assignments.length} assignment(s) include deliverable, success, and rubric guidance.`, "recommended"),
     check("visual-discussion-guidance", "Discussions include reply guidance", discussionGuidance.length === course.discussions.length, `${discussionGuidance.length}/${course.discussions.length} discussion(s) include reply guidance and conversation moves.`, "recommended"),
     check("visual-syllabus-sections", "Syllabus includes visual grading and communication sections", syllabusVisualReady, syllabusVisualReady ? "Syllabus includes grading, communication, technology, and accessibility sections." : "Syllabus needs grading, communication, technology, or accessibility sections.", "recommended"),
