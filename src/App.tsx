@@ -1106,6 +1106,7 @@ function App() {
           readiness={readiness}
           quality={quality}
           subscriptionActive={exportAllowed}
+          imageSubscriptionActive={subscriptionActive}
           validationReport={validationReport}
           isExporting={isExporting}
           draggedModuleId={draggedModuleId}
@@ -2731,6 +2732,7 @@ function Editor({
   readiness,
   quality,
   subscriptionActive,
+  imageSubscriptionActive,
   validationReport,
   isExporting,
   draggedModuleId,
@@ -2778,6 +2780,7 @@ function Editor({
   readiness: ReturnType<typeof buildReadinessReport>;
   quality: ReturnType<typeof buildCourseQualityReport>;
   subscriptionActive: boolean;
+  imageSubscriptionActive: boolean;
   validationReport: ExportValidationReport | null;
   isExporting: boolean;
   draggedModuleId: string | null;
@@ -3054,7 +3057,7 @@ function Editor({
         </div>
         <div className="tab-body">
           {activeTab === "Overview" && <OverviewTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Imagery" && <ImageryTab course={course} onUpdateCourse={onUpdateCourse} subscriptionActive={subscriptionActive} />}
+          {activeTab === "Imagery" && <ImageryTab course={course} onUpdateCourse={onUpdateCourse} subscriptionActive={imageSubscriptionActive} />}
           {activeTab === "Homepage" && <HomepageTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Syllabus" && <SyllabusTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Modules" && (
