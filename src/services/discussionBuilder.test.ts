@@ -118,6 +118,46 @@ describe("discussion builder", () => {
     );
   });
 
+  it("does not require evidence or outcome alignment for the ungraded course-questions forum", () => {
+    const course = clone(sampleProject);
+    const discussion = course.discussions.find((item) => item.id === "discussion_ask_course_questions");
+
+    expect(discussion).toBeDefined();
+    expect(discussion?.points).toBe(0);
+    expect(discussion?.alignedOutcomeIds).toEqual([]);
+
+    const issueIds = validateDiscussionPlan(course).issues
+      .filter((issue) => issue.discussionId === discussion?.id)
+      .map((issue) => issue.id);
+
+    expect(issueIds).not.toContain(`${discussion?.id}-evidence`);
+    expect(issueIds).not.toContain(`${discussion?.id}-outcomes`);
+  });
+
+  it("still evaluates learning-focused ungraded discussions for evidence and outcomes", () => {
+    const course = clone(sampleProject);
+    const discussion = course.discussions.find((item) => item.id !== "discussion_ask_course_questions") ?? course.discussions[0];
+    course.discussions = course.discussions.map((item) =>
+      item.id === discussion.id
+        ? {
+            ...item,
+            title: "Concept Reflection",
+            points: 0,
+            alignedOutcomeIds: [],
+            promptHtml:
+              "<h2>Prompt</h2><p>Reflect on this module and share what changed in your understanding.</p><h2>Initial Post</h2><p>State your response in 200 words.</p><h2>Replies</h2><p>Reply to two classmates with a thoughtful question.</p>"
+          }
+        : item
+    );
+
+    const issueIds = validateDiscussionPlan(course).issues
+      .filter((issue) => issue.discussionId === discussion.id)
+      .map((issue) => issue.id);
+
+    expect(issueIds).toContain(`${discussion.id}-evidence`);
+    expect(issueIds).toContain(`${discussion.id}-outcomes`);
+  });
+
   it("exports discussions and fails validation for unsafe discussion HTML", async () => {
     const course = createDiscussion(clone(sampleProject), {
       templateId: "student-led-seminar",

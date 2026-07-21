@@ -311,18 +311,21 @@ export const validateDiscussionPlan = (course: CourseProject): DiscussionPlanVal
 
   course.discussions.forEach((discussion) => {
     const text = stripHtml(discussion.promptHtml);
+    const isUngradedSupportForum =
+      discussion.points === 0 &&
+      (discussion.id === "discussion_ask_course_questions" || /(?:ask|course)\s+.*questions?|questions?\s+.*(?:course|help|support)/i.test(discussion.title));
     const matchingItems = discussionItems.filter(({ item }) => item.refId === discussion.id);
     if (!discussion.title.trim()) add(discussion, "title", "error", "Title missing", "Canvas discussions need a clear student-facing title.");
     if (text.length < 220) add(discussion, "prompt-detail", "warning", "Prompt is thin", "Add purpose, prompt, evidence, initial post, replies, quality criteria, and accessibility guidance.");
     if (!/(choose|analyze|explain|compare|respond|reply|identify|recommend|reflect|debate|share|post)/i.test(text)) add(discussion, "specific-work", "warning", "Specific task unclear", "Ask students to do specific work with a clear action beyond a broad reaction.");
     if (!/(initial post|first post|post .*words|write .*words|share your|state your)/i.test(text)) add(discussion, "initial-post", "warning", "Initial post expectations unclear", "Clarify what students should post first.");
     if (!/(reply|replies|respond to|classmate|peer)/i.test(text)) add(discussion, "replies", "warning", "Reply expectations unclear", "Clarify how many peer replies are expected and what makes them substantive.");
-    if (!/(evidence|source|reading|case|example|data|module concept|course concept)/i.test(text)) add(discussion, "evidence", "warning", "Evidence requirement unclear", "Ask students to use evidence, a course concept, a case, or a concrete example.");
+    if (!isUngradedSupportForum && !/(evidence|source|reading|case|example|data|module concept|course concept)/i.test(text)) add(discussion, "evidence", "warning", "Evidence requirement unclear", "Ask students to use evidence, a course concept, a case, or a concrete example.");
     if (!Number.isFinite(discussion.points) || discussion.points < 0) add(discussion, "points", "error", "Points invalid", "Use zero for ungraded discussions or a positive point value for graded discussions.");
     if (discussion.points > 0 && !groupIds.has(discussion.assignmentGroupId)) add(discussion, "group", "error", "Assignment group missing", "Graded discussions need a valid gradebook group.");
     if (!moduleIds.has(discussion.moduleId)) add(discussion, "module", "error", "Module missing", "Choose a module that exists in the course sequence.");
     if (discussion.points > 0 && course.rubrics.length > 0 && (!discussion.rubricId || !rubricIds.has(discussion.rubricId))) add(discussion, "rubric", "warning", "Rubric not attached", "Attach a rubric or confirm this graded discussion should be reviewed without one.");
-    if (discussion.alignedOutcomeIds.length === 0 || discussion.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId))) add(discussion, "outcomes", "warning", "Outcomes not aligned", "Select at least one valid outcome so discussion alignment is visible.");
+    if (!isUngradedSupportForum && (discussion.alignedOutcomeIds.length === 0 || discussion.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId)))) add(discussion, "outcomes", "warning", "Outcomes not aligned", "Select at least one valid outcome so discussion alignment is visible.");
     const unsafeDetail = unsafeHtmlDetail(discussion.promptHtml, "discussion");
     if (unsafeDetail) add(discussion, "unsafe-html", "error", "Unsafe HTML", unsafeDetail);
     const weakLinks = anchorTextsFrom(discussion.promptHtml).filter((textValue) => /^(click here|here|link|read more|more)$/i.test(textValue));
