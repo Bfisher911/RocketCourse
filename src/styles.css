@@ -12112,6 +12112,29 @@ p {
 .template-gallery-head { margin: 0 0 16px; }
 .template-gallery-head h2 { margin: 6px 0 4px; }
 .template-gallery-head p { margin: 0; color: var(--muted); max-width: 84ch; }
+.template-gallery-tools {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.template-search-field { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+.template-search-field input { width: 100%; min-width: 0; }
+.template-category-filters { display: flex; flex-wrap: wrap; gap: 7px; }
+.template-category-filters button {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+.template-category-filters button:hover,
+.template-category-filters button.active { border-color: var(--accent); color: var(--ink); background: var(--surface); }
+.template-result-count { align-self: center; white-space: nowrap; color: var(--muted); font-size: 12px; font-weight: 700; }
 .template-gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr));
@@ -12153,11 +12176,38 @@ p {
 .template-card-swatches { display: inline-flex; gap: 5px; flex: none; }
 .template-card-swatches i { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.6); }
 .template-card-body { padding: 12px 14px 4px; min-width: 0; flex: 1 1 auto; }
+.template-card-category {
+  display: inline-block;
+  margin: 0 0 7px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .template-card-body strong { display: block; font-size: 15px; margin: 0 0 4px; color: var(--ink, #e8ecff); overflow-wrap: anywhere; }
 .template-card-body p { margin: 0 0 8px; font-size: 13px; color: var(--muted); line-height: 1.5; }
 .template-card-bestfor { font-size: 12px; color: var(--muted); font-weight: 600; }
 .template-card-actions { padding: 10px 14px 14px; }
 .template-card-actions button { width: 100%; justify-content: center; }
+.template-gallery-empty {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 22px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+.template-gallery-empty strong { color: var(--ink); }
+@media (max-width: 920px) {
+  .template-gallery-tools { grid-template-columns: 1fr; align-items: stretch; }
+  .template-result-count { justify-self: start; }
+}
 
 /* --- Editor layout hardening --- */
 /* Form grids now fit the ACTUAL editor-panel width (2 cols when the column is narrow, 1 when tight)

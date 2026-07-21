@@ -5,17 +5,46 @@ import { validateTheme } from "../services/themeDesign";
 import { HOMEPAGE_TEMPLATES } from "../services/homepageTemplates";
 import { SYLLABUS_TEMPLATES } from "../services/syllabusTemplates";
 import { applyVisualTemplate, sampleProject } from "../services/courseGenerator";
+import { buildReadinessReport } from "../services/readiness";
 
 const homepageIds = new Set(HOMEPAGE_TEMPLATES.map((template) => template.id));
 const syllabusIds = new Set(SYLLABUS_TEMPLATES.map((template) => template.id));
+const requestedCreativeTemplateIds = [
+  "cyberpunk-neon",
+  "pulp-adventure",
+  "noir-case-file",
+  "pixel-arcade",
+  "high-fantasy",
+  "deep-space-scifi",
+  "anime-academy",
+  "manga-panel",
+  "watercolor-wash",
+  "renaissance-fresco",
+  "electric-eighties",
+  "radical-nineties",
+  "digital-y2k",
+  "mod-sixties",
+  "atomic-fifties",
+  "roaring-twenties",
+  "whimsical-storybook"
+];
 
 describe("visual templates", () => {
   it("ships at least 12 distinct templates", () => {
-    expect(visualTemplates.length).toBeGreaterThanOrEqual(12);
+    expect(visualTemplates.length).toBeGreaterThanOrEqual(45);
     const ids = new Set(visualTemplates.map((template) => template.id));
     expect(ids.size).toBe(visualTemplates.length);
     const themeIds = new Set(visualTemplates.map((template) => template.theme.id));
     expect(themeIds.size).toBe(visualTemplates.length);
+  });
+
+  it("includes the requested genre, art-style, and period course looks", () => {
+    const ids = new Set(visualTemplates.map((template) => template.id));
+    requestedCreativeTemplateIds.forEach((id) => expect(ids.has(id), id).toBe(true));
+
+    visualTemplates
+      .filter((template) => requestedCreativeTemplateIds.includes(template.id))
+      .forEach((template) => expect(template.category, template.name).toMatch(/^(Genre|Art style|Era|Mood)$/));
   });
 
   it("every template theme passes WCAG contrast validation", () => {
@@ -67,5 +96,18 @@ describe("visual templates", () => {
     expect(homepage?.bodyHtml).toContain("0891b2");
     // A generated module page's gradient hero carries the template's gradient stop.
     expect(themed.pages.some((page) => page.bodyHtml.includes("0e7490"))).toBe(true);
+  });
+
+  it("creative templates preserve the sample course readiness baseline", () => {
+    const baselineFailures = new Set(buildReadinessReport(sampleProject).checks.filter((check) => !check.passed).map((check) => check.id));
+    const creativeTemplates = visualTemplates.filter((template) => template.category && template.category !== "Core");
+
+    creativeTemplates.forEach((template) => {
+      const themed = applyVisualTemplate(sampleProject, template);
+      const introducedFailures = buildReadinessReport(themed).checks
+        .filter((check) => !check.passed && !baselineFailures.has(check.id))
+        .map((check) => check.id);
+      expect(introducedFailures, template.name).toEqual([]);
+    });
   });
 });

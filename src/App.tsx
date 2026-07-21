@@ -148,7 +148,8 @@ import type {
   Rubric,
   Screen,
   SourceFile,
-  Theme
+  Theme,
+  VisualTemplateCategory
 } from "./types";
 
 const progressSteps = [
@@ -3760,6 +3761,8 @@ function ThemeTab({
 }) {
   const [previewKind, setPreviewKind] = useState<ThemePreviewKind>("homepage");
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
+  const [templateQuery, setTemplateQuery] = useState("");
+  const [templateCategory, setTemplateCategory] = useState<VisualTemplateCategory | "All">("All");
   const libraryThemes = useMemo(() => [...customThemes, ...themes], [customThemes]);
   const validation = useMemo(() => validateTheme(course.theme), [course.theme]);
   const colorblind = useMemo(() => colorblindSafetyReport(course.theme), [course.theme]);
@@ -3777,6 +3780,16 @@ function ThemeTab({
     course.homepage && course.homepage.mode === "builder" && course.homepage.themeId !== course.theme.id ? "Homepage" : null,
     course.syllabus && course.syllabus.mode === "builder" && course.syllabus.themeId !== course.theme.id ? "Syllabus" : null
   ].filter((value): value is string => Boolean(value));
+  const templateCategories: Array<VisualTemplateCategory | "All"> = ["All", "Core", "Genre", "Art style", "Era", "Mood"];
+  const visibleTemplates = useMemo(() => {
+    const query = templateQuery.trim().toLowerCase();
+    return visualTemplates.filter((template) => {
+      const category = template.category ?? "Core";
+      const matchesCategory = templateCategory === "All" || category === templateCategory;
+      const searchable = `${template.name} ${template.shortName} ${template.description} ${template.bestFor} ${category}`.toLowerCase();
+      return matchesCategory && (!query || searchable.includes(query));
+    });
+  }, [templateCategory, templateQuery]);
 
   const chooseTheme = (theme: Theme): void => {
     setRefreshNotice(null);
@@ -3837,8 +3850,33 @@ function ThemeTab({
             <p>Each template bundles a palette, gradient hero, decorative motif, typography, and section-card style, plus matching homepage and syllabus layouts. Apply any look to any course; you can still fine-tune colors below.</p>
           </div>
         </header>
+        <div className="template-gallery-tools">
+          <label className="template-search-field">
+            <span>Find a course look</span>
+            <input
+              type="search"
+              value={templateQuery}
+              onChange={(event) => setTemplateQuery(event.target.value)}
+              placeholder="Try cyberpunk, watercolor, 1980s…"
+            />
+          </label>
+          <div className="template-category-filters" role="group" aria-label="Filter visual templates by category">
+            {templateCategories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={templateCategory === category ? "active" : ""}
+                aria-pressed={templateCategory === category}
+                onClick={() => setTemplateCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+          <span className="template-result-count" aria-live="polite">{visibleTemplates.length} look{visibleTemplates.length === 1 ? "" : "s"}</span>
+        </div>
         <div className="template-gallery-grid">
-          {visualTemplates.map((template) => {
+          {visibleTemplates.map((template) => {
             const ts = getThemeStyles(template.theme);
             const isActive = activeTemplateId === template.id;
             return (
@@ -3856,6 +3894,7 @@ function ThemeTab({
                   </span>
                 </div>
                 <div className="template-card-body">
+                  <span className="template-card-category">{template.category ?? "Core"}</span>
                   <strong style={{ fontFamily: ts.font }}>{template.name}</strong>
                   <p>{template.description}</p>
                   <span className="template-card-bestfor">Best for: {template.bestFor}</span>
@@ -3873,6 +3912,13 @@ function ThemeTab({
               </article>
             );
           })}
+          {visibleTemplates.length === 0 && (
+            <div className="template-gallery-empty" role="status">
+              <strong>No matching course looks</strong>
+              <span>Try a broader search or choose All.</span>
+              <button type="button" className="secondary" onClick={() => { setTemplateQuery(""); setTemplateCategory("All"); }}>Clear filters</button>
+            </div>
+          )}
         </div>
       </section>
 

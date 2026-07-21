@@ -344,12 +344,16 @@ export interface Theme {
 // A cohesive, named visual template a user can apply to ANY course. It bundles a curated theme
 // (palette + gradient + pattern + motif + typography + hero/card personality) with matching
 // homepage and syllabus layout templates, so applying one preset restyles the whole course.
+export type VisualTemplateCategory = "Core" | "Genre" | "Art style" | "Era" | "Mood";
+
 export interface VisualTemplate {
   id: string;
   name: string;
   shortName: string;
   description: string;
   bestFor: string;
+  /** Optional for legacy presets; uncategorized templates appear in the Core group. */
+  category?: VisualTemplateCategory;
   /** The curated, export-safe theme this template applies (drives banner, hero, cards, palette). */
   theme: Theme;
   /** Homepage layout template id (see HOMEPAGE_TEMPLATES). */

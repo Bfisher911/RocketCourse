@@ -18,7 +18,7 @@ import type { Theme, VisualTemplate } from "../types";
 
 const theme = (t: Theme): Theme => t;
 
-export const visualTemplates: VisualTemplate[] = [
+const coreVisualTemplates: VisualTemplate[] = [
   {
     id: "cognitive-lab",
     name: "Cognitive Lab",
@@ -704,6 +704,667 @@ export const visualTemplates: VisualTemplate[] = [
     })
   }
 ];
+
+const creativeTemplate = (
+  meta: Omit<VisualTemplate, "theme">,
+  palette: Omit<Theme, "id" | "name" | "bannerLabel" | "contrastStatus">
+): VisualTemplate => ({
+  ...meta,
+  theme: theme({
+    ...palette,
+    id: `vt-${meta.id}`,
+    name: meta.name,
+    bannerLabel: meta.shortName,
+    contrastStatus: "pass"
+  })
+});
+
+// Genre, art-direction, and period looks use the same Canvas-safe rendering pipeline as the core
+// library. They intentionally combine existing SVG motifs, pure-CSS textures, system font stacks,
+// and proven layout treatments so the personality survives both preview and IMSCC export without
+// external fonts, scripts, or fragile image dependencies.
+const creativeVisualTemplates: VisualTemplate[] = [
+  creativeTemplate(
+    {
+      id: "cyberpunk-neon",
+      name: "Cyberpunk Neon District",
+      shortName: "Cyberpunk",
+      category: "Genre",
+      description: "Electric cyan and hot-magenta circuitry with a nocturnal console hero and luminous gradient-edge cards.",
+      bestFor: "Technology, media studies, game design, and future-facing courses",
+      homepageTemplateId: "command-center",
+      syllabusTemplateId: "online-course"
+    },
+    {
+      accent: "#0e7490",
+      accentDark: "#164e63",
+      soft: "#ecfeff",
+      contrastText: "#083344",
+      gradientFrom: "#111827",
+      gradientTo: "#701a75",
+      pattern: "grid",
+      motif: "circuit",
+      fontFamily: "mono",
+      heroStyle: "console",
+      cardStyle: "gradient-edge",
+      heroScene: "tech",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "pulp-adventure",
+      name: "Pulp Adventure Serial",
+      shortName: "Pulp Adventure",
+      category: "Genre",
+      description: "Sun-baked ochre, crimson ink, and map-like texture create the energy of a serialized expedition tale.",
+      bestFor: "History, geography, archaeology, field study, and narrative learning",
+      homepageTemplateId: "field-guide",
+      syllabusTemplateId: "compressed-term"
+    },
+    {
+      accent: "#b45309",
+      accentDark: "#7c2d12",
+      soft: "#fffbeb",
+      contrastText: "#78350f",
+      gradientFrom: "#9a3412",
+      gradientTo: "#422006",
+      pattern: "topographic",
+      motif: "timeline",
+      fontFamily: "serif",
+      heroStyle: "ticket",
+      cardStyle: "notch",
+      heroScene: "mountains",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "noir-case-file",
+      name: "Noir Case File",
+      shortName: "Noir",
+      category: "Genre",
+      description: "Charcoal, silver, and restrained crimson frame the course like a sharply organized investigative dossier.",
+      bestFor: "Criminal justice, film, journalism, ethics, and case-based seminars",
+      homepageTemplateId: "classic-course-welcome",
+      syllabusTemplateId: "standard-university"
+    },
+    {
+      accent: "#475569",
+      accentDark: "#1e293b",
+      soft: "#f8fafc",
+      contrastText: "#1e293b",
+      gradientFrom: "#020617",
+      gradientTo: "#3f3f46",
+      pattern: "crosshatch",
+      motif: "blueprint",
+      fontFamily: "serif",
+      heroStyle: "editorial",
+      cardStyle: "index-card",
+      heroScene: "city",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "pixel-arcade",
+      name: "Pixel Arcade",
+      shortName: "Pixel Graphics",
+      category: "Art style",
+      description: "Cobalt, emerald, and block-grid details give modules a crisp retro-game interface without sacrificing readability.",
+      bestFor: "Game development, coding, digital media, and playful technical courses",
+      homepageTemplateId: "command-center",
+      syllabusTemplateId: "online-course"
+    },
+    {
+      accent: "#1d4ed8",
+      accentDark: "#1e3a8a",
+      soft: "#eff6ff",
+      contrastText: "#172554",
+      gradientFrom: "#172554",
+      gradientTo: "#064e3b",
+      pattern: "graphpaper",
+      motif: "terminal",
+      fontFamily: "mono",
+      heroStyle: "console",
+      cardStyle: "gradient-edge",
+      heroScene: "tech",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "high-fantasy",
+      name: "High Fantasy Realms",
+      shortName: "Fantasy",
+      category: "Genre",
+      description: "Jewel-toned violet and forest green pair with an illustrated realm motif and elevated quest-card structure.",
+      bestFor: "Literature, mythology, creative writing, role-play, and story-driven courses",
+      homepageTemplateId: "journey-map",
+      syllabusTemplateId: "standard-university"
+    },
+    {
+      accent: "#6d28d9",
+      accentDark: "#4c1d95",
+      soft: "#f5f3ff",
+      contrastText: "#2e1065",
+      gradientFrom: "#312e81",
+      gradientTo: "#14532d",
+      pattern: "isometric",
+      motif: "botanical",
+      fontFamily: "serif",
+      heroStyle: "stage",
+      cardStyle: "elevated",
+      heroScene: "mountains",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "deep-space-scifi",
+      name: "Deep Space Science Fiction",
+      shortName: "Sci-Fi",
+      category: "Genre",
+      description: "Midnight indigo, orbital geometry, and starfield details create a cinematic but academically grounded future.",
+      bestFor: "Astronomy, speculative fiction, engineering, futures, and systems thinking",
+      homepageTemplateId: "command-center",
+      syllabusTemplateId: "online-course"
+    },
+    {
+      accent: "#4338ca",
+      accentDark: "#312e81",
+      soft: "#eef2ff",
+      contrastText: "#1e1b4b",
+      gradientFrom: "#0f172a",
+      gradientTo: "#312e81",
+      pattern: "dots",
+      motif: "cosmic",
+      fontFamily: "sans",
+      heroStyle: "stage",
+      cardStyle: "gradient-edge",
+      heroScene: "cosmos",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "anime-academy",
+      name: "Anime Academy",
+      shortName: "Anime",
+      category: "Art style",
+      description: "Sky blue, sakura pink, energetic diagonals, and rounded cards create a bright animated-campus atmosphere.",
+      bestFor: "Language, culture, media, storytelling, and youth-focused learning",
+      homepageTemplateId: "visual-magazine",
+      syllabusTemplateId: "online-course"
+    },
+    {
+      accent: "#0369a1",
+      accentDark: "#075985",
+      soft: "#fdf2f8",
+      contrastText: "#164e63",
+      gradientFrom: "#075985",
+      gradientTo: "#9d174d",
+      pattern: "diagonal",
+      motif: "globe",
+      fontFamily: "rounded",
+      heroStyle: "spotlight",
+      cardStyle: "soft-fill",
+      heroScene: "city",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "manga-panel",
+      name: "Manga Panel",
+      shortName: "Manga",
+      category: "Art style",
+      description: "Ink-black structure, paper white space, halftone rhythm, and panel-like cards echo graphic storytelling.",
+      bestFor: "Sequential art, visual narrative, literature, and media analysis",
+      homepageTemplateId: "visual-magazine",
+      syllabusTemplateId: "standard-university"
+    },
+    {
+      accent: "#334155",
+      accentDark: "#0f172a",
+      soft: "#f8fafc",
+      contrastText: "#0f172a",
+      gradientFrom: "#18181b",
+      gradientTo: "#52525b",
+      pattern: "halftone",
+      motif: "manuscript",
+      fontFamily: "sans",
+      heroStyle: "split",
+      cardStyle: "outline",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "watercolor-wash",
+      name: "Watercolor Wash",
+      shortName: "Watercolor",
+      category: "Art style",
+      description: "Layered ocean blue and botanical green soften the interface into a calm, airy studio notebook.",
+      bestFor: "Art, wellness, ecology, reflective practice, and creative seminars",
+      homepageTemplateId: "field-guide",
+      syllabusTemplateId: "hybrid-course"
+    },
+    {
+      accent: "#0f766e",
+      accentDark: "#115e59",
+      soft: "#f0fdfa",
+      contrastText: "#134e4a",
+      gradientFrom: "#155e75",
+      gradientTo: "#4d7c0f",
+      pattern: "topographic",
+      motif: "botanical",
+      fontFamily: "serif",
+      heroStyle: "spotlight",
+      cardStyle: "soft-fill",
+      heroScene: "mountains",
+      intensity: "clean"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "renaissance-fresco",
+      name: "Renaissance Fresco",
+      shortName: "Fresco",
+      category: "Art style",
+      description: "Terracotta, lapis, and parchment tones evoke painted plaster, classical proportion, and gallery labels.",
+      bestFor: "Art history, classics, architecture, theology, and humanities",
+      homepageTemplateId: "classic-course-welcome",
+      syllabusTemplateId: "accreditation-friendly"
+    },
+    {
+      accent: "#9a3412",
+      accentDark: "#7c2d12",
+      soft: "#fffbeb",
+      contrastText: "#78350f",
+      gradientFrom: "#7c2d12",
+      gradientTo: "#1e3a8a",
+      pattern: "crosshatch",
+      motif: "manuscript",
+      fontFamily: "serif",
+      heroStyle: "medallion",
+      cardStyle: "matted",
+      heroScene: "manuscript",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "electric-eighties",
+      name: "Electric Eighties",
+      shortName: "1980s",
+      category: "Era",
+      description: "Neon violet, arcade cyan, sharp grids, and bold stage cards channel an energetic 1980s learning lab.",
+      bestFor: "Pop culture, music, technology history, media, and high-energy courses",
+      homepageTemplateId: "visual-magazine",
+      syllabusTemplateId: "compressed-term"
+    },
+    {
+      accent: "#6d28d9",
+      accentDark: "#4c1d95",
+      soft: "#f5f3ff",
+      contrastText: "#2e1065",
+      gradientFrom: "#1e1b4b",
+      gradientTo: "#9d174d",
+      pattern: "grid",
+      motif: "circuit",
+      fontFamily: "rounded",
+      heroStyle: "stage",
+      cardStyle: "gradient-edge",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "radical-nineties",
+      name: "Radical Nineties",
+      shortName: "1990s",
+      category: "Era",
+      description: "Deep teal, plum, halftone texture, and punchy ticket cards balance grunge energy with clear hierarchy.",
+      bestFor: "Culture, communication, design history, music, and creative electives",
+      homepageTemplateId: "studio-course",
+      syllabusTemplateId: "hybrid-course"
+    },
+    {
+      accent: "#0f766e",
+      accentDark: "#115e59",
+      soft: "#f0fdfa",
+      contrastText: "#134e4a",
+      gradientFrom: "#134e4a",
+      gradientTo: "#701a75",
+      pattern: "halftone",
+      motif: "timeline",
+      fontFamily: "sans",
+      heroStyle: "ticket",
+      cardStyle: "notch",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "digital-y2k",
+      name: "Digital Y2K",
+      shortName: "2000s",
+      category: "Era",
+      description: "Glossy cobalt, aqua circuitry, and compact console details recall the optimistic digital design of the 2000s.",
+      bestFor: "Digital culture, web history, communication, technology, and media",
+      homepageTemplateId: "command-center",
+      syllabusTemplateId: "online-course"
+    },
+    {
+      accent: "#1d4ed8",
+      accentDark: "#1e3a8a",
+      soft: "#eff6ff",
+      contrastText: "#172554",
+      gradientFrom: "#1e3a8a",
+      gradientTo: "#0e7490",
+      pattern: "graphpaper",
+      motif: "circuit",
+      fontFamily: "sans",
+      heroStyle: "console",
+      cardStyle: "gradient-edge",
+      heroScene: "tech",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "mod-sixties",
+      name: "Mod Sixties",
+      shortName: "1960s",
+      category: "Era",
+      description: "Mustard, teal, concentric geometry, and crisp poster-like blocks bring a confident mid-century mod rhythm.",
+      bestFor: "Design, social history, music, cultural studies, and communications",
+      homepageTemplateId: "visual-magazine",
+      syllabusTemplateId: "standard-university"
+    },
+    {
+      accent: "#a16207",
+      accentDark: "#713f12",
+      soft: "#fffbeb",
+      contrastText: "#422006",
+      gradientFrom: "#713f12",
+      gradientTo: "#115e59",
+      pattern: "concentric",
+      motif: "geometry",
+      fontFamily: "rounded",
+      heroStyle: "medallion",
+      cardStyle: "accent-bar",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "atomic-fifties",
+      name: "Atomic Fifties",
+      shortName: "1950s",
+      category: "Era",
+      description: "Diner teal, cherry red, starburst dots, and atomic forms create a polished retro-science classroom.",
+      bestFor: "Science history, postwar culture, hospitality, design, and general education",
+      homepageTemplateId: "lab-course",
+      syllabusTemplateId: "standard-university"
+    },
+    {
+      accent: "#0f766e",
+      accentDark: "#115e59",
+      soft: "#f0fdfa",
+      contrastText: "#134e4a",
+      gradientFrom: "#115e59",
+      gradientTo: "#991b1b",
+      pattern: "dots",
+      motif: "molecule",
+      fontFamily: "rounded",
+      heroStyle: "spotlight",
+      cardStyle: "soft-fill",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "roaring-twenties",
+      name: "Roaring Twenties",
+      shortName: "Roaring 20s",
+      category: "Era",
+      description: "Black, antique gold, geometric symmetry, and formal matted cards capture an accessible Art Deco mood.",
+      bestFor: "History, literature, music, hospitality, fashion, and cultural studies",
+      homepageTemplateId: "classic-course-welcome",
+      syllabusTemplateId: "accreditation-friendly"
+    },
+    {
+      accent: "#a16207",
+      accentDark: "#713f12",
+      soft: "#faf7f0",
+      contrastText: "#422006",
+      gradientFrom: "#111827",
+      gradientTo: "#713f12",
+      pattern: "isometric",
+      motif: "geometry",
+      fontFamily: "serif",
+      heroStyle: "medallion",
+      cardStyle: "matted",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "whimsical-storybook",
+      name: "Whimsical Storybook",
+      shortName: "Whimsical",
+      category: "Mood",
+      description: "Berry, meadow green, friendly dots, and rounded soft cards create a curious illustrated-storybook tone.",
+      bestFor: "Early learning, first-year seminars, creative courses, and welcoming orientations",
+      homepageTemplateId: "journey-map",
+      syllabusTemplateId: "online-course"
+    },
+    {
+      accent: "#7e22ce",
+      accentDark: "#581c87",
+      soft: "#faf5ff",
+      contrastText: "#3b0764",
+      gradientFrom: "#581c87",
+      gradientTo: "#166534",
+      pattern: "dots",
+      motif: "botanical",
+      fontFamily: "rounded",
+      heroStyle: "spotlight",
+      cardStyle: "soft-fill",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "steampunk-workshop",
+      name: "Steampunk Workshop",
+      shortName: "Steampunk",
+      category: "Genre",
+      description: "Burnished copper, blueprint grids, and interlocking gears turn the course into a structured invention workshop.",
+      bestFor: "Engineering, maker courses, design fiction, history, and project-based learning",
+      homepageTemplateId: "studio-course",
+      syllabusTemplateId: "standard-university"
+    },
+    {
+      accent: "#b45309",
+      accentDark: "#78350f",
+      soft: "#fffbeb",
+      contrastText: "#451a03",
+      gradientFrom: "#451a03",
+      gradientTo: "#374151",
+      pattern: "graphpaper",
+      motif: "gears",
+      fontFamily: "serif",
+      heroStyle: "stage",
+      cardStyle: "gradient-edge",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "solarpunk-commons",
+      name: "Solarpunk Commons",
+      shortName: "Solarpunk",
+      category: "Genre",
+      description: "Optimistic greens, sunlit cyan, and botanical systems imagery frame a collaborative regenerative future.",
+      bestFor: "Sustainability, urban planning, civic design, ecology, and futures",
+      homepageTemplateId: "field-guide",
+      syllabusTemplateId: "hybrid-course"
+    },
+    {
+      accent: "#15803d",
+      accentDark: "#14532d",
+      soft: "#f0fdf4",
+      contrastText: "#14532d",
+      gradientFrom: "#14532d",
+      gradientTo: "#155e75",
+      pattern: "concentric",
+      motif: "botanical",
+      fontFamily: "rounded",
+      heroStyle: "stage",
+      cardStyle: "gradient-edge",
+      heroScene: "city",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "retro-futurism",
+      name: "Retro Futurism",
+      shortName: "Retro Future",
+      category: "Genre",
+      description: "Atomic orange, deep navy, orbital geometry, and optimistic poster styling imagine tomorrow from yesterday.",
+      bestFor: "Futures, science, design history, innovation, and speculative projects",
+      homepageTemplateId: "command-center",
+      syllabusTemplateId: "compressed-term"
+    },
+    {
+      accent: "#c2410c",
+      accentDark: "#9a3412",
+      soft: "#fff7ed",
+      contrastText: "#7c2d12",
+      gradientFrom: "#172554",
+      gradientTo: "#9a3412",
+      pattern: "concentric",
+      motif: "cosmic",
+      fontFamily: "rounded",
+      heroStyle: "stage",
+      cardStyle: "accent-bar",
+      heroScene: "cosmos",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "comic-book-pop",
+      name: "Comic Book Pop",
+      shortName: "Comic Book",
+      category: "Art style",
+      description: "Primary-color energy, bold halftone texture, and punchy panel cards make key actions immediately visible.",
+      bestFor: "Visual communication, storytelling, media, youth programs, and bootcamps",
+      homepageTemplateId: "visual-magazine",
+      syllabusTemplateId: "compressed-term"
+    },
+    {
+      accent: "#1d4ed8",
+      accentDark: "#1e3a8a",
+      soft: "#eff6ff",
+      contrastText: "#172554",
+      gradientFrom: "#1e3a8a",
+      gradientTo: "#991b1b",
+      pattern: "halftone",
+      motif: "timeline",
+      fontFamily: "rounded",
+      heroStyle: "ticket",
+      cardStyle: "notch",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "vaporwave-dream",
+      name: "Vaporwave Dream",
+      shortName: "Vaporwave",
+      category: "Mood",
+      description: "Deep violet, ocean cyan, retro grids, and dreamy orbital accents create a deliberately surreal digital mood.",
+      bestFor: "Digital art, music, internet culture, media theory, and creative electives",
+      homepageTemplateId: "visual-magazine",
+      syllabusTemplateId: "online-course"
+    },
+    {
+      accent: "#7e22ce",
+      accentDark: "#581c87",
+      soft: "#faf5ff",
+      contrastText: "#3b0764",
+      gradientFrom: "#4c1d95",
+      gradientTo: "#155e75",
+      pattern: "grid",
+      motif: "cosmic",
+      fontFamily: "mono",
+      heroStyle: "stage",
+      cardStyle: "gradient-edge",
+      intensity: "immersive"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "dark-academia",
+      name: "Dark Academia",
+      shortName: "Dark Academia",
+      category: "Mood",
+      description: "Walnut, oxblood, manuscript detail, and restrained editorial cards create a scholarly archival atmosphere.",
+      bestFor: "Humanities, philosophy, literature, history, law, and seminar courses",
+      homepageTemplateId: "seminar-table",
+      syllabusTemplateId: "standard-university"
+    },
+    {
+      accent: "#7c2d12",
+      accentDark: "#431407",
+      soft: "#fff7ed",
+      contrastText: "#431407",
+      gradientFrom: "#292524",
+      gradientTo: "#4c0519",
+      pattern: "crosshatch",
+      motif: "manuscript",
+      fontFamily: "serif",
+      heroStyle: "editorial",
+      cardStyle: "index-card",
+      heroScene: "manuscript",
+      intensity: "polished"
+    }
+  ),
+  creativeTemplate(
+    {
+      id: "cottagecore-field-notes",
+      name: "Cottagecore Field Notes",
+      shortName: "Cottagecore",
+      category: "Mood",
+      description: "Moss green, warm parchment, botanical sketches, and gentle note-card structure feel handmade and grounded.",
+      bestFor: "Ecology, food studies, crafts, wellness, fieldwork, and reflective courses",
+      homepageTemplateId: "field-guide",
+      syllabusTemplateId: "hybrid-course"
+    },
+    {
+      accent: "#4d7c0f",
+      accentDark: "#3f6212",
+      soft: "#f7fee7",
+      contrastText: "#1a2e05",
+      gradientFrom: "#3f6212",
+      gradientTo: "#78350f",
+      pattern: "topographic",
+      motif: "botanical",
+      fontFamily: "serif",
+      heroStyle: "postcard",
+      cardStyle: "index-card",
+      heroScene: "mountains",
+      intensity: "clean"
+    }
+  )
+];
+
+export const visualTemplates: VisualTemplate[] = [...coreVisualTemplates, ...creativeVisualTemplates];
 
 /** The curated themes behind the templates, registered with getTheme() so generated content resolves them. */
 export const visualTemplateThemes: Theme[] = visualTemplates.map((template) => template.theme);
