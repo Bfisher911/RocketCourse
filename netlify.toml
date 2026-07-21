@@ -10,6 +10,9 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  # sharp is a native add-on. Keep its package structure intact so Netlify's Linux build installs
+  # and ships the linux-x64 binary instead of esbuild producing a bundle without a usable runtime.
+  external_node_modules = ["sharp"]
 
 # SPA fallback: prerendered marketing routes (dist/<path>/index.html) and real files are served
 # directly; any other path (e.g. the in-app /app screens) falls back to the client shell.
