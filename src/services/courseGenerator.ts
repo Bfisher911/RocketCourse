@@ -464,7 +464,7 @@ const subjectProfileFor = (courseTopic: string, moduleTopic: string): SubjectPro
     };
   }
   return {
-    lens: "applied course analysis",
+    lens: "course-specific analysis",
     audience: "course decision team",
     caseLabel: `${courseTopic} application case`,
     artifactLabel: "course-specific artifact or case evidence",

@@ -81,5 +81,6 @@ describe("generated courses never contain demo placeholder content", () => {
   it("keeps the public demo course intact", () => {
     expect(sampleProject.title).toBe("AI and Modern Society");
     expect(sampleProject.description).toContain("artificial intelligence");
+    expect(sampleProject.outcomes.some((outcome) => /apply an applied course analysis/i.test(outcome.text))).toBe(false);
   });
 });
