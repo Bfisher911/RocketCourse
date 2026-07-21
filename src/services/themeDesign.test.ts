@@ -88,6 +88,10 @@ describe("theme design system", () => {
       expect(html, mode).not.toMatch(unsafeHtmlPattern);
       expect(html, mode).toContain(themes[0].accent);
       expect(html, mode).toContain(themes[0].accentDark);
+      if (mode === "homepage") {
+        expect(html).toContain("Questions and support");
+        expect(html).not.toContain("Instructor note");
+      }
     });
   });
 

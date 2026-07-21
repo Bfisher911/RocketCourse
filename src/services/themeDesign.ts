@@ -1237,7 +1237,7 @@ export const buildThemePreviewHtml = (theme: Theme, kind: ThemePreviewKind, cour
       theme,
       `${courseTitle} Homepage`,
       "Welcome students into a clear Canvas course path.",
-      `${intro}${buildThemedCard(theme, "Start Here", `${paragraph("Open the Course Success Guide, review the syllabus, then begin Module 1.")}${buildThemedButton(theme, "Start Here", "course-success-guide.html")}${buildThemedSecondaryButton(theme, "View syllabus", "syllabus.html")}`)}${buildThemedCallout(theme, "Instructor note", paragraph("Use announcements and office hours to ask questions early."))}${showcase}${sampleTable(theme)}`
+      `${intro}${buildThemedCard(theme, "Start Here", `${paragraph("Open the Course Success Guide, review the syllabus, then begin Module 1.")}${buildThemedButton(theme, "Start Here", "course-success-guide.html")}${buildThemedSecondaryButton(theme, "View syllabus", "syllabus.html")}`)}${buildThemedCallout(theme, "Questions and support", paragraph("Use announcements and office hours to ask questions early."))}${showcase}${sampleTable(theme)}`
     )}</div>`;
   }
 
