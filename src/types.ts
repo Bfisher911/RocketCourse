@@ -577,6 +577,8 @@ export interface Quiz {
   points: number;
   questions: QuizQuestion[];
   alignedOutcomeIds: string[];
+  /** Structured Canvas interaction blocks appended to the quiz description on export. */
+  interactionBlocks?: InteractionBlock[];
   publishState: PublishState;
   status: CourseStatus;
   metadata: ObjectMetadata;

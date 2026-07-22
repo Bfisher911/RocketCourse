@@ -789,7 +789,15 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   zip.file("course_settings/course_navigation.xml", createCourseNavigationXml(course));
   zip.file("course_settings/context.xml", createContextInfoXml(course));
   zip.file("course_settings/canvas_export.txt", createCanvasExportFlag());
-  zip.file("course_settings/syllabus.html", wrappedHtmlDocument("Syllabus", prepareStudentFacingHtmlForCanvas(syllabusPage?.bodyHtml ?? "")));
+  zip.file(
+    "course_settings/syllabus.html",
+    wrappedHtmlDocument(
+      "Syllabus",
+      prepareStudentFacingHtmlForCanvas(
+        syllabusPage ? composeBodyWithInteractions(syllabusPage.bodyHtml, syllabusPage.interactionBlocks, course.theme) : ""
+      )
+    )
+  );
   zip.file("web_resources/course-banner.svg", createBannerSvg(course));
   zip.file("web_resources/course-tile.svg", createCourseTileSvg(course));
   const activeHomepageBanner = activeImageForPlacement(course, "homepage-banner");
@@ -885,7 +893,12 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
 
   course.quizzes.forEach((quiz) => {
     const asset = supportingFor("quiz", quiz.id);
-    const exportedQuiz = asset ? { ...quiz, purpose: `${supportingHtml(asset)}\n${quiz.purpose}` } : quiz;
+    const purpose = composeBodyWithInteractions(
+      asset ? `${supportingHtml(asset)}\n${quiz.purpose}` : quiz.purpose,
+      quiz.interactionBlocks,
+      course.theme
+    );
+    const exportedQuiz = { ...quiz, purpose };
     zip.file(quizCcPath(quiz), createAssessmentQtiXml(quiz, false));
     zip.file(quizMetaPath(quiz), createAssessmentMetaXml(exportedQuiz));
     zip.file(quizCanvasQtiPath(quiz), createAssessmentQtiXml(quiz, true));

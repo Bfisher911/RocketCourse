@@ -118,13 +118,48 @@ describe("interaction rendering", () => {
     expect(validateExternalConfig({ url: "https://interactives.example.edu/x", title: "T", allowedDomain: "interactives.example.edu", textAlternative: "alt" }, policy)).toHaveLength(0);
   });
 
-  it("composes blocks after the authored body and leaves block-free bodies untouched", () => {
+  it("appends blocks when the body has no section structure, and leaves block-free bodies untouched", () => {
     const body = "<h2>Authored content</h2><p>Prose first.</p>";
     expect(composeBodyWithInteractions(body, undefined, theme)).toBe(body);
     const block = blockFor("reflection-ladder")!;
     const composed = composeBodyWithInteractions(body, [block], theme);
     expect(composed.startsWith(body)).toBe(true);
     expect(composed).toContain("Reflection");
+  });
+
+  it("interleaves blocks with the lesson flow: early after the first section, middle mid-page, end last", () => {
+    const body =
+      '<div><section id="s1"><p>One</p></section><section id="s2"><p>Two</p></section>' +
+      '<section id="s3"><p>Three</p></section><section id="s4"><p>Four</p></section></div>';
+    const early = blockFor("interactive-reading-guide", "e1")!;
+    const middle = blockFor("stop-and-think-prompt", "m1")!;
+    const end = blockFor("reflection-ladder", "z1")!;
+    const composed = composeBodyWithInteractions(body, [end, middle, early], course.theme);
+    const positions = {
+      s1: composed.indexOf('id="s1"'),
+      early: composed.indexOf("Reading Guide"),
+      s2: composed.indexOf('id="s2"'),
+      middle: composed.indexOf("Stop and Think"),
+      s4: composed.indexOf('id="s4"'),
+      end: composed.indexOf("Reflection")
+    };
+    expect(positions.s1).toBeGreaterThanOrEqual(0);
+    expect(positions.early).toBeGreaterThan(positions.s1);
+    expect(positions.s2).toBeGreaterThan(positions.early);
+    expect(positions.middle).toBeGreaterThan(positions.s2);
+    expect(positions.s4).toBeGreaterThan(positions.middle);
+    expect(positions.end).toBeGreaterThan(positions.s4);
+  });
+
+  it("labels blocks with a visible affordance chip so they read as activities", () => {
+    const reveal = renderInteractionBlock(blockFor("worked-example-reveal")!, course.theme);
+    expect(reveal).toContain("Try it");
+    const pause = renderInteractionBlock(blockFor("stop-and-think-prompt")!, course.theme);
+    expect(pause).toContain("Pause and respond");
+    // The scenario template keeps its own kicker instead of doubling up.
+    const scenario = renderInteractionBlock(blockFor("scenario-card")!, course.theme);
+    expect(scenario).toContain("Scenario");
+    expect(scenario).not.toContain("Take note");
   });
 
   it("uses the course theme's palette rather than hard-coded library colors", () => {

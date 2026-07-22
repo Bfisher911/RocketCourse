@@ -45,7 +45,7 @@ export interface InteractionSelection {
 }
 
 export interface SurfacePlan {
-  surfaceType: "page" | "assignment" | "discussion";
+  surfaceType: "page" | "assignment" | "discussion" | "quiz";
   surfaceId: string;
   surfaceTitle: string;
   pageType: InteractionPageType;
@@ -81,8 +81,8 @@ export const inferCourseDisciplines = (course: CourseProject): InteractionDiscip
 // ── Page classification ─────────────────────────────────────────────────────
 
 export const classifyPage = (page: CoursePage, module: CourseModule | undefined): InteractionPageType | null => {
-  if (page.frontPage) return null; // homepage has its own block system
-  if (page.slug === "syllabus" || /^Syllabus$/i.test(page.title)) return null;
+  if (page.frontPage) return "homepage";
+  if (page.slug === "syllabus" || /^Syllabus$/i.test(page.title)) return "syllabus";
   if (module?.kind === "instructor") return null;
   if (/checkpoint|milestone/i.test(page.title)) return "milestone";
   if (/^about /i.test(page.title) || /overview/i.test(page.title)) return "module-overview";
@@ -94,22 +94,28 @@ export const classifyPage = (page: CoursePage, module: CourseModule | undefined)
   return "content";
 };
 
+// Every student-facing surface carries AT LEAST two different interactions;
+// caps keep pages purposeful rather than cluttered.
+export const MIN_INTERACTIONS_PER_SURFACE = 2;
+
 const DENSITY_CAPS: Record<InteractionPageType, number> = {
-  homepage: 0,
-  orientation: 1,
+  homepage: 2,
+  orientation: 2,
   "module-overview": 2,
-  content: 2,
+  content: 3,
   practice: 2,
   assignment: 2,
-  discussion: 1,
+  discussion: 2,
   "quiz-prep": 2,
   recap: 2,
-  syllabus: 0,
-  milestone: 1
+  syllabus: 2,
+  milestone: 2
 };
 
-/** Course-wide usage caps by declared frequency. */
-const FREQUENCY_CAPS = { frequent: Number.POSITIVE_INFINITY, selective: 3, rare: 1 } as const;
+/** Course-wide usage caps by declared frequency. With a two-per-surface floor a
+ * long course legitimately reuses its workhorse patterns; variety comes from
+ * rotation and the prefer-unused-in-module rule rather than hard scarcity. */
+const FREQUENCY_CAPS = { frequent: Number.POSITIVE_INFINITY, selective: 12, rare: 2 } as const;
 
 // ── Content-builder context ─────────────────────────────────────────────────
 
@@ -488,6 +494,84 @@ const CONTENT_BUILDERS: Record<string, ContentBuilder> = {
     ]
   }),
 
+  "faq-accordion": (ctx) => {
+    const weights = ctx.course.assignmentGroups.map((group) => `${group.name} ${group.weight}%`).join(", ");
+    const items: InteractionContent["items"] = [
+      { heading: "Where do I start?", body: "Open Modules and work top to bottom — the Start Here module walks you through the course setup before Week 1 begins." },
+      { heading: "How is this course graded?", body: weights ? `Grades come from: ${weights}. The syllabus explains each category and the rubrics used for feedback.` : "The syllabus lists every graded category, its weight, and the rubrics used for feedback." },
+      { heading: "What if I fall behind or need to submit late?", body: "Contact the instructor before the deadline when possible; the syllabus states the official late-work policy that applies." },
+      { heading: "Where do I get help?", body: "Use the Course Success Guide for study help, campus/Canvas support for technical issues, and the class questions space for anything other students might also wonder." }
+    ];
+    return { title: `${ctx.course.title}: Common Questions`, intro: "Open the question you have — each answer names your next step.", items };
+  },
+
+  "course-navigation-map": (ctx) => {
+    const items: InteractionContent["items"] = [
+      { heading: "Modules", body: "The main path through the course — start here every week.", href: modulesIndexRef() },
+      { heading: "Syllabus", body: "Policies, grading weights, and the week-by-week schedule.", href: wikiPageRef(WELL_KNOWN_PAGE_IDS.syllabus) },
+      { heading: "Success Guide", body: "Study strategies and what to do when you feel stuck.", href: wikiPageRef(WELL_KNOWN_PAGE_IDS.successGuide) },
+      { heading: "Calendar & Workload", body: "Plan your weeks around the course's pacing and checkpoints.", href: wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar) }
+    ];
+    return { title: "Find Your Way Around", intro: "Every destination in this course is one card away.", items };
+  },
+
+  "resource-recommendation-menu": (ctx) => {
+    const questionsDiscussion = ctx.course.discussions.find((discussion) => /ask course questions/i.test(discussion.title));
+    const items: InteractionContent["items"] = [
+      { heading: "I don't understand a concept", body: "Start with the Course Success Guide's study routes, then bring a specific question to class.", href: wikiPageRef(WELL_KNOWN_PAGE_IDS.successGuide) },
+      { heading: "I need to plan my time", body: "The calendar and workload plan shows what each week expects.", href: wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar) },
+      { heading: "I have a course question", body: questionsDiscussion ? "Post it where classmates can benefit from the answer too." : "Message the instructor with the page, task, and what you already tried.", href: questionsDiscussion ? discussionRef(questionsDiscussion.id) : undefined },
+      { heading: "I need the official policy", body: "Grading, late work, and accommodations all live in the syllabus.", href: wikiPageRef(WELL_KNOWN_PAGE_IDS.syllabus) }
+    ];
+    return { title: "Get the Right Kind of Help", intro: "Match your situation to the fastest support route.", items };
+  },
+
+  "interactive-troubleshooting-guide": (ctx) => ({
+    title: "When Canvas Fights Back",
+    intro: "Open the problem you're having — each panel ends with a concrete next step.",
+    items: [
+      { heading: "I can't find an assignment or page", body: `Open Modules and scan the current week top to bottom — every graded item in ${ctx.course.title} lives inside a module. If it's genuinely missing, it may not be published yet; ask in the course questions space.` },
+      { heading: "My file won't upload or submit", body: "Check the accepted file type on the assignment page, rename the file without special characters, try another browser, and screenshot any error before the deadline passes." },
+      { heading: "A page, video, or link won't load", body: "Try an incognito window first (extensions cause most Canvas display problems), then another browser. Still broken? Report it with the page name, browser, and a screenshot." },
+      { heading: "I still need help", body: "Contact campus or Canvas support for technical issues; message the instructor for anything about course content, deadlines, or grades." }
+    ]
+  }),
+
+  "policy-box": (ctx) => {
+    const weights = ctx.course.assignmentGroups.map((group) => `${group.name}: ${group.weight}%`).join(" · ");
+    return {
+      title: "Policies That Affect Your Grade",
+      intro: "Three things students most often wish they had read sooner:",
+      items: [
+        { heading: "Grading weights", body: weights || "Every graded category and its weight is listed in the grading section below." },
+        { heading: "Late work", body: "The late-work policy in this syllabus is the official rule — contact the instructor before a deadline when life intervenes, not after." },
+        { heading: "Accommodations", body: "Formal accommodations run through the campus accessibility office; tell the instructor early so support is in place before the first graded work." }
+      ]
+    };
+  },
+
+  "build-a-definition-activity": (ctx) => ({
+    title: `Build Your Own Definition`,
+    intro: `Before checking the textbook definition, construct your own understanding of the central concept in ${ctx.topic}.`,
+    items: [
+      { heading: "Collect examples", body: `Write down two clear examples of the concept from this module's readings or notes on ${ctx.topic}.` },
+      { heading: "Find a nonexample", body: "Write down one case that looks similar but does NOT fit — and note what disqualifies it." },
+      { heading: "Name the essential features", body: "List the features every true example shares. These are your definition's backbone." }
+    ],
+    reveal: { label: "Now compare with the formal definition", body: `Draft your definition from those essential features, then compare it against how this module's materials define the concept. Where your version differs, decide whether you missed a feature or found a genuine ambiguity worth raising in class.` }
+  }),
+
+  "concept-boundary-tester": (ctx) => ({
+    title: `Where Does ${ctx.topic} Stop Applying?`,
+    intro: "Concepts are learned at their boundaries. Classify each case before opening the reasoning.",
+    items: [
+      { heading: "A clear case", body: `Take the strongest example of ${ctx.topic} from this module and state, in one sentence, why it clearly fits.` },
+      { heading: "A near case", body: "Now take an example that fits only partially. Which features are present, and which are missing?" },
+      { heading: "A boundary case", body: "Construct a case where reasonable people could disagree about whether the concept applies at all." }
+    ],
+    reveal: { label: "Why boundary cases matter", body: "If you can explain why the near case and boundary case are harder than the clear case, you understand the concept's defining features — which is exactly what the graded work in this module asks you to apply." }
+  }),
+
   "exam-wrapper-reflection": (ctx) => ({
     title: "After the Assessment",
     intro: `Before moving past ${ctx.moduleLabel.toLowerCase()}, analyze how your preparation actually performed.`,
@@ -507,23 +591,27 @@ const CONTENT_BUILDERS: Record<string, ContentBuilder> = {
  * walks these lists so adjacent modules vary instead of repeating one pattern.
  */
 const PAGE_TYPE_CANDIDATES: Record<InteractionPageType, string[][]> = {
-  homepage: [],
-  syllabus: [],
-  orientation: [["goal-setting-contract"]],
+  homepage: [["course-navigation-map", "goal-setting-contract"], ["faq-accordion"]],
+  syllabus: [["policy-box"], ["resource-recommendation-menu", "faq-accordion"]],
+  orientation: [
+    ["course-navigation-map", "goal-setting-contract", "resource-recommendation-menu"],
+    ["faq-accordion", "interactive-troubleshooting-guide"]
+  ],
   "module-overview": [["visual-module-launchpad"], ["learning-objectives-card", "action-item-checklist"]],
   content: [
     ["interactive-reading-guide", "socratic-question-chain", "primary-source-annotation-guide", "source-credibility-analyzer", "data-quality-checklist", "chart-type-chooser", "ethical-dilemma-explorer"],
-    ["stop-and-think-prompt", "click-to-reveal-answer"]
+    ["stop-and-think-prompt", "click-to-reveal-answer"],
+    ["build-a-definition-activity", "concept-boundary-tester", "worked-example-reveal"]
   ],
   practice: [
     ["worked-example-reveal", "hint-ladder", "hypothesis-builder", "variable-identification-activity"],
     ["common-mistake-explorer", "click-to-reveal-answer"]
   ],
-  assignment: [["interactive-rubric-explorer"], ["frequently-missed-instructions", "assignment-planning-wizard"]],
-  discussion: [["scenario-card", "compare-the-perspectives-panels", "peer-review-protocol"]],
-  "quiz-prep": [["interactive-study-checklist", "study-strategy-selector"], ["confidence-check"]],
+  assignment: [["interactive-rubric-explorer", "frequently-missed-instructions"], ["assignment-planning-wizard", "frequently-missed-instructions"]],
+  discussion: [["scenario-card", "compare-the-perspectives-panels"], ["peer-review-protocol", "reflection-ladder"]],
+  "quiz-prep": [["interactive-study-checklist", "hint-ladder"], ["confidence-check", "study-strategy-selector"]],
   recap: [["reflection-ladder", "confidence-check", "adaptive-remediation-menu", "study-strategy-selector"], ["transfer-challenge", "exam-wrapper-reflection"]],
-  milestone: [["assignment-planning-wizard", "process-stepper"]]
+  milestone: [["assignment-planning-wizard"], ["process-stepper", "goal-setting-contract"]]
 };
 
 const disciplineFits = (patternId: string, disciplines: InteractionDiscipline[]): boolean => {
@@ -535,28 +623,6 @@ const disciplineFits = (patternId: string, disciplines: InteractionDiscipline[])
 const pageTypeFits = (patternId: string, pageType: InteractionPageType): boolean => {
   const pattern = interactionPatternById(patternId);
   return !!pattern && pattern.pageTypes.includes(pageType);
-};
-
-const pickFromSlot = (
-  slot: string[],
-  pageType: InteractionPageType,
-  disciplines: InteractionDiscipline[],
-  usage: Map<string, number>,
-  moduleUsage: Set<string>,
-  rotation: number
-): string | null => {
-  const eligible = slot.filter((patternId) => {
-    const pattern = interactionPatternById(patternId);
-    if (!pattern || pattern.tier !== "native" || pattern.requiredAssets.length) return false;
-    if (!pageTypeFits(patternId, pageType)) return false;
-    if (!disciplineFits(patternId, disciplines)) return false;
-    if (moduleUsage.has(patternId)) return false; // never repeat within a module
-    const cap = FREQUENCY_CAPS[pattern.frequency];
-    if ((usage.get(patternId) ?? 0) >= cap) return false;
-    return CONTENT_BUILDERS[patternId] !== undefined;
-  });
-  if (!eligible.length) return null;
-  return eligible[rotation % eligible.length];
 };
 
 const buildSelection = (patternId: string, ctx: BuilderCtx): InteractionSelection | null => {
@@ -572,13 +638,56 @@ const buildSelection = (patternId: string, ctx: BuilderCtx): InteractionSelectio
   };
 };
 
+/**
+ * Pick the best buildable candidate from a slot. Patterns already used in the
+ * module are only deprioritized (not banned) — with a two-per-surface floor a
+ * module has more surfaces than the pool has unused patterns, and an honest
+ * repeat beats an empty surface. A pattern never repeats on the SAME surface.
+ */
+const pickAndBuild = (
+  slot: string[],
+  pageType: InteractionPageType,
+  disciplines: InteractionDiscipline[],
+  usage: Map<string, number>,
+  moduleUsage: Set<string>,
+  surfaceUsage: Set<string>,
+  rotation: number,
+  ctx: BuilderCtx
+): InteractionSelection | null => {
+  const eligible = slot.filter((patternId) => {
+    const pattern = interactionPatternById(patternId);
+    if (!pattern || pattern.tier !== "native" || pattern.requiredAssets.length) return false;
+    if (!pageTypeFits(patternId, pageType)) return false;
+    if (!disciplineFits(patternId, disciplines)) return false;
+    if (surfaceUsage.has(patternId)) return false;
+    const cap = FREQUENCY_CAPS[pattern.frequency];
+    if ((usage.get(patternId) ?? 0) >= cap) return false;
+    return CONTENT_BUILDERS[patternId] !== undefined;
+  });
+  const fresh = eligible.filter((patternId) => !moduleUsage.has(patternId));
+  const ordered = [...(fresh.length ? fresh : eligible)];
+  for (let attempt = 0; attempt < ordered.length; attempt += 1) {
+    const candidate = ordered[(rotation + attempt) % ordered.length];
+    const selection = buildSelection(candidate, ctx);
+    if (selection) return selection;
+  }
+  return null;
+};
+
 /** Deterministically plan interactions for every eligible surface in the course. */
 export const planCourseInteractions = (course: CourseProject): CourseInteractionPlan => {
   const disciplines = inferCourseDisciplines(course);
   const usage = new Map<string, number>();
   const surfaces: SurfacePlan[] = [];
-
-  const contentModules = course.modules.filter((module) => module.kind === "content" || module.kind === "final");
+  const moduleUsageById = new Map<string, Set<string>>();
+  const moduleUsageFor = (moduleId: string | undefined): Set<string> => {
+    const key = moduleId ?? "__course__";
+    const existing = moduleUsageById.get(key);
+    if (existing) return existing;
+    const created = new Set<string>();
+    moduleUsageById.set(key, created);
+    return created;
+  };
 
   const recordSelections = (
     surfaceType: SurfacePlan["surfaceType"],
@@ -592,68 +701,72 @@ export const planCourseInteractions = (course: CourseProject): CourseInteraction
     const cap = DENSITY_CAPS[pageType];
     if (cap === 0) return;
     const selections: InteractionSelection[] = [];
-    for (const slot of PAGE_TYPE_CANDIDATES[pageType]) {
-      if (selections.length >= cap) break;
-      const patternId = pickFromSlot(slot, pageType, disciplines, usage, moduleUsage, rotation);
-      if (!patternId) continue;
-      const selection = buildSelection(patternId, ctx);
-      if (!selection) continue;
-      selections.push(selection);
-      usage.set(patternId, (usage.get(patternId) ?? 0) + 1);
-      moduleUsage.add(patternId);
+    const surfaceUsage = new Set<string>();
+    const slots = PAGE_TYPE_CANDIDATES[pageType];
+    // First pass: one pick per slot. Second pass: revisit slots until the
+    // two-per-surface floor is met (surfaceUsage keeps every pick distinct).
+    for (let pass = 0; pass < 2 && selections.length < cap; pass += 1) {
+      for (const slot of slots) {
+        if (selections.length >= cap) break;
+        if (pass > 0 && selections.length >= MIN_INTERACTIONS_PER_SURFACE) break;
+        const selection = pickAndBuild(slot, pageType, disciplines, usage, moduleUsage, surfaceUsage, rotation, ctx);
+        if (!selection) continue;
+        selections.push(selection);
+        surfaceUsage.add(selection.patternId);
+        usage.set(selection.patternId, (usage.get(selection.patternId) ?? 0) + 1);
+        moduleUsage.add(selection.patternId);
+      }
     }
     if (selections.length) surfaces.push({ surfaceType, surfaceId, surfaceTitle, pageType, selections });
   };
 
-  // Orientation: exactly one pattern on the success-guide page, when present.
-  const orientationModule = course.modules.find((module) => module.kind === "start");
-  const successGuide = course.pages.find((page) => page.id.endsWith(WELL_KNOWN_PAGE_IDS.successGuide) || page.id === WELL_KNOWN_PAGE_IDS.successGuide || /Course Success Guide/i.test(page.title));
-  if (successGuide && orientationModule) {
-    const ctx: BuilderCtx = {
-      course,
-      module: orientationModule,
-      page: successGuide,
-      topic: topicOf(undefined, course),
-      moduleLabel: "Getting Started",
-      modulePages: [],
-      moduleNumber: 0
-    };
-    recordSelections("page", successGuide.id, successGuide.title, "orientation", ctx, new Set(), 0);
-  }
-
-  contentModules.forEach((module, moduleIndex) => {
-    const moduleUsage = new Set<string>();
-    const modulePages = course.pages.filter((page) => page.moduleId === module.id);
-    const moduleAssignment = course.assignments.find((assignment) => assignment.moduleId === module.id);
-    const moduleDiscussion = course.discussions.find((discussion) => discussion.moduleId === module.id);
-    const moduleQuiz = course.quizzes.find((quiz) => quiz.moduleId === module.id);
+  const moduleIndexById = new Map(course.modules.map((module, index) => [module.id, index]));
+  const contextFor = (module: CourseModule | undefined): Omit<BuilderCtx, "page"> => {
+    const modulePages = module ? course.pages.filter((page) => page.moduleId === module.id) : [];
+    const moduleAssignment = module ? course.assignments.find((item) => item.moduleId === module.id) : undefined;
+    const moduleDiscussion = module ? course.discussions.find((item) => item.moduleId === module.id) : undefined;
+    const moduleQuiz = module ? course.quizzes.find((item) => item.moduleId === module.id) : undefined;
     const rubric = moduleAssignment?.rubricId ? course.rubrics.find((item) => item.id === moduleAssignment.rubricId) : undefined;
-    const baseCtx: Omit<BuilderCtx, "page"> = {
+    return {
       course,
       module,
       assignment: moduleAssignment,
       discussion: moduleDiscussion,
       quiz: moduleQuiz,
       rubric,
-      topic: topicOf(module, course),
-      moduleLabel: labelOf(module),
+      topic: topicOf(module?.kind === "content" || module?.kind === "final" ? module : undefined, course),
+      moduleLabel: module && (module.kind === "content" || module.kind === "final") ? labelOf(module) : "Getting Started",
       modulePages,
-      moduleNumber: moduleIndex + 1
+      moduleNumber: module ? (moduleIndexById.get(module.id) ?? 0) : 0
     };
+  };
 
-    for (const page of modulePages) {
-      const pageType = classifyPage(page, module);
-      if (!pageType) continue;
-      recordSelections("page", page.id, page.title, pageType, { ...baseCtx, page }, moduleUsage, moduleIndex);
-    }
+  // Every page — homepage, syllabus, orientation, and module content alike.
+  for (const page of course.pages) {
+    const module = course.modules.find((item) => item.id === page.moduleId);
+    const pageType = classifyPage(page, module);
+    if (!pageType) continue;
+    const rotation = module ? (moduleIndexById.get(module.id) ?? 0) : 0;
+    recordSelections("page", page.id, page.title, pageType, { ...contextFor(module), page }, moduleUsageFor(page.moduleId), rotation);
+  }
 
-    if (moduleAssignment) {
-      recordSelections("assignment", moduleAssignment.id, moduleAssignment.title, "assignment", { ...baseCtx }, moduleUsage, moduleIndex);
-    }
-    if (moduleDiscussion) {
-      recordSelections("discussion", moduleDiscussion.id, moduleDiscussion.title, "discussion", { ...baseCtx }, moduleUsage, moduleIndex);
-    }
-  });
+  // Every assignment, discussion, and quiz.
+  for (const assignment of course.assignments) {
+    const module = course.modules.find((item) => item.id === assignment.moduleId);
+    const rotation = moduleIndexById.get(assignment.moduleId) ?? 0;
+    const rubric = assignment.rubricId ? course.rubrics.find((item) => item.id === assignment.rubricId) : undefined;
+    recordSelections("assignment", assignment.id, assignment.title, "assignment", { ...contextFor(module), assignment, rubric }, moduleUsageFor(assignment.moduleId), rotation);
+  }
+  for (const discussion of course.discussions) {
+    const module = course.modules.find((item) => item.id === discussion.moduleId);
+    const rotation = moduleIndexById.get(discussion.moduleId) ?? 0;
+    recordSelections("discussion", discussion.id, discussion.title, "discussion", { ...contextFor(module), discussion }, moduleUsageFor(discussion.moduleId), rotation);
+  }
+  for (const quiz of course.quizzes) {
+    const module = course.modules.find((item) => item.id === quiz.moduleId);
+    const rotation = moduleIndexById.get(quiz.moduleId) ?? 0;
+    recordSelections("quiz", quiz.id, quiz.title, "quiz-prep", { ...contextFor(module), quiz }, moduleUsageFor(quiz.moduleId), rotation);
+  }
 
   return { disciplines, surfaces, usage: Object.fromEntries(usage) };
 };
@@ -691,7 +804,8 @@ export const applyCourseInteractions = (course: CourseProject, existingPlan?: Co
     ...course,
     pages: course.pages.map((page) => ({ ...page, interactionBlocks: merge(page.interactionBlocks, `page:${page.id}`) })),
     assignments: course.assignments.map((assignment) => ({ ...assignment, interactionBlocks: merge(assignment.interactionBlocks, `assignment:${assignment.id}`) })),
-    discussions: course.discussions.map((discussion) => ({ ...discussion, interactionBlocks: merge(discussion.interactionBlocks, `discussion:${discussion.id}`) }))
+    discussions: course.discussions.map((discussion) => ({ ...discussion, interactionBlocks: merge(discussion.interactionBlocks, `discussion:${discussion.id}`) })),
+    quizzes: course.quizzes.map((quiz) => ({ ...quiz, interactionBlocks: merge(quiz.interactionBlocks, `quiz:${quiz.id}`) }))
   };
 };
 

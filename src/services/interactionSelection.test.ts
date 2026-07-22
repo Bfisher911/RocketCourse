@@ -29,7 +29,8 @@ const FIXTURES: Array<[string, CourseProject]> = [
 const allBlocks = (course: CourseProject): InteractionBlock[] => [
   ...course.pages.flatMap((page) => page.interactionBlocks ?? []),
   ...course.assignments.flatMap((assignment) => assignment.interactionBlocks ?? []),
-  ...course.discussions.flatMap((discussion) => discussion.interactionBlocks ?? [])
+  ...course.discussions.flatMap((discussion) => discussion.interactionBlocks ?? []),
+  ...course.quizzes.flatMap((quiz) => quiz.interactionBlocks ?? [])
 ];
 
 describe("interaction selection", () => {
@@ -71,22 +72,32 @@ describe("interaction selection", () => {
     expect(signatures.size).toBeGreaterThan(1);
   });
 
-  it("respects density caps and never repeats a pattern within a module", () => {
+  it("gives EVERY student-facing surface at least two different interactions", () => {
+    for (const [label, course] of FIXTURES) {
+      const check = (blocks: InteractionBlock[] | undefined, where: string): void => {
+        const ids = (blocks ?? []).map((block) => block.patternId);
+        expect(ids.length, `${label} ${where}`).toBeGreaterThanOrEqual(2);
+        expect(new Set(ids).size, `${label} ${where} must use different patterns`).toBe(ids.length);
+      };
+      for (const page of course.pages) {
+        const pageType = classifyPage(page, course.modules.find((module) => module.id === page.moduleId));
+        if (pageType === null) expect(page.interactionBlocks ?? [], `${label} ${page.title}`).toHaveLength(0);
+        else check(page.interactionBlocks, page.title);
+      }
+      for (const assignment of course.assignments) check(assignment.interactionBlocks, assignment.title);
+      for (const discussion of course.discussions) check(discussion.interactionBlocks, discussion.title);
+      for (const quiz of course.quizzes) check(quiz.interactionBlocks, quiz.title);
+    }
+  });
+
+  it("respects density caps per surface", () => {
     for (const [label, course] of FIXTURES) {
       for (const page of course.pages) {
         const pageType = classifyPage(page, course.modules.find((module) => module.id === page.moduleId));
         const count = page.interactionBlocks?.length ?? 0;
-        if (pageType === null) expect(count, `${label} ${page.title}`).toBe(0);
-        else expect(count, `${label} ${page.title}`).toBeLessThanOrEqual(2);
+        if (pageType !== null) expect(count, `${label} ${page.title}`).toBeLessThanOrEqual(pageType === "content" ? 3 : 2);
       }
-      for (const module of course.modules) {
-        const moduleBlockIds = [
-          ...course.pages.filter((page) => page.moduleId === module.id).flatMap((page) => page.interactionBlocks ?? []),
-          ...course.assignments.filter((item) => item.moduleId === module.id).flatMap((item) => item.interactionBlocks ?? []),
-          ...course.discussions.filter((item) => item.moduleId === module.id).flatMap((item) => item.interactionBlocks ?? [])
-        ].map((block) => block.patternId);
-        expect(new Set(moduleBlockIds).size, `${label} ${module.title}`).toBe(moduleBlockIds.length);
-      }
+      for (const quiz of course.quizzes) expect(quiz.interactionBlocks?.length ?? 0, `${label} ${quiz.title}`).toBeLessThanOrEqual(2);
     }
   });
 
@@ -96,8 +107,8 @@ describe("interaction selection", () => {
       for (const block of allBlocks(course)) counts.set(block.patternId, (counts.get(block.patternId) ?? 0) + 1);
       for (const [patternId, count] of counts) {
         const pattern = interactionPatternById(patternId)!;
-        if (pattern.frequency === "rare") expect(count, `${label} ${patternId}`).toBeLessThanOrEqual(1);
-        if (pattern.frequency === "selective") expect(count, `${label} ${patternId}`).toBeLessThanOrEqual(3);
+        if (pattern.frequency === "rare") expect(count, `${label} ${patternId}`).toBeLessThanOrEqual(2);
+        if (pattern.frequency === "selective") expect(count, `${label} ${patternId}`).toBeLessThanOrEqual(12);
       }
     }
   });
@@ -123,12 +134,15 @@ describe("interaction selection", () => {
     }
   });
 
-  it("keeps the homepage and syllabus free of appended interaction blocks", () => {
+  it("covers the homepage and syllabus with curated interactions (navigation/goals + policy/support)", () => {
     for (const [label, course] of FIXTURES) {
       const homepage = course.pages.find((page) => page.frontPage);
       const syllabus = course.pages.find((page) => page.slug === "syllabus");
-      expect(homepage?.interactionBlocks ?? [], label).toHaveLength(0);
-      expect(syllabus?.interactionBlocks ?? [], label).toHaveLength(0);
+      const homepageIds = (homepage?.interactionBlocks ?? []).map((block) => block.patternId);
+      const syllabusIds = (syllabus?.interactionBlocks ?? []).map((block) => block.patternId);
+      expect(homepageIds.length, label).toBeGreaterThanOrEqual(2);
+      expect(syllabusIds.length, label).toBeGreaterThanOrEqual(2);
+      expect(syllabusIds, label).toContain("policy-box");
     }
   });
 
@@ -150,10 +164,12 @@ describe("interaction selection", () => {
     expect(after.some((block) => block.id === "inserted-1")).toBe(true);
   });
 
-  it("composes blocks into page HTML after the authored body for export", () => {
+  it("composes blocks into page HTML for export without disturbing the opening of the authored body", () => {
     const page = humanities.pages.find((item) => (item.interactionBlocks?.length ?? 0) > 0)!;
     const composed = composeBodyWithInteractions(page.bodyHtml, page.interactionBlocks, humanities.theme);
-    expect(composed.startsWith(page.bodyHtml)).toBe(true);
+    // Interleaving inserts only at section boundaries, so the page opening is untouched
+    // and the composed body is strictly larger.
+    expect(composed.startsWith(page.bodyHtml.slice(0, 200))).toBe(true);
     expect(composed.length).toBeGreaterThan(page.bodyHtml.length);
   });
 

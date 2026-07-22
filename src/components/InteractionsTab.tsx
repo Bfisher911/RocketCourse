@@ -20,7 +20,7 @@ interface InteractionsTabProps {
   onUpdateCourse: UpdateCourse;
 }
 
-type SurfaceKind = "page" | "assignment" | "discussion";
+type SurfaceKind = "page" | "assignment" | "discussion" | "quiz";
 
 interface SurfaceRef {
   kind: SurfaceKind;
@@ -35,13 +35,15 @@ const surfaceList = (course: CourseProject): SurfaceRef[] => {
     .map((page) => ({ kind: "page" as const, id: page.id, title: page.title, blocks: page.interactionBlocks ?? [] }));
   const assignments: SurfaceRef[] = course.assignments.map((assignment) => ({ kind: "assignment" as const, id: assignment.id, title: `Assignment: ${assignment.title}`, blocks: assignment.interactionBlocks ?? [] }));
   const discussions: SurfaceRef[] = course.discussions.map((discussion) => ({ kind: "discussion" as const, id: discussion.id, title: `Discussion: ${discussion.title}`, blocks: discussion.interactionBlocks ?? [] }));
-  return [...pages, ...assignments, ...discussions];
+  const quizzes: SurfaceRef[] = course.quizzes.map((quiz) => ({ kind: "quiz" as const, id: quiz.id, title: `Quiz: ${quiz.title}`, blocks: quiz.interactionBlocks ?? [] }));
+  return [...pages, ...assignments, ...discussions, ...quizzes];
 };
 
 const updateSurfaceBlocks = (course: CourseProject, surface: SurfaceRef, blocks: InteractionBlock[]): CourseProject => {
   const value = blocks.length ? blocks : undefined;
   if (surface.kind === "page") return { ...course, pages: course.pages.map((page) => (page.id === surface.id ? { ...page, interactionBlocks: value } : page)) };
   if (surface.kind === "assignment") return { ...course, assignments: course.assignments.map((item) => (item.id === surface.id ? { ...item, interactionBlocks: value } : item)) };
+  if (surface.kind === "quiz") return { ...course, quizzes: course.quizzes.map((item) => (item.id === surface.id ? { ...item, interactionBlocks: value } : item)) };
   return { ...course, discussions: course.discussions.map((item) => (item.id === surface.id ? { ...item, interactionBlocks: value } : item)) };
 };
 

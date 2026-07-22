@@ -43,11 +43,21 @@ library, validation, and IMSCC export integration.
 
 ## Selection rules
 
-- Density caps: module overview 2 · content 1–2 · practice 1–2 · recap 1–2 ·
-  assignment 2 · discussion 1 · milestone 1 · orientation ≤1 · homepage 0 ·
-  syllabus 0 (both have their own block systems).
-- A pattern never repeats within a module; `rare` patterns ≤1 per course,
-  `selective` ≤3; rotation by module position keeps adjacent modules varied.
+- **Universal floor: every student-facing surface gets at least TWO different
+  interactions** — every page (homepage, syllabus, orientation, overview,
+  content, practice, recap, milestone), every assignment, every discussion, and
+  every quiz (blocks compose into the quiz description).
+- Density caps: content pages 3, everything else 2. Homepage gets navigation/
+  goal-setting + FAQ; syllabus gets a policy box + support menu (restrained,
+  print-friendly patterns only).
+- A pattern never repeats on the same surface; within a module, repeats are
+  deprioritized but allowed when the pool would otherwise run dry (`rare` ≤2
+  per course, `selective` ≤12). Rotation by module position varies adjacent
+  modules.
+- Blocks interleave with the authored body at `</section>` boundaries: "early"
+  patterns after the first section, "middle" patterns from the halfway point
+  (spreading across later boundaries), the rest at the end. Every block opens
+  with a theme-colored affordance chip ("✦ Try it", "✦ Pause and respond").
 - Discipline gating: e.g. `variable-identification-activity` never appears in a
   literature course; `primary-source-annotation-guide` never in a management
   course (covered by tests across humanities/STEM/geography/business/health

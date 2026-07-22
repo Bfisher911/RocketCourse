@@ -54,17 +54,112 @@ const safeHref = (href: string | undefined): string | null => {
 const uid = (blockId: string, patternId: string): string =>
   `${patternId}-${blockId}`.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
 
+// ── Placement and affordance policy ─────────────────────────────────────────
+// Where a pattern belongs inside the lesson flow. Interleaving (instead of a
+// stack at the page bottom) is what makes the interactions register as part of
+// the lesson — a Canvas import review showed bottom-stacked blocks were simply
+// never seen.
+export type InteractionPlacement = "early" | "middle" | "end";
+
+const EARLY_PATTERNS = new Set([
+  "read-time-indicator",
+  "learning-objectives-card",
+  "before-you-begin-panel",
+  "interactive-reading-guide",
+  "visual-module-launchpad",
+  "course-navigation-map",
+  "action-item-checklist"
+]);
+
+const MIDDLE_PATTERNS = new Set([
+  "standard-accordion",
+  "vocabulary-accordion",
+  "step-by-step-accordion",
+  "click-to-reveal-answer",
+  "flashcard-stack",
+  "expandable-process-map",
+  "prediction-before-reveal",
+  "common-mistake-explorer",
+  "myth-versus-fact-reveal",
+  "compare-the-perspectives-panels",
+  "decision-consequence-cards",
+  "stop-and-think-prompt",
+  "worked-example-reveal",
+  "hint-ladder",
+  "socratic-question-chain",
+  "assumption-checker",
+  "counterexample-explorer",
+  "concept-boundary-tester",
+  "build-a-definition-activity",
+  "choose-the-best-example",
+  "what-would-you-do-next",
+  "flip-card-style-reveal",
+  "scenario-card",
+  "expandable-case-file",
+  "expandable-timeline",
+  "cause-and-effect-chain",
+  "hypothesis-builder",
+  "variable-identification-activity",
+  "primary-source-annotation-guide",
+  "source-credibility-analyzer",
+  "data-quality-checklist",
+  "chart-type-chooser",
+  "ethical-dilemma-explorer",
+  "media-bias-lens-selector"
+]);
+
+export const patternPlacement = (patternId: string): InteractionPlacement =>
+  EARLY_PATTERNS.has(patternId) ? "early" : MIDDLE_PATTERNS.has(patternId) ? "middle" : "end";
+
+// A short, loud affordance label so blocks read as activities, not more prose.
+const TEMPLATE_KICKERS: Record<string, string> = {
+  "reveal-panels": "Try it",
+  "steps-reveal": "Step by step",
+  "prompt-list": "Think it through",
+  checklist: "Checklist",
+  "card-link-grid": "Explore",
+  callout: "Take note",
+  "options-reveal": "Decide",
+  "flaw-repair": "Find the flaw",
+  "matrix-table": "Compare",
+  timeline: "Timeline",
+  "flip-card": "Try it",
+  "figure-panel": "Look closely",
+  gallery: "Look closely",
+  "image-map": "Explore",
+  "media-audio": "Listen",
+  "media-video": "Watch",
+  "instructor-panel": "Your instructor"
+};
+
+const PATTERN_KICKERS: Record<string, string> = {
+  "stop-and-think-prompt": "Pause and respond",
+  "policy-box": "Policy",
+  "before-you-begin-panel": "Before you begin",
+  "read-time-indicator": "Plan your time",
+  "interactive-rubric-explorer": "How you're graded",
+  "visual-module-launchpad": "Start here",
+  "confidence-check": "Check yourself",
+  "reflection-ladder": "Reflect"
+};
+
 interface RenderCtx {
   styles: ThemeStyles;
   headingId: string;
+  kicker?: string;
 }
+
+const kickerChip = (ctx: RenderCtx): string =>
+  ctx.kicker
+    ? `<p style="margin:0 0 8px;"><span style="display:inline-block;padding:3px 11px;border-radius:999px;background:${ctx.styles.accentDark};color:${ctx.styles.onAccentDark};font-size:11px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;">&#10022; ${esc(ctx.kicker)}</span></p>`
+    : "";
 
 const sectionShell = (ctx: RenderCtx, content: InteractionContent, body: string, options: { soft?: boolean; accentEdge?: boolean } = {}): string => {
   const { styles } = ctx;
   const background = options.soft ? styles.soft : "#ffffff";
   const edge = options.accentEdge ? `border-left:6px solid ${styles.accentDark};` : `border-top:5px solid ${styles.accent};`;
   return `<section aria-labelledby="${ctx.headingId}" style="margin:20px 0;padding:18px 20px;background:${background};border:1px solid ${withAlpha(styles.accentDark, 0.28)};${edge}border-radius:12px;color:${styles.canvasText};font-family:${styles.font};line-height:1.6;">
-<h3 id="${ctx.headingId}" style="margin:0 0 10px;color:${styles.accentDark};font-size:20px;line-height:1.25;">${esc(content.title)}</h3>
+${kickerChip(ctx)}<h3 id="${ctx.headingId}" style="margin:0 0 10px;color:${styles.accentDark};font-size:20px;line-height:1.25;">${esc(content.title)}</h3>
 ${content.intro ? `<p style="margin:0 0 12px;">${esc(content.intro)}</p>` : ""}
 ${body}
 ${content.note ? `<p style="margin:12px 0 0;font-size:13px;color:${styles.mutedText};">${esc(content.note)}</p>` : ""}
@@ -337,7 +432,12 @@ const renderExternalLinkPanel = (ctx: RenderCtx, content: InteractionContent, co
 export const renderInteractionBlock = (block: InteractionBlock, theme: Theme, policy: ExternalEmbedPolicy = DEFAULT_EMBED_POLICY): string => {
   const pattern = interactionPatternById(block.patternId);
   if (!pattern) return "";
-  const ctx: RenderCtx = { styles: getThemeStyles(theme), headingId: `${uid(block.id, pattern.id)}-heading` };
+  const ctx: RenderCtx = {
+    styles: getThemeStyles(theme),
+    headingId: `${uid(block.id, pattern.id)}-heading`,
+    // Scenario renders its own kicker; everything else gets the affordance chip.
+    kicker: pattern.template === "scenario" ? undefined : PATTERN_KICKERS[pattern.id] ?? TEMPLATE_KICKERS[pattern.template]
+  };
 
   if (pattern.template === "iframe-embed") {
     if (block.external && validateExternalConfig(block.external, policy).length === 0) {
@@ -365,8 +465,13 @@ export const renderInteractionBlocks = (blocks: InteractionBlock[] | undefined, 
 
 /**
  * A page/assignment/discussion body plus its interaction blocks, ready for
- * preview or IMSCC export. Blocks always append AFTER the authored body so the
- * instructor's own content stays first.
+ * preview or IMSCC export.
+ *
+ * Blocks are INTERLEAVED with the authored body: "early" blocks land after the
+ * first authored section, "middle" blocks after the halfway section, and "end"
+ * blocks after everything. Generated bodies are one shell div wrapping sibling
+ * <section> cards, so splicing after a top-level `</section>` keeps the markup
+ * well-formed. Bodies with fewer than two sections just get blocks appended.
  */
 export const composeBodyWithInteractions = (
   bodyHtml: string,
@@ -374,8 +479,43 @@ export const composeBodyWithInteractions = (
   theme: Theme,
   policy?: ExternalEmbedPolicy
 ): string => {
-  const rendered = renderInteractionBlocks(blocks, theme, policy);
-  return rendered ? `${bodyHtml}\n${rendered}` : bodyHtml;
+  const groups: Record<InteractionPlacement, string[]> = { early: [], middle: [], end: [] };
+  for (const block of blocks ?? []) {
+    const html = renderInteractionBlock(block, theme, policy);
+    if (html.trim()) groups[patternPlacement(block.patternId)].push(html);
+  }
+  if (!groups.early.length && !groups.middle.length && !groups.end.length) return bodyHtml;
+
+  const sectionCloses = [...bodyHtml.matchAll(/<\/section>/gi)].map((match) => (match.index ?? 0) + match[0].length);
+  const endHtml = groups.end.length ? `\n${groups.end.join("\n")}` : "";
+  if (sectionCloses.length < 2) {
+    const inline = [...groups.early, ...groups.middle].join("\n");
+    return `${bodyHtml}${inline ? `\n${inline}` : ""}${endHtml}`;
+  }
+
+  // Early blocks land after the FIRST authored section. Middle blocks start at
+  // the halfway boundary and successive middle blocks step one boundary later,
+  // so several activities spread through the lesson instead of bunching.
+  const insertions = new Map<number, string[]>();
+  const push = (boundaryIndex: number, html: string): void => {
+    const list = insertions.get(boundaryIndex) ?? [];
+    list.push(html);
+    insertions.set(boundaryIndex, list);
+  };
+  groups.early.forEach((html) => push(0, html));
+  const middleStart = Math.max(1, Math.ceil(sectionCloses.length / 2) - 1);
+  groups.middle.forEach((html, index) => push(Math.min(sectionCloses.length - 1, middleStart + index), html));
+
+  let out = "";
+  let previous = 0;
+  sectionCloses.forEach((position, index) => {
+    out += bodyHtml.slice(previous, position);
+    const htmls = insertions.get(index);
+    if (htmls) out += `\n${htmls.join("\n")}\n`;
+    previous = position;
+  });
+  out += bodyHtml.slice(previous);
+  return `${out}${endHtml}`;
 };
 
 export const describePatternTier = (pattern: InteractionPatternDef): string =>
