@@ -1,0 +1,47 @@
+/* Concept 5 — Task-Based Command Center. Calm, prioritized, job-first. */
+.tk { max-width: 940px; margin: 0 auto; padding: 30px 26px 50px; }
+.tk-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.tk-eyebrow { font-size: 12px; color: var(--ink-3); margin: 0 0 6px; }
+.tk-h1 { font-size: 30px; letter-spacing: -.03em; margin: 0; }
+.tk-progress { text-align: right; }
+.tk-progress strong { font-size: 20px; }
+.tk-recommend { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow-1); margin-bottom: 26px; }
+.tk-recommend__tag { display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 8px; }
+.tk-recommend h2 { font-size: 22px; margin: 0 0 6px; }
+.tk-recommend p { color: var(--ink-2); margin: 0 0 16px; max-width: 60ch; }
+.tk-sech { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin: 22px 0 12px; }
+.tk-jobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.tk-job { text-align: left; border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; transition: border-color .12s, transform .08s; }
+.tk-job:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.tk-job--attention { border-left: 3px solid var(--danger); }
+.tk-job--review { border-left: 3px solid var(--warn); }
+.tk-job__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tk-job__title { font-weight: 700; font-size: 15px; }
+.tk-job__mark { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 800; background: var(--surface-2); color: var(--ink-3); }
+.tk-job__mark--ok { background: var(--ok-bg); color: var(--ok); }
+.tk-job__mark--danger { background: var(--danger-bg); color: var(--danger); }
+.tk-job__mark--warn { background: var(--warn-bg); color: var(--warn); }
+.tk-job__desc { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.45; flex: 1; }
+
+/* job surfaces */
+.tk-jobbar { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.tk-jobh1 { font-size: 24px; letter-spacing: -.02em; margin: 0; }
+.tk-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 14px; }
+.tk-panel__t { font-size: 14px; margin: 0 0 12px; color: var(--ink-2); }
+.tk-modchips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
+.tk-modchip { position: relative; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 8px; min-width: 38px; padding: 7px 10px; font-weight: 600; font-size: 13px; color: var(--ink-2); }
+.tk-modchip.is-on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.tk-mdot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+.tk-modgrid { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 20px; align-items: start; }
+.tk-modtitle { font-size: 17px; margin: 0 0 2px; }
+.tk-modeditor { border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: var(--surface); min-height: 240px; }
+.tk-align { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.tk-workload, .tk-acc { display: flex; flex-direction: column; gap: 8px; }
+.tk-wrow { display: grid; grid-template-columns: 1fr 120px 44px auto; align-items: center; gap: 10px; padding: 4px 8px; }
+.tk-wname { font-size: 13px; }
+.tk-wtrack { height: 7px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.tk-wfill { display: block; height: 100%; background: var(--accent); }
+.tk-wfill.is-heavy { background: var(--warn); }
+.tk-acc__i { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+
+@container (max-width: 720px) { .tk-modgrid { grid-template-columns: 1fr; } }

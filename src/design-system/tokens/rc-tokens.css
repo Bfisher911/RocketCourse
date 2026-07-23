@@ -1,0 +1,105 @@
+/* ============================================================================
+   RocketCourse — Units-inspired design tokens (semantic layer).
+   ADDITIVE: scoped under [data-rc-ds] so it does NOT restyle existing screens.
+   Applies only to the new nine-workflow shell (Experience Selector + Host).
+   Translation of the units.gr design language — grid, saturated energy colors,
+   editorial type, numbered navigation, rounded modular panels — into an
+   original RocketCourse system. No reference brand assets are used.
+   ============================================================================ */
+[data-rc-ds] {
+  /* Foundation */
+  --rc-ink: #111111;
+  --rc-paper: #F4EEE7;
+  --rc-paper-bright: #FFFDF9;
+  --rc-grid-line: rgba(17, 17, 17, 0.14);
+  --rc-muted-ink: #5B554F;
+  --rc-border: #171717;
+
+  /* Primary energy colors */
+  --rc-blue: #0072E3;
+  --rc-yellow: #FFB200;
+  --rc-orange: #F85D31;
+  --rc-green: #00B85B;
+  --rc-lilac: #C79DFA;
+  --rc-raspberry: #E83D73;
+
+  /* Semantic (paired ALWAYS with a label/icon/shape elsewhere — never color alone) */
+  --rc-action: var(--rc-ink);
+  --rc-action-ink: #FFFFFF;
+  --rc-attention: var(--rc-yellow);
+  --rc-attention-ink: var(--rc-ink);       /* black on yellow passes AA */
+  --rc-generate: var(--rc-orange);
+  --rc-generate-ink: var(--rc-ink);         /* black on orange */
+  --rc-success: var(--rc-green);
+  --rc-success-ink: #FFFFFF;                /* verified: white on #00B85B ~3.1 — use for large/bold only; body uses ink */
+  --rc-success-ink-strong: #04351f;
+  --rc-ai: var(--rc-lilac);
+  --rc-ai-ink: #2c1b52;                     /* dark ink on light lilac passes AA */
+  --rc-danger: #C0281B;                     /* accessible red (raspberry fails AA on white for text) */
+  --rc-danger-ink: #FFFFFF;
+  --rc-info: var(--rc-blue);
+  --rc-info-ink: #FFFFFF;                   /* white on #0072E3 passes AA */
+
+  /* Radii */
+  --rc-radius-xs: 6px;
+  --rc-radius-sm: 10px;
+  --rc-radius-md: 14px;
+  --rc-radius-lg: 20px;
+  --rc-radius-xl: 26px;
+  --rc-radius-pill: 999px;
+
+  /* Spacing (4px base) */
+  --rc-space-1: 4px;  --rc-space-2: 8px;  --rc-space-3: 12px; --rc-space-4: 16px;
+  --rc-space-5: 20px; --rc-space-6: 24px; --rc-space-8: 32px; --rc-space-10: 40px;
+  --rc-space-12: 48px; --rc-space-16: 64px; --rc-space-20: 80px; --rc-space-24: 96px;
+
+  /* Type */
+  --rc-font-display: "Archivo Black", "Space Grotesk", "Bricolage Grotesque", system-ui, sans-serif;
+  --rc-font-ui: Inter, Manrope, "Source Sans 3", system-ui, sans-serif;
+  --rc-font-mono: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Borders / shadow (soft ambient, no neon/glass) */
+  --rc-border-1: 1px solid var(--rc-border);
+  --rc-border-2: 2px solid var(--rc-border);
+  --rc-shadow-1: 0 1px 2px rgba(17,17,17,.06), 0 2px 8px rgba(17,17,17,.06);
+  --rc-shadow-2: 0 10px 30px rgba(17,17,17,.14);
+
+  /* Motion */
+  --rc-motion-fast: 130ms;
+  --rc-motion-standard: 220ms;
+  --rc-motion-emphasis: 380ms;
+  --rc-ease-out: cubic-bezier(.16,.84,.44,1);
+  --rc-ease-snappy: cubic-bezier(.2,.7,.2,1);
+
+  /* Z-index */
+  --rc-z-nav: 40; --rc-z-sticky: 50; --rc-z-overlay: 900; --rc-z-toast: 9999;
+
+  /* Focus */
+  --rc-focus: 3px solid var(--rc-blue);
+}
+
+/* Dark-mode token overrides (prepared; warm near-black, not mechanical invert) */
+@media (prefers-color-scheme: dark) {
+  [data-rc-ds]:not([data-rc-force-light]) {
+    --rc-ink: #F3EDE4;
+    --rc-paper: #17140F;
+    --rc-paper-bright: #201B14;
+    --rc-grid-line: rgba(243, 237, 228, 0.10);
+    --rc-muted-ink: #B9B0A3;
+    --rc-border: #E8E0D2;
+    --rc-action: var(--rc-paper-bright);
+    --rc-action-ink: #17140F;
+    --rc-ai-ink: #ECE2FF;
+    --rc-shadow-2: 0 10px 30px rgba(0,0,0,.5);
+  }
+}
+
+/* The recurring grid brand device (used OUTSIDE dense text; empty states, selector). */
+.rc-grid-bg {
+  background-image:
+    linear-gradient(var(--rc-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rc-grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+@media (max-width: 640px) { .rc-grid-bg { background-size: 44px 44px; opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { [data-rc-ds] * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

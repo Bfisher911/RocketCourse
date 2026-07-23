@@ -1,0 +1,79 @@
+/* ============================== SHELL CHROME ============================== */
+.topbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 10px 18px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-1); }
+.wordmark { border: 0; background: transparent; font-weight: 800; font-size: 16px; color: var(--ink); display: inline-flex; align-items: center; gap: 7px; letter-spacing: -.02em; }
+.wordmark__rk { color: var(--accent); transform: rotate(0deg); font-size: 14px; }
+.sw__btn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 14px; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.topbar { flex-wrap: wrap; }
+.sw__btn:hover { background: var(--surface-2); }
+.sw__chev { color: var(--ink-3); font-size: 11px; }
+
+.vp { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 999px; overflow: hidden; }
+.vp__b { border: 0; background: var(--surface); padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.vp__b + .vp__b { border-left: 1px solid var(--line); }
+.vp__b.is-on { background: var(--accent); color: var(--accent-ink); }
+
+.taskbar { position: sticky; top: 55px; z-index: 40; display: flex; align-items: center; gap: 14px; padding: 8px 18px;
+  background: var(--surface-2); border-bottom: 1px solid var(--line); overflow-x: auto; }
+.taskbar__lead { font-size: 12px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+.taskbar__chips { display: flex; gap: 6px; }
+.taskchip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.taskchip:hover { border-color: var(--accent); color: var(--ink); }
+.taskchip b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--surface-2); font-size: 11px; }
+.taskchip.is-on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.taskchip.is-on b { background: rgba(255,255,255,.25); color: #fff; }
+
+/* stage + viewport frame */
+.stage-frame { display: flex; justify-content: center; padding: 0; background: var(--bg); min-height: calc(100vh - 96px); }
+.stage-frame[data-vp="tablet"] { padding: 20px; }
+.stage-frame[data-vp="mobile"] { padding: 20px; }
+/* .stage is a query container so concepts' @container breakpoints respond to the
+   Tablet/Mobile frame width — the viewport toggle is therefore honest, not cosmetic. */
+.stage { width: 100%; container-type: inline-size; }
+.stage-frame[data-vp="tablet"] .stage { max-width: 768px; box-shadow: var(--shadow-2); border-radius: 14px; overflow: hidden; background: var(--surface); min-height: 80vh; }
+.stage-frame[data-vp="mobile"] .stage { max-width: 390px; box-shadow: var(--shadow-2); border-radius: 26px; overflow: hidden; background: var(--surface); min-height: 80vh; border: 6px solid #12141a; }
+.stage-error { padding: 30px; }
+.stage-error pre { background: var(--danger-bg); padding: 12px; border-radius: 8px; overflow: auto; font-size: 12px; }
+
+/* switcher grid */
+.sw-grid { display: flex; flex-direction: column; gap: 6px; }
+.sw-grid__item { display: flex; gap: 12px; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px; }
+.sw-grid__item:hover { border-color: var(--accent); background: var(--surface-2); }
+.sw-grid__ico { font-size: 22px; }
+.sw-grid__name { font-weight: 700; }
+
+/* ============================== HOMEPAGE ============================== */
+.home { max-width: 1120px; margin: 0 auto; padding: 40px 22px 70px; }
+.home__hero { max-width: 780px; }
+.home__eyebrow { text-transform: uppercase; letter-spacing: .1em; font-size: 12px; font-weight: 700; color: var(--accent); margin: 0 0 12px; }
+.home__title { font-size: clamp(30px, 5vw, 46px); font-weight: 800; letter-spacing: -.03em; margin: 0 0 16px; }
+.home__lede { font-size: 17px; line-height: 1.6; color: var(--ink-2); margin: 0 0 22px; }
+.home__meta { display: flex; flex-wrap: wrap; gap: 10px; }
+.home__chip { display: flex; flex-direction: column; gap: 1px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; }
+.home__tasks { margin: 34px 0; padding: 20px 24px; }
+.home__h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin: 0 0 12px; }
+.home__tasklist { columns: 2; column-gap: 40px; margin: 0; padding-left: 20px; }
+.home__tasklist li { margin: 4px 0; break-inside: avoid; }
+
+.home__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; margin-top: 8px; }
+.ccard { display: flex; flex-direction: column; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow-1); transition: box-shadow .15s, transform .1s, border-color .15s; }
+.ccard:hover { box-shadow: var(--shadow-2); transform: translateY(-2px); border-color: var(--line-strong); }
+.ccard__top { display: flex; justify-content: space-between; align-items: center; }
+.ccard__num { font-family: var(--mono); font-size: 13px; color: var(--ink-3); font-weight: 600; }
+.ccard__ico { font-size: 26px; }
+.ccard__name { font-size: 20px; letter-spacing: -.02em; }
+.ccard__hyp { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+.ccard__facts { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 0; }
+.fact { display: grid; grid-template-columns: 88px 1fr; gap: 10px; font-size: 13px; }
+.fact dt { color: var(--ink-3); font-weight: 600; }
+.fact dd { margin: 0; color: var(--ink); }
+.ccard__sr { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+.ccard__sr p { margin: 2px 0 0; font-size: 13px; line-height: 1.45; }
+.ccard__r p { color: var(--ink-2); }
+.ccard__cta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.home__foot { margin-top: 40px; text-align: center; line-height: 2; }
+
+@media (max-width: 620px) {
+  .home__tasklist { columns: 1; }
+  .taskbar { top: 54px; }
+}
