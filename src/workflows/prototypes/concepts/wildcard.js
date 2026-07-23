@@ -86,7 +86,7 @@ export function mount(stage, ctx) {
     }
     return entry;
   }
-  function moveItem(mod, i, dir) { const j = i + dir; if (j < 0 || j >= mod.items.length) return; [mod.items[i], mod.items[j]] = [mod.items[j], mod.items[i]]; toast("Moved within “" + mod.title.replace(/^\d+ · /, "") + "”", "ok"); render(); }
+  function moveItem(mod, i, dir) { const j = i + dir; if (j < 0 || j >= mod.items.length) return; [mod.items[i], mod.items[j]] = [mod.items[j], mod.items[i]]; B.session.commit?.(); toast("Moved within “" + mod.title.replace(/^\d+ · /, "") + "”", "ok"); render(); }
 
   // ---- reading panel (turn to a page) -------------------------------------
   function readingPanel() {

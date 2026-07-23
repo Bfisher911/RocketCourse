@@ -161,26 +161,26 @@ function outcomesEditor() {
     h("div", { class: "row spread" }, h("strong", {}, o.code + " · " + o.bloom),
       o.alignedModuleIds.length ? h("span", { class: "pill ok tiny" }, o.alignedModuleIds.length + " modules") : h("span", { class: "pill warn tiny" }, "unaligned")),
     h("p", { style: { margin: "4px 0 0", fontSize: "14px" } }, o.text),
-    o.alignedModuleIds.length === 0 && h("button", { class: "btn btn--sm", style: { marginTop: "8px" }, onClick: e => { o.alignedModuleIds = ["m4"]; B.resolveIssue("w3"); toast("CLO 6 aligned to Module 4", "ok"); e.currentTarget.replaceWith(h("span", { class: "pill ok tiny" }, "now aligned")); } }, "Align to a module"))));
+    o.alignedModuleIds.length === 0 && h("button", { class: "btn btn--sm", style: { marginTop: "8px" }, onClick: e => { const target = B.session.modules.find(m => m.kind !== "start") || B.session.modules[0]; o.alignedModuleIds = target ? [target.id] : []; B.session.commit?.(); B.resolveIssue("w3"); toast(o.code + " aligned to " + (target?.title || "a module"), "ok"); e.currentTarget.replaceWith(h("span", { class: "pill ok tiny" }, "now aligned")); } }, "Align to a module"))));
   return wrap;
 }
 function assessmentEditor() {
   const wrap = h("div", { class: "bp2-assess" });
-  let total = B.D.assignmentGroups.reduce((s, g) => s + g.weight, 0);
+  let total = B.session.assignmentGroups.reduce((s, g) => s + g.weight, 0);
   const totalEl = h("span", { class: "pill" + (total === 100 ? " ok" : " danger") }, total + "%");
-  B.D.assignmentGroups.forEach(g => {
+  B.session.assignmentGroups.forEach(g => {
     const val = h("span", { class: "bp2-assess__val" }, g.weight + "%");
     wrap.append(h("div", { class: "bp2-assess__row" }, h("span", {}, g.name),
-      h("input", { type: "range", min: 0, max: 50, value: g.weight, oninput: e => { g.weight = +e.target.value; val.textContent = g.weight + "%"; total = B.D.assignmentGroups.reduce((s, x) => s + x.weight, 0); totalEl.textContent = total + "%"; totalEl.className = "pill" + (total === 100 ? " ok" : " danger"); } }), val));
+      h("input", { type: "range", min: 0, max: 50, value: g.weight, oninput: e => { g.weight = +e.target.value; val.textContent = g.weight + "%"; total = B.session.assignmentGroups.reduce((s, x) => s + x.weight, 0); totalEl.textContent = total + "%"; totalEl.className = "pill" + (total === 100 ? " ok" : " danger"); }, onchange: () => B.session.commit?.() }), val));
   });
   wrap.append(h("div", { class: "bp2-assess__total row spread" }, h("strong", {}, "Total must equal 100%"), totalEl));
   return wrap;
 }
 function policiesList() {
-  return h("ul", { class: "bp2-pol" }, B.D.syllabus.sections.filter(s => ["s-integrity", "s-ai", "s-late", "s-access"].includes(s.id)).map(s =>
+  return h("ul", { class: "bp2-pol" }, B.session.syllabus.sections.filter(s => ["s-integrity", "s-ai", "s-late", "s-access"].includes(s.id)).map(s =>
     h("li", { class: "bp2-pol__i" + (s.complete ? "" : " attn") },
       h("div", { class: "grow" }, h("strong", {}, s.title), s.body ? h("p", { class: "tiny muted", style: { margin: "2px 0 0" } }, s.body) : h("p", { class: "tiny", style: { margin: "2px 0 0", color: "var(--warn)" } }, s.note || "Empty")),
-      s.complete ? h("span", { class: "pill ok tiny" }, "set") : h("button", { class: "btn btn--sm", onClick: e => { s.complete = true; s.body = "Confirmed."; toast(s.title + " confirmed", "ok"); e.currentTarget.replaceWith(h("span", { class: "pill ok tiny" }, "set")); } }, "Confirm"))));
+      s.complete ? h("span", { class: "pill ok tiny" }, "set") : h("button", { class: "btn btn--sm", onClick: e => { s.complete = true; s.body = s.body || "Confirmed — standard institutional language applies."; B.session.commit?.(); toast(s.title + " confirmed", "ok"); e.currentTarget.replaceWith(h("span", { class: "pill ok tiny" }, "set")); } }, "Confirm"))));
 }
 
 export function rationale() {

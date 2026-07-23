@@ -116,13 +116,14 @@ export function mount(stage, ctx) {
       ai("The Short Essay 2 rubric is missing performance levels for its “Use of evidence” criterion, so it's worth 0 points. I can add three standard levels (Exceeds / Meets / Developing) totalling 8 points.", {
         scope: "1 rubric · Module 4 essay", what: "Add the missing performance levels and mark the rubric complete.",
         showLabel: "Open the essay", show: () => { center = { kind: "item" }; modId = "m4"; itemId = "i4d"; render(); },
-        doneLabel: "Completed the rubric", apply: () => { const r = B.session.rubrics["r-essay-freedom"]; const c = r.criteria.find(x => x.levels.length === 0); if (c) { c.points = 8; c.levels = [{ label: "Exceeds", points: 8, desc: "Precise, integrated evidence." }, { label: "Meets", points: 6, desc: "Relevant evidence." }, { label: "Developing", points: 3, desc: "Thin evidence." }]; } r.complete = true; r.points = r.criteria.reduce((s, x) => s + x.points, 0); B.resolveIssue("b2"); B.resolveIssue("rev3"); center = { kind: "item" }; modId = "m4"; itemId = "i4d"; render(); } });
+        doneLabel: "Completed the rubric", apply: () => { const r = Object.values(B.session.rubrics).find(x => !x.complete); if (!r) { render(); return; } const c = r.criteria.find(x => x.levels.length === 0); if (c) { c.points = 8; c.levels = [{ label: "Exceeds", points: 8, desc: "Precise, integrated evidence." }, { label: "Meets", points: 6, desc: "Relevant evidence." }, { label: "Developing", points: 3, desc: "Thin evidence." }]; } r.complete = true; r.points = r.criteria.reduce((s, x) => s + x.points, 0); B.session.commit?.(); B.resolveIssue("b2"); B.resolveIssue("rev3"); render(); } });
     } else if (t.includes("fix") && t.includes("must")) {
       ai("I'll clear both must-fix blockers: verify the Module 3 answer key and complete the Module 4 rubric. You approve the change before I touch anything.", {
         scope: "Course-wide · 2 blockers", what: "Verify the answer key AND complete the essay rubric in one approved step.",
         doneLabel: "Both blockers cleared", apply: () => {
-          const q = B.session.quizzes["q3-check"].questions.find(x => x.needsAttention); if (q) { q.needsAttention = null; q.verified = true; }
-          const r = B.session.rubrics["r-essay-freedom"]; const c = r.criteria.find(x => x.levels.length === 0); if (c) { c.points = 8; c.levels = [{ label: "Meets", points: 6, desc: "Relevant evidence." }]; } r.complete = true;
+          for (const quiz of Object.values(B.session.quizzes)) { const q = quiz.questions.find(x => x.needsAttention); if (q) { q.needsAttention = null; q.verified = true; } }
+          const r = Object.values(B.session.rubrics).find(x => !x.complete); if (r) { const c = r.criteria.find(x => x.levels.length === 0); if (c) { c.points = 8; c.levels = [{ label: "Meets", points: 6, desc: "Relevant evidence." }]; } r.complete = true; }
+          B.session.commit?.();
           B.resolveIssue("b1"); B.resolveIssue("b2"); B.resolveIssue("rev2"); B.resolveIssue("rev3"); render();
         } });
     } else {
@@ -143,7 +144,7 @@ export function mount(stage, ctx) {
       2: () => center = { kind: "sources" },
       3: () => { center = { kind: "setup" }; },
       4: () => center = { kind: "blueprint" },
-      5: () => { center = { kind: "setup" }; ai("Want to change the course length? I'll apply it course-wide once you approve.", { scope: "Course-wide", what: "Set the course to 14 weeks.", doneLabel: "Course set to 14 weeks", apply: () => { B.session.settings.weeks = 14; } }); },
+      5: () => { center = { kind: "setup" }; ai("Want to change the course length? I'll apply it course-wide once you approve.", { scope: "Course-wide", what: "Set the course to 14 weeks.", doneLabel: "Course set to 14 weeks", apply: () => { B.session.settings.weeks = 14; B.session.commit?.(); } }); },
       6: () => { center = { kind: "module" }; modId = "m4"; },
       7: () => { center = { kind: "item" }; modId = "m4"; itemId = "i4a"; },
       8: () => { center = { kind: "item" }; modId = "m4"; itemId = "i4d"; },

@@ -125,7 +125,7 @@ export function mount(stage, ctx) {
     return panel("Outcome → module alignment", h("div", {}, B.session.outcomes.map(o => h("div", { class: "tk-align" + (o.alignedModuleIds.length === 0 ? " attn" : "") },
       h("div", { class: "grow" }, h("strong", {}, o.code), " " + o.text),
       o.alignedModuleIds.length ? h("span", { class: "pill ok tiny" }, o.alignedModuleIds.length + " modules") :
-        h("button", { class: "btn btn--sm btn--primary", onClick: e => { o.alignedModuleIds = ["m4", "m8"]; B.resolveIssue("w3"); toast("CLO 6 aligned", "ok"); e.currentTarget.replaceWith(h("span", { class: "pill ok tiny" }, "aligned")); } }, "Align now")))));
+        h("button", { class: "btn btn--sm btn--primary", onClick: e => { const targets = B.session.modules.filter(m => m.kind !== "start").slice(0, 2); o.alignedModuleIds = targets.map(m => m.id); B.session.commit?.(); B.resolveIssue("w3"); toast(o.code + " aligned", "ok"); e.currentTarget.replaceWith(h("span", { class: "pill ok tiny" }, "aligned")); } }, "Align now")))));
   }
   function workloadSurface() {
     return panel("Student hours per module", h("div", { class: "tk-workload" }, B.session.modules.filter(m => m.kind !== "start").map(m => {
@@ -133,7 +133,7 @@ export function mount(stage, ctx) {
       return h("div", { class: "tk-wrow" + (heavy ? " attn" : "") }, h("span", { class: "tk-wname" }, m.title.replace(/^\d+ · /, "")),
         h("span", { class: "tk-wtrack" }, h("span", { class: "tk-wfill" + (heavy ? " is-heavy" : ""), style: { width: Math.min(100, m.workloadHours / 10 * 100) + "%" } })),
         h("span", { class: "tiny" + (heavy ? "" : " muted") }, m.workloadHours + "h"),
-        heavy && h("button", { class: "btn btn--sm", onClick: () => { m.workloadHours = 5; toast("Module 7 split across two weeks (mock)", "ok"); render(); } }, "Split"));
+        heavy && h("button", { class: "btn btn--sm", onClick: () => { m.workloadHours = 5; B.session.commit?.(); toast(m.title.replace(/^\d+ · /, "") + " workload reduced to 5h", "ok"); render(); } }, "Split"));
     })));
   }
   function accessibilitySurface() {

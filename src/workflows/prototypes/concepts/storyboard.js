@@ -92,7 +92,7 @@ export function mount(stage, ctx) {
       if (i < m.items.length - 1) flow.append(h("span", { class: "sb-arrow" }, "→"));
     });
     main.append(flow);
-    function moveBeat(i, dir) { const j = i + dir; if (j < 0 || j >= m.items.length) return; [m.items[i], m.items[j]] = [m.items[j], m.items[i]]; toast("Reordered beat · scope: Module " + m.order, "ok"); render(); }
+    function moveBeat(i, dir) { const j = i + dir; if (j < 0 || j >= m.items.length) return; [m.items[i], m.items[j]] = [m.items[j], m.items[i]]; B.session.commit?.(); toast("Reordered beat · scope: Module " + m.order, "ok"); render(); }
   }
 
   function renderItemScene() {

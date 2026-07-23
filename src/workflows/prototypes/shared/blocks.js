@@ -5,37 +5,63 @@
 // makes edits + issue-resolution persist while you compare concepts.
 // ============================================================================
 import { h, clear, toast, ATTN, itemGlyph, ring } from "./ui.js";
-import * as D from "../data/course.js";
+import * as MOCK from "../data/course.js";
 
-// ---- live, mutable session copy (deep clone of the deterministic data) ------
+// ---- live, mutable containers ------------------------------------------------
+// `session` is what widgets/concepts read & mutate. `D` is course-level info
+// several concepts read (course identity, groups, contact hours, sources…).
+// Both are MUTABLE OBJECTS (not module namespaces) so that:
+//   • lab mode seeds them from the deterministic mock below, and
+//   • app mode lets the CourseAdapter write the REAL course into the SAME
+//     objects (bindSession) — every widget closure keeps working untouched.
 const clone = x => JSON.parse(JSON.stringify(x));
+export const D = clone({
+  course: MOCK.course, sourceFiles: MOCK.sourceFiles, assignmentGroups: MOCK.assignmentGroups,
+  outcomes: MOCK.outcomes, rubrics: MOCK.rubrics, pages: MOCK.pages, assignments: MOCK.assignments,
+  discussions: MOCK.discussions, quizzes: MOCK.quizzes, modules: MOCK.modules,
+  homepage: MOCK.homepage, syllabus: MOCK.syllabus, contactHours: MOCK.contactHours,
+  theme: MOCK.theme, accessibility: MOCK.accessibility, reviewQueue: MOCK.reviewQueue,
+  readiness: MOCK.readiness, exportStatus: MOCK.exportStatus,
+});
 export const session = {
-  modules: clone(D.modules),
-  pages: clone(D.pages),
-  assignments: clone(D.assignments),
-  discussions: clone(D.discussions),
-  quizzes: clone(D.quizzes),
-  rubrics: clone(D.rubrics),
-  readiness: clone(D.readiness),
-  reviewQueue: clone(D.reviewQueue),
-  accessibility: clone(D.accessibility),
-  exportStatus: clone(D.exportStatus),
-  outcomes: clone(D.outcomes),
-  assignmentGroups: clone(D.assignmentGroups),
-  theme: clone(D.theme),
-  homepage: clone(D.homepage),
-  syllabus: clone(D.syllabus),
-  settings: { weeks: D.course.weeks, modality: D.course.modality, level: D.course.level,
-              creditHours: D.course.creditHours, includeRubrics: true, aiPolicy: "Not set" },
+  modules: clone(MOCK.modules),
+  pages: clone(MOCK.pages),
+  assignments: clone(MOCK.assignments),
+  discussions: clone(MOCK.discussions),
+  quizzes: clone(MOCK.quizzes),
+  rubrics: clone(MOCK.rubrics),
+  readiness: clone(MOCK.readiness),
+  reviewQueue: clone(MOCK.reviewQueue),
+  accessibility: clone(MOCK.accessibility),
+  exportStatus: clone(MOCK.exportStatus),
+  outcomes: clone(MOCK.outcomes),
+  assignmentGroups: clone(MOCK.assignmentGroups),
+  theme: clone(MOCK.theme),
+  homepage: clone(MOCK.homepage),
+  syllabus: clone(MOCK.syllabus),
+  contactHours: clone(MOCK.contactHours),
+  sourceFiles: clone(MOCK.sourceFiles),
+  settings: { weeks: MOCK.course.weeks, modality: MOCK.course.modality, level: MOCK.course.level,
+              creditHours: MOCK.course.creditHours, includeRubrics: true, aiPolicy: "Not set" },
   resolved: new Set(),        // ids of resolved readiness items
   fullContentGenerated: false,
   validated: false,
+  // In lab mode, committing just notifies listeners. When the CourseAdapter is
+  // bound (app mode) it replaces this with a facade→CourseProject write-back.
+  commit: () => emit(),
+  actions: null,
 };
 const listeners = new Set();
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function emit() { listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); }
 
+// Bind hook for the app host: hands the adapter the mutable containers + the
+// emit function. The adapter installs session.commit/session.actions and does
+// its first refresh. Widgets and concepts never know which mode they're in.
+export function getBindTarget() { return { session, D, emit }; }
+
 export function resolveIssue(id) {
+  if (session.actions?.resolveIssue) { session.actions.resolveIssue(id); return; }
   if (session.resolved.has(id)) return;
   session.resolved.add(id);
   session.readiness.blockers = session.readiness.blockers.filter(b => b.id !== id);
@@ -74,9 +100,9 @@ export function pageEditor(pageId, { scopeNote = "This change affects one page."
     const status = statusLine(page);
     const markSaved = () => { page.edited = true; status.textContent = "✓ Saved · edits apply as you type"; };
     const titleI = h("input", { class: "blk-input blk-input--title", value: page.title, "aria-label": "Page title",
-      onInput: e => { page.title = e.target.value; markSaved(); }, onChange: () => onSaved?.(page) });
+      onInput: e => { page.title = e.target.value; markSaved(); }, onChange: () => { session.commit(); onSaved?.(page); } });
     const bodyA = h("textarea", { class: "blk-textarea", "aria-label": "Page content", rows: 12,
-      onInput: e => { page.body = textToHtml(e.target.value); markSaved(); }, onChange: () => onSaved?.(page) });
+      onInput: e => { page.body = textToHtml(e.target.value); markSaved(); }, onChange: () => { session.commit(); onSaved?.(page); } });
     bodyA.value = htmlToText(page.body);
     wrap.append(
       h("div", { class: "blk-editor__bar" },
@@ -144,6 +170,7 @@ function rubricBlock(rubric, onResolve) {
         { label: "Meets", points: 6, desc: "Relevant evidence, adequately used." },
         { label: "Developing", points: 3, desc: "Evidence thin or loosely connected." }]; }
       rubric.complete = true; rubric.points = rubric.criteria.reduce((s, c) => s + c.points, 0);
+      session.commit();
       resolveIssue("b2"); resolveIssue("rev3");
       toast("Rubric completed — readiness blocker cleared", "ok");
       onResolve?.();
@@ -177,6 +204,7 @@ export function moduleItemList(moduleId, { onOpen, selectedItemId, onReorder } =
     const j = i + dir;
     if (j < 0 || j >= mod.items.length) return;
     [mod.items[i], mod.items[j]] = [mod.items[j], mod.items[i]];
+    session.commit();
     render();
     toast(`Reordered “${mod.items[j].title}” — scope: Module ${mod.order}`, "ok");
     onReorder?.(mod);
@@ -219,7 +247,7 @@ export function readinessPanel({ onResolveGoto, compact } = {}) {
     resolveIssue(it.id);
     // clear the paired review-queue item if any
     const rev = session.reviewQueue.find(rv => rv.refId === it.refId);
-    if (rev) session.reviewQueue = session.reviewQueue.filter(rv => rv !== rev);
+    if (rev) { session.reviewQueue = session.reviewQueue.filter(rv => rv !== rev); session.commit(); }
     toast("Resolved: " + it.label, "ok");
     render();
   }
@@ -242,9 +270,9 @@ export function studentPreview({ moduleId = "m4" } = {}) {
         h("span", { class: "tiny muted" }, "Read-only · this is what a student sees in Canvas")),
       h("div", { class: "blk-spv__canvas" },
         h("div", { class: "blk-spv__hero" },
-          h("p", { class: "tiny" }, D.homepage.hero.eyebrow),
-          h("h2", {}, D.homepage.hero.title),
-          h("p", {}, D.homepage.hero.tagline)),
+          h("p", { class: "tiny" }, session.homepage.hero.eyebrow),
+          h("h2", {}, session.homepage.hero.title),
+          h("p", {}, session.homepage.hero.tagline)),
         h("nav", { class: "blk-spv__modnav" }, session.modules.map(m => h("button", {
           class: "blk-spv__modbtn" + (m.id === mid ? " is-on" : ""), onClick: () => render(m.id) },
           m.kind === "start" ? "Start Here" : "Wk " + m.order))),
@@ -300,20 +328,25 @@ export function exportPanel({ onGoResolve } = {}) {
       h("ol", { class: "blk-exp__steps" },
         expStep(1, "Generate full content", session.fullContentGenerated,
           "Flesh every module into complete pages, assignments, and quizzes.", () => {
-            session.fullContentGenerated = true; toast("Full content generated (mock)", "ok"); render();
+            if (session.actions?.generateFullContent) { session.actions.generateFullContent(); }
+            else { session.fullContentGenerated = true; }
+            toast("Full content marked generated", "ok"); render();
           }, session.fullContentGenerated ? "Done" : "Generate", "recommended"),
         expStep(2, "Clear must-fix issues", blockers === 0,
           blockers === 0 ? "No blocking issues remain." : blockers + " issue(s) still block a confident export.",
           () => onGoResolve?.(), blockers === 0 ? "Cleared" : "Review " + blockers, blockers ? "blocking" : "ok"),
         expStep(3, "Validate the package locally", session.validated,
           "Checks structure, links, and Canvas HTML. Does not prove a clean Canvas import.", () => {
-            session.validated = true; toast("Local validation passed", "ok"); render();
+            if (session.actions?.runValidation) { session.actions.runValidation(); }
+            if (session.actions?.markValidated) { session.actions.markValidated(); }
+            else { session.validated = true; }
+            toast("Local validation run", "ok"); render();
           }, session.validated ? "Validated" : "Validate", "")),
       h("div", { class: "blk-exp__download" },
         h("div", {}, h("strong", {}, es.packageName),
           h("div", { class: "tiny muted" }, "Contents · " + es.contents.map(c => c.count + " " + c.label.toLowerCase()).join(" · "))),
         h("button", { class: "btn btn--primary", disabled: blockers > 0 || !session.validated,
-          onClick: () => toast("Download started (mock .imscc)", "ok") }, "Download .imscc")),
+          onClick: () => { if (session.actions?.download) session.actions.download(); else toast("Download started (mock .imscc)", "ok"); } }, "Download .imscc")),
       h("p", { class: "blk-exp__honest tiny" },
         "🛈 Canvas import is ", h("strong", {}, "not verified"),
         ". Local validation checks the package; it can't guarantee a clean import until you test it in a Canvas sandbox."),
@@ -349,11 +382,11 @@ export function blueprintView({ onApprove, onChangeDecision } = {}) {
           h("ol", { class: "blk-bp__seq" }, session.modules.map(m => h("li", { class: m.status === "workload-high" ? "attn" : "" },
             m.kind === "start" ? "Start Here" : m.title.replace(/^\d+ · /, ""),
             h("span", { class: "tiny muted" }, " · " + m.workloadHours + "h"))))),
-        bpCard("Assessment strategy", "5 graded categories → 100%",
-          h("ul", { class: "blk-bp__ul" }, D.assignmentGroups.map(g => h("li", {}, g.name, h("span", { class: "tiny muted" }, " · " + g.weight + "%"))))),
-        bpCard("Workload", "133 of 135 planned student-hours",
-          h("div", {}, D.contactHours.categories.map(c => workBar(c)),
-            h("p", { class: "tiny attn", style: { paddingLeft: "8px" } }, "▲ Module 7 carries 9.5h — well above the 3.5–4.5h norm.")))),
+        bpCard("Assessment strategy", session.assignmentGroups.length + " graded categories → " + session.assignmentGroups.reduce((t, g) => t + g.weight, 0) + "%",
+          h("ul", { class: "blk-bp__ul" }, session.assignmentGroups.map(g => h("li", {}, g.name, h("span", { class: "tiny muted" }, " · " + g.weight + "%"))))),
+        bpCard("Workload", Math.round(session.contactHours.plannedTotal) + " of " + session.contactHours.requiredTotal + " planned student-hours",
+          h("div", {}, session.contactHours.categories.map(c => workBar(c)),
+            heavyModuleNote()))),
     );
   }
   function bpCard(title, sub, body) {
@@ -365,6 +398,13 @@ export function blueprintView({ onApprove, onChangeDecision } = {}) {
     return h("div", { class: "blk-work" }, h("span", { class: "tiny" }, c.label),
       h("span", { class: "blk-work__track" }, h("span", { class: "blk-work__fill", style: { width: w + "%" } })),
       h("span", { class: "tiny muted" }, c.hours + "h"));
+  }
+  function heavyModuleNote() {
+    const heavy = session.modules.filter(m => m.kind !== "start" && m.workloadHours > 6);
+    if (!heavy.length) return h("p", { class: "tiny muted", style: { paddingLeft: "8px" } }, "Weekly workload is evenly balanced.");
+    const m = heavy[0];
+    return h("p", { class: "tiny attn", style: { paddingLeft: "8px" } },
+      "▲ " + m.title.replace(/^\d+ · /, "") + " carries " + m.workloadHours + "h — above the typical weekly norm.");
   }
   render();
   return wrap;
@@ -382,15 +422,15 @@ export function courseChange({ onChanged } = {}) {
       h("label", { class: "blk-cc__row" }, h("span", {}, "Course length"),
         h("div", { class: "blk-seg" }, weeks.map(w => h("button", {
           class: "blk-seg__b" + (session.settings.weeks === w ? " is-on" : ""),
-          onClick: () => { session.settings.weeks = w; toast("Course length → " + w + " weeks (course-wide)", "ok"); render(); onChanged?.(); } }, w + " wks")))),
+          onClick: () => { session.settings.weeks = w; session.commit(); toast("Course length → " + w + " weeks (course-wide)", "ok"); render(); onChanged?.(); } }, w + " wks")))),
       h("label", { class: "blk-cc__row" }, h("span", {}, "AI use policy"),
-        h("select", { class: "blk-input", onChange: e => { session.settings.aiPolicy = e.target.value; toast("AI policy updated (course-wide)", "ok"); } },
+        h("select", { class: "blk-input", onChange: e => { session.settings.aiPolicy = e.target.value; session.commit(); toast("AI policy updated (course-wide)", "ok"); } },
           ["Not set", "AI allowed with citation", "AI not permitted", "AI for brainstorming only"].map(v =>
             h("option", { selected: session.settings.aiPolicy === v }, v)))),
       h("label", { class: "blk-cc__row" }, h("span", {}, "Include rubrics on essays"),
         h("button", { class: "blk-toggle" + (session.settings.includeRubrics ? " is-on" : ""), role: "switch",
           "aria-checked": String(session.settings.includeRubrics),
-          onClick: e => { session.settings.includeRubrics = !session.settings.includeRubrics; e.currentTarget.classList.toggle("is-on"); toast("Rubrics " + (session.settings.includeRubrics ? "on" : "off") + " (course-wide)", "ok"); } },
+          onClick: e => { session.settings.includeRubrics = !session.settings.includeRubrics; session.commit(); e.currentTarget.classList.toggle("is-on"); toast("Rubrics " + (session.settings.includeRubrics ? "on" : "off") + " (course-wide)", "ok"); } },
           h("span", { class: "blk-toggle__dot" }))),
     );
   }
@@ -401,7 +441,7 @@ export function courseChange({ onChanged } = {}) {
 // ---------------------------------------------------------------------------
 // SOURCE LIST — review source materials (task 2).
 export function sourceList() {
-  return h("ul", { class: "blk-src" }, D.sourceFiles.map(f => h("li", { class: "blk-src__i" },
+  return h("ul", { class: "blk-src" }, session.sourceFiles.map(f => h("li", { class: "blk-src__i" },
     h("span", { class: "blk-src__ico" }, "📄"),
     h("div", { class: "grow" }, h("strong", {}, f.name),
       h("div", { class: "tiny muted" }, f.kind + " · " + f.size), h("div", { class: "tiny" }, f.note)),
@@ -433,7 +473,7 @@ function discussionEditorBlock(id, onSaved) {
     h("label", { class: "blk-kind", style: { display: "block", marginBottom: "6px" } }, "Discussion prompt"), ta,
     d.replyGuidance && h("p", { class: "tiny muted", style: { marginTop: "6px" } }, "Reply guidance: " + d.replyGuidance),
     h("div", { class: "row gap-8", style: { marginTop: "10px" } },
-      h("button", { class: "btn btn--primary", onClick: () => { d.prompt = "<p>" + ta.value + "</p>"; d.edited = true; d.needsAttention = null; resolveIssue("w4"); resolveIssue("rev1"); session.reviewQueue = session.reviewQueue.filter(r => r.refId !== id); toast("Prompt approved", "ok"); onSaved?.(); } }, "Approve prompt"),
+      h("button", { class: "btn btn--primary", onClick: () => { d.prompt = "<p>" + ta.value + "</p>"; d.edited = true; d.needsAttention = null; session.reviewQueue = session.reviewQueue.filter(r => r.refId !== id); session.commit(); resolveIssue("w4"); resolveIssue("rev1"); toast("Prompt approved", "ok"); onSaved?.(); } }, "Approve prompt"),
       h("span", { class: "tiny muted" }, "Scope · one discussion")));
 }
 function quizViewBlock(id, onSaved) {
@@ -444,7 +484,7 @@ function quizViewBlock(id, onSaved) {
         h("div", {}, h("strong", {}, "Q" + (i + 1) + " · " + qq.type.replace("_", " ")), " " + qq.stem),
         qq.needsAttention === "verify-key"
           ? h("div", { class: "row gap-8", style: { marginTop: "6px" } }, h("span", { class: "pill danger" }, "Answer key unverified"),
-              h("button", { class: "btn btn--sm btn--primary", onClick: () => { qq.needsAttention = null; qq.verified = true; resolveIssue("b1"); resolveIssue("rev2"); session.reviewQueue = session.reviewQueue.filter(r => r.refId !== id); toast("Answer key verified — blocker cleared", "ok"); onSaved?.(); } }, "Verify key"))
+              h("button", { class: "btn btn--sm btn--primary", onClick: () => { qq.needsAttention = null; qq.verified = true; session.reviewQueue = session.reviewQueue.filter(r => r.refId !== id); session.commit(); resolveIssue("b1"); resolveIssue("rev2"); toast("Answer key verified — blocker cleared", "ok"); onSaved?.(); } }, "Verify key"))
           : h("span", { class: "pill ok tiny" }, "verified")))));
 }
 
@@ -455,9 +495,9 @@ export function homepageEditor({ onChange } = {}) {
   const wrap = h("div", { class: "blk-cfg" });
   wrap.append(
     h("div", { class: "row spread" }, h("span", { class: "blk-kind" }, "⌂ Homepage"), provenance(hp.edited)),
-    cfgField("Headline", h("input", { class: "blk-input", value: hp.hero.title, onInput: e => { hp.hero.title = e.target.value; hp.edited = true; }, onChange: () => onChange?.() })),
-    cfgField("Tagline", h("input", { class: "blk-input", value: hp.hero.tagline, onInput: e => { hp.hero.tagline = e.target.value; hp.edited = true; }, onChange: () => onChange?.() })),
-    cfgField("Welcome text", h("textarea", { class: "blk-textarea", rows: 3, onInput: e => { hp.welcome = e.target.value; hp.edited = true; }, onChange: () => onChange?.() }, hp.welcome)),
+    cfgField("Headline", h("input", { class: "blk-input", value: hp.hero.title, onInput: e => { hp.hero.title = e.target.value; hp.edited = true; }, onChange: () => { session.commit(); onChange?.(); } })),
+    cfgField("Tagline", h("input", { class: "blk-input", value: hp.hero.tagline, onInput: e => { hp.hero.tagline = e.target.value; hp.edited = true; }, onChange: () => { session.commit(); onChange?.(); } })),
+    cfgField("Welcome text", h("textarea", { class: "blk-textarea", rows: 3, onInput: e => { hp.welcome = e.target.value; hp.edited = true; }, onChange: () => { session.commit(); onChange?.(); } }, hp.welcome)),
     h("p", { class: "tiny muted" }, "Buttons students see: " + hp.buttons.map(b => b.label).join(" · ") + ". Scope · whole course."));
   return wrap;
 }
@@ -478,7 +518,7 @@ export function syllabusEditor({ onChange } = {}) {
       row.append(ta);
       wrap.append(row);
     });
-    function afterEdit() { if (session.syllabus.sections.every(s => s.complete)) resolveIssue("w5"); render(); onChange?.(); }
+    function afterEdit() { session.commit(); if (session.syllabus.sections.every(s => s.complete)) resolveIssue("w5"); render(); onChange?.(); }
   }
   render();
   return wrap;
@@ -497,7 +537,7 @@ export function gradebookEditor({ onChange } = {}) {
       wrap.append(h("div", { class: "blk-gb__row" }, h("span", {}, g.name),
         h("input", { type: "range", min: 0, max: 50, value: g.weight, "aria-label": g.name + " weight",
           oninput: e => { g.weight = +e.target.value; val.textContent = g.weight + "%"; const t = session.assignmentGroups.reduce((s, x) => s + x.weight, 0); wrap.querySelector(".pill").textContent = "Total " + t + "%"; wrap.querySelector(".pill").className = "pill" + (t === 100 ? " ok" : " danger"); },
-          onchange: () => onChange?.() }), val));
+          onchange: () => { session.commit(); onChange?.(); } }), val));
     });
     wrap.append(h("p", { class: "tiny muted" }, "Scope · whole course. Weights must total 100% before export."));
   }
@@ -516,7 +556,7 @@ export function themeEditor({ onChange } = {}) {
         t.contrastPass === "pass" ? h("span", { class: "pill ok" }, "Contrast AA ✓") : h("span", { class: "pill warn" }, "Contrast: partial")),
       h("div", { class: "blk-theme__swatches" }, Object.entries(t.palette).map(([k, v]) => h("div", { class: "blk-theme__sw" }, h("span", { class: "blk-theme__chip", style: { background: v } }), h("span", { class: "tiny muted" }, k)))),
       h("p", { class: "tiny", style: { marginTop: "8px" } }, t.contrastPass === "pass" ? "The header now passes AA for body text." : "⚠ " + t.contrastNote),
-      t.contrastPass !== "pass" && h("button", { class: "btn btn--sm btn--primary", onClick: () => { t.palette.bg = "#141b24"; t.contrastPass = "pass"; resolveIssue("w1") /* no-op if already */; resolveAccessibility("acc2"); toast("Header darkened — contrast now passes AA", "ok"); render(); onChange?.(); } }, "Darken header to pass AA"));
+      t.contrastPass !== "pass" && h("button", { class: "btn btn--sm btn--primary", onClick: () => { t.palette.bg = "#141b24"; t.contrastPass = "pass"; session.commit(); resolveIssue("w1") /* no-op if already */; resolveAccessibility("acc2"); toast("Header darkened — contrast now passes AA", "ok"); render(); onChange?.(); } }, "Darken header to pass AA"));
   }
   render();
   return wrap;
@@ -526,7 +566,5 @@ function cfgField(label, control) { return h("label", { class: "blk-cfg__f" }, h
 
 // ---- small helpers ----------------------------------------------------------
 function metaGrid(rows) { return h("dl", { class: "blk-metagrid" }, rows.map(([k, v]) => [h("dt", {}, k), h("dd", {}, v)]).flat()); }
-function groupName(id) { return D.assignmentGroups.find(g => g.id === id)?.name || id; }
+function groupName(id) { return session.assignmentGroups.find(g => g.id === id)?.name || id; }
 function oc(id) { return session.outcomes.find(o => o.id === id)?.code || id; }
-
-export { D };

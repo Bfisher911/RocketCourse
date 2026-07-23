@@ -238,7 +238,7 @@ function discussionEditor(id, onSaved) {
     h("label", { class: "gd-label" }, "Discussion prompt"), ta,
     d.replyGuidance && h("p", { class: "tiny muted" }, "Reply guidance: " + d.replyGuidance),
     h("div", { class: "row gap-8", style: { marginTop: "10px" } },
-      h("button", { class: "btn btn--primary", onClick: () => { d.prompt = "<p>" + ta.value + "</p>"; d.edited = true; d.needsAttention = null; B.resolveIssue("w4"); B.resolveIssue("rev1"); B.session.reviewQueue = B.session.reviewQueue.filter(r => r.refId !== id); toast("Prompt approved", "ok"); onSaved(); } }, "Approve prompt"),
+      h("button", { class: "btn btn--primary", onClick: () => { d.prompt = "<p>" + ta.value + "</p>"; d.edited = true; d.needsAttention = null; B.session.reviewQueue = B.session.reviewQueue.filter(r => r.refId !== id); B.session.commit?.(); B.resolveIssue("w4"); B.resolveIssue("rev1"); toast("Prompt approved", "ok"); onSaved(); } }, "Approve prompt"),
       h("span", { class: "tiny muted" }, "Scope · one discussion")));
 }
 function quizView(id, onSaved) {
@@ -248,7 +248,7 @@ function quizView(id, onSaved) {
       h("div", {}, h("strong", {}, "Q" + (i + 1) + " · " + qq.type.replace("_", " ")), " " + qq.stem),
       qq.needsAttention === "verify-key"
         ? h("div", { class: "row gap-8", style: { marginTop: "6px" } }, h("span", { class: "pill danger" }, "Answer key unverified"),
-            h("button", { class: "btn btn--sm btn--primary", onClick: () => { qq.needsAttention = null; qq.verified = true; B.resolveIssue("b1"); B.resolveIssue("rev2"); B.session.reviewQueue = B.session.reviewQueue.filter(r => r.refId !== id); toast("Answer key verified — blocker cleared", "ok"); onSaved(); } }, "Verify key"))
+            h("button", { class: "btn btn--sm btn--primary", onClick: () => { qq.needsAttention = null; qq.verified = true; B.session.reviewQueue = B.session.reviewQueue.filter(r => r.refId !== id); B.session.commit?.(); B.resolveIssue("b1"); B.resolveIssue("rev2"); toast("Answer key verified — blocker cleared", "ok"); onSaved(); } }, "Verify key"))
         : h("span", { class: "pill ok tiny" }, "verified")))));
 }
 function shortMod(m) { return m.kind === "start" ? "Start Here" : "Module " + m.order; }
