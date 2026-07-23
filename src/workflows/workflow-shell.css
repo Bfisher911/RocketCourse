@@ -70,6 +70,28 @@
 /* stage that hosts an experience */
 [data-rc-ds] .rc-stage { position: relative; min-height: calc(100vh - 130px); }
 
+/* SPA host + shared experience chrome ------------------------------------- */
+.rc-workflow-host { min-height: 100vh; background: var(--rc-paper); }
+.rc-workflow-stage { min-height: calc(100vh - 54px); }
+[data-rc-ds].rc-xchrome, .rc-xchrome[data-rc-ds] {
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  padding: 8px 20px; background: var(--rc-paper-bright);
+  border-bottom: var(--rc-border-2); font-family: var(--rc-font-ui);
+  position: sticky; top: 0; z-index: var(--rc-z-sticky); color: var(--rc-ink);
+}
+.rc-xchrome__seg { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.rc-xchrome__k { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--rc-muted-ink); }
+.rc-xchrome__v { font-weight: 700; font-size: 13px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-xchrome__v--blocked { color: var(--rc-danger); }
+.rc-xchrome__v--review { color: #6b4a00; }
+.rc-xchrome__v--ready { color: #04351f; }
+.rc-xchrome__switch { display: inline-flex; align-items: center; gap: 8px; }
+.rc-xchrome__code { font-family: var(--rc-font-mono); font-size: 11px; font-weight: 700; background: var(--rc-ink); color: var(--rc-paper-bright); padding: 2px 7px; border-radius: var(--rc-radius-xs); }
+.rc-xchrome__select { font: inherit; font-weight: 700; font-size: 13px; border: 1px solid var(--rc-grid-line); border-radius: var(--rc-radius-xs); background: var(--rc-paper-bright); color: var(--rc-ink); padding: 6px 8px; max-width: 260px; min-height: 34px; }
+.rc-xchrome__select:focus-visible { outline: var(--rc-focus); outline-offset: 1px; }
+.rc-xchrome__note { margin-left: auto; font-size: 11.5px; color: var(--rc-muted-ink); }
+@media (max-width: 760px) { .rc-xchrome__note { display: none; } .rc-xchrome__v { max-width: 160px; } }
+
 /* Original-workflow placeholder */
 [data-rc-ds] .rc-host-original { display: grid; place-items: center; min-height: calc(100vh - 130px); padding: 40px; }
 [data-rc-ds] .rc-host-original__panel { max-width: 560px; background: var(--rc-paper-bright); border: var(--rc-border-2);

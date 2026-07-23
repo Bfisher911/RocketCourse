@@ -85,6 +85,10 @@ import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
 import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { ReviewMode } from "./components/ReviewMode";
+import { WorkflowHost } from "./components/WorkflowHost";
+import { ExperienceChrome } from "./components/ExperienceChrome";
+import { getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
+import { loadCoursePreferred, loadUserPreferred, saveCoursePreferred, saveUserPreferred } from "./workflows/workflowContext";
 import { useModalFocus } from "./hooks/useModalFocus";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
@@ -306,6 +310,24 @@ function App() {
   const [prompt, setPrompt] = useState("");
   const [progressIndex, setProgressIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<EditorTab>("Overview");
+  // Which of the nine workflow experiences renders the editor screen.
+  // Hierarchy: ?exp= deep link → course-specific preference → user preference
+  // → the default (Guided Course Journey). Presentation only — switching an
+  // experience never touches course content.
+  const [experienceId, setExperienceId] = useState<string>(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("exp");
+    if (fromUrl && getExperience(fromUrl)?.enabled) return fromUrl;
+    return resolveExperienceId(loadCoursePreferred(sampleProject.id), loadUserPreferred());
+  });
+  const chooseExperience = (id: string): void => {
+    if (!getExperience(id)?.enabled) return;
+    setExperienceId(id);
+    saveCoursePreferred(course.id, id);
+    saveUserPreferred(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set("exp", id);
+    window.history.replaceState(window.history.state, "", url.toString());
+  };
   const auth = useAuthSession();
   const access = usePlatformAccess(auth.session);
   const adminWorkspaces = access.workspaces.filter((w) => w.myRole === "owner" || w.myRole === "admin");
@@ -352,6 +374,13 @@ function App() {
   // built entirely in the browser from in-browser data — no server secret is involved). Real
   // user-generated courses still require a paid plan; the costly server-side AI stays entitlement-gated.
   const exportAllowed = subscriptionActive || demoActive;
+
+  // A course explicitly opened with its own preferred experience wins over the
+  // session's current one (deep-linked ?exp= already seeded initial state).
+  useEffect(() => {
+    const fromCourse = loadCoursePreferred(course.id);
+    if (fromCourse && getExperience(fromCourse)?.enabled) setExperienceId(fromCourse);
+  }, [course.id]);
 
   const readiness = useMemo(() => buildReadinessReport(course), [course]);
   const quality = useMemo(() => buildCourseQualityReport(course), [course]);
@@ -1103,6 +1132,26 @@ function App() {
         <Progress progressIndex={progressIndex} moduleTitles={pendingCourseRef.current?.modules.map((module) => module.title) ?? []} />
       )}
       {screen === "editor" && (
+        <ExperienceChrome
+          courseTitle={course.title}
+          experienceId={experienceId}
+          readinessScore={readiness.score}
+          readinessBlockers={readiness.blockers}
+          saveState={auth.session && course.id !== sampleProject.id ? saveState : "idle"}
+          onSwitch={chooseExperience}
+        />
+      )}
+      {screen === "editor" && experienceId !== "original" && (
+        <WorkflowHost
+          course={course}
+          experienceId={experienceId}
+          onUpdateCourse={updateCourse}
+          onRunValidation={runValidation}
+          onDownload={downloadPackage}
+          onFillFullContent={fillFullCourseContent}
+        />
+      )}
+      {screen === "editor" && experienceId === "original" && (
         <Editor
           course={course}
           activeTab={activeTab}
