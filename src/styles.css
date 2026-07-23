@@ -1,78 +1,99 @@
 /* ============================================================
-   RocketCourse — Cosmic Instructional Design Cockpit
-   Design system: deep-space structure, neon clarity.
-   Palette sourced from the cosmic/neon direction.
+   RocketCourse — Units-inspired Curriculum Studio
+   Paper & ink foundation, saturated energy accents, editorial
+   display type, visible grid, soft ambient depth.
+   TOKEN FLIP: every legacy cosmic variable below now aliases the
+   Units palette so the whole 14k-line sheet retints from here.
+   Contrast rule: each semantic works BOTH as text-on-paper and
+   as a fill under its -ink partner (AA verified pairings).
    ============================================================ */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* --- Deep space backgrounds --- */
-  --bg: #05060f;
-  --bg-2: #080a1c;
-  --bg-3: #0c0f2a;
-  --midnight: #101b5f;
-  --violet-deep: #1a1450;
+  /* --- Paper backgrounds (were deep space) --- */
+  --bg: #f4eee7;
+  --bg-2: #efe8dc;
+  --bg-3: #e9e1d1;
+  --midnight: #171717;        /* deep fills → ink fields (white text on them passes) */
+  --violet-deep: #24211c;
 
-  /* --- Surfaces (glass) --- */
-  --surface: rgba(20, 24, 56, 0.66);
-  --surface-2: rgba(14, 17, 42, 0.6);
-  --surface-solid: #11142e;
-  --elevated: rgba(32, 37, 80, 0.78);
-  --glass-blur: saturate(150%) blur(16px);
+  /* --- Surfaces (were glass; now solid paper) --- */
+  --surface: #fffdf9;
+  --surface-2: #faf5ec;
+  --surface-solid: #fffdf9;
+  --elevated: #ffffff;
+  --glass-blur: none;
 
-  /* --- Borders / lines (luminous) --- */
-  --line: rgba(130, 146, 230, 0.16);
-  --line-strong: rgba(140, 158, 245, 0.32);
-  --line-soft: rgba(130, 146, 230, 0.1);
+  /* --- Borders / lines (ink hairlines) --- */
+  --line: rgba(17, 17, 17, 0.14);
+  --line-strong: rgba(17, 17, 17, 0.32);
+  --line-soft: rgba(17, 17, 17, 0.08);
 
   /* --- Text --- */
-  --ink: #eef2ff;
-  --ink-dim: #c4ccf2;
-  --muted: #98a3d6;
-  --subtle: #828cc4;
-  --on-accent: #05071a;
+  --ink: #111111;
+  --ink-dim: #3d3833;
+  --muted: #5b554f;
+  --subtle: #6e675f;
+  --on-accent: #ffffff;
 
-  /* --- Neon accents --- */
-  --cyan: #22e6ff;
-  --cyan-strong: #00c8ec;
-  --pink: #ff2ea6;
-  --pink-strong: #ff0f93;
-  --orange: #ff8a00;
-  --orchid: #c77dff;
-  --magenta: #ec407a;
-  --yellow: #d7ff00;
-  --indigo: #6a5bff;
+  /* --- Energy accents (were neon) --- */
+  --cyan: #0072e3;            /* primary blue */
+  --cyan-strong: #005bb8;
+  --pink: #c22456;            /* raspberry, deep enough for text on paper */
+  --pink-strong: #a81c49;
+  --orange: #d3491f;          /* deep orange: 4.6:1 as text on paper */
+  --orchid: #7a4fc0;          /* lilac family, text-safe */
+  --magenta: #c22456;
+  --yellow: #8a5a12;          /* amber as TEXT; bright #FFB200 fills reintroduced deliberately */
+  --indigo: #2c50d8;
 
   /* --- Semantic accents --- */
   --accent: var(--cyan);
-  --accent-ink: #07091a;
-  --success: #4be8a8;
-  --success-ink: #0a3326;
-  --warning: #ffb43d;
-  --warning-ink: #3a2906;
-  --danger: #ff5d73;
-  --danger-ink: #3a0b14;
+  --accent-ink: #ffffff;      /* white on #0072e3 ≈ 4.6:1 */
+  --success: #00753b;         /* text on paper ≈ 5:1 */
+  --success-ink: #ffffff;
+  --warning: #8a5a12;         /* dark amber both directions */
+  --warning-ink: #ffffff;
+  --danger: #c0281b;          /* accessible red both directions */
+  --danger-ink: #ffffff;
 
-  /* --- Gradients --- */
-  --grad-plasma: linear-gradient(135deg, #22e6ff 0%, #6a5bff 48%, #ff2ea6 100%);
-  --grad-aurora: linear-gradient(120deg, #22e6ff, #c77dff 55%, #ff2ea6);
-  --grad-sunset: linear-gradient(120deg, #ff8a00, #ff2ea6);
-  --grad-laser: linear-gradient(120deg, #d7ff00, #22e6ff);
-  --grad-rail: linear-gradient(180deg, rgba(34, 230, 255, 0.12), rgba(255, 46, 166, 0.08));
-  --grad-text: linear-gradient(120deg, #ffffff 0%, #b9e7ff 40%, #ffb6e6 100%);
+  /* --- Gradients → flat fields (kept as VALID two-stop paints so any
+         background-clip:text usage still renders visible ink) --- */
+  --grad-plasma: linear-gradient(135deg, #0072e3 0%, #0072e3 100%);
+  --grad-aurora: linear-gradient(120deg, #0072e3, #0072e3);
+  --grad-sunset: linear-gradient(120deg, #f85d31, #f85d31);
+  --grad-laser: linear-gradient(120deg, #ffb200, #ffb200);
+  --grad-rail: linear-gradient(180deg, rgba(17, 17, 17, 0.05), rgba(17, 17, 17, 0.02));
+  --grad-text: linear-gradient(120deg, #111111 0%, #111111 100%);
 
-  /* --- Shadows / glows --- */
-  --shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-  --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.38);
-  --shadow-card: 0 18px 44px rgba(4, 6, 22, 0.55);
-  --glow-cyan: 0 0 0 1px rgba(34, 230, 255, 0.45), 0 14px 36px rgba(34, 230, 255, 0.28);
-  --glow-pink: 0 0 0 1px rgba(255, 46, 166, 0.4), 0 14px 40px rgba(255, 46, 166, 0.3);
-  --glow-plasma: 0 16px 40px rgba(106, 91, 255, 0.42), 0 8px 22px rgba(255, 46, 166, 0.3);
+  /* --- Shadows: soft ambient; glows → hairline ring + ambient --- */
+  --shadow: 0 18px 44px rgba(17, 17, 17, 0.16);
+  --shadow-soft: 0 10px 26px rgba(17, 17, 17, 0.12);
+  --shadow-card: 0 12px 32px rgba(17, 17, 17, 0.14);
+  --glow-cyan: 0 0 0 1px rgba(17, 17, 17, 0.85), 0 10px 26px rgba(17, 17, 17, 0.16);
+  --glow-pink: 0 0 0 1px rgba(17, 17, 17, 0.85), 0 10px 26px rgba(17, 17, 17, 0.16);
+  --glow-plasma: 0 0 0 1px rgba(17, 17, 17, 0.85), 0 12px 30px rgba(17, 17, 17, 0.18);
 
   /* --- Focus ring --- */
-  --focus-ring: 0 0 0 3px rgba(34, 230, 255, 0.55);
-  --focus-ring-soft: 0 0 0 3px rgba(34, 230, 255, 0.3);
+  --focus-ring: 0 0 0 3px rgba(0, 114, 227, 0.6);
+  --focus-ring-soft: 0 0 0 3px rgba(0, 114, 227, 0.32);
+
+  /* --- Units additions available sheet-wide --- */
+  --rc-paper: #f4eee7;
+  --rc-paper-bright: #fffdf9;
+  --rc-ink: #111111;
+  --rc-muted-ink: #5b554f;
+  --rc-grid-line: rgba(17, 17, 17, 0.14);
+  --rc-border: #171717;
+  --rc-blue: #0072e3;
+  --rc-yellow: #ffb200;
+  --rc-orange: #f85d31;
+  --rc-green: #00b85b;
+  --rc-lilac: #c79dfa;
+  --rc-raspberry: #e83d73;
+  --rc-danger: #c0281b;
+  --rc-font-mono: "Space Mono", ui-monospace, Menlo, monospace;
 
   /* --- Radii --- */
   --radius-sm: 9px;
@@ -98,7 +119,7 @@
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-display: "Space Grotesk", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo Black", "Space Grotesk", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Canvas interaction library */
