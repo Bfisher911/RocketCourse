@@ -74,6 +74,24 @@ export function resolveIssue(id) {
 }
 export function openIssuesCount() { return session.readiness.blockers.length + session.readiness.warnings.length; }
 export function moduleById(id) { return session.modules.find(m => m.id === id); }
+
+// ---- session-derived focus targets ------------------------------------------
+// Concepts must never hardcode object ids (they only exist in the mock course).
+// These resolve "the module/item worth focusing" for ANY course, preferring
+// things that need the instructor's attention.
+export function focusModuleId() {
+  const mods = session.modules;
+  const content = mods.filter(m => m.kind !== "start");
+  const flagged = content.find(m => m.items?.some(i => i.needsAttention));
+  return (flagged || content[Math.min(3, Math.max(0, content.length - 1))] || mods[0])?.id ?? null;
+}
+export function firstModuleId() { return session.modules[0]?.id ?? null; }
+export function focusItemId(modId, type) {
+  const m = moduleById(modId);
+  if (!m || !m.items.length) return null;
+  const flagged = m.items.find(i => i.needsAttention && (!type || i.type === type));
+  return (flagged || m.items.find(i => !type || i.type === type) || m.items[0])?.id ?? null;
+}
 export function contentFor(item) {
   if (!item) return null;
   const map = { page: session.pages, assignment: session.assignments, discussion: session.discussions, quiz: session.quizzes };
@@ -260,11 +278,13 @@ function statusWord(r) { return r.status; }
 
 // ---------------------------------------------------------------------------
 // STUDENT PREVIEW — read-only student-facing render (task 11).
-export function studentPreview({ moduleId = "m4" } = {}) {
+export function studentPreview({ moduleId = null } = {}) {
   const wrap = h("div", { class: "blk-spv" });
   function render(mid) {
     clear(wrap);
-    const mod = moduleById(mid);
+    const mod = moduleById(mid) || session.modules[0];
+    if (!mod) { wrap.append(h("p", { class: "muted" }, "No modules yet.")); return; }
+    mid = mod.id;
     wrap.append(
       h("div", { class: "blk-spv__bar" }, h("span", {}, "👩‍🎓 Student view"),
         h("span", { class: "tiny muted" }, "Read-only · this is what a student sees in Canvas")),

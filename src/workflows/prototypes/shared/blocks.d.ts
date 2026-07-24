@@ -9,3 +9,6 @@ export declare function getBindTarget(): SessionTarget;
 export declare function onChange(fn: () => void): () => void;
 export declare function resolveIssue(id: string): void;
 export declare function openIssuesCount(): number;
+export declare function focusModuleId(): string | null;
+export declare function firstModuleId(): string | null;
+export declare function focusItemId(modId: string, type?: string): string | null;

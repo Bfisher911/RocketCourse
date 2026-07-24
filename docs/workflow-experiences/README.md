@@ -1,8 +1,27 @@
-# Nine Workflow Experiences — Foundation Slice
+# Nine Workflow Experiences — Production Integration
 
-This is the **foundation slice** of the nine-workflow platform, built on the feature branch
-`feature/nine-workflows-units-design`. It is additive and self-contained: it does **not** modify
-`src/App.tsx`, routing, course generation, or IMSCC export, and all 801 existing tests still pass.
+Branch `feature/nine-workflows-units-design`. The nine experiences now run **inside the app over
+the real course**: the editor screen renders either the untouched original Editor (W01) or a
+workflow experience (W02–W09) bound to the live `CourseProject` through the CourseAdapter. Course
+generation and IMSCC export code remain untouched; the original 801 tests still pass alongside the
+new workflow suites.
+
+## Architecture (as shipped)
+- **CourseAdapter** (`src/workflows/courseAdapter.ts`) — bidirectional facade:
+  `refresh()` maps the real course into the session shape the experience widgets consume
+  (in place, identity-preserving; readiness/attention/review/export surfaces are *derived*
+  from `buildReadinessReport`/`buildCourseQualityReport`, never stored); `commit()` maps facade
+  edits back as **one pure, change-detected updater** through App's `updateCourse` — so workflow
+  edits get undo, autosave, and project-list sync identically to the original editor.
+- **WorkflowHost** (`src/components/WorkflowHost.tsx`) — React lifecycle around the experience
+  renderers; binds the adapter before mount, refreshes on every course change, injects App-owned
+  export/validation hooks.
+- **ExperienceChrome** (`src/components/ExperienceChrome.tsx`) — the shared utility strip on the
+  editor screen (course · W-code + accessible switcher · readiness · autosave) across all ten
+  editor states.
+- **Selection** — `?exp=` deep link → per-course preference → user preference → Guided default.
+- **View state** (`src/workflows/adapterViewState.ts`) — presentation-only per-course flags
+  (acknowledged advisories, export-step state); never stored on the course.
 
 ## What ships in this slice
 - **Units-inspired design-system token layer** — `src/design-system/tokens/rc-tokens.css`
@@ -18,23 +37,19 @@ This is the **foundation slice** of the nine-workflow platform, built on the fea
 - **A standalone dev entry** — `workflows.html` + `src/workflows/main.ts`.
 
 ## Run it (local; no deploy)
-Start the existing dev server, then open the preview page:
-
 ```bash
 npm run dev
 ```
-Open **http://localhost:5173/workflows.html**
+Open the app (default dev port; `.claude/launch.json` pins **http://localhost:5199**), enter the
+demo or an existing course — the editor screen opens in **Guided Course Journey (W02)** by
+default with the Experience switcher in the utility strip. `?exp=<id>` deep-links any
+experience. The mock-data lab remains available in dev at `/workflows.html` (excluded from
+production builds).
 
-Guided Course Journey (W02) is the default. Use the numbered "Shared context" strip to move,
-then "Change experience" — the course content and your place are preserved across the switch.
-
-## What is intentionally NOT in this slice (next slices)
-- Replacing the prototype `session` seam with an **adapter over the real `CourseProject`**.
-- Wiring **W01 Original** to the live editor, and integrating the selector into the main app
-  flow (onboarding / workspace / preferences) — Phases 3–6 continue there.
-- The **command palette** (Phase 5), the **Canvas pattern library audit + recommendation engine**
-  (Phases 7–12), full **React experience components** and the **test suite** for switching
-  (Phase 15), and the **Netlify preview** (Phase 14 — deferred; deploy skipped by request).
+## Not yet built (future phases)
+- The **command palette** (Phase 5) and dashboard-level switcher entry.
+- The **Canvas pattern library audit + recommendation engine** (Phases 7–12).
+- The **Netlify preview** (Phase 14 — deploy deferred at the owner's request).
 
 ## Documents in this folder
 - `CAPABILITY_PARITY_MATRIX.md` — every capability × nine experiences (no required capability dropped).
