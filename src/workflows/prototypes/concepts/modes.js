@@ -7,7 +7,7 @@ ensureCss("modes", ["../shared/blocks.css", "./concepts/modes.css"]);
 
 export function mount(stage, ctx) {
   let mode = "guided";                     // guided | expert
-  let loc = { section: "modules", modId: "m4", itemId: null };
+  let loc = { section: "modules", modId: B.focusModuleId(), itemId: null };
 
   const SECTIONS = [
     ["overview", "Overview"], ["sources", "Sources"], ["blueprint", "Blueprint"],
@@ -115,10 +115,10 @@ export function mount(stage, ctx) {
     const acts = {
       1: () => loc.section = "overview", 2: () => loc.section = "sources", 3: () => loc.section = "blueprint",
       4: () => loc.section = "blueprint", 5: () => { loc.section = "blueprint"; },
-      6: () => { loc.section = "modules"; loc.modId = "m4"; loc.itemId = null; },
-      7: () => { loc.section = "modules"; loc.modId = "m4"; loc.itemId = "i4a"; },
-      8: () => { loc.section = "modules"; loc.modId = "m4"; loc.itemId = "i4d"; },
-      9: () => { loc.section = "modules"; loc.modId = "m4"; loc.itemId = null; },
+      6: () => { const fm = B.focusModuleId(); loc.section = "modules"; loc.modId = fm; loc.itemId = null; },
+      7: () => { const fm = B.focusModuleId(); loc.section = "modules"; loc.modId = fm; loc.itemId = B.focusItemId(fm, "page"); },
+      8: () => { const fm = B.focusModuleId(); loc.section = "modules"; loc.modId = fm; loc.itemId = B.focusItemId(fm, "assignment"); },
+      9: () => { const fm = B.focusModuleId(); loc.section = "modules"; loc.modId = fm; loc.itemId = null; },
       10: () => loc.section = "readiness", 11: () => loc.section = "preview", 12: () => loc.section = "export",
     };
     (acts[n] || acts[1])(); render();

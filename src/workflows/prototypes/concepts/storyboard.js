@@ -8,7 +8,7 @@ ensureCss("storyboard", ["../shared/blocks.css", "./concepts/storyboard.css"]);
 export function mount(stage, ctx) {
   let stageId = "board"; // production ribbon: sources|setup|blueprint|board|readiness|preview|export
   let zoom = "course";    // course | module | item
-  let modId = "m4", itemId = null;
+  let modId = B.focusModuleId(), itemId = null;
 
   const ribbon = h("nav", { class: "sb-ribbon" });
   const main = h("section", { class: "sb-main" });
@@ -35,7 +35,7 @@ export function mount(stage, ctx) {
       setup: () => main.append(sHead("Setup", "Course-level decisions shape the whole storyboard."), B.courseChange({ onChanged: () => {} })),
       blueprint: () => main.append(sHead("Blueprint", "The plan behind the storyboard."), B.blueprintView({})),
       readiness: () => main.append(sHead("Readiness", "What must be fixed before export."), B.readinessPanel({ onResolveGoto: it => gotoRef(it.refId) })),
-      preview: () => main.append(sHead("Student preview", "The finished experience."), B.studentPreview({ moduleId: "m4" })),
+      preview: () => main.append(sHead("Student preview", "The finished experience."), B.studentPreview({})),
       export: () => main.append(sHead("Export", "Package for Canvas."), B.exportPanel({ onGoResolve: () => { stageId = "readiness"; render(); } })),
     };
     (panels[stageId] || panels.sources)();
@@ -113,10 +113,10 @@ export function mount(stage, ctx) {
     const acts = {
       1: () => { stageId = "board"; zoom = "course"; },
       2: () => stageId = "sources", 3: () => stageId = "setup", 4: () => stageId = "blueprint", 5: () => stageId = "setup",
-      6: () => { stageId = "board"; modId = "m4"; zoom = "module"; },
-      7: () => { stageId = "board"; modId = "m4"; itemId = "i4a"; zoom = "item"; },
-      8: () => { stageId = "board"; modId = "m4"; itemId = "i4d"; zoom = "item"; },
-      9: () => { stageId = "board"; modId = "m4"; zoom = "module"; },
+      6: () => { stageId = "board"; modId = B.focusModuleId(); zoom = "module"; },
+      7: () => { stageId = "board"; modId = B.focusModuleId(); itemId = B.focusItemId(modId, "page"); zoom = "item"; },
+      8: () => { stageId = "board"; modId = B.focusModuleId(); itemId = B.focusItemId(modId, "assignment"); zoom = "item"; },
+      9: () => { stageId = "board"; modId = B.focusModuleId(); zoom = "module"; },
       10: () => stageId = "readiness", 11: () => stageId = "preview", 12: () => stageId = "export",
     };
     (acts[n] || acts[1])(); render();

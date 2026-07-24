@@ -109,13 +109,13 @@ export function mount(stage, ctx) {
       h("label", { class: "row gap-8" }, h("input", { type: "checkbox", id: "bp2-ack" }), h("span", { class: "tiny" }, "I've reviewed the outcomes, sequence, and assessment plan.")),
       h("button", { class: "btn btn--primary", onClick: () => {
         if (!main.querySelector("#bp2-ack").checked) { toast("Confirm you've reviewed the plan first", "info"); return; }
-        approved = true; phase = "studio"; sel = "m4"; toast("Blueprint approved — content generated to fit it", "ok"); render();
+        approved = true; phase = "studio"; sel = B.focusModuleId(); toast("Blueprint approved — content generated to fit it", "ok"); render();
       } }, "Approve & generate content")));
   }
 
   function renderStudio() {
     if (sel === "readiness") { main.append(studioHead("Readiness", "What must be fixed before a confident export.")); main.append(B.readinessPanel({ onResolveGoto: it => { const m = findModuleOf(it.refId); if (m) { sel = m.id; openItemId = itemIdOf(it.refId); render(); } } })); return; }
-    if (sel === "preview") { main.append(studioHead("Student preview", "Exactly what students see in Canvas.")); main.append(B.studentPreview({ moduleId: "m4" })); return; }
+    if (sel === "preview") { main.append(studioHead("Student preview", "Exactly what students see in Canvas.")); main.append(B.studentPreview({})); return; }
     if (sel === "export") { main.append(studioHead("Export", "The honest export decision.")); main.append(B.exportPanel({ onGoResolve: () => { sel = "readiness"; render(); } })); return; }
     // a module
     const mod = B.moduleById(sel);
@@ -140,10 +140,11 @@ export function mount(stage, ctx) {
     }
     // tasks 6-12 require the studio; auto-approve to demonstrate
     approved = true; phase = "studio";
-    if (n === 6) { sel = "m4"; openItemId = null; }
-    if (n === 7) { sel = "m4"; openItemId = "i4a"; }
-    if (n === 8) { sel = "m4"; openItemId = "i4d"; }
-    if (n === 9) { sel = "m4"; openItemId = null; }
+    const fm = B.focusModuleId();
+    if (n === 6) { sel = fm; openItemId = null; }
+    if (n === 7) { sel = fm; openItemId = B.focusItemId(fm, "page"); }
+    if (n === 8) { sel = fm; openItemId = B.focusItemId(fm, "assignment"); }
+    if (n === 9) { sel = fm; openItemId = null; }
     if (n === 10) { sel = "readiness"; }
     if (n === 11) { sel = "preview"; }
     if (n === 12) { sel = "export"; }

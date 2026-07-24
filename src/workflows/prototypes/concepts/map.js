@@ -8,7 +8,7 @@ ensureCss("map", ["../shared/blocks.css", "./concepts/map.css"]);
 
 export function mount(stage, ctx) {
   let sel = { kind: "course" };           // course | node:<id> | module:<id> | item:<modId>:<itemId>
-  const expanded = new Set(["m4"]);
+  const expanded = new Set([B.focusModuleId()].filter(Boolean));
 
   const tree = h("aside", { class: "mp-tree" });
   const canvas = h("section", { class: "mp-canvas" });
@@ -81,7 +81,7 @@ export function mount(stage, ctx) {
       gradebook: () => { canvas.append(crumb(["Course", "Gradebook"]), h("h1", { class: "mp-h1" }, "Gradebook"), h("p", { class: "mp-sub" }, "Category weights — must total 100%."), B.gradebookEditor({ onChange: () => {} })); inspectorFor("setup"); },
       theme: () => { canvas.append(crumb(["Course", "Theme"]), h("h1", { class: "mp-h1" }, "Theme"), h("p", { class: "mp-sub" }, "Visual style applied to exported pages."), B.themeEditor({ onChange: () => renderTree() })); inspectorFor("setup"); },
       readiness: () => { canvas.append(crumb(["Course", "Readiness"]), h("h1", { class: "mp-h1" }, "Readiness"), B.readinessPanel({ onResolveGoto: it => gotoRef(it.refId) })); inspectorFor("readiness"); },
-      "student-preview": () => { canvas.append(crumb(["Course", "Student preview"]), h("h1", { class: "mp-h1" }, "Student preview"), B.studentPreview({ moduleId: "m4" })); inspectorFor("preview"); },
+      "student-preview": () => { canvas.append(crumb(["Course", "Student preview"]), h("h1", { class: "mp-h1" }, "Student preview"), B.studentPreview({})); inspectorFor("preview"); },
       export: () => { canvas.append(crumb(["Course", "Export"]), h("h1", { class: "mp-h1" }, "Export"), B.exportPanel({ onGoResolve: () => { sel = { kind: "node", id: "readiness" }; render(); } })); inspectorFor("export"); },
     };
     (map[id] || (() => canvas.append(h("p", {}, id))))();
@@ -145,10 +145,10 @@ export function mount(stage, ctx) {
       3: () => sel = { kind: "node", id: "setup" },
       4: () => sel = { kind: "node", id: "blueprint" },
       5: () => sel = { kind: "node", id: "setup" },
-      6: () => { expanded.add("m4"); sel = { kind: "module", id: "m4" }; },
-      7: () => { expanded.add("m4"); sel = { kind: "item", id: "m4", itemId: "i4a" }; },
-      8: () => { expanded.add("m4"); sel = { kind: "item", id: "m4", itemId: "i4d" }; },
-      9: () => { expanded.add("m4"); sel = { kind: "module", id: "m4" }; },
+      6: () => { const fm = B.focusModuleId(); expanded.add(fm); sel = { kind: "module", id: fm }; },
+      7: () => { const fm = B.focusModuleId(); expanded.add(fm); sel = { kind: "item", id: fm, itemId: B.focusItemId(fm, "page") }; },
+      8: () => { const fm = B.focusModuleId(); expanded.add(fm); sel = { kind: "item", id: fm, itemId: B.focusItemId(fm, "assignment") }; },
+      9: () => { const fm = B.focusModuleId(); expanded.add(fm); sel = { kind: "module", id: fm }; },
       10: () => sel = { kind: "node", id: "readiness" },
       11: () => sel = { kind: "node", id: "student-preview" },
       12: () => sel = { kind: "node", id: "export" },

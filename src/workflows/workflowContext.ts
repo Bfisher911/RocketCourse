@@ -15,17 +15,33 @@ export interface WorkflowContext {
 const LS_USER_PREF = "rc.workflow.userPreferred";
 const LS_COURSE_PREF = (courseId: string) => `rc.workflow.course.${courseId}`;
 
+// Preferences degrade to in-memory storage when browser storage is unavailable
+// (blocked third-party contexts, some test environments) — same policy as
+// adapterViewState: prefs then survive the session instead of silently no-oping.
+const memoryPrefs = new Map<string, string>();
+function readPref(key: string): string | null {
+  try {
+    const v = window.localStorage.getItem(key);
+    if (typeof v === "string" || v === null) return v ?? memoryPrefs.get(key) ?? null;
+  } catch { /* fall through to memory */ }
+  return memoryPrefs.get(key) ?? null;
+}
+function writePref(key: string, value: string): void {
+  memoryPrefs.set(key, value);
+  try { window.localStorage.setItem(key, value); } catch { /* memory already has it */ }
+}
+
 export function loadUserPreferred(): string | null {
-  try { return localStorage.getItem(LS_USER_PREF); } catch { return null; }
+  return readPref(LS_USER_PREF);
 }
 export function saveUserPreferred(id: string): void {
-  try { localStorage.setItem(LS_USER_PREF, id); } catch { /* no-op */ }
+  writePref(LS_USER_PREF, id);
 }
 export function loadCoursePreferred(courseId: string): string | null {
-  try { return localStorage.getItem(LS_COURSE_PREF(courseId)); } catch { return null; }
+  return readPref(LS_COURSE_PREF(courseId));
 }
 export function saveCoursePreferred(courseId: string, id: string): void {
-  try { localStorage.setItem(LS_COURSE_PREF(courseId), id); } catch { /* no-op */ }
+  writePref(LS_COURSE_PREF(courseId), id);
 }
 
 /** In-memory shared context for the current session. */

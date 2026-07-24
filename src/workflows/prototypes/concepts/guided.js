@@ -58,7 +58,7 @@ export function mount(stage, ctx) {
     idx = Math.max(0, Math.min(STAGES.length - 1, i));
     renderRail();
     renderMain(sub);
-    root.scrollIntoView({ block: "start" });
+    root.scrollIntoView?.({ block: "start" });
   }
   function advance() { done.add(idx); if (idx < STAGES.length - 1) goStage(idx + 1); else renderRail(); }
 
@@ -66,7 +66,7 @@ export function mount(stage, ctx) {
     clear(main);
     const s = STAGES[idx];
     const head = h("header", { class: "gd-head" },
-      h("p", { class: "gd-head__crumb" }, "RocketCourse · The Meaning of Life in 12 Conversations"),
+      h("p", { class: "gd-head__crumb" }, "RocketCourse · " + (B.D.course?.title || "Your course")),
       h("h1", { class: "gd-head__title" }, s.label),
       h("p", { class: "gd-head__verb" }, s.verb));
     const body = h("div", { class: "gd-body" });
@@ -90,7 +90,7 @@ export function mount(stage, ctx) {
         brief,
         h("p", { class: "gd-help tiny muted" }, "Plain language is fine. You can attach a syllabus, reading list, or last year's Canvas export — we read them for structure, never invent facts."),
         sources);
-      if (sub === "sources") sources.scrollIntoView({ block: "center" });
+      if (sub === "sources") sources.scrollIntoView?.({ block: "center" });
     },
     configure(body) {
       body.append(gdField("Level", segment(["Intro", "Intermediate", "Advanced"], 0, v => addDecision("Level", v))),
@@ -105,7 +105,7 @@ export function mount(stage, ctx) {
         h("div", { class: "gd-change", id: "gd-change" },
           h("h3", { class: "gd-h3" }, "Change a course-level decision"),
           B.courseChange({ onChanged: () => addDecision("Length", B.session.settings.weeks + " weeks") })));
-      if (sub === "change") body.querySelector("#gd-change").scrollIntoView({ block: "center" });
+      if (sub === "change") body.querySelector("#gd-change")?.scrollIntoView?.({ block: "center" });
     },
     generate(body) {
       const steps = ["Reading your prompt and sources", "Drafting learning outcomes", "Designing 13 modules", "Writing pages, discussions & assignments", "Building quizzes & rubrics", "Assembling homepage & syllabus", "Preparing the Canvas package"];
@@ -133,7 +133,7 @@ export function mount(stage, ctx) {
     },
     preview(body) {
       body.append(h("p", { class: "gd-lead" }, "This is the student's view. Move between weeks; open any item to read it as a student would."),
-        B.studentPreview({ moduleId: "m4" }));
+        B.studentPreview({}));
     },
     export(body) {
       body.append(B.exportPanel({ onGoResolve: () => goStage(5) }));
@@ -142,7 +142,7 @@ export function mount(stage, ctx) {
 
   function primaryButton(key) {
     const cfg = {
-      define: ["Save & continue", () => { addDecision("Course", "The Meaning of Life in 12 Conversations"); addDecision("Sources", "4 files"); advance(); }],
+      define: ["Save & continue", () => { addDecision("Course", B.D.course?.title || "Your course"); addDecision("Sources", "4 files"); advance(); }],
       configure: ["Continue to blueprint", () => advance()],
       blueprint: ["Approve blueprint & build", () => { addDecision("Blueprint", "Approved"); goStage(3); }],
       generate: ["Go to review", () => { if (!done.has(3)) { toast("Let the draft finish building", "info"); return; } advance(); }],
@@ -165,7 +165,7 @@ export function mount(stage, ctx) {
 
   // ---- review sub-view -----------------------------------------------------
   function makeReviewState() {
-    let curMod = "m4", openItemId = null, mode = "items";
+    let curMod = B.focusModuleId(), openItemId = null, mode = "items";
     let bodyRef = null;
     function render(body, sub) {
       bodyRef = body; clear(body);
@@ -200,10 +200,11 @@ export function mount(stage, ctx) {
     return {
       render,
       goto(task) {
-        if (task === 6) { curMod = "m4"; openItemId = null; mode = "items"; }
-        if (task === 7) { curMod = "m4"; openItemId = "i4a"; }
-        if (task === 8) { curMod = "m4"; openItemId = "i4d"; }
-        if (task === 9) { curMod = "m4"; openItemId = null; }
+        const fm = B.focusModuleId();
+        if (task === 6) { curMod = fm; openItemId = null; mode = "items"; }
+        if (task === 7) { curMod = fm; openItemId = B.focusItemId(fm, "page"); }
+        if (task === 8) { curMod = fm; openItemId = B.focusItemId(fm, "assignment"); }
+        if (task === 9) { curMod = fm; openItemId = null; }
         if (bodyRef) render(bodyRef);
         if (task === 9) setTimeout(() => bodyRef?.querySelector(".blk-item__reorder .blk-mv")?.focus(), 60);
       },

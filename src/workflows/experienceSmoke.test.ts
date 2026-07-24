@@ -52,10 +52,7 @@ const hostCtx = () => ({
   onReady: () => {},
 });
 
-// TODO(next commit): unskip once the eight concepts resolve module/item focus
-// via blocks.focusModuleId()/focusItemId() instead of hardcoded mock ids
-// ("m4", "i4a", …). The helpers exist; the concept sweep is the remaining step.
-describe.skip("experience smoke + switching invariance (real course)", () => {
+describe("experience smoke + switching invariance (real course)", () => {
   for (const name of CONCEPTS) {
     it(`${name}: mounts over the real course, runs all 12 pointers, never touches content`, async () => {
       const hz = makeHarness();

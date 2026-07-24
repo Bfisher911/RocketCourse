@@ -7,7 +7,7 @@ import * as B from "../shared/blocks.js";
 ensureCss("wildcard", ["../shared/blocks.css", "./concepts/wildcard.css"]);
 
 export function mount(stage, ctx) {
-  let expanded = "m4";       // which conversation is open in the manuscript
+  let expanded = B.focusModuleId();   // which conversation is open in the manuscript
   let reading = null;        // {modId,itemId} open in the reading panel, or a tool id
   let studentMode = false;
 
@@ -48,7 +48,7 @@ export function mount(stage, ctx) {
 
   // ---- the manuscript (the syllabus-in-progress) --------------------------
   function manuscript() {
-    if (studentMode) return h("div", { class: "wc-manuscript wc-manuscript--student" }, B.studentPreview({ moduleId: expanded === "m-start" ? "m-start" : expanded }));
+    if (studentMode) return h("div", { class: "wc-manuscript wc-manuscript--student" }, B.studentPreview({ moduleId: expanded }));
     const m = h("article", { class: "wc-manuscript" });
     m.append(h("div", { class: "wc-title-block" },
       h("p", { class: "wc-eyebrow" }, "PHIL 1200 · Fall 2026 · Riverbend University"),
@@ -129,17 +129,17 @@ export function mount(stage, ctx) {
   function goToTask(n) {
     studentMode = false; reading = null;
     const acts = {
-      1: () => { expanded = "m-start"; },
+      1: () => { expanded = B.firstModuleId(); },
       2: () => reading = { tool: "sources" },
       3: () => reading = { tool: "setup" },
       4: () => reading = { tool: "blueprint" },
       5: () => reading = { tool: "setup" },
-      6: () => { expanded = "m4"; },
-      7: () => { expanded = "m4"; reading = { modId: "m4", itemId: "i4a" }; },
-      8: () => { expanded = "m4"; reading = { modId: "m4", itemId: "i4d" }; },
-      9: () => { expanded = "m4"; },
+      6: () => { expanded = B.focusModuleId(); },
+      7: () => { const fm = B.focusModuleId(); expanded = fm; reading = { modId: fm, itemId: B.focusItemId(fm, "page") }; },
+      8: () => { const fm = B.focusModuleId(); expanded = fm; reading = { modId: fm, itemId: B.focusItemId(fm, "assignment") }; },
+      9: () => { expanded = B.focusModuleId(); },
       10: () => { /* margins are always visible; open the first must-fix */ const b = B.session.readiness.blockers[0]; if (b) { openRef(b.refId); return; } },
-      11: () => { studentMode = true; expanded = "m4"; },
+      11: () => { studentMode = true; expanded = B.focusModuleId(); },
       12: () => reading = { tool: "export" },
     };
     if (n === 10) { acts[10](); return; }

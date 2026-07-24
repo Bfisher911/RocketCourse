@@ -8,7 +8,7 @@ ensureCss("tasks", ["../shared/blocks.css", "./concepts/tasks.css"]);
 
 export function mount(stage, ctx) {
   let view = "board"; // board | <jobId>
-  let modId = "m4", itemId = null;
+  let modId = B.focusModuleId(), itemId = null;
 
   const root = h("div", { class: "tk" });
   stage.append(root);
@@ -18,7 +18,7 @@ export function mount(stage, ctx) {
     { id: "direction", title: "Set the course direction", desc: "Confirm what this course is, its sources, and its scope.", status: () => "done", meta: "Confirmed" },
     { id: "blueprint", title: "Approve the plan", desc: "Sign off on outcomes, sequence, and assessment before content is finalized.", status: () => "done", meta: "Approved" },
     { id: "content", title: "Complete the modules", desc: "Read through each module's pages and activities; edit and reorder as needed.", status: () => "review", meta: "13 modules · 3 need a look" },
-    { id: "assessments", title: "Strengthen assessments", desc: "Every graded item needs a complete rubric and clear instructions.", status: () => B.session.rubrics["r-essay-freedom"].complete ? "done" : "attention", meta: () => B.session.rubrics["r-essay-freedom"].complete ? "Rubrics complete" : "1 rubric incomplete" },
+    { id: "assessments", title: "Strengthen assessments", desc: "Every graded item needs a complete rubric and clear instructions.", status: () => Object.values(B.session.rubrics ?? {}).some(r => !r.complete) ? "attention" : "done", meta: () => { const n = Object.values(B.session.rubrics ?? {}).filter(r => !r.complete).length; return n ? n + " rubric(s) incomplete" : "Rubrics complete"; } },
     { id: "verify", title: "Verify AI-written content", desc: "Approve AI-drafted prompts and answer keys before students see them.", status: () => aiPending() ? "attention" : "done", meta: () => aiPending() + " awaiting your OK" },
     { id: "alignment", title: "Check alignment", desc: "Make sure every outcome maps to real modules and assessments.", status: () => B.session.outcomes.some(o => o.alignedModuleIds.length === 0) ? "review" : "done", meta: () => B.session.outcomes.some(o => o.alignedModuleIds.length === 0) ? "1 outcome unaligned" : "All outcomes aligned" },
     { id: "workload", title: "Balance the workload", desc: "Spot modules that ask too much of students in one week.", status: () => "review", meta: "Module 7 runs heavy" },
@@ -27,7 +27,7 @@ export function mount(stage, ctx) {
     { id: "preview", title: "Preview as a student", desc: "See the course exactly as a student will in Canvas.", status: () => "todo", meta: "Optional check" },
     { id: "canvas", title: "Prepare & export for Canvas", desc: "Generate full content, validate, and download the package.", status: () => B.session.validated ? "done" : "todo", meta: () => B.session.validated ? "Validated" : "Not started" },
   ];
-  function aiPending() { let n = 0; if (B.session.discussions["d4-free"].needsAttention) n++; B.session.quizzes["q3-check"].questions.forEach(q => { if (q.needsAttention) n++; }); return n; }
+  function aiPending() { let n = 0; for (const d of Object.values(B.session.discussions ?? {})) if (d.needsAttention) n++; for (const q of Object.values(B.session.quizzes ?? {})) for (const qq of q.questions ?? []) if (qq.needsAttention) n++; return n; }
 
   function recommended(jobs) { return jobs.find(j => resolve(j.status) === "attention") || jobs.find(j => resolve(j.status) === "review") || jobs[0]; }
   function resolve(v) { return typeof v === "function" ? v() : v; }
@@ -64,7 +64,7 @@ export function mount(stage, ctx) {
       h("span", { class: "pill " + (tone || "") + " tiny" }, meta));
   }
 
-  function open(id) { view = id; modId = "m4"; itemId = null; render(); root.scrollIntoView({ block: "start" }); }
+  function open(id) { view = id; modId = B.focusModuleId(); itemId = null; render(); root.scrollIntoView?.({ block: "start" }); }
   function backBar(title) {
     return h("div", { class: "tk-jobbar" },
       h("button", { class: "btn btn--sm btn--ghost", onClick: () => { view = "board"; render(); } }, "‹ All jobs"),
@@ -80,13 +80,13 @@ export function mount(stage, ctx) {
       blueprint: () => root.append(backBar("Approve the plan"), panel("Blueprint", B.blueprintView({}))),
       content: () => root.append(backBar("Complete the modules"), moduleWork()),
       assessments: () => root.append(backBar("Strengthen assessments"),
-        panel("Module 4 · Short Essay 2 and its rubric", B.assignmentRubricView("a4-essay", { onResolve: render }))),
+        assessmentSurface()),
       verify: () => root.append(backBar("Verify AI-written content"), verifySurface()),
       alignment: () => root.append(backBar("Check alignment"), alignmentSurface()),
       workload: () => root.append(backBar("Balance the workload"), workloadSurface()),
       accessibility: () => root.append(backBar("Improve accessibility"), accessibilitySurface()),
       readiness: () => root.append(backBar("Clear what blocks export"), panel("Must-fix & advisory", B.readinessPanel({ onResolveGoto: it => { open("content"); gotoRef(it.refId); } }))),
-      preview: () => root.append(backBar("Preview as a student"), panel(null, B.studentPreview({ moduleId: "m4" }))),
+      preview: () => root.append(backBar("Preview as a student"), panel(null, B.studentPreview({}))),
       canvas: () => root.append(backBar("Prepare & export for Canvas"), panel(null, B.exportPanel({ onGoResolve: () => open("readiness") }))),
     };
     (surfaces[id] || surfaces.content)();
@@ -115,10 +115,29 @@ export function mount(stage, ctx) {
     setTimeout(render2, 0);
     return wrap;
   }
+  function assessmentSurface() {
+    // The graded item whose rubric most needs work — derived, never hardcoded.
+    const incomplete = Object.values(B.session.rubrics ?? {}).find(r => !r.complete);
+    const target = Object.values(B.session.assignments ?? {})
+      .find(a => incomplete && a.rubricId === incomplete.id)
+      ?? Object.values(B.session.assignments ?? {}).find(a => a.rubricId)
+      ?? Object.values(B.session.assignments ?? {})[0];
+    if (!target) return panel("Assessments", h("p", { class: "muted" }, "No graded items yet."));
+    const mod = B.session.modules.find(m => m.items.some(i => i.refId === target.id));
+    return panel((mod ? mod.title.replace(/^\d+ · /, "") + " · " : "") + target.title,
+      B.assignmentRubricView(target.id, { onResolve: render }));
+  }
   function verifySurface() {
+    // Everything AI-drafted that still needs a human OK, wherever it lives.
+    const pending = [];
+    for (const m of B.session.modules) {
+      for (const it of m.items) if (it.needsAttention) pending.push({ m, it });
+    }
+    if (!pending.length) return panel("Nothing awaiting verification", h("p", { class: "muted" }, "Every AI-drafted item has been reviewed."));
     const wrap = h("div", {});
-    wrap.append(panel("Module 3 · quiz answer key", B.itemEditor(B.moduleById("m3").items.find(i => i.type === "quiz"), { scopeMod: B.moduleById("m3"), onChange: render })));
-    wrap.append(panel("Module 4 · discussion prompt", B.itemEditor(B.moduleById("m4").items.find(i => i.id === "i4c"), { scopeMod: B.moduleById("m4"), onChange: render })));
+    pending.slice(0, 4).forEach(({ m, it }) => wrap.append(
+      panel(m.title.replace(/^\d+ · /, "") + " · " + it.title,
+        B.itemEditor(it, { scopeMod: m, onChange: render }))));
     return wrap;
   }
   function alignmentSurface() {
@@ -150,8 +169,8 @@ export function mount(stage, ctx) {
   function goToTask(n) {
     const map = { 1: "direction", 2: "direction", 3: "direction", 4: "blueprint", 5: "direction", 6: "content", 7: "content", 8: "assessments", 9: "content", 10: "readiness", 11: "preview", 12: "canvas" };
     open(map[n] || "board");
-    if (n === 7) setTimeout(() => { modId = "m4"; itemId = "i4a"; open("content"); }, 10);
-    if (n === 9) setTimeout(() => { modId = "m4"; itemId = null; open("content"); }, 10);
+    if (n === 7) setTimeout(() => { const fm = B.focusModuleId(); open("content"); modId = fm; itemId = B.focusItemId(fm, "page"); }, 10);
+    if (n === 9) setTimeout(() => { open("content"); modId = B.focusModuleId(); itemId = null; }, 10);
   }
   function panel(title, body) { return h("section", { class: "tk-panel" }, title && h("h3", { class: "tk-panel__t" }, title), body); }
   return { goToTask };

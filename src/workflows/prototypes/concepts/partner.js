@@ -7,7 +7,7 @@ ensureCss("partner", ["../shared/blocks.css", "./concepts/partner.css"]);
 
 export function mount(stage, ctx) {
   let center = { kind: "course" };   // course|sources|setup|blueprint|module|item|readiness|preview|export
-  let modId = "m4", itemId = null, previewOn = false;
+  let modId = B.focusModuleId(), itemId = null, previewOn = false;
 
   const rail = h("aside", { class: "pt-rail" });
   const stageEl = h("section", { class: "pt-stage" });
@@ -45,7 +45,7 @@ export function mount(stage, ctx) {
     stageEl.append(bar);
     const body = h("div", { class: "pt-stagebody" });
     stageEl.append(body);
-    if (previewOn && (center.kind === "module" || center.kind === "course" || center.kind === "item")) { body.append(B.studentPreview({ moduleId: center.kind === "module" ? modId : "m4" })); return; }
+    if (previewOn && (center.kind === "module" || center.kind === "course" || center.kind === "item")) { body.append(B.studentPreview({ moduleId: center.kind === "module" ? modId : undefined })); return; }
     ({
       course: () => body.append(h("h1", { class: "pt-h1" }, B.D.course.title), h("p", { class: "pt-sub" }, B.D.course.subtitle),
         h("p", { class: "pt-prose" }, B.D.course.description),
@@ -54,7 +54,7 @@ export function mount(stage, ctx) {
       setup: () => body.append(h("h1", { class: "pt-h1" }, "Course setup"), B.courseChange({ onChanged: render })),
       blueprint: () => body.append(h("h1", { class: "pt-h1" }, "Blueprint"), B.blueprintView({})),
       readiness: () => body.append(h("h1", { class: "pt-h1" }, "Readiness"), B.readinessPanel({ onResolveGoto: it => gotoRef(it.refId) })),
-      preview: () => body.append(B.studentPreview({ moduleId: "m4" })),
+      preview: () => body.append(B.studentPreview({})),
       export: () => body.append(h("h1", { class: "pt-h1" }, "Export"), B.exportPanel({ onGoResolve: () => set({ kind: "readiness" }) })),
       module: () => { const m = B.moduleById(modId); body.append(h("h1", { class: "pt-h1" }, m.title), h("p", { class: "pt-sub" }, m.summary),
         B.moduleItemList(m.id, { onOpen: it => { center = { kind: "item" }; itemId = it.id; render(); }, onReorder: () => {} })); },
@@ -115,7 +115,7 @@ export function mount(stage, ctx) {
     } else if (t.includes("rubric")) {
       ai("The Short Essay 2 rubric is missing performance levels for its “Use of evidence” criterion, so it's worth 0 points. I can add three standard levels (Exceeds / Meets / Developing) totalling 8 points.", {
         scope: "1 rubric · Module 4 essay", what: "Add the missing performance levels and mark the rubric complete.",
-        showLabel: "Open the essay", show: () => { center = { kind: "item" }; modId = "m4"; itemId = "i4d"; render(); },
+        showLabel: "Open the essay", show: () => { center = { kind: "item" }; modId = B.focusModuleId(); itemId = B.focusItemId(modId, "assignment"); render(); },
         doneLabel: "Completed the rubric", apply: () => { const r = Object.values(B.session.rubrics).find(x => !x.complete); if (!r) { render(); return; } const c = r.criteria.find(x => x.levels.length === 0); if (c) { c.points = 8; c.levels = [{ label: "Exceeds", points: 8, desc: "Precise, integrated evidence." }, { label: "Meets", points: 6, desc: "Relevant evidence." }, { label: "Developing", points: 3, desc: "Thin evidence." }]; } r.complete = true; r.points = r.criteria.reduce((s, x) => s + x.points, 0); B.session.commit?.(); B.resolveIssue("b2"); B.resolveIssue("rev3"); render(); } });
     } else if (t.includes("fix") && t.includes("must")) {
       ai("I'll clear both must-fix blockers: verify the Module 3 answer key and complete the Module 4 rubric. You approve the change before I touch anything.", {
@@ -145,10 +145,10 @@ export function mount(stage, ctx) {
       3: () => { center = { kind: "setup" }; },
       4: () => center = { kind: "blueprint" },
       5: () => { center = { kind: "setup" }; ai("Want to change the course length? I'll apply it course-wide once you approve.", { scope: "Course-wide", what: "Set the course to 14 weeks.", doneLabel: "Course set to 14 weeks", apply: () => { B.session.settings.weeks = 14; B.session.commit?.(); } }); },
-      6: () => { center = { kind: "module" }; modId = "m4"; },
-      7: () => { center = { kind: "item" }; modId = "m4"; itemId = "i4a"; },
-      8: () => { center = { kind: "item" }; modId = "m4"; itemId = "i4d"; },
-      9: () => { center = { kind: "module" }; modId = "m4"; },
+      6: () => { center = { kind: "module" }; modId = B.focusModuleId(); },
+      7: () => { center = { kind: "item" }; modId = B.focusModuleId(); itemId = B.focusItemId(modId, "page"); },
+      8: () => { center = { kind: "item" }; modId = B.focusModuleId(); itemId = B.focusItemId(modId, "assignment"); },
+      9: () => { center = { kind: "module" }; modId = B.focusModuleId(); },
       10: () => center = { kind: "readiness" },
       11: () => center = { kind: "preview" },
       12: () => center = { kind: "export" },
