@@ -74,21 +74,33 @@
 /* Inside the app the sticky stack is: app topbar (70px) + experience chrome
    (64px). The experiences' own sticky rails read --rc-chrome-offset, so the
    same CSS lands correctly here and in the standalone lab (96px default). */
-.rc-workflow-host { min-height: 100vh; background: var(--rc-paper); --rc-chrome-offset: 70px; }
+.rc-workflow-host { min-height: 100vh; background: var(--rc-paper); --rc-chrome-offset: 134px; }
 /* The experiences' responsive rules are @container queries (so the same CSS
    serves the lab's viewport frame and the app). The stage must therefore BE a
    query container, or none of their collapses fire inside the SPA. */
-.rc-workflow-stage { min-height: calc(100vh - 134px); container-type: inline-size; }
-@media (max-width: 760px) { .rc-workflow-host { --rc-chrome-offset: 0px; } }
-/* ONE persistent bar in the product: the app topbar. The experience chrome
-   scrolls away with the content and each experience's own rail pins directly
-   beneath the topbar (--rc-chrome-offset: 70px) — no competing sticky stack,
-   and no 134px of permanently-consumed vertical space on laptop screens. */
+.rc-workflow-stage { min-height: calc(100vh - var(--rc-chrome-offset, 134px)); container-type: inline-size; }
+/* Persistent workspace header: BOTH the app topbar (70px, sticky top:0) and the
+   experience chrome (sticky top:70px) stay put while you work, so the switcher,
+   readiness and ⌘K are always in reach. Each experience's rails then pin
+   directly beneath that stack. --rc-chrome-offset is measured live from the two
+   bars (WorkflowHost), so the pin is exact even when the chrome wraps — no magic
+   constant, and no rail overhang/gap at any scroll position. 134px is the
+   first-paint fallback (70 + ~64) before measurement runs. */
 [data-rc-ds].rc-xchrome, .rc-xchrome[data-rc-ds] {
   display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
   padding: 8px 20px; background: var(--rc-paper-bright);
   border-bottom: var(--rc-border-2); font-family: var(--rc-font-ui);
-  position: static; color: var(--rc-ink);
+  position: sticky; top: 70px; z-index: 20; color: var(--rc-ink);
+  box-shadow: 0 1px 0 rgba(17,17,17,.04);
+}
+@media (max-width: 760px) {
+  /* Single-column territory: rails go static (see each concept's @container
+     rules), so a persistent chrome would only eat a short screen's height —
+     let it and the header scroll away, and zero the offset. This block sits
+     AFTER the base rule so its static wins the source-order tie (media queries
+     add no specificity). */
+  .rc-workflow-host { --rc-chrome-offset: 0px; }
+  [data-rc-ds].rc-xchrome, .rc-xchrome[data-rc-ds] { position: static; }
 }
 .rc-xchrome__seg { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .rc-xchrome__k { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--rc-muted-ink); }

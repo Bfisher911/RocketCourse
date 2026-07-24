@@ -42,6 +42,8 @@ export interface WorkflowHost {
   /** Focus a module by id in the current experience (command palette). */
   focusModule(moduleId: string): boolean;
   rationale(experienceId: string): Promise<HTMLElement | null>;
+  /** Stop the host: cancels any in-flight show and clears the stage. */
+  dispose(): void;
 }
 
 interface ConceptApi {
@@ -52,8 +54,16 @@ interface ConceptApi {
 
 export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: (c: WorkflowContext) => void): WorkflowHost {
   let current: { id: string; api: ConceptApi } | null = null;
+  let disposed = false;
+  // Monotonic token: every show() captures its value and, after the async
+  // module load, bails if a newer show() started or the host was disposed.
+  // Without this a StrictMode double-mount (or a rapid experience switch) races
+  // the async load against the cleanup and appends a SECOND stage, which — being
+  // as tall as the real one — steals the sticky rails' scroll travel.
+  let showSeq = 0;
 
   async function show(experienceId: string) {
+    const seq = ++showSeq;
     const exp = getExperience(experienceId);
     ctx.experienceId = experienceId;
     onChange?.(ctx);
@@ -68,6 +78,8 @@ export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: 
     const load = loaderFor(exp.prototypeKey);
     if (!load) { stage.append(errorPanel(`No renderer for ${experienceId}`)); return; }
     const mod = await load();
+    if (disposed || seq !== showSeq) return; // superseded during load — do not mount
+    stage.innerHTML = ""; // clear anything a superseded show may have left
     const api: ConceptApi = mod.mount(stage, {
       go: (_hash: string) => { /* internal experience nav; context stays shared */ },
       onReady: () => api.goToTask?.(ctx.taskPointer),
@@ -76,6 +88,13 @@ export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: 
     // Restore the shared context pointer in the new experience — this is the
     // "switching preserves where you are" guarantee.
     api.goToTask?.(ctx.taskPointer);
+  }
+
+  function dispose() {
+    disposed = true;
+    showSeq += 1; // invalidate any in-flight show
+    current = null;
+    stage.innerHTML = "";
   }
 
   async function rationale(experienceId: string) {
@@ -105,7 +124,7 @@ export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: 
     return false;
   }
 
-  return { show, gotoTask, focusRef, focusModule, rationale };
+  return { show, gotoTask, focusRef, focusModule, rationale, dispose };
 }
 
 function originalPlaceholder(): HTMLElement {

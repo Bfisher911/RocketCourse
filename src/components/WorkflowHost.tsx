@@ -31,6 +31,7 @@ interface WorkflowHostProps {
 }
 
 export function WorkflowHost(props: WorkflowHostProps) {
+  const hostElRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const courseRef = useRef(props.course);
   courseRef.current = props.course;
@@ -77,6 +78,7 @@ export function WorkflowHost(props: WorkflowHostProps) {
     void host.show(ctx.experienceId);
     return () => {
       props.onFocusHandle?.(null);
+      host.dispose();
       adapter.dispose();
       adapterRef.current = null;
       hostRef.current = null;
@@ -101,8 +103,31 @@ export function WorkflowHost(props: WorkflowHostProps) {
     adapterRef.current?.refresh(props.course);
   }, [props.course]);
 
+  // Keep each experience's sticky rails pinned exactly beneath the persistent
+  // header stack (app topbar + workspace chrome). Measured live so the pin stays
+  // correct as the chrome wraps at narrow widths — no magic constant to drift.
+  // Below 760px the chrome is static (CSS), so we leave --rc-chrome-offset to the
+  // media-query's 0 and skip measurement.
+  useEffect(() => {
+    const hostEl = hostElRef.current;
+    if (!hostEl || typeof ResizeObserver === "undefined") return;
+    const topbar = document.querySelector<HTMLElement>(".topbar");
+    const chrome = document.querySelector<HTMLElement>(".rc-xchrome");
+    const apply = () => {
+      if (window.innerWidth <= 760) { hostEl.style.removeProperty("--rc-chrome-offset"); return; }
+      const stack = (topbar?.offsetHeight ?? 70) + (chrome?.offsetHeight ?? 64);
+      hostEl.style.setProperty("--rc-chrome-offset", `${stack}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    if (topbar) ro.observe(topbar);
+    if (chrome) ro.observe(chrome);
+    window.addEventListener("resize", apply);
+    return () => { ro.disconnect(); window.removeEventListener("resize", apply); };
+  }, [props.experienceId]);
+
   return (
-    <div data-rc-ds className="rc-workflow-host">
+    <div data-rc-ds className="rc-workflow-host" ref={hostElRef}>
       <div ref={stageRef} className="rc-workflow-stage" />
     </div>
   );
