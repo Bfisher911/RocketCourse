@@ -122,19 +122,29 @@ their own course theme.
 
 ## 8. Known limitations (honest)
 
-1. **Side-rail stickiness inside the SPA.** The experiences were authored full-viewport;
-   nested in the app their rails' height equals their container, leaving no sticky travel,
-   so long module lists scroll the rail away. Cosmetic; needs a per-experience height pass.
-2. **Chrome is a single strip, not yet a full command surface.** Undo/redo, Review and
-   Export still live in the original editor's own toolbar (W01). Chrome shows course,
+Resolved since first draft:
+- ~~Side-rail stickiness inside the SPA~~ → **Fixed.** Persistent measured chrome + a
+  cancellable `host.show()` (no double-mount); rails pin cleanly through the full scroll
+  at wide widths and go static in single-column bands (commit `855492c`).
+- ~~Command palette (Phase 5) not built~~ → **Shipped** (⌘K, shared across experiences).
+- ~~Pattern-library work (Phases 7–12) not started~~ → **Audit + Phase 8 recommendation
+  layer + Phase 9 distribution + Phase 11/12 manual insertion shipped.** Density profiles
+  live in `interactionSelection.ts`.
+- Experience discoverability → a per-course "Open in <experience>" entry point now exists
+  on the dashboard (commit `6cf795e`), in addition to the editor chrome switcher.
+
+Still open:
+1. **Chrome is a single strip, not yet a full command surface.** Undo/redo, Review and
+   Export still live in the original editor's own toolbar (W01); the palette (⌘K) now
+   provides those actions across experiences, but the chrome strip itself shows course,
    experience switcher, readiness and autosave only.
-3. **Command palette (Phase 5) not built.** The parity matrix assumes it as the universal
-   floor; until it ships, a few advanced capabilities remain `A`/`M` in some experiences.
-4. **Pattern-library work (Phases 7–12) not started** — audit, recommendation engine and
-   generation-distribution targets are untouched.
-5. **No preview deployment.** Netlify deploy was explicitly deferred by the owner; all
-   verification is local.
-6. Storyboard and Wildcard are registered `desktop`/`tablet` only.
+2. **No preview deployment.** Netlify deploy needs owner credentials (ledger BLK-1); all
+   verification here is local.
+3. Storyboard and Wildcard are registered `desktop`/`tablet` only.
+
+See `docs/production-readiness/ledger.md` for the full production-loop findings and the
+external blockers (Netlify deploy, live AI, Supabase/RLS, Stripe test-mode, Canvas import,
+Lighthouse).
 
 ## 9. Commands
 
