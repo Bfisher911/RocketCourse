@@ -14,11 +14,13 @@
   --ink-3: color-mix(in srgb, var(--rc-muted-ink, #767c88) 78%, var(--rc-paper, #fff));
   --line: var(--rc-grid-line, #e2e5ea);
   --line-strong: color-mix(in srgb, var(--rc-border, #cfd4dc) 34%, transparent);
-  --accent: var(--rc-blue, #3a5bd9);
+  /* Text-safe blue: clears 4.5:1 as small text on every paper tint and raises
+     white-on-blue fills to ~6:1 (the brighter --rc-blue stays for large fills). */
+  --accent: #0060c4;
   --accent-ink: var(--rc-info-ink, #ffffff);
-  --ok: var(--rc-green, #2f8f5b);
+  --ok: #00753b;
   --warn: color-mix(in srgb, var(--rc-attention, #b7791f) 62%, var(--rc-ink, #000));
-  --danger: var(--rc-danger, #c0392b);
+  --danger: var(--rc-danger, #c0281b);
   --ok-bg: color-mix(in srgb, var(--rc-green, #e7f4ec) 12%, var(--rc-paper-bright, #fff));
   --warn-bg: color-mix(in srgb, var(--rc-yellow, #fbf1de) 16%, var(--rc-paper-bright, #fff));
   --danger-bg: color-mix(in srgb, var(--rc-danger, #fbe9e7) 9%, var(--rc-paper-bright, #fff));
