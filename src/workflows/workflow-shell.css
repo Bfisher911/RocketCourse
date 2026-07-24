@@ -75,7 +75,10 @@
    (64px). The experiences' own sticky rails read --rc-chrome-offset, so the
    same CSS lands correctly here and in the standalone lab (96px default). */
 .rc-workflow-host { min-height: 100vh; background: var(--rc-paper); --rc-chrome-offset: 70px; }
-.rc-workflow-stage { min-height: calc(100vh - 134px); }
+/* The experiences' responsive rules are @container queries (so the same CSS
+   serves the lab's viewport frame and the app). The stage must therefore BE a
+   query container, or none of their collapses fire inside the SPA. */
+.rc-workflow-stage { min-height: calc(100vh - 134px); container-type: inline-size; }
 @media (max-width: 760px) { .rc-workflow-host { --rc-chrome-offset: 0px; } }
 /* ONE persistent bar in the product: the app topbar. The experience chrome
    scrolls away with the content and each experience's own rail pins directly
@@ -95,7 +98,8 @@
 .rc-xchrome__v--ready { color: #04351f; }
 .rc-xchrome__switch { display: inline-flex; align-items: center; gap: 8px; }
 .rc-xchrome__code { font-family: var(--rc-font-mono); font-size: 11px; font-weight: 700; background: var(--rc-ink); color: var(--rc-paper-bright); padding: 2px 7px; border-radius: var(--rc-radius-xs); }
-.rc-xchrome__select { font: inherit; font-weight: 700; font-size: 13px; border: 1px solid var(--rc-grid-line); border-radius: var(--rc-radius-xs); background: var(--rc-paper-bright); color: var(--rc-ink); padding: 6px 8px; max-width: 260px; min-height: 34px; }
+.rc-xchrome__select { font: inherit; font-weight: 700; font-size: 13px; border: 1px solid var(--rc-grid-line); border-radius: var(--rc-radius-xs); background: var(--rc-paper-bright); color: var(--rc-ink); padding: 6px 8px; max-width: 260px; min-height: 38px; }
+@media (pointer: coarse) { .rc-xchrome__select { min-height: 44px; } }
 .rc-xchrome__select:focus-visible { outline: var(--rc-focus); outline-offset: 1px; }
 .rc-xchrome__note { margin-left: auto; font-size: 11.5px; color: var(--rc-muted-ink); }
 @media (max-width: 760px) { .rc-xchrome__note { display: none; } .rc-xchrome__v { max-width: 160px; } }

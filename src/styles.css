@@ -8830,9 +8830,16 @@ p {
 @media (max-width: 600px) {
   .topbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: auto auto minmax(0, 1fr);
     align-items: center;
+    gap: 10px;
   }
+
+  /* The wordmark text overflowed its 1fr cell and collided with the Menu
+     button; below 600px the logo mark alone carries the brand. */
+  .topbar .brand { min-width: 0; overflow: hidden; }
+  .topbar .brand > span:not(.rc-mark) { display: none; }
+  .topbar-account { justify-self: end; }
 
   .topnav-toggle {
     display: inline-flex;
@@ -8867,6 +8874,26 @@ p {
     width: 100%;
     min-height: 44px;
   }
+}
+
+/* Touch-target floor. On coarse pointers every interactive control clears the
+   44px minimum, without inflating the dense desktop layouts. Inline text
+   controls inside a row get the height via padding so they don't reflow. */
+@media (pointer: coarse) {
+  .topnav-toggle,
+  .profile-trigger,
+  .step-link,
+  .ghost-button,
+  .readiness-chip,
+  .icon-button,
+  .outcome-code,
+  .outcome-bloom,
+  button,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    min-height: 44px;
+  }
+  .icon-button { min-width: 44px; }
 }
 
 @media (max-width: 560px) {
