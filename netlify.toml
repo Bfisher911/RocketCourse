@@ -21,6 +21,28 @@
   to = "/index.html"
   status = 200
 
+# Security headers for every response. The enforcing set below is safe for this
+# app (no same-origin iframing of itself; secrets live only in functions). The
+# Content-Security-Policy ships in REPORT-ONLY first: Netlify headers can only be
+# exercised on a real deploy, so enforcing a CSP we cannot verify locally could
+# break fonts / Supabase / Stripe. Verify zero violations on a branch preview,
+# then rename `Content-Security-Policy-Report-Only` -> `Content-Security-Policy`.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), browsing-topics=()"
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    # Origins the client actually contacts: Google Fonts (CSS + font files),
+    # Supabase (auth/db/storage/realtime over https + wss), same-origin Netlify
+    # functions (the OpenAI proxy, Stripe session creation), Stripe (checkout is
+    # a top-level redirect; js.stripe.com allowed for future embedded flows),
+    # and data:/blob: images (SVG course tiles, generated assets).
+    Content-Security-Policy-Report-Only = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self' https://js.stripe.com; form-action 'self' https://checkout.stripe.com https://billing.stripe.com; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests"
+
 # Keep the in-app screens out of the search index (their content lives behind navigation/auth).
 [[headers]]
   for = "/app"
