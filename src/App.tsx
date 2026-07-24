@@ -89,7 +89,7 @@ import { WorkflowHost, type WorkflowFocusHandle } from "./components/WorkflowHos
 import { ExperienceChrome } from "./components/ExperienceChrome";
 import { CommandPalette } from "./components/CommandPalette";
 import { typeToTab, type CommandContext } from "./workflows/commandRegistry";
-import { getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
+import { experiencesByCode, getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
 import { loadCoursePreferred, loadUserPreferred, saveCoursePreferred, saveUserPreferred } from "./workflows/workflowContext";
 import { useModalFocus } from "./hooks/useModalFocus";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
@@ -1108,13 +1108,20 @@ function App() {
           onRefreshStatus={auth.refreshSubscription}
           onBillingPortal={handleOpenBillingPortal}
           billingError={checkoutError}
-          onOpen={(project) => {
+          onOpen={(project, expId) => {
             setDemoActive(false);
             setTourOpen(false);
             setCourse(project);
             setExportMode(project.exportMode);
             setImportNotes([]);
             setValidationReport(null);
+            // Optional per-card experience choice: persist it so the course-open
+            // effect resolves to it, and set it directly for an immediate open.
+            if (expId && getExperience(expId)?.enabled) {
+              saveCoursePreferred(project.id, expId);
+              saveUserPreferred(expId);
+              setExperienceId(expId);
+            }
             setScreen("editor");
           }}
         />
@@ -1965,7 +1972,7 @@ function Dashboard({
   onRefreshStatus: () => Promise<void>;
   onBillingPortal: () => void;
   billingError?: string | null;
-  onOpen: (project: CourseProject) => void;
+  onOpen: (project: CourseProject, experienceId?: string) => void;
 }) {
   const [refreshing, setRefreshing] = useState(false);
   const fmtLimit = (used: number, remaining: number | null): string =>
@@ -2080,38 +2087,56 @@ function Dashboard({
         <section className="project-list" aria-label="Course projects">
           {projects.map((project) => {
             const score = buildReadinessReport(project).score;
+            const pref = resolveExperienceId(loadCoursePreferred(project.id), loadUserPreferred());
             return (
-              <button key={project.id} className="project-row" onClick={() => onOpen(project)}>
-                <span className="project-main">
-                  <span className="project-glyph project-tile" aria-hidden="true">
-                    {project.theme ? (
-                      <img
-                        src={`data:image/svg+xml;utf8,${encodeURIComponent(buildCourseTileSvg(project.title, project.theme))}`}
-                        alt=""
-                        style={{ display: "block", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <BookOpen size={20} />
-                    )}
-                  </span>
-                  <span>
-                    <strong>{project.title}</strong>
-                    <small>
-                      {project.modules.length} modules • {project.assignments.length} assignments • updated {formatDate(project.updatedAt)}
-                    </small>
-                  </span>
-                </span>
-                <span className="project-meta">
-                  <span className="readiness-mini" title={`Readiness ${score}%`}>
-                    <span className="bar" aria-hidden="true">
-                      <i style={{ width: `${score}%` }} />
+              <div key={project.id} className="project-row">
+                <button className="project-open" onClick={() => onOpen(project)} aria-label={`Open ${project.title}`}>
+                  <span className="project-main">
+                    <span className="project-glyph project-tile" aria-hidden="true">
+                      {project.theme ? (
+                        <img
+                          src={`data:image/svg+xml;utf8,${encodeURIComponent(buildCourseTileSvg(project.title, project.theme))}`}
+                          alt=""
+                          style={{ display: "block", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <BookOpen size={20} />
+                      )}
                     </span>
-                    {score}%
+                    <span>
+                      <strong>{project.title}</strong>
+                      <small>
+                        {project.modules.length} modules • {project.assignments.length} assignments • updated {formatDate(project.updatedAt)}
+                      </small>
+                    </span>
                   </span>
-                  <span className={`status-pill ${project.status}`}>{project.status}</span>
-                  <ArrowRight size={16} aria-hidden="true" />
-                </span>
-              </button>
+                  <span className="project-meta">
+                    <span className="readiness-mini" title={`Readiness ${score}%`}>
+                      <span className="bar" aria-hidden="true">
+                        <i style={{ width: `${score}%` }} />
+                      </span>
+                      {score}%
+                    </span>
+                    <span className={`status-pill ${project.status}`}>{project.status}</span>
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </span>
+                </button>
+                <label className="project-exp">
+                  <span className="project-exp__k">Open in</span>
+                  <select
+                    className="project-exp__select"
+                    value={pref}
+                    aria-label={`Choose a building experience for ${project.title}`}
+                    onChange={(e) => onOpen(project, e.target.value)}
+                  >
+                    {experiencesByCode().map((exp) => (
+                      <option key={exp.id} value={exp.id} disabled={!exp.enabled}>
+                        {exp.code} · {exp.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             );
           })}
         </section>

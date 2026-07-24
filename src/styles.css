@@ -1892,16 +1892,71 @@ p {
 
 .project-row {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 20px;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
   width: 100%;
-  padding: 20px 22px;
   color: var(--ink);
   text-align: left;
   overflow: hidden;
   transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+/* Clickable open-area of a project row (the row is no longer a single button so
+   it can also host the per-course experience picker). */
+.project-open {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 22px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+.project-open:hover { background: var(--surface-2); }
+.project-open:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+/* Per-course "Open in <experience>" entry point — surfaces the nine building
+   experiences at the dashboard, before entering the editor. */
+.project-exp {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 18px 0 6px;
+  flex-shrink: 0;
+}
+.project-exp__k {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.project-exp__select {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 8px;
+  max-width: 220px;
+  min-height: 40px;
+}
+.project-exp__select:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+@media (pointer: coarse) { .project-exp__select { min-height: 44px; } }
+@media (max-width: 620px) {
+  .project-row { flex-wrap: wrap; }
+  .project-exp { width: 100%; padding: 0 22px 16px; }
+  .project-exp__select { max-width: none; width: 100%; }
 }
 
 .project-row::before {
