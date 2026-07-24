@@ -38,6 +38,8 @@ not fake controls.
 | ID | Sev | Area | Evidence | Status |
 | --- | --- | --- | --- | --- |
 | SEC-1 | P1 | Security headers | `netlify.toml` had **no** CSP / HSTS / X-Content-Type-Options / frame / Referrer / Permissions-Policy | ✅ **Fixed** — hardening headers added (enforced) + CSP in **Report-Only** (see note) |
+| SEC-2 | P1 | Dependency advisories | `npm audit`: `fast-xml-parser` (DOCTYPE entity expansion, used in XML validate path) + `sharp`/libvips CVEs (process external image bytes) | ✅ **Fixed** — fast-xml-parser 5.9.3→5.10.1; sharp 0.34.5→0.35.3. `npm audit` now **0 vulnerabilities**; typecheck/build/870 tests green; Netlify Linux sharp binaries retained |
+| SEC-3 | P2 | Secret hygiene | `.gitignore` lacked `*.pem`/`*.key`/`id_rsa` (nothing leaking) | ✅ **Fixed** |
 | PERF-1 | P2 | Performance | `dist/assets/index-*.js` = 1.69 MB; `App.tsx` (~4.3k lines) imported eagerly; no route-level code-split | 🔜 Open |
 | MAINT-1 | P3 | Maintainability | Build warns: `supabaseClient.ts` dynamically imported by `openaiClient.ts` but statically elsewhere → dynamic import ineffective | 🔜 Open |
 | NAME-1 | P3 | Naming | Legacy "CourseForge": Netlify slug `thecourseforge.netlify.app` (prerender canonical/OG), repo dir, some internal ids. Product name is RocketCourse | 🔜 Open — migrate only where safe (not the live site slug / historical records) |
@@ -76,5 +78,10 @@ from this environment without credentials; no result for them may be fabricated.
   paths are honest (no dead controls / fake progress found in the red-flag
   sweep). Fixed SEC-1 (security headers + Report-Only CSP). Recorded PERF-1,
   MAINT-1, NAME-1 and the six external blockers. Prior this session: UX-1, UX-2,
-  FEAT-1 landed. Next candidate batch: PERF-1 (route/vendor code-split) as the
-  main in-environment lever toward the Lighthouse gate, then NAME-1 safe rename.
+  FEAT-1 landed.
+- **Pass 2** — Production-readiness audit (`PROD_AUDIT.md`). Result **PASS**, 0 P0.
+  Security scan clean (no secrets, no tracked env, RLS sound, Stripe webhook
+  signature-verified + idempotent). Found + fixed SEC-2 (2 high dep advisories →
+  0 vulnerabilities) and SEC-3 (.gitignore). Types/lint/build/870-tests all green.
+  Next candidate batch: PERF-1 (route/vendor code-split) toward the Lighthouse
+  gate, then NAME-1 safe rename.

@@ -16,3 +16,8 @@ courseforge-*.imscc
 .env
 .env.local
 .env.*.local
+
+# Keys and certificates (never commit)
+*.pem
+*.key
+id_rsa
