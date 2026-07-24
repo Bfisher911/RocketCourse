@@ -44,6 +44,10 @@ export const session = {
   settings: { weeks: MOCK.course.weeks, modality: MOCK.course.modality, level: MOCK.course.level,
               creditHours: MOCK.course.creditHours, includeRubrics: true, aiPolicy: "Not set",
               interactionDensity: "balanced" },
+  interactivity: { total: 46, standard: 31, courseSpecific: 15, distinctPatterns: 19,
+                   bySurfaceType: { pages: 28, assignments: 9, discussions: 6, quizzes: 3 },
+                   target: 60, meetsTarget: false, density: "balanced",
+                   summary: "46 of a recommended 60 interactions. Raise the density or add course-specific patterns for a richer course." },
   resolved: new Set(),        // ids of resolved readiness items
   fullContentGenerated: false,
   validated: false,
@@ -407,8 +411,20 @@ export function blueprintView({ onApprove, onChangeDecision } = {}) {
           h("ul", { class: "blk-bp__ul" }, session.assignmentGroups.map(g => h("li", {}, g.name, h("span", { class: "tiny muted" }, " · " + g.weight + "%"))))),
         bpCard("Workload", Math.round(session.contactHours.plannedTotal) + " of " + session.contactHours.requiredTotal + " planned student-hours",
           h("div", {}, session.contactHours.categories.map(c => workBar(c)),
-            heavyModuleNote()))),
+            heavyModuleNote())),
+        interactivityCard()),
     );
+  }
+  function interactivityCard() {
+    const iv = session.interactivity;
+    if (!iv) return null;
+    const pct = Math.min(100, Math.round((iv.total / Math.max(1, iv.target)) * 100));
+    return bpCard("Interactivity", iv.total + " Canvas interactions · " + iv.density + " density",
+      h("div", {},
+        h("div", { class: "blk-bp__ivbar" }, h("span", { class: "blk-bp__ivfill" + (iv.meetsTarget ? " is-met" : ""), style: { width: pct + "%" } })),
+        h("p", { class: "tiny" + (iv.meetsTarget ? " muted" : " attn"), style: { paddingLeft: "8px", marginTop: "6px" } }, iv.summary),
+        h("p", { class: "tiny muted", style: { paddingLeft: "8px" } },
+          iv.standard + " reusable · " + iv.courseSpecific + " course-specific · " + iv.distinctPatterns + " distinct patterns")));
   }
   function bpCard(title, sub, body) {
     return h("section", { class: "blk-bp__card" }, h("div", { class: "blk-bp__ct" },

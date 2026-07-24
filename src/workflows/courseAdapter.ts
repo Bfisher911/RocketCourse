@@ -34,7 +34,7 @@ import type {
 } from "../types";
 import { buildReadinessReport } from "../services/readiness";
 import { buildCourseQualityReport } from "../services/courseQuality";
-import { applyCourseInteractions, resolveInteractionDensity } from "../services/interactionSelection";
+import { analyzeInteractionDistribution, applyCourseInteractions, resolveInteractionDensity } from "../services/interactionSelection";
 import { loadViewState, saveViewState, type WorkflowViewState } from "./adapterViewState";
 
 // ---------------------------------------------------------------------------
@@ -237,6 +237,9 @@ export function createCourseAdapter(opts: {
       aiPolicy: sy?.aiUsePolicy?.trim() ? sy.aiUsePolicy : "Not set",
       interactionDensity: resolveInteractionDensity(course),
     };
+
+    // Interactivity distribution (Phase 9) — read-only report for the UI.
+    s.interactivity = analyzeInteractionDistribution(course);
 
     // -- contact hours + sources --------------------------------------------
     const ch = course.contactHours;

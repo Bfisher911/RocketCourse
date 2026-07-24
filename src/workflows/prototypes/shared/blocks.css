@@ -86,6 +86,9 @@
 .blk-work { display: grid; grid-template-columns: 1fr 90px auto; align-items: center; gap: 8px; padding: 2px 8px; }
 .blk-work__track { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
 .blk-work__fill { display: block; height: 100%; background: var(--accent); }
+.blk-bp__ivbar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin: 4px 8px 0; }
+.blk-bp__ivfill { display: block; height: 100%; background: var(--warn); transition: width .25s; }
+.blk-bp__ivfill.is-met { background: var(--ok); }
 
 /* course change */
 .blk-cc__scope { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); font-weight: 600; font-size: 13px; padding: 8px 12px; border-radius: 8px; }

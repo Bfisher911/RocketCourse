@@ -376,10 +376,22 @@ src/services/interactionSelection.test.ts` → **31 tests**:
    today density is fixed caps + a floor of 2. This would be a **new setting** threaded into
    `interactionSelection.ts` (caps become a function of the profile) — a self-contained,
    low-risk addition that does not touch export.
-5. **No explicit course-wide distribution target.** Phase 9 asks for ~40 standard + ~20
-   course-specific (~60 total) on a full course. Today the total is emergent (>10 in tests) and
-   capped only per-surface / per-frequency. A target would be a check in the planner, not a
-   generator rewrite.
+5. **No explicit course-wide distribution target.** *(Addressed — Phase 9.)* Phase 9 asked for a
+   standard vs. course-specific split and a ~60-on-a-full-course target. Added
+   `analyzeInteractionDistribution(course)` + `interactionTargetFor(course)` (scales with teaching
+   modules, capped at 60) + `isStandardPattern` (discipline-"all" = standard, else
+   course-specific). It's a **read-only report** surfaced as an "Interactivity" card in the
+   experiences' blueprint — no generator rewrite, no export change.
+
+### Addressed since this audit
+- **Findings 1–3** applied as low-risk cleanups (dead `canvas-native` tier removed; stale density
+  comment fixed; `image-map` pattern copy made honest).
+- **Finding 4 (density profiles):** `INTERACTION_DENSITY_PROFILES` (Minimal/Balanced/Rich/
+  Immersive) added; "balanced" reproduces historical output exactly; wired to a course setting +
+  an experience control that re-applies interactions.
+- **Finding 5 (distribution target):** the analysis + target above.
+Still open (higher-scope): AI-assisted recommendation layer (Phase 8), a pattern-composer UI
+(Phase 11), and cross-workflow pattern parity (Phase 12).
 
 ### What Phases 8–12 would (and would not) touch
 - **Recommendation engine (Phase 8):** the deterministic selector already exists and is the right

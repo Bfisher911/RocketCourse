@@ -888,3 +888,77 @@ export const buildEditorSampleContent = (patternId: string, course: CourseProjec
     ]
   };
 };
+
+// ── Distribution analysis (Phase 9) ──────────────────────────────────────────
+// A read-only report on how much interactivity a course actually carries and
+// how close it is to the "rich full course" target. Purely analytical — it
+// reads existing interactionBlocks and never changes the course.
+
+/** A pattern is "standard" (broadly reusable) when it fits every discipline;
+ * discipline-tagged patterns are "course-specific". */
+export const isStandardPattern = (patternId: string): boolean => {
+  const pattern = interactionPatternById(patternId);
+  return pattern ? pattern.disciplines.includes("all") : false;
+};
+
+export const STANDARD_PATTERN_IDS: string[] = INTERACTION_PATTERNS.filter(p => p.disciplines.includes("all")).map(p => p.id);
+export const COURSE_SPECIFIC_PATTERN_IDS: string[] = INTERACTION_PATTERNS.filter(p => !p.disciplines.includes("all")).map(p => p.id);
+
+export interface InteractionDistribution {
+  /** Total interaction blocks across pages/assignments/discussions/quizzes. */
+  total: number;
+  /** Blocks whose pattern is broadly reusable (discipline "all"). */
+  standard: number;
+  /** Blocks whose pattern is discipline-specific to this course's subject. */
+  courseSpecific: number;
+  /** Distinct patterns used (variety, not just volume). */
+  distinctPatterns: number;
+  bySurfaceType: { pages: number; assignments: number; discussions: number; quizzes: number };
+  /** The recommended block count for a course this size (guideline, not a quota). */
+  target: number;
+  meetsTarget: boolean;
+  density: InteractionDensity;
+  /** A short, human-readable verdict. */
+  summary: string;
+}
+
+/** Recommended total for a course this size. Scales with real teaching modules
+ * so micro-courses aren't pushed to over-instrument; a full (~12-module) course
+ * lands near the library's ~60 guideline. Never a hard quota. */
+export const interactionTargetFor = (course: CourseProject): number => {
+  const teachingModules = course.modules.filter(m => m.kind === "content" || m.kind === "final").length;
+  return Math.min(60, Math.max(6, teachingModules * 5));
+};
+
+export const analyzeInteractionDistribution = (course: CourseProject): InteractionDistribution => {
+  const surfaces: Array<[keyof InteractionDistribution["bySurfaceType"], Array<{ interactionBlocks?: InteractionBlock[] }>]> = [
+    ["pages", course.pages],
+    ["assignments", course.assignments],
+    ["discussions", course.discussions],
+    ["quizzes", course.quizzes]
+  ];
+  const bySurfaceType = { pages: 0, assignments: 0, discussions: 0, quizzes: 0 };
+  const distinct = new Set<string>();
+  let standard = 0;
+  let courseSpecific = 0;
+  for (const [key, list] of surfaces) {
+    for (const item of list) {
+      for (const block of item.interactionBlocks ?? []) {
+        bySurfaceType[key] += 1;
+        distinct.add(block.patternId);
+        if (isStandardPattern(block.patternId)) standard += 1;
+        else courseSpecific += 1;
+      }
+    }
+  }
+  const total = standard + courseSpecific;
+  const target = interactionTargetFor(course);
+  const meetsTarget = total >= target;
+  const density = resolveInteractionDensity(course);
+  const summary = total === 0
+    ? "No interactions yet — generate the course or raise the interaction density."
+    : meetsTarget
+      ? `${total} interactions across ${distinct.size} patterns (target ${target}). Rich and varied.`
+      : `${total} of a recommended ${target} interactions. Raise the density or add course-specific patterns for a richer course.`;
+  return { total, standard, courseSpecific, distinctPatterns: distinct.size, bySurfaceType, target, meetsTarget, density, summary };
+};

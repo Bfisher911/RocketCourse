@@ -4,7 +4,10 @@ import type { CourseProject, InteractionBlock } from "../types";
 import {
   DEFAULT_INTERACTION_DENSITY,
   INTERACTION_DENSITY_PROFILES,
+  analyzeInteractionDistribution,
   applyCourseInteractions,
+  interactionTargetFor,
+  isStandardPattern,
   planCourseInteractions,
   resolveInteractionDensity,
   type InteractionDensity,
@@ -85,5 +88,50 @@ describe("interaction density profiles", () => {
     // Immersive floor is 3, so most surfaces carry 3+ where content supports it
     const atLeastThree = immersive.surfaces.filter(s => s.selections.length >= 3).length;
     expect(atLeastThree).toBeGreaterThan(0);
+  });
+});
+
+describe("interaction distribution analysis (Phase 9)", () => {
+  it("classifies broadly-reusable patterns as standard and discipline-tagged as course-specific", () => {
+    expect(isStandardPattern("standard-accordion")).toBe(true);   // disciplines: ["all"]
+    expect(isStandardPattern("worked-example-reveal")).toBe(false); // stem/data/business
+    expect(isStandardPattern("does-not-exist")).toBe(false);
+  });
+
+  it("reports zero for a course with no interaction blocks", () => {
+    const bare = withDensity("balanced");
+    const d = analyzeInteractionDistribution(bare);
+    expect(d.total).toBe(0);
+    expect(d.meetsTarget).toBe(false);
+    expect(d.summary).toMatch(/no interactions/i);
+  });
+
+  it("counts standard + course-specific + per-surface for an applied course", () => {
+    const applied = applyCourseInteractions(withDensity("balanced"));
+    const d = analyzeInteractionDistribution(applied);
+    expect(d.total).toBeGreaterThan(0);
+    expect(d.standard + d.courseSpecific).toBe(d.total);
+    expect(d.bySurfaceType.pages + d.bySurfaceType.assignments + d.bySurfaceType.discussions + d.bySurfaceType.quizzes).toBe(d.total);
+    expect(d.distinctPatterns).toBeGreaterThan(0);
+    expect(d.distinctPatterns).toBeLessThanOrEqual(d.total);
+    expect(d.density).toBe("balanced");
+  });
+
+  it("scales the target with teaching-module count, capped at 60", () => {
+    const full: CourseProject = withDensity("balanced");
+    // sample has many modules → cap
+    expect(interactionTargetFor(full)).toBe(60);
+    const tiny: CourseProject = { ...full, modules: full.modules.filter(m => m.kind === "content").slice(0, 2) };
+    const t = interactionTargetFor(tiny);
+    expect(t).toBeGreaterThanOrEqual(6);
+    expect(t).toBeLessThan(60);
+  });
+
+  it("a higher density moves a course closer to (or past) its target", () => {
+    const minimal = analyzeInteractionDistribution(applyCourseInteractions(withDensity("minimal")));
+    const immersive = analyzeInteractionDistribution(applyCourseInteractions(withDensity("immersive")));
+    expect(immersive.total).toBeGreaterThan(minimal.total);
+    // the target itself doesn't depend on density
+    expect(immersive.target).toBe(minimal.target);
   });
 });
