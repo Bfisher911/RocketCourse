@@ -531,9 +531,18 @@ function interactionsSection(item, onChange) {
   const insertable = session.insertablePatterns || FALLBACK_INSERTABLE;
   const wrap = h("div", { class: "blk-iv" });
   function nameFor(id) { return (insertable.find(p => p.id === id) || {}).name || id; }
+  function recommendations() {
+    if (!session.actions?.recommendInteractions) return [];
+    try { return session.actions.recommendInteractions(item.type, item.refId, 3) || []; }
+    catch (_e) { return []; }
+  }
   function render() {
     clear(wrap);
     const cur = (contentFor(item) || {}).interactions || [];
+    // Exclude anything already on the item (incl. optimistic inserts) so the row
+    // stays consistent immediately, before the async course refresh settles.
+    const onItem = new Set(cur.map(b => b.patternId));
+    const recs = recommendations().filter(r => !onItem.has(r.patternId));
     wrap.append(
       h("div", { class: "row spread", style: { marginTop: "16px" } },
         h("span", { class: "blk-kind" }, "✦ Canvas interactions"),
@@ -544,11 +553,22 @@ function interactionsSection(item, onChange) {
             b.source === "inserted" && h("span", { class: "pill tiny" }, "added by you"),
             h("button", { class: "btn btn--sm btn--ghost", "aria-label": "Remove " + b.name, onClick: () => removeIv(b.id) }, "Remove"))))
         : h("p", { class: "tiny muted", style: { margin: "6px 0" } }, "No interactions on this item yet."),
+      recs.length
+        ? h("div", { class: "blk-iv__recs" },
+            h("span", { class: "blk-iv__recl" }, "Recommended for this item"),
+            h("div", { class: "blk-iv__recrow" }, recs.map(r => h("button", {
+              class: "blk-iv__rec",
+              title: (r.reasons || []).join(" · "),
+              "aria-label": "Insert recommended interaction " + r.name + ". " + (r.reasons || []).join(". "),
+              onClick: () => addIv(r.patternId)
+            }, h("span", { class: "blk-iv__recname" }, "+ " + r.name),
+               r.reasons && r.reasons[0] && h("span", { class: "blk-iv__recwhy" }, r.reasons[0])))))
+        : null,
       h("div", { class: "row gap-8", style: { marginTop: "8px" } },
         h("select", { class: "blk-input", "aria-label": "Choose an interaction to insert" },
           [h("option", { value: "" }, "Add an interaction…"), ...insertable.map(p => h("option", { value: p.id }, p.name))]),
         h("button", { class: "btn btn--sm btn--primary", onClick: e => { const sel = e.currentTarget.previousSibling; if (sel.value) addIv(sel.value); } }, "Insert")),
-      h("p", { class: "tiny muted", style: { marginTop: "4px" } }, "Inserted interactions are Canvas-safe and stay when the course is regenerated."));
+      h("p", { class: "tiny muted", style: { marginTop: "4px" } }, "Recommendations are deterministic — no AI — and inserted interactions stay when the course is regenerated."));
   }
   function addIv(patternId) {
     const c = contentFor(item);

@@ -40,7 +40,9 @@ import {
   buildEditorSampleContent,
   INSERTABLE_PATTERNS,
   interactionPatternName,
+  recommendInteractionsForItem,
   resolveInteractionDensity,
+  type RecommendationSurface,
 } from "../services/interactionSelection";
 import type { InteractionBlock } from "../types";
 import { loadViewState, saveViewState, type WorkflowViewState } from "./adapterViewState";
@@ -621,6 +623,10 @@ export function createCourseAdapter(opts: {
     removeInteraction: (kind: string, refId: string, blockId: string) => {
       updateCourse(c => mapCollection(c, kind, refId, blocks => blocks.filter(b => b.id !== blockId)));
     },
+    // Deterministic recommendation layer (Phase 8): rank the insertable patterns
+    // that would most improve THIS item. Read-only — never mutates the course.
+    recommendInteractions: (kind: string, refId: string, limit = 3) =>
+      recommendInteractionsForItem(getCourse(), kind as RecommendationSurface, refId, limit),
   };
 
   return {

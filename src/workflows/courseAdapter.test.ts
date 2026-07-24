@@ -270,3 +270,27 @@ describe("courseAdapter — manual interaction insert/remove (Phase 11/12)", () 
     expect(after.filter(b => b.source === "inserted").length).toBeGreaterThan(0);
   });
 });
+
+describe("courseAdapter — interaction recommendations (Phase 8)", () => {
+  it("exposes a read-only recommendInteractions action that ranks buildable picks", () => {
+    const hz = makeHarness();
+    const pageId = hz.course.pages[0].id;
+    const before = JSON.stringify(hz.course);
+    const recs = hz.s.actions.recommendInteractions("page", pageId, 3);
+    expect(Array.isArray(recs)).toBe(true);
+    expect(recs.length).toBeGreaterThan(0);
+    expect(recs.every((r: { patternId: string; score: number }) => r.patternId && r.score > 0)).toBe(true);
+    // reading recommendations must never mutate the course or call updateCourse
+    expect(JSON.stringify(hz.course)).toBe(before);
+    expect(hz.updateCalls).toBe(0);
+  });
+
+  it("recommends, then inserting the top pick drops it from the next round", () => {
+    const hz = makeHarness();
+    const pageId = hz.course.pages[0].id;
+    const top = hz.s.actions.recommendInteractions("page", pageId, 1)[0];
+    hz.s.actions.insertInteraction("page", pageId, top.patternId);
+    const next = hz.s.actions.recommendInteractions("page", pageId, 20);
+    expect(next.some((r: { patternId: string }) => r.patternId === top.patternId)).toBe(false);
+  });
+});

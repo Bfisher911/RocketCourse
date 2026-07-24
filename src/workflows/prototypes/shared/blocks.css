@@ -93,6 +93,14 @@
 .blk-iv__list { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .blk-iv__item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); font-size: 13px; }
 .blk-iv select { flex: 1; }
+.blk-iv__recs { margin-top: 10px; }
+.blk-iv__recl { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin-bottom: 6px; }
+.blk-iv__recrow { display: flex; flex-wrap: wrap; gap: 8px; }
+.blk-iv__rec { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; min-height: 44px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 999px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); color: var(--accent); cursor: pointer; text-align: left; }
+.blk-iv__rec:hover { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.blk-iv__rec:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.blk-iv__recname { font-size: 13px; font-weight: 600; line-height: 1.2; }
+.blk-iv__recwhy { font-size: 11px; font-weight: 500; color: var(--ink-2); line-height: 1.2; }
 
 /* course change */
 .blk-cc__scope { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); font-weight: 600; font-size: 13px; padding: 8px 12px; border-radius: 8px; }

@@ -31,8 +31,10 @@ import type {
   Rubric
 } from "../types";
 import {
+  INTERACTION_CATEGORY_LABELS,
   INTERACTION_PATTERNS,
   interactionPatternById,
+  type InteractionCategory,
   type InteractionDiscipline,
   type InteractionPageType
 } from "../data/interactionPatterns";
@@ -972,4 +974,194 @@ export const analyzeInteractionDistribution = (course: CourseProject): Interacti
       ? `${total} interactions across ${distinct.size} patterns (target ${target}). Rich and varied.`
       : `${total} of a recommended ${target} interactions. Raise the density or add course-specific patterns for a richer course.`;
   return { total, standard, courseSpecific, distinctPatterns: distinct.size, bySurfaceType, target, meetsTarget, density, summary };
+};
+
+// ── Deterministic recommendation layer (Phase 8) ─────────────────────────────
+// Given one item, rank the insertable patterns that would most improve it. No
+// AI: every signal is drawn from the pattern registry and the course's own
+// structure, so the same item always yields the same ranked suggestions. Powers
+// the "Recommended for this item" chips in every experience's item editor; each
+// suggestion inserts a real, course-aware block (buildEditorSampleContent), so a
+// one-click accept is never an empty shell. Suggestions COMPLEMENT the item —
+// patterns already present are never re-suggested, and variety is rewarded.
+
+export type RecommendationSurface = "page" | "assignment" | "discussion" | "quiz";
+
+export interface InteractionRecommendation {
+  patternId: string;
+  name: string;
+  category: InteractionCategory;
+  categoryLabel: string;
+  /** Higher = stronger fit. Deterministic; for ordering and display only. */
+  score: number;
+  /** Short, human reasons — surfaced as a secondary line / tooltip. */
+  reasons: string[];
+}
+
+const PAGE_TYPE_LABEL: Record<InteractionPageType, string> = {
+  homepage: "home", orientation: "orientation", "module-overview": "module overview",
+  content: "content", practice: "practice", assignment: "assignment", discussion: "discussion",
+  "quiz-prep": "quiz-prep", recap: "recap", syllabus: "syllabus", milestone: "milestone"
+};
+
+const DISCIPLINE_LABEL: Record<InteractionDiscipline, string> = {
+  all: "general", humanities: "humanities", stem: "STEM", geography: "geography",
+  business: "business", health: "health", "social-science": "social-science",
+  writing: "writing", data: "data"
+};
+
+/** Resolve an item to the page-type the engine reasons about + its current blocks. */
+const resolveSurface = (
+  course: CourseProject, kind: RecommendationSurface, refId: string
+): { pageType: InteractionPageType; existing: InteractionBlock[]; found: boolean } => {
+  if (kind === "assignment") {
+    const a = course.assignments.find(x => x.id === refId);
+    return { pageType: "assignment", existing: a?.interactionBlocks ?? [], found: !!a };
+  }
+  if (kind === "discussion") {
+    const d = course.discussions.find(x => x.id === refId);
+    return { pageType: "discussion", existing: d?.interactionBlocks ?? [], found: !!d };
+  }
+  if (kind === "quiz") {
+    const q = course.quizzes.find(x => x.id === refId);
+    return { pageType: "quiz-prep", existing: q?.interactionBlocks ?? [], found: !!q };
+  }
+  const page = course.pages.find(x => x.id === refId);
+  if (!page) return { pageType: "content", existing: [], found: false };
+  const module = course.modules.find(m => m.id === page.moduleId);
+  return { pageType: classifyPage(page, module) ?? "content", existing: page.interactionBlocks ?? [], found: true };
+};
+
+/** patternId -> times it appears anywhere in the course (for variety spreading). */
+const courseInteractionUsage = (course: CourseProject): Map<string, number> => {
+  const usage = new Map<string, number>();
+  for (const list of [course.pages, course.assignments, course.discussions, course.quizzes] as Array<Array<{ interactionBlocks?: InteractionBlock[] }>>) {
+    for (const item of list) {
+      for (const block of item.interactionBlocks ?? []) usage.set(block.patternId, (usage.get(block.patternId) ?? 0) + 1);
+    }
+  }
+  return usage;
+};
+
+/** Curated ordering for a page type: earlier slot = stronger pairing. */
+const curatedRankFor = (pageType: InteractionPageType): Map<string, number> => {
+  const rank = new Map<string, number>();
+  (PAGE_TYPE_CANDIDATES[pageType] ?? []).forEach((slot, slotIndex) => {
+    slot.forEach(id => { if (!rank.has(id)) rank.set(id, slotIndex); });
+  });
+  return rank;
+};
+
+/**
+ * Rank insertable patterns for one item. Signals (all deterministic):
+ *  +5 page-type fit · curated-pairing bonus (earlier slot = larger) · +3 discipline
+ *  fit · +2 new category (variety) / −1 repeat category · +≤2 new instructional
+ *  purposes · frequency headroom (+1 safe-to-reuse, −overuse, −2 rare-and-used) ·
+ *  −1 high complexity. Patterns already on the item are excluded, and only
+ *  positive-scoring suggestions are returned (never a weak fallback).
+ */
+export const recommendInteractionsForItem = (
+  course: CourseProject, kind: RecommendationSurface, refId: string, limit = 3
+): InteractionRecommendation[] => {
+  const { pageType, existing, found } = resolveSurface(course, kind, refId);
+  if (!found) return [];
+  const disciplines = inferCourseDisciplines(course);
+  const usage = courseInteractionUsage(course);
+  const existingIds = new Set(existing.map(b => b.patternId));
+  const existingCategories = new Set(
+    existing.map(b => interactionPatternById(b.patternId)?.category).filter((c): c is InteractionCategory => !!c)
+  );
+  const existingPurposes = new Set(existing.flatMap(b => interactionPatternById(b.patternId)?.purposes ?? []));
+  const curated = curatedRankFor(pageType);
+
+  const scored = INSERTABLE_PATTERNS
+    .filter(p => !existingIds.has(p.id))
+    .map(p => {
+      const def = interactionPatternById(p.id);
+      if (!def) return null;
+      let score = 0;
+      const reasons: string[] = [];
+
+      if (def.pageTypes.includes(pageType)) {
+        score += 5;
+        reasons.push(`Built for ${PAGE_TYPE_LABEL[pageType]} pages`);
+      }
+      const rank = curated.get(p.id);
+      if (rank !== undefined) {
+        score += Math.max(3 - rank, 1);
+        reasons.push("A recommended pairing for this surface");
+      }
+      const disciplineHit = def.disciplines.find(d => d !== "all" && disciplines.includes(d));
+      if (disciplineHit) {
+        score += 3;
+        reasons.push(`Fits your ${DISCIPLINE_LABEL[disciplineHit]} subject`);
+      }
+      if (!existingCategories.has(def.category)) {
+        score += 2;
+        reasons.push(`Adds ${INTERACTION_CATEGORY_LABELS[def.category].split(",")[0].split("&")[0].trim().toLowerCase()}`);
+      } else {
+        score -= 1;
+      }
+      const newPurposes = def.purposes.filter(pp => !existingPurposes.has(pp));
+      if (newPurposes.length) score += Math.min(newPurposes.length, 2);
+
+      const used = usage.get(p.id) ?? 0;
+      if (used === 0 && def.frequency === "frequent") score += 1;
+      score -= Math.min(used, 3);
+      if (def.frequency === "rare" && used > 0) score -= 2;
+      if (def.complexity >= 3) score -= 1;
+
+      return {
+        patternId: p.id, name: def.name, category: def.category,
+        categoryLabel: INTERACTION_CATEGORY_LABELS[def.category],
+        score, reasons: reasons.length ? reasons : ["A solid, Canvas-safe addition"]
+      } as InteractionRecommendation;
+    })
+    .filter((r): r is InteractionRecommendation => !!r && r.score > 0);
+
+  scored.sort((a, b) =>
+    b.score - a.score
+    || (curated.get(a.patternId) ?? 99) - (curated.get(b.patternId) ?? 99)
+    || (interactionPatternById(a.patternId)?.number ?? 999) - (interactionPatternById(b.patternId)?.number ?? 999)
+  );
+  return scored.slice(0, Math.max(0, limit));
+};
+
+export interface SurfaceCoverageGap {
+  kind: RecommendationSurface;
+  refId: string;
+  title: string;
+  count: number;
+  floor: number;
+  /** The single strongest thing to add here right now (if any qualifies). */
+  topPick?: InteractionRecommendation;
+}
+
+/**
+ * Course-level "what's under-served" report: every student-facing surface whose
+ * interaction count is below the density floor, worst first, each with its single
+ * strongest recommended addition. Read-only; drives a future "coverage coach"
+ * panel and gives the recommender a course-wide entry point.
+ */
+export const recommendCoverageGaps = (course: CourseProject, limit = 8): SurfaceCoverageGap[] => {
+  const profile = INTERACTION_DENSITY_PROFILES[resolveInteractionDensity(course)];
+  const floor = profile.minPerSurface;
+  const gaps: SurfaceCoverageGap[] = [];
+  const consider = (kind: RecommendationSurface, refId: string, title: string, blocks: InteractionBlock[] | undefined, eligible: boolean) => {
+    if (!eligible) return;
+    const count = (blocks ?? []).length;
+    if (count >= floor) return;
+    gaps.push({ kind, refId, title, count, floor, topPick: recommendInteractionsForItem(course, kind, refId, 1)[0] });
+  };
+  for (const page of course.pages) {
+    const module = course.modules.find(m => m.id === page.moduleId);
+    // instructor-kind modules are never instrumented (mirrors the generator)
+    const eligible = module?.kind !== "instructor" && classifyPage(page, module) !== null;
+    consider("page", page.id, page.title, page.interactionBlocks, eligible);
+  }
+  for (const a of course.assignments) consider("assignment", a.id, a.title, a.interactionBlocks, true);
+  for (const d of course.discussions) consider("discussion", d.id, d.title, d.interactionBlocks, true);
+  for (const q of course.quizzes) consider("quiz", q.id, q.title, q.interactionBlocks, true);
+  gaps.sort((a, b) => (a.count - a.floor) - (b.count - b.floor) || a.title.localeCompare(b.title));
+  return gaps.slice(0, Math.max(0, limit));
 };

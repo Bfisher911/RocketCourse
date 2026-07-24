@@ -411,3 +411,33 @@ Still open (higher-scope): AI-assisted recommendation layer (Phase 8), a pattern
 > Phase 8–12 work is mostly *additive* (recommendation layer, density profiles, distribution
 > targets, composer UI) and can be done without weakening export safety; only the export-composition
 > path warrants regression care. This audit is the map; no code was changed to produce it.
+
+---
+
+## Phase 8 — Deterministic recommendation layer (shipped)
+
+`recommendInteractionsForItem(course, kind, refId, limit)` in `interactionSelection.ts` ranks the
+insertable patterns that would most improve **one item**. It is **not AI** — every signal is read
+from the pattern registry and the course's own structure, so the same item always yields the same
+ranked suggestions (testable, no credits, no network). Signals, all additive:
+
+| Signal | Effect |
+| --- | --- |
+| Page-type fit (`classifyPage` → `pattern.pageTypes`) | **+5** — the dominant signal |
+| Curated pairing (`PAGE_TYPE_CANDIDATES` slot order) | **+1…+3**, earlier slot = stronger |
+| Discipline fit (`inferCourseDisciplines` ∩ `pattern.disciplines`) | **+3** |
+| New category on this item (variety) | **+2**, repeat category **−1** |
+| New instructional purposes covered | **+≤2** |
+| Frequency headroom | **+1** safe-to-reuse, **−**course-usage, **−2** rare-and-used |
+| High complexity (`complexity ≥ 3`) | **−1** |
+
+Only positive-scoring suggestions are returned (never a weak fallback), patterns already on the item
+are **excluded** (suggestions complement, never duplicate), and every pick is in `INSERTABLE_PATTERNS`
+so a one-click accept inserts real, course-aware content via `buildEditorSampleContent` — never a
+shell. `recommendCoverageGaps(course)` is the course-level companion: the student-facing surfaces
+below the density floor, worst-first, each with its single strongest recommended addition (read-only).
+
+**Surfaced in:** every experience's item editor, as a "Recommended for this item" chip row
+(`blocks.js` `interactionsSection`), one click to insert. The adapter exposes it as the read-only
+`session.actions.recommendInteractions(kind, refId, limit)` action. **Touches neither** `htmlSafety`
+nor the export path. Covered by `interactionRecommend.test.ts` (8) + 2 adapter tests.
