@@ -155,7 +155,8 @@ export function mount(stage, ctx) {
     };
     (acts[n] || acts[1])(); render();
   }
-  return { goToTask };
+  function focusModule(id) { if (!B.moduleById(id)) return; center = { kind: "module" }; modId = id; render(); }
+  return { goToTask, focusRef: gotoRef, focusModule };
 }
 
 export function rationale() {

@@ -13,6 +13,7 @@ interface ExperienceChromeProps {
   readinessBlockers: number;
   saveState: "idle" | "saving" | "saved" | "error";
   onSwitch: (id: string) => void;
+  onOpenPalette: () => void;
 }
 
 export function ExperienceChrome(props: ExperienceChromeProps) {
@@ -54,6 +55,15 @@ export function ExperienceChrome(props: ExperienceChromeProps) {
           {props.saveState === "saving" ? "Saving…" : props.saveState === "error" ? "Retry needed" : props.saveState === "saved" ? "Saved" : "Local"}
         </span>
       </div>
+      <button
+        type="button"
+        className="rc-xchrome__cmdk"
+        onClick={props.onOpenPalette}
+        aria-label="Open command palette"
+        title="Command palette"
+      >
+        <span aria-hidden="true">⌘K</span> Commands
+      </button>
       <span className="rc-xchrome__note">Switching experiences never changes your course.</span>
     </div>
   );

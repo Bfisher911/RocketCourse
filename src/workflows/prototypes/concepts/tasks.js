@@ -172,8 +172,10 @@ export function mount(stage, ctx) {
     if (n === 7) setTimeout(() => { const fm = B.focusModuleId(); open("content"); modId = fm; itemId = B.focusItemId(fm, "page"); }, 10);
     if (n === 9) setTimeout(() => { open("content"); modId = B.focusModuleId(); itemId = null; }, 10);
   }
+  function focusModule(id) { if (!B.moduleById(id)) return; open("content"); modId = id; itemId = null; }
+  function focusRef(refId) { for (const m of B.session.modules) { const it = m.items.find(i => i.refId === refId); if (it) { open("content"); modId = m.id; itemId = it.id; return; } } }
   function panel(title, body) { return h("section", { class: "tk-panel" }, title && h("h3", { class: "tk-panel__t" }, title), body); }
-  return { goToTask };
+  return { goToTask, focusRef, focusModule };
 }
 
 export function rationale() {

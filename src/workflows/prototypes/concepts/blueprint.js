@@ -150,7 +150,9 @@ export function mount(stage, ctx) {
     if (n === 12) { sel = "export"; }
     render();
   }
-  return { goToTask };
+  function focusModule(id) { if (!B.moduleById(id)) return; approved = true; phase = "studio"; sel = id; openItemId = null; render(); }
+  function focusRef(refId) { const m = findModuleOf(refId); if (m) { approved = true; phase = "studio"; sel = m.id; openItemId = itemIdOf(refId); render(); } }
+  return { goToTask, focusRef, focusModule };
 
   function findModuleOf(refId) { return B.session.modules.find(m => m.items.some(i => i.refId === refId)); }
   function itemIdOf(refId) { for (const m of B.session.modules) { const it = m.items.find(i => i.refId === refId); if (it) return it.id; } return null; }

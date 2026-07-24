@@ -155,7 +155,8 @@ export function mount(stage, ctx) {
     };
     (acts[n] || acts[1])(); render();
   }
-  return { goToTask };
+  function focusModule(id) { if (!B.moduleById(id)) return; expanded.add(id); sel = { kind: "module", id }; render(); }
+  return { goToTask, focusRef: gotoRef, focusModule };
 }
 
 function tile(n, l) { return h("div", { class: "mp-tile" }, h("strong", {}, n), h("span", { class: "tiny muted" }, l)); }

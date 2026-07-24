@@ -37,11 +37,21 @@ export interface WorkflowHost {
   show(experienceId: string): Promise<void>;
   /** Move the shared context pointer within the current experience (no remount). */
   gotoTask(n: number): void;
+  /** Focus a content object by refId in the current experience (command palette). */
+  focusRef(refId: string): boolean;
+  /** Focus a module by id in the current experience (command palette). */
+  focusModule(moduleId: string): boolean;
   rationale(experienceId: string): Promise<HTMLElement | null>;
 }
 
+interface ConceptApi {
+  goToTask?: (n: number) => void;
+  focusRef?: (refId: string) => void;
+  focusModule?: (moduleId: string) => void;
+}
+
 export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: (c: WorkflowContext) => void): WorkflowHost {
-  let current: { id: string; api: { goToTask?: (n: number) => void } } | null = null;
+  let current: { id: string; api: ConceptApi } | null = null;
 
   async function show(experienceId: string) {
     const exp = getExperience(experienceId);
@@ -58,7 +68,7 @@ export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: 
     const load = loaderFor(exp.prototypeKey);
     if (!load) { stage.append(errorPanel(`No renderer for ${experienceId}`)); return; }
     const mod = await load();
-    const api = mod.mount(stage, {
+    const api: ConceptApi = mod.mount(stage, {
       go: (_hash: string) => { /* internal experience nav; context stays shared */ },
       onReady: () => api.goToTask?.(ctx.taskPointer),
     });
@@ -84,7 +94,18 @@ export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: 
     else void show(ctx.experienceId);
   }
 
-  return { show, gotoTask, rationale };
+  /** Focus a content object (page/assignment/…) by refId in the current experience. */
+  function focusRef(refId: string): boolean {
+    if (current?.api.focusRef) { current.api.focusRef(refId); return true; }
+    return false;
+  }
+  /** Focus a module in the current experience. */
+  function focusModule(moduleId: string): boolean {
+    if (current?.api.focusModule) { current.api.focusModule(moduleId); return true; }
+    return false;
+  }
+
+  return { show, gotoTask, focusRef, focusModule, rationale };
 }
 
 function originalPlaceholder(): HTMLElement {

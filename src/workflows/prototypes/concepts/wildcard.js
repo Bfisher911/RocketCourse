@@ -145,7 +145,8 @@ export function mount(stage, ctx) {
     if (n === 10) { acts[10](); return; }
     (acts[n] || acts[1])(); render();
   }
-  return { goToTask };
+  function focusModule(id) { if (!B.moduleById(id)) return; studentMode = false; reading = null; expanded = id; render(); }
+  return { goToTask, focusRef: openRef, focusModule };
 }
 
 export function rationale() {

@@ -121,7 +121,8 @@ export function mount(stage, ctx) {
     };
     (acts[n] || acts[1])(); render();
   }
-  return { goToTask };
+  function focusModule(id) { if (!B.moduleById(id)) return; stageId = "board"; modId = id; zoom = "module"; render(); }
+  return { goToTask, focusRef: gotoRef, focusModule };
 }
 
 export function rationale() {

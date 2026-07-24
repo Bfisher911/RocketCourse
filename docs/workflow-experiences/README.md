@@ -46,8 +46,21 @@ default with the Experience switcher in the utility strip. `?exp=<id>` deep-link
 experience. The mock-data lab remains available in dev at `/workflows.html` (excluded from
 production builds).
 
+## Command palette (Phase 5, shipped)
+`⌘K` / `Ctrl+K` (or the "⌘K Commands" chip in the chrome) opens one shared command
+surface across every editor state:
+- **Content** — Open any module or item; routes through the current experience's focus
+  handle (`WorkflowHost.focusRef`/`focusModule`) so "Open Week 4" navigates *inside* the
+  live experience, or, in W01, jumps to the matching editor tab.
+- **Experience** — switch to any of the other eight.
+- **Navigate / Actions** — Dashboard, editor tabs (W01), run validation, download,
+  Review Mode, undo/redo (capability-gated).
+Registry: `src/workflows/commandRegistry.ts`; component: `src/components/CommandPalette.tsx`
+(accessible dialog, token filter, arrow-key nav). Each concept exposes
+`focusRef`/`focusModule`, verified side-effect-free by `experienceSmoke.test.ts`.
+
 ## Not yet built (future phases)
-- The **command palette** (Phase 5) and dashboard-level switcher entry.
+- Dashboard-level experience switcher entry.
 - The **Canvas pattern library audit + recommendation engine** (Phases 7–12).
 - The **Netlify preview** (Phase 14 — deploy deferred at the owner's request).
 

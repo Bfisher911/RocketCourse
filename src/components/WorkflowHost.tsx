@@ -14,6 +14,11 @@ import { getBindTarget } from "../workflows/prototypes/shared/blocks.js";
 import "../design-system/tokens/rc-tokens.css";
 import "../workflows/workflow-shell.css";
 
+export interface WorkflowFocusHandle {
+  focusRef: (refId: string) => boolean;
+  focusModule: (moduleId: string) => boolean;
+}
+
 interface WorkflowHostProps {
   course: CourseProject;
   experienceId: string;
@@ -21,6 +26,8 @@ interface WorkflowHostProps {
   onRunValidation: () => void;
   onDownload: () => void;
   onFillFullContent: () => void;
+  /** Receives the current experience's focus handle (for the command palette). */
+  onFocusHandle?: (handle: WorkflowFocusHandle | null) => void;
 }
 
 export function WorkflowHost(props: WorkflowHostProps) {
@@ -66,8 +73,10 @@ export function WorkflowHost(props: WorkflowHostProps) {
     adapterRef.current = adapter;
     hostRef.current = host;
     ctxRef.current = ctx;
+    props.onFocusHandle?.({ focusRef: host.focusRef, focusModule: host.focusModule });
     void host.show(ctx.experienceId);
     return () => {
+      props.onFocusHandle?.(null);
       adapter.dispose();
       adapterRef.current = null;
       hostRef.current = null;

@@ -65,6 +65,11 @@ describe("experience smoke + switching invariance (real course)", () => {
       for (let t = 1; t <= 12; t += 1) {
         expect(() => api.goToTask?.(t)).not.toThrow();
       }
+      // command-palette focus API: exposed and side-effect-free on content
+      expect(typeof api.focusModule).toBe("function");
+      expect(typeof api.focusRef).toBe("function");
+      for (const m of hz.course.modules) expect(() => api.focusModule(m.id)).not.toThrow();
+      if (hz.course.pages[0]) expect(() => api.focusRef(hz.course.pages[0].id)).not.toThrow();
       // The contract: presentation and navigation NEVER mutate the course.
       expect(hz.updateCalls).toBe(0);
       expect(JSON.stringify(hz.course)).toBe(before);

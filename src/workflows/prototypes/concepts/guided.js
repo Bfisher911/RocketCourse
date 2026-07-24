@@ -209,6 +209,7 @@ export function mount(stage, ctx) {
         if (task === 9) setTimeout(() => bodyRef?.querySelector(".blk-item__reorder .blk-mv")?.focus(), 60);
       },
       setMod(m) { curMod = m; openItemId = null; },
+      focus(m, itemId) { curMod = m; openItemId = itemId; if (bodyRef) render(bodyRef); },
     };
   }
   function itemScopeHead(it) {
@@ -227,7 +228,9 @@ export function mount(stage, ctx) {
     goStage(st, sub === "sources" ? "sources" : sub === "change" ? "change" : undefined);
     if (st === 4) review.goto(n);
   }
-  return { goToTask };
+  function focusModule(id) { if (!B.moduleById(id)) return; for (let i = 0; i < 4; i++) done.add(i); goStage(4); review.focus(id, null); }
+  function focusRef(refId) { for (const m of B.session.modules) { const it = m.items.find(i => i.refId === refId); if (it) { for (let i = 0; i < 4; i++) done.add(i); goStage(4); review.focus(m.id, it.id); return; } } }
+  return { goToTask, focusRef, focusModule };
 }
 
 // small inline editors used by review ------------------------------------------

@@ -85,8 +85,10 @@ import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
 import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { ReviewMode } from "./components/ReviewMode";
-import { WorkflowHost } from "./components/WorkflowHost";
+import { WorkflowHost, type WorkflowFocusHandle } from "./components/WorkflowHost";
 import { ExperienceChrome } from "./components/ExperienceChrome";
+import { CommandPalette } from "./components/CommandPalette";
+import { typeToTab, type CommandContext } from "./workflows/commandRegistry";
 import { getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
 import { loadCoursePreferred, loadUserPreferred, saveCoursePreferred, saveUserPreferred } from "./workflows/workflowContext";
 import { useModalFocus } from "./hooks/useModalFocus";
@@ -328,6 +330,9 @@ function App() {
     url.searchParams.set("exp", id);
     window.history.replaceState(window.history.state, "", url.toString());
   };
+  // Command palette (⌘K) — one shared command surface across every experience.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const workflowFocusRef = useRef<WorkflowFocusHandle | null>(null);
   const auth = useAuthSession();
   const access = usePlatformAccess(auth.session);
   const adminWorkspaces = access.workspaces.filter((w) => w.myRole === "owner" || w.myRole === "admin");
@@ -593,6 +598,20 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
     // undoCourse/redoCourse only touch refs and stable setters, so the closure stays valid.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
+  // ⌘K / Ctrl+K — open the shared command palette in the editor (safe from any
+  // field; it's a dedicated chord). Esc/selection close it from inside.
+  useEffect(() => {
+    if (screen !== "editor") return;
+    const onKey = (event: KeyboardEvent): void => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [screen]);
 
   const updateSettings = <K extends keyof CourseSettings>(key: K, value: CourseSettings[K]): void => {
@@ -1139,6 +1158,7 @@ function App() {
           readinessBlockers={readiness.blockers}
           saveState={auth.session && course.id !== sampleProject.id ? saveState : "idle"}
           onSwitch={chooseExperience}
+          onOpenPalette={() => setPaletteOpen(true)}
         />
       )}
       {screen === "editor" && experienceId !== "original" && (
@@ -1149,6 +1169,36 @@ function App() {
           onRunValidation={runValidation}
           onDownload={downloadPackage}
           onFillFullContent={fillFullCourseContent}
+          onFocusHandle={(handle) => { workflowFocusRef.current = handle; }}
+        />
+      )}
+      {screen === "editor" && paletteOpen && (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          ctx={{
+            course,
+            experienceId,
+            isOriginal: experienceId === "original",
+            chooseExperience,
+            focusModule: (id) => {
+              if (experienceId === "original") setActiveTab("Modules");
+              else workflowFocusRef.current?.focusModule(id);
+            },
+            focusRef: (refId, type) => {
+              if (experienceId === "original") setActiveTab(typeToTab(type) as EditorTab);
+              else workflowFocusRef.current?.focusRef(refId);
+            },
+            goDashboard: () => setScreen("dashboard"),
+            runValidation,
+            download: downloadPackage,
+            canExport: exportAllowed,
+            openReview: () => setReviewOpen(true),
+            undo: undoCourse,
+            redo: redoCourse,
+            canUndo: undoStackRef.current.length > 0,
+            canRedo: redoStackRef.current.length > 0,
+            setTab: (tab) => setActiveTab(tab as EditorTab),
+          } satisfies CommandContext}
         />
       )}
       {screen === "editor" && experienceId === "original" && (

@@ -123,7 +123,8 @@ export function mount(stage, ctx) {
     };
     (acts[n] || acts[1])(); render();
   }
-  return { goToTask };
+  function focusModule(id) { if (!B.moduleById(id)) return; loc.section = "modules"; loc.modId = id; loc.itemId = null; render(); }
+  return { goToTask, focusRef: gotoRef, focusModule };
 
   function secHead(t, s) { return h("header", { class: "gx-sechead" }, h("h1", { class: "gx-h1" }, t), s && h("p", { class: "gx-sub" }, s)); }
   function sectionLabel(id) { return SECTIONS.find(s => s[0] === id)?.[1] || id; }
