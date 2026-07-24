@@ -42,7 +42,8 @@ export const session = {
   contactHours: clone(MOCK.contactHours),
   sourceFiles: clone(MOCK.sourceFiles),
   settings: { weeks: MOCK.course.weeks, modality: MOCK.course.modality, level: MOCK.course.level,
-              creditHours: MOCK.course.creditHours, includeRubrics: true, aiPolicy: "Not set" },
+              creditHours: MOCK.course.creditHours, includeRubrics: true, aiPolicy: "Not set",
+              interactionDensity: "balanced" },
   resolved: new Set(),        // ids of resolved readiness items
   fullContentGenerated: false,
   validated: false,
@@ -452,11 +453,28 @@ export function courseChange({ onChanged } = {}) {
           "aria-checked": String(session.settings.includeRubrics),
           onClick: e => { session.settings.includeRubrics = !session.settings.includeRubrics; session.commit(); e.currentTarget.classList.toggle("is-on"); toast("Rubrics " + (session.settings.includeRubrics ? "on" : "off") + " (course-wide)", "ok"); } },
           h("span", { class: "blk-toggle__dot" }))),
+      h("label", { class: "blk-cc__row" },
+        h("span", {}, "Interaction density", h("span", { class: "tiny muted", style: { display: "block" } }, densityHint())),
+        h("div", { class: "blk-seg" }, DENSITY_OPTS.map(([id, label]) => h("button", {
+          class: "blk-seg__b" + ((session.settings.interactionDensity || "balanced") === id ? " is-on" : ""),
+          onClick: () => setDensity(id) }, label)))),
     );
+  }
+  function densityHint() {
+    return ({ minimal: "One key interaction per surface.", balanced: "Two per surface, richer content pages.",
+      rich: "More variety across every surface.", immersive: "Maximum interactivity." })[session.settings.interactionDensity || "balanced"];
+  }
+  function setDensity(id) {
+    session.settings.interactionDensity = id;
+    if (session.actions?.setInteractionDensity) session.actions.setInteractionDensity(id);
+    else session.commit();
+    toast("Interaction density → " + id + " (re-applied course-wide)", "ok");
+    render(); onChanged?.();
   }
   render();
   return wrap;
 }
+const DENSITY_OPTS = [["minimal", "Minimal"], ["balanced", "Balanced"], ["rich", "Rich"], ["immersive", "Immersive"]];
 
 // ---------------------------------------------------------------------------
 // SOURCE LIST — review source materials (task 2).

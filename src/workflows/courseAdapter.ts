@@ -34,6 +34,7 @@ import type {
 } from "../types";
 import { buildReadinessReport } from "../services/readiness";
 import { buildCourseQualityReport } from "../services/courseQuality";
+import { applyCourseInteractions, resolveInteractionDensity } from "../services/interactionSelection";
 import { loadViewState, saveViewState, type WorkflowViewState } from "./adapterViewState";
 
 // ---------------------------------------------------------------------------
@@ -234,6 +235,7 @@ export function createCourseAdapter(opts: {
       creditHours: course.settings.creditHours,
       includeRubrics: course.settings.includeRubrics,
       aiPolicy: sy?.aiUsePolicy?.trim() ? sy.aiUsePolicy : "Not set",
+      interactionDensity: resolveInteractionDensity(course),
     };
 
     // -- contact hours + sources --------------------------------------------
@@ -571,6 +573,14 @@ export function createCourseAdapter(opts: {
       view.fullContentGenerated = true; persistView(); refresh(getCourse());
     },
     markValidated: () => { view.validated = true; persistView(); refresh(getCourse()); },
+    // Course-wide interaction density: set the setting AND re-apply interactions
+    // at the new density, in one undoable/autosaved change.
+    setInteractionDensity: (density: string) => {
+      updateCourse(c => applyCourseInteractions({
+        ...c,
+        settings: { ...c.settings, interactionDensity: density as CourseProject["settings"]["interactionDensity"] },
+      }));
+    },
   };
 
   return {

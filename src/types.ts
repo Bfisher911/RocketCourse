@@ -222,6 +222,9 @@ export interface CourseSettings {
   /** Course visual intensity, used by theme-aware generators when present. Optional + back-compatible. */
   themeIntensity?: ThemeIntensity;
   includeContactHours: boolean;
+  /** How many Canvas interaction patterns the generator inserts course-wide.
+   * Optional + back-compatible: unset behaves as "balanced". */
+  interactionDensity?: "minimal" | "balanced" | "rich" | "immersive";
   accessibilityFocus: boolean;
   /** WCAG contrast tier for generated content. "AAA" deepens themed colors to clear 7:1. Default "AA". */
   accessibilityTier?: "AA" | "AAA";

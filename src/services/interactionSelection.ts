@@ -96,28 +96,54 @@ export const classifyPage = (page: CoursePage, module: CourseModule | undefined)
   return "content";
 };
 
-// Every student-facing surface carries AT LEAST two different interactions;
-// caps keep pages purposeful rather than cluttered.
-export const MIN_INTERACTIONS_PER_SURFACE = 2;
+// ── Interaction density profiles ────────────────────────────────────────────
+// A course-wide dial for how much interactivity the generator inserts. Every
+// profile keeps the same safety/accessibility guarantees; it only scales the
+// per-surface floor, the per-surface caps, and the course-wide frequency caps.
+// "balanced" reproduces the historical behavior exactly, so it is the default
+// and existing generation output is unchanged unless a course opts into another
+// profile (course.settings.interactionDensity).
 
-const DENSITY_CAPS: Record<InteractionPageType, number> = {
-  homepage: 2,
-  orientation: 2,
-  "module-overview": 2,
-  content: 3,
-  practice: 2,
-  assignment: 2,
-  discussion: 2,
-  "quiz-prep": 2,
-  recap: 2,
-  syllabus: 2,
-  milestone: 2
+export type InteractionDensity = "minimal" | "balanced" | "rich" | "immersive";
+
+export interface InteractionDensityProfile {
+  label: string;
+  description: string;
+  /** Minimum distinct interactions on every eligible surface. */
+  minPerSurface: number;
+  /** Cap for content pages (the richest surface). */
+  contentCap: number;
+  /** Cap for every other surface. */
+  surfaceCap: number;
+  /** Course-wide cap for "selective" patterns. */
+  selectiveCap: number;
+  /** Course-wide cap for "rare" patterns. */
+  rareCap: number;
+}
+
+export const INTERACTION_DENSITY_PROFILES: Record<InteractionDensity, InteractionDensityProfile> = {
+  minimal: { label: "Minimal", description: "One key interaction per surface — the lightest touch.", minPerSurface: 1, contentCap: 1, surfaceCap: 1, selectiveCap: 8, rareCap: 1 },
+  balanced: { label: "Balanced", description: "Two interactions per surface, richer content pages. Recommended for most courses.", minPerSurface: 2, contentCap: 3, surfaceCap: 2, selectiveCap: 12, rareCap: 2 },
+  rich: { label: "Rich", description: "More variety across every surface for a highly interactive course.", minPerSurface: 2, contentCap: 4, surfaceCap: 3, selectiveCap: 16, rareCap: 3 },
+  immersive: { label: "Immersive", description: "Maximum interactivity wherever the content supports it.", minPerSurface: 3, contentCap: 5, surfaceCap: 4, selectiveCap: 24, rareCap: 4 }
 };
 
-/** Course-wide usage caps by declared frequency. With a two-per-surface floor a
- * long course legitimately reuses its workhorse patterns; variety comes from
- * rotation and the prefer-unused-in-module rule rather than hard scarcity. */
-const FREQUENCY_CAPS = { frequent: Number.POSITIVE_INFINITY, selective: 12, rare: 2 } as const;
+export const DEFAULT_INTERACTION_DENSITY: InteractionDensity = "balanced";
+
+/** The course's density, defaulting to balanced (back-compatible for older courses). */
+export const resolveInteractionDensity = (course: CourseProject): InteractionDensity => {
+  const d = course.settings.interactionDensity;
+  return d && INTERACTION_DENSITY_PROFILES[d] ? d : DEFAULT_INTERACTION_DENSITY;
+};
+
+/** Balanced floor, kept as a named export for callers that reference the default. */
+export const MIN_INTERACTIONS_PER_SURFACE = INTERACTION_DENSITY_PROFILES.balanced.minPerSurface;
+
+const surfaceCapFor = (profile: InteractionDensityProfile, pageType: InteractionPageType): number =>
+  pageType === "content" ? profile.contentCap : profile.surfaceCap;
+
+const frequencyCapFor = (profile: InteractionDensityProfile, frequency: "frequent" | "selective" | "rare"): number =>
+  frequency === "rare" ? profile.rareCap : frequency === "selective" ? profile.selectiveCap : Number.POSITIVE_INFINITY;
 
 // ── Content-builder context ─────────────────────────────────────────────────
 
@@ -654,7 +680,8 @@ const pickAndBuild = (
   moduleUsage: Set<string>,
   surfaceUsage: Set<string>,
   rotation: number,
-  ctx: BuilderCtx
+  ctx: BuilderCtx,
+  profile: InteractionDensityProfile
 ): InteractionSelection | null => {
   const eligible = slot.filter((patternId) => {
     const pattern = interactionPatternById(patternId);
@@ -662,7 +689,7 @@ const pickAndBuild = (
     if (!pageTypeFits(patternId, pageType)) return false;
     if (!disciplineFits(patternId, disciplines)) return false;
     if (surfaceUsage.has(patternId)) return false;
-    const cap = FREQUENCY_CAPS[pattern.frequency];
+    const cap = frequencyCapFor(profile, pattern.frequency);
     if ((usage.get(patternId) ?? 0) >= cap) return false;
     return CONTENT_BUILDERS[patternId] !== undefined;
   });
@@ -679,6 +706,7 @@ const pickAndBuild = (
 /** Deterministically plan interactions for every eligible surface in the course. */
 export const planCourseInteractions = (course: CourseProject): CourseInteractionPlan => {
   const disciplines = inferCourseDisciplines(course);
+  const profile = INTERACTION_DENSITY_PROFILES[resolveInteractionDensity(course)];
   const usage = new Map<string, number>();
   const surfaces: SurfacePlan[] = [];
   const moduleUsageById = new Map<string, Set<string>>();
@@ -700,18 +728,18 @@ export const planCourseInteractions = (course: CourseProject): CourseInteraction
     moduleUsage: Set<string>,
     rotation: number
   ): void => {
-    const cap = DENSITY_CAPS[pageType];
+    const cap = surfaceCapFor(profile, pageType);
     if (cap === 0) return;
     const selections: InteractionSelection[] = [];
     const surfaceUsage = new Set<string>();
     const slots = PAGE_TYPE_CANDIDATES[pageType];
     // First pass: one pick per slot. Second pass: revisit slots until the
-    // two-per-surface floor is met (surfaceUsage keeps every pick distinct).
+    // floor (profile.minPerSurface) is met (surfaceUsage keeps every pick distinct).
     for (let pass = 0; pass < 2 && selections.length < cap; pass += 1) {
       for (const slot of slots) {
         if (selections.length >= cap) break;
-        if (pass > 0 && selections.length >= MIN_INTERACTIONS_PER_SURFACE) break;
-        const selection = pickAndBuild(slot, pageType, disciplines, usage, moduleUsage, surfaceUsage, rotation, ctx);
+        if (pass > 0 && selections.length >= profile.minPerSurface) break;
+        const selection = pickAndBuild(slot, pageType, disciplines, usage, moduleUsage, surfaceUsage, rotation, ctx, profile);
         if (!selection) continue;
         selections.push(selection);
         surfaceUsage.add(selection.patternId);
