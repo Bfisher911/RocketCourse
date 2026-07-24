@@ -7,10 +7,12 @@
 // produces the same plan (rotation uses module position, never randomness), so
 // the behavior is testable and never degenerates into random overuse.
 //
-// Density guardrails (per the pattern library, treated as caps not quotas):
-//   module overview 2 · content page 1-2 · practice 1-2 · recap 1-2 ·
-//   milestone 1 · orientation 0-1 · assignment 2 · discussion 1 · syllabus 0 ·
-//   homepage 0 (the homepage has its own block system).
+// Density guardrails (caps, not quotas). Every eligible student-facing surface
+// gets at least MIN_INTERACTIONS_PER_SURFACE distinct interactions, up to the
+// per-surface cap in DENSITY_CAPS below: content pages cap at 3, every other
+// surface (homepage, orientation, module-overview, practice, assignment,
+// discussion, quiz-prep, recap, syllabus, milestone) caps at 2. Instructor-kind
+// modules are skipped entirely.
 //
 // Only native-tier patterns with a content builder are auto-selected. Iframe
 // patterns are never auto-selected (no external host exists yet), and patterns

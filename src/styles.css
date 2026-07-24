@@ -152,7 +152,6 @@
 .interactions-pattern-list .tier { display: inline-block; width: fit-content; margin-top: 3px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; }
 .tier-native { background: rgba(75, 232, 168, 0.14); color: #4be8a8; }
 .tier-iframe { background: rgba(255, 191, 71, 0.14); color: #ffbf47; }
-.tier-canvas-native { background: rgba(0, 114, 227, 0.12); color: var(--accent); }
 .tier-auto { background: rgba(34, 230, 255, 0.12); color: var(--accent); display: inline-flex; align-items: center; gap: 4px; }
 .interactions-detail { padding: 18px; display: grid; gap: 14px; }
 .interactions-detail header h3 { margin: 0 0 6px; font-size: 19px; }
