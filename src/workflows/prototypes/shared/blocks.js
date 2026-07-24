@@ -517,7 +517,56 @@ export function itemEditor(item, { onChange, scopeMod } = {}) {
   else if (item.type === "discussion") inner = discussionEditorBlock(item.refId, onChange);
   else if (item.type === "quiz") inner = quizViewBlock(item.refId, onChange);
   else inner = h("div", {});
-  return h("div", {}, head, inner);
+  return h("div", {}, head, inner, interactionsSection(item, onChange));
+}
+
+// Canvas interaction patterns on this item — see, insert, and remove (Phase 11/12).
+const FALLBACK_INSERTABLE = [
+  { id: "standard-accordion", name: "Standard Accordion" }, { id: "callout", name: "Callout" },
+  { id: "click-to-reveal-answer", name: "Click-to-Reveal Answer" }, { id: "stop-and-think-prompt", name: "Stop-and-Think Prompt" },
+  { id: "action-item-checklist", name: "Action-Item Checklist" }, { id: "worked-example-reveal", name: "Worked Example Reveal" },
+];
+function interactionsSection(item, onChange) {
+  if (!["page", "assignment", "discussion", "quiz"].includes(item.type)) return null;
+  const insertable = session.insertablePatterns || FALLBACK_INSERTABLE;
+  const wrap = h("div", { class: "blk-iv" });
+  function nameFor(id) { return (insertable.find(p => p.id === id) || {}).name || id; }
+  function render() {
+    clear(wrap);
+    const cur = (contentFor(item) || {}).interactions || [];
+    wrap.append(
+      h("div", { class: "row spread", style: { marginTop: "16px" } },
+        h("span", { class: "blk-kind" }, "✦ Canvas interactions"),
+        h("span", { class: "pill tiny" + (cur.length ? " ok" : "") }, cur.length + " on this item")),
+      cur.length
+        ? h("ul", { class: "blk-iv__list" }, cur.map(b => h("li", { class: "blk-iv__item" },
+            h("span", { class: "grow" }, b.name),
+            b.source === "inserted" && h("span", { class: "pill tiny" }, "added by you"),
+            h("button", { class: "btn btn--sm btn--ghost", "aria-label": "Remove " + b.name, onClick: () => removeIv(b.id) }, "Remove"))))
+        : h("p", { class: "tiny muted", style: { margin: "6px 0" } }, "No interactions on this item yet."),
+      h("div", { class: "row gap-8", style: { marginTop: "8px" } },
+        h("select", { class: "blk-input", "aria-label": "Choose an interaction to insert" },
+          [h("option", { value: "" }, "Add an interaction…"), ...insertable.map(p => h("option", { value: p.id }, p.name))]),
+        h("button", { class: "btn btn--sm btn--primary", onClick: e => { const sel = e.currentTarget.previousSibling; if (sel.value) addIv(sel.value); } }, "Insert")),
+      h("p", { class: "tiny muted", style: { marginTop: "4px" } }, "Inserted interactions are Canvas-safe and stay when the course is regenerated."));
+  }
+  function addIv(patternId) {
+    const c = contentFor(item);
+    // optimistic — the real block replaces this on the next refresh
+    c.interactions = [...(c.interactions || []), { id: "pending-" + patternId, patternId, name: nameFor(patternId), source: "inserted" }];
+    if (session.actions?.insertInteraction) session.actions.insertInteraction(item.type, item.refId, patternId);
+    else session.commit();
+    toast(nameFor(patternId) + " added", "ok"); render(); onChange?.();
+  }
+  function removeIv(id) {
+    const c = contentFor(item);
+    c.interactions = (c.interactions || []).filter(b => b.id !== id);
+    if (session.actions?.removeInteraction) session.actions.removeInteraction(item.type, item.refId, id);
+    else session.commit();
+    toast("Interaction removed", "ok"); render(); onChange?.();
+  }
+  render();
+  return wrap;
 }
 function discussionEditorBlock(id, onSaved) {
   const d = session.discussions[id];

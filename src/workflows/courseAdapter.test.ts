@@ -231,3 +231,42 @@ describe("courseAdapter — resolveIssue & view state", () => {
     }
   });
 });
+
+describe("courseAdapter — manual interaction insert/remove (Phase 11/12)", () => {
+  it("inserts a Canvas-safe block marked inserted, then removes it", () => {
+    const hz = makeHarness();
+    const pageId = hz.course.pages[0].id;
+    const before = hz.course.pages.find(p => p.id === pageId)!.interactionBlocks?.length ?? 0;
+
+    hz.s.actions.insertInteraction("page", pageId, "faq-accordion");
+    const afterInsert = hz.course.pages.find(p => p.id === pageId)!.interactionBlocks ?? [];
+    expect(afterInsert.length).toBe(before + 1);
+    const block = afterInsert[afterInsert.length - 1];
+    expect(block.patternId).toBe("faq-accordion");
+    expect(block.source).toBe("inserted");
+    expect(block.content).toBeTruthy(); // course-aware content, never a shell
+    // the facade reflects it
+    expect(hz.s.pages[pageId].interactions.some((i: { patternId: string }) => i.patternId === "faq-accordion")).toBe(true);
+
+    hz.s.actions.removeInteraction("page", pageId, block.id);
+    const afterRemove = hz.course.pages.find(p => p.id === pageId)!.interactionBlocks ?? [];
+    expect(afterRemove.some(b => b.id === block.id)).toBe(false);
+  });
+
+  it("exposes the insertable pattern list on the facade", () => {
+    const hz = makeHarness();
+    expect(Array.isArray(hz.s.insertablePatterns)).toBe(true);
+    expect(hz.s.insertablePatterns.length).toBeGreaterThan(10);
+    expect(hz.s.insertablePatterns.every((p: { id: string; name: string }) => p.id && p.name)).toBe(true);
+  });
+
+  it("insertion preserves generated blocks and only appends", () => {
+    const hz = makeHarness();
+    const aId = hz.course.assignments[0].id;
+    const generated = (hz.course.assignments.find(a => a.id === aId)!.interactionBlocks ?? []).filter(b => b.source === "generated").length;
+    hz.s.actions.insertInteraction("assignment", aId, "action-item-checklist");
+    const after = hz.course.assignments.find(a => a.id === aId)!.interactionBlocks ?? [];
+    expect(after.filter(b => b.source === "generated").length).toBe(generated);
+    expect(after.filter(b => b.source === "inserted").length).toBeGreaterThan(0);
+  });
+});

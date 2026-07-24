@@ -89,6 +89,10 @@
 .blk-bp__ivbar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin: 4px 8px 0; }
 .blk-bp__ivfill { display: block; height: 100%; background: var(--warn); transition: width .25s; }
 .blk-bp__ivfill.is-met { background: var(--ok); }
+.blk-iv { border-top: 1px solid var(--line); padding-top: 4px; }
+.blk-iv__list { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.blk-iv__item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); font-size: 13px; }
+.blk-iv select { flex: 1; }
 
 /* course change */
 .blk-cc__scope { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); font-weight: 600; font-size: 13px; padding: 8px 12px; border-radius: 8px; }

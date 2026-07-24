@@ -34,7 +34,15 @@ import type {
 } from "../types";
 import { buildReadinessReport } from "../services/readiness";
 import { buildCourseQualityReport } from "../services/courseQuality";
-import { analyzeInteractionDistribution, applyCourseInteractions, resolveInteractionDensity } from "../services/interactionSelection";
+import {
+  analyzeInteractionDistribution,
+  applyCourseInteractions,
+  buildEditorSampleContent,
+  INSERTABLE_PATTERNS,
+  interactionPatternName,
+  resolveInteractionDensity,
+} from "../services/interactionSelection";
+import type { InteractionBlock } from "../types";
 import { loadViewState, saveViewState, type WorkflowViewState } from "./adapterViewState";
 
 // ---------------------------------------------------------------------------
@@ -103,11 +111,16 @@ export function createCourseAdapter(opts: {
     const readiness = buildReadinessReport(course);
     const quality = buildCourseQualityReport(course);
 
+    // Facade for an item's interaction blocks (read-only list for the editor).
+    const ivFacade = (blocks: InteractionBlock[] | undefined) =>
+      (blocks ?? []).map(b => ({ id: b.id, patternId: b.patternId, name: interactionPatternName(b.patternId), source: b.source }));
+
     // -- content maps (reuse per-id objects so widget closures stay live) ----
     syncMap(s, "pages", course.pages, (p: CoursePage, out) => {
       out.id = p.id; out.title = p.title; out.moduleId = p.moduleId ?? "";
       out.body = p.bodyHtml; out.updatedAt = p.metadata?.updatedAt ?? "";
       out.edited = p.status === "edited" || p.metadata?.source === "edited";
+      out.interactions = ivFacade(p.interactionBlocks);
     });
     syncMap(s, "assignments", course.assignments, (a: Assignment, out) => {
       out.id = a.id; out.title = a.title; out.moduleId = a.moduleId;
@@ -117,6 +130,7 @@ export function createCourseAdapter(opts: {
       out.dueAt = a.dueAt ?? "Not scheduled"; out.submissionType = a.submissionType;
       out.instructions = a.descriptionHtml;
       out.edited = a.status === "edited" || a.metadata?.source === "edited";
+      out.interactions = ivFacade(a.interactionBlocks);
     });
     syncMap(s, "discussions", course.discussions, (di: Discussion, out) => {
       out.id = di.id; out.title = di.title; out.moduleId = di.moduleId;
@@ -124,6 +138,7 @@ export function createCourseAdapter(opts: {
       out.alignedOutcomeIds = [...di.alignedOutcomeIds];
       out.prompt = di.promptHtml;
       out.edited = di.status === "edited" || di.metadata?.source === "edited";
+      out.interactions = ivFacade(di.interactionBlocks);
       const review = openReviewFor(course, di.id);
       out.needsAttention = review ? "ai-review" : null;
       out.aiNote = review?.rationale ?? null;
@@ -132,6 +147,7 @@ export function createCourseAdapter(opts: {
       out.id = q.id; out.title = q.title; out.moduleId = q.moduleId;
       out.groupId = q.assignmentGroupId; out.points = q.points;
       out.alignedOutcomeIds = [...q.alignedOutcomeIds];
+      out.interactions = ivFacade(q.interactionBlocks);
       out.questions = q.questions.map(qq => ({
         id: qq.id, type: qq.type, stem: qq.stem,
         choices: qq.choices ? [...qq.choices] : null,
@@ -240,6 +256,8 @@ export function createCourseAdapter(opts: {
 
     // Interactivity distribution (Phase 9) — read-only report for the UI.
     s.interactivity = analyzeInteractionDistribution(course);
+    // Patterns the editor can insert by hand (Phase 11/12).
+    s.insertablePatterns = INSERTABLE_PATTERNS;
 
     // -- contact hours + sources --------------------------------------------
     const ch = course.contactHours;
@@ -584,6 +602,25 @@ export function createCourseAdapter(opts: {
         settings: { ...c.settings, interactionDensity: density as CourseProject["settings"]["interactionDensity"] },
       }));
     },
+    // Manual pattern insertion/removal (Phase 11/12) — inserted blocks are
+    // marked source:"inserted" so regeneration never overwrites them.
+    insertInteraction: (kind: string, refId: string, patternId: string) => {
+      let inserted = false;
+      updateCourse(c => {
+        const content = buildEditorSampleContent(patternId, c);
+        if (!content) return c;
+        const block: InteractionBlock = {
+          id: `blk-inserted-${patternId}-${refId}-${(c[collectionOf(kind)] as Array<{ interactionBlocks?: InteractionBlock[] }>).reduce((n, x) => n + (x.interactionBlocks?.length ?? 0), 0)}`,
+          patternId, content, source: "inserted", createdAt: c.updatedAt,
+        };
+        inserted = true;
+        return mapCollection(c, kind, refId, blocks => [...blocks, block]);
+      });
+      return inserted;
+    },
+    removeInteraction: (kind: string, refId: string, blockId: string) => {
+      updateCourse(c => mapCollection(c, kind, refId, blocks => blocks.filter(b => b.id !== blockId)));
+    },
   };
 
   return {
@@ -677,6 +714,29 @@ function mapMerge<T extends { id: string }, F extends { id: string }>(
     return merged;
   });
   return anyChanged ? next : real;
+}
+
+type ItemCollection = "pages" | "assignments" | "discussions" | "quizzes";
+function collectionOf(kind: string): ItemCollection {
+  return ({ page: "pages", assignment: "assignments", discussion: "discussions", quiz: "quizzes" } as Record<string, ItemCollection>)[kind] ?? "pages";
+}
+/** Immutably replace the interactionBlocks of one item in one collection. */
+function mapCollection(
+  course: CourseProject,
+  kind: string,
+  refId: string,
+  update: (blocks: InteractionBlock[]) => InteractionBlock[],
+): CourseProject {
+  const key = collectionOf(kind);
+  const list = course[key] as Array<{ id: string; interactionBlocks?: InteractionBlock[] }>;
+  let changed = false;
+  const next = list.map(item => {
+    if (item.id !== refId) return item;
+    const blocks = update(item.interactionBlocks ?? []);
+    changed = true;
+    return { ...item, interactionBlocks: blocks.length ? blocks : undefined };
+  });
+  return changed ? { ...course, [key]: next } : course;
 }
 
 function sec(id: string, title: string, body: string, derived: boolean, note?: string) {

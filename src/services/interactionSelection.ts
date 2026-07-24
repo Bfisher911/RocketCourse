@@ -844,6 +844,17 @@ export const AUTO_SELECTABLE_PATTERN_IDS: string[] = INTERACTION_PATTERNS.filter
   (pattern) => pattern.tier === "native" && !pattern.requiredAssets.length && CONTENT_BUILDERS[pattern.id]
 ).map((pattern) => pattern.id);
 
+/** Patterns an instructor can insert by hand from any editor: native, no external
+ * asset, and with a course-aware content builder so the insert is never a shell. */
+export const INSERTABLE_PATTERNS: Array<{ id: string; name: string; category: string }> =
+  INTERACTION_PATTERNS
+    .filter((pattern) => AUTO_SELECTABLE_PATTERN_IDS.includes(pattern.id))
+    .map((pattern) => ({ id: pattern.id, name: pattern.name, category: pattern.category }));
+
+/** Human name for a pattern id (for editor chips / lists). */
+export const interactionPatternName = (patternId: string): string =>
+  interactionPatternById(patternId)?.name ?? patternId;
+
 /** Build editor-preview content for ANY pattern using course context (never "Concept A"). */
 export const buildEditorSampleContent = (patternId: string, course: CourseProject): InteractionContent | null => {
   const module = course.modules.find((item) => item.kind === "content");
