@@ -17,7 +17,7 @@ export function mount(stage, ctx) {
   const JOBS = () => [
     { id: "direction", title: "Set the course direction", desc: "Confirm what this course is, its sources, and its scope.", status: () => "done", meta: "Confirmed" },
     { id: "blueprint", title: "Approve the plan", desc: "Sign off on outcomes, sequence, and assessment before content is finalized.", status: () => "done", meta: "Approved" },
-    { id: "content", title: "Complete the modules", desc: "Read through each module's pages and activities; edit and reorder as needed.", status: () => "review", meta: "13 modules · 3 need a look" },
+    { id: "content", title: "Complete the modules", desc: "Read through each module's pages and activities; edit and reorder as needed.", status: () => B.session.modules.some(m => m.status !== "approved") ? "review" : "done", meta: () => { const n = B.session.modules.filter(m => m.status !== "approved").length; return B.session.modules.length + " modules" + (n ? " · " + n + " need a look" : " · all reviewed"); } },
     { id: "assessments", title: "Strengthen assessments", desc: "Every graded item needs a complete rubric and clear instructions.", status: () => Object.values(B.session.rubrics ?? {}).some(r => !r.complete) ? "attention" : "done", meta: () => { const n = Object.values(B.session.rubrics ?? {}).filter(r => !r.complete).length; return n ? n + " rubric(s) incomplete" : "Rubrics complete"; } },
     { id: "verify", title: "Verify AI-written content", desc: "Approve AI-drafted prompts and answer keys before students see them.", status: () => aiPending() ? "attention" : "done", meta: () => aiPending() + " awaiting your OK" },
     { id: "alignment", title: "Check alignment", desc: "Make sure every outcome maps to real modules and assessments.", status: () => B.session.outcomes.some(o => o.alignedModuleIds.length === 0) ? "review" : "done", meta: () => B.session.outcomes.some(o => o.alignedModuleIds.length === 0) ? "1 outcome unaligned" : "All outcomes aligned" },
@@ -41,7 +41,7 @@ export function mount(stage, ctx) {
     const rest = jobs.filter(j => !["attention", "review"].includes(resolve(j.status)) && j !== rec);
     root.append(
       h("header", { class: "tk-head" },
-        h("div", {}, h("p", { class: "tk-eyebrow" }, "Command center · The Meaning of Life in 12 Conversations"),
+        h("div", {}, h("p", { class: "tk-eyebrow" }, "Command center · " + (B.D.course?.title || "Your course")),
           h("h1", { class: "tk-h1" }, "What needs your attention")),
         h("div", { class: "tk-progress" }, h("strong", {}, jobsDone(jobs) + " / " + jobs.length), h("span", { class: "tiny muted" }, "jobs done"))),
       h("section", { class: "tk-recommend" },

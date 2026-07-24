@@ -24,7 +24,7 @@
 .taskchip.is-on b { background: rgba(255,255,255,.25); color: #fff; }
 
 /* stage + viewport frame */
-.stage-frame { display: flex; justify-content: center; padding: 0; background: var(--bg); min-height: calc(100vh - 96px); }
+.stage-frame { display: flex; justify-content: center; padding: 0; background: var(--bg); min-height: calc(100vh - var(--rc-chrome-offset, 96px)); }
 .stage-frame[data-vp="tablet"] { padding: 20px; }
 .stage-frame[data-vp="mobile"] { padding: 20px; }
 /* .stage is a query container so concepts' @container breakpoints respond to the

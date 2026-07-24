@@ -78,13 +78,13 @@ export function mount(stage, ctx) {
     main.append(body);
     ({
       brief: () => body.append(h("p", { class: "bp2-lead" }, "The one-sentence intent that everything else is built to serve."),
-        h("textarea", { class: "blk-textarea", rows: 4, html: "A first-year seminar examining, across twelve guided conversations, the enduring questions about how to live." }),
+        h("textarea", { class: "blk-textarea", rows: 4, html: B.D.course?.description || "" }),
         h("p", { class: "tiny muted", style: { marginTop: "8px" } }, "No prose is generated from this yet — it only shapes the architecture you'll approve.")),
       sources: () => body.append(h("p", { class: "bp2-lead" }, "Materials we read for structure. We extract outcomes, policies, and sequence — we never invent facts."), B.sourceList()),
       setup: () => body.append(h("p", { class: "bp2-lead" }, "The scope decisions that constrain the whole blueprint."), B.courseChange({ onChanged: () => toast("Scope updated — the blueprint below reflects it", "ok") })),
       outcomes: () => body.append(h("p", { class: "bp2-lead" }, "Approve the outcomes first — every module, assignment, and quiz will be aligned to these."),
         outcomesEditor()),
-      sequence: () => body.append(h("p", { class: "bp2-lead" }, "The order and shape of the 13 modules. One carries an unusually heavy load — flagged."),
+      sequence: () => body.append(h("p", { class: "bp2-lead" }, "The order and shape of the " + B.session.modules.length + " modules. Any unusually heavy week is flagged."),
         B.blueprintView({}).querySelector(".blk-bp__card:nth-child(2)") ? B.blueprintView({}) : B.blueprintView({})),
       assessment: () => body.append(h("p", { class: "bp2-lead" }, "Five graded categories totalling 100%. Weights are decisions — change them before content exists."), assessmentEditor()),
       workload: () => body.append(h("p", { class: "bp2-lead" }, "Planned student time, by activity. Module 7 is well above the norm."), B.blueprintView({})),

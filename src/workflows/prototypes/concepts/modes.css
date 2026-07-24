@@ -1,6 +1,6 @@
 /* Concept 7 — Guided ↔ Expert. Same IA; density changes with mode. */
-.gx { display: flex; flex-direction: column; min-height: calc(100vh - 96px); }
-.gx-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 22px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 96px; z-index: 10; }
+.gx { display: flex; flex-direction: column; min-height: calc(100vh - var(--rc-chrome-offset, 96px)); }
+.gx-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 22px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: var(--rc-chrome-offset, 96px); z-index: 10; }
 .gx-loc { color: var(--ink-3); }
 .gx-modeswitch { display: inline-flex; align-items: center; gap: 8px; }
 .gx-modebtn { border: 1px solid var(--line-strong); background: var(--surface); padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); border-radius: 999px; }

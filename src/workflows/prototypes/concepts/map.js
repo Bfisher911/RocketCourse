@@ -27,7 +27,7 @@ export function mount(stage, ctx) {
     clear(tree);
     const t = h("div", { class: "mp-tree__inner" });
     t.append(h("button", { class: "mp-node mp-node--root" + (isSel("course") ? " is-on" : ""), onClick: () => { sel = { kind: "course" }; render(); } },
-      h("span", { class: "mp-node__ico" }, "📕"), h("span", { class: "mp-node__label" }, "The Meaning of Life"), h("span", { class: "mp-node__meta tiny" }, "course")));
+      h("span", { class: "mp-node__ico" }, "📕"), h("span", { class: "mp-node__label" }, B.D.course?.title || "Course"), h("span", { class: "mp-node__meta tiny" }, "course")));
     [["sources", "Sources"], ["setup", "Setup"], ["blueprint", "Blueprint"], ["homepage", "Homepage"], ["syllabus", "Syllabus"], ["gradebook", "Gradebook"], ["theme", "Theme"]].forEach(([id, lbl]) => t.append(courseNode(id, lbl)));
     t.append(h("div", { class: "mp-tree__sec" }, "Modules"));
     B.session.modules.forEach(m => {

@@ -135,7 +135,7 @@ export function mount(stage, ctx) {
   function gotoRef(refId) { for (const m of B.session.modules) { const it = m.items.find(i => i.refId === refId); if (it) { center = { kind: "item" }; modId = m.id; itemId = it.id; render(); return; } } }
 
   // boot
-  ai("Hi — I'm your course partner. Your draft has 13 modules and a few things that need your eye. Ask me “what needs my attention?” or dive into any module yourself.");
+  ai("Hi — I'm your course partner. Your draft has " + B.session.modules.length + " modules and " + B.openIssuesCount() + " item(s) that need your eye. Ask me “what needs my attention?” or dive into any module yourself.");
   render();
 
   function goToTask(n) {

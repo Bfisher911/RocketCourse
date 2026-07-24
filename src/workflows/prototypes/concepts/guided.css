@@ -1,6 +1,6 @@
 /* Concept 1 — Guided Course Journey. Calm, single-focus, high guidance. */
-.gd { display: grid; grid-template-columns: 268px 1fr; min-height: calc(100vh - 96px); }
-.gd-rail { border-right: 1px solid var(--line); background: var(--surface); padding: 22px 16px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 96px; align-self: start; height: calc(100vh - 96px); }
+.gd { display: grid; grid-template-columns: 268px 1fr; min-height: calc(100vh - var(--rc-chrome-offset, 96px)); }
+.gd-rail { border-right: 1px solid var(--line); background: var(--surface); padding: 22px 16px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: var(--rc-chrome-offset, 96px); align-self: start; height: calc(100vh - var(--rc-chrome-offset, 96px)); }
 .gd-rail__head { display: flex; flex-direction: column; gap: 3px; }
 .gd-rail__eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
 .gd-rail__prog { font-size: 13px; color: var(--ink-3); }

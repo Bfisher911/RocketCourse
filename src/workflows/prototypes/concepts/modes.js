@@ -25,7 +25,7 @@ export function mount(stage, ctx) {
 
   function topbar() {
     return h("div", { class: "gx-topbar" },
-      h("div", { class: "gx-loc tiny" }, "The Meaning of Life · " + sectionLabel(loc.section) + (loc.section === "modules" ? " · " + B.moduleById(loc.modId).title.replace(/^\d+ · /, "") : "")),
+      h("div", { class: "gx-loc tiny" }, (B.D.course?.title || "Course") + " · " + sectionLabel(loc.section) + (loc.section === "modules" ? " · " + B.moduleById(loc.modId).title.replace(/^\d+ · /, "") : "")),
       h("div", { class: "gx-modeswitch", role: "group", "aria-label": "Interface mode" },
         h("span", { class: "tiny muted" }, "Mode"),
         modeBtn("guided", "Guided"), modeBtn("expert", "Expert"),

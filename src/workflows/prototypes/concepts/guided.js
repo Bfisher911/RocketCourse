@@ -81,9 +81,9 @@ export function mount(stage, ctx) {
   const STAGE_RENDER = {
     define(body, sub) {
       const brief = h("textarea", { class: "blk-textarea", rows: 5,
-        html: "A first-year seminar that examines, across twelve guided conversations, the questions people have always asked about how to live." });
+        html: B.D.course?.description || "" });
       const sources = h("div", { class: "gd-sources", id: "gd-sources" },
-        h("div", { class: "row spread" }, h("h3", { class: "gd-h3" }, "Source materials"), h("span", { class: "pill ok tiny" }, "4 files parsed")),
+        h("div", { class: "row spread" }, h("h3", { class: "gd-h3" }, "Source materials"), sourceCountPill()),
         B.sourceList());
       body.append(
         h("label", { class: "gd-label" }, "Describe your course in a sentence or two"),
@@ -108,7 +108,7 @@ export function mount(stage, ctx) {
       if (sub === "change") body.querySelector("#gd-change")?.scrollIntoView?.({ block: "center" });
     },
     generate(body) {
-      const steps = ["Reading your prompt and sources", "Drafting learning outcomes", "Designing 13 modules", "Writing pages, discussions & assignments", "Building quizzes & rubrics", "Assembling homepage & syllabus", "Preparing the Canvas package"];
+      const steps = ["Reading your prompt and sources", "Drafting learning outcomes", "Designing " + B.session.modules.length + " modules", "Writing pages, discussions & assignments", "Building quizzes & rubrics", "Assembling homepage & syllabus", "Preparing the Canvas package"];
       const bar = h("div", { class: "gd-gen__bar" }, h("span", { class: "gd-gen__fill" }));
       const label = h("p", { class: "gd-gen__step" }, steps[0]);
       body.append(h("div", { class: "gd-gen" },
@@ -122,7 +122,7 @@ export function mount(stage, ctx) {
         i++; const pct = Math.min(100, (i / steps.length) * 100);
         fill.style.width = pct + "%"; label.textContent = steps[Math.min(i, steps.length - 1)];
         if (i < steps.length) setTimeout(tick, 520);
-        else { label.textContent = "Draft ready · 13 modules, 22 pages, 9 assignments, 6 quizzes"; done.add(idx); renderRail(); }
+        else { label.textContent = "Draft ready · " + courseCounts(); done.add(idx); renderRail(); }
       };
       setTimeout(tick, 400);
     },
@@ -251,6 +251,16 @@ function quizView(id, onSaved) {
         ? h("div", { class: "row gap-8", style: { marginTop: "6px" } }, h("span", { class: "pill danger" }, "Answer key unverified"),
             h("button", { class: "btn btn--sm btn--primary", onClick: () => { qq.needsAttention = null; qq.verified = true; B.session.reviewQueue = B.session.reviewQueue.filter(r => r.refId !== id); B.session.commit?.(); B.resolveIssue("b1"); B.resolveIssue("rev2"); toast("Answer key verified — blocker cleared", "ok"); onSaved(); } }, "Verify key"))
         : h("span", { class: "pill ok tiny" }, "verified")))));
+}
+function sourceCountPill() {
+  const n = (B.session.sourceFiles || []).length;
+  return n ? h("span", { class: "pill ok tiny" }, n + (n === 1 ? " file parsed" : " files parsed"))
+           : h("span", { class: "pill tiny" }, "No files attached");
+}
+function courseCounts() {
+  const s = B.session;
+  return [s.modules.length + " modules", Object.keys(s.pages).length + " pages",
+    Object.keys(s.assignments).length + " assignments", Object.keys(s.quizzes).length + " quizzes"].join(", ");
 }
 function shortMod(m) { return m.kind === "start" ? "Start Here" : "Module " + m.order; }
 function gdField(label, control) { return h("div", { class: "gd-field" }, h("div", { class: "gd-field__label" }, label), control); }

@@ -71,13 +71,21 @@
 [data-rc-ds] .rc-stage { position: relative; min-height: calc(100vh - 130px); }
 
 /* SPA host + shared experience chrome ------------------------------------- */
-.rc-workflow-host { min-height: 100vh; background: var(--rc-paper); }
-.rc-workflow-stage { min-height: calc(100vh - 54px); }
+/* Inside the app the sticky stack is: app topbar (70px) + experience chrome
+   (64px). The experiences' own sticky rails read --rc-chrome-offset, so the
+   same CSS lands correctly here and in the standalone lab (96px default). */
+.rc-workflow-host { min-height: 100vh; background: var(--rc-paper); --rc-chrome-offset: 70px; }
+.rc-workflow-stage { min-height: calc(100vh - 134px); }
+@media (max-width: 760px) { .rc-workflow-host { --rc-chrome-offset: 0px; } }
+/* ONE persistent bar in the product: the app topbar. The experience chrome
+   scrolls away with the content and each experience's own rail pins directly
+   beneath the topbar (--rc-chrome-offset: 70px) — no competing sticky stack,
+   and no 134px of permanently-consumed vertical space on laptop screens. */
 [data-rc-ds].rc-xchrome, .rc-xchrome[data-rc-ds] {
   display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
   padding: 8px 20px; background: var(--rc-paper-bright);
   border-bottom: var(--rc-border-2); font-family: var(--rc-font-ui);
-  position: sticky; top: 0; z-index: var(--rc-z-sticky); color: var(--rc-ink);
+  position: static; color: var(--rc-ink);
 }
 .rc-xchrome__seg { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .rc-xchrome__k { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--rc-muted-ink); }

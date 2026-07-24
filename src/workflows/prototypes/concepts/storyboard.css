@@ -1,6 +1,6 @@
 /* Concept 6 — Visual Storyboard. Filmstrip of student experiences. */
-.sb { display: flex; flex-direction: column; min-height: calc(100vh - 96px); }
-.sb-ribbon { display: flex; align-items: center; gap: 14px; padding: 10px 24px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 96px; z-index: 10; }
+.sb { display: flex; flex-direction: column; min-height: calc(100vh - var(--rc-chrome-offset, 96px)); }
+.sb-ribbon { display: flex; align-items: center; gap: 14px; padding: 10px 24px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: var(--rc-chrome-offset, 96px); z-index: 10; }
 .sb-ribbon__lead { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
 .sb-ribbon__stages { display: flex; gap: 4px; flex-wrap: wrap; }
 .sb-ribbon__stage { border: 1px solid transparent; background: transparent; padding: 7px 13px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink-2); }

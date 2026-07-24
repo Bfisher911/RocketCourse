@@ -4,7 +4,7 @@
   background:
     radial-gradient(circle at 20% 0%, #efe7d6, transparent 55%),
     linear-gradient(180deg, #efe9dc, #e7dfcd);
-  min-height: calc(100vh - 96px); color: var(--ink-warm); font-family: var(--serif); }
+  min-height: calc(100vh - var(--rc-chrome-offset, 96px)); color: var(--ink-warm); font-family: var(--serif); }
 
 .wc-desk { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; padding: 16px 26px; background: linear-gradient(180deg, #3a3226, #322b20); color: #f3ecdd; box-shadow: 0 2px 12px rgba(0,0,0,.25); }
 .wc-desk__plate { display: flex; align-items: center; gap: 12px; }

@@ -24,7 +24,7 @@ export function mount(stage, ctx) {
   function desk() {
     return h("header", { class: "wc-desk" },
       h("div", { class: "wc-desk__plate" }, h("span", { class: "wc-desk__mark" }, "✦"),
-        h("div", {}, h("div", { class: "wc-desk__title" }, "The Meaning of Life in 12 Conversations"), h("div", { class: "wc-desk__sub" }, "A seminar, taking shape on your desk"))),
+        h("div", {}, h("div", { class: "wc-desk__title" }, B.D.course?.title || "Your course"), h("div", { class: "wc-desk__sub" }, "A seminar, taking shape on your desk"))),
       h("div", { class: "wc-drawer" },
         tool("sources", "📁", "Sources"), tool("blueprint", "🗂", "Outline"), tool("setup", "🗃", "Course card"),
         h("button", { class: "wc-tool wc-tool--toggle" + (studentMode ? " is-on" : ""), onClick: () => { studentMode = !studentMode; reading = null; render(); } }, h("span", { class: "wc-tool__ico" }, "👓"), studentMode ? "Reading as student" : "Read as student"),
@@ -51,8 +51,8 @@ export function mount(stage, ctx) {
     if (studentMode) return h("div", { class: "wc-manuscript wc-manuscript--student" }, B.studentPreview({ moduleId: expanded }));
     const m = h("article", { class: "wc-manuscript" });
     m.append(h("div", { class: "wc-title-block" },
-      h("p", { class: "wc-eyebrow" }, "PHIL 1200 · Fall 2026 · Riverbend University"),
-      h("h1", { class: "wc-book-title" }, "The Meaning of Life in 12 Conversations"),
+      h("p", { class: "wc-eyebrow" }, [B.D.course?.level, B.D.course?.modality].filter(Boolean).join(" · ")),
+      h("h1", { class: "wc-book-title" }, B.D.course?.title || "Your course"),
       h("p", { class: "wc-lede" }, B.D.course.description)));
     m.append(h("h2", { class: "wc-contents-h" }, "The conversations"));
     B.session.modules.forEach(mod => m.append(conversationEntry(mod)));
