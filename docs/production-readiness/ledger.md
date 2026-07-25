@@ -17,7 +17,7 @@ Severities: **P0** security/privacy/data-loss/billing/auth/corrupt-export/outage
 | --- | --- | --- |
 | Lint | `npm run lint` | ✅ clean (no leaked secrets, focused tests, or debugger) |
 | Typecheck | `npm run typecheck` | ✅ clean (`tsc -b` + functions project) |
-| Unit/integration | `npm test` | ✅ **870 passed / 98 files** |
+| Unit/integration | `npm test` | ✅ **877 passed / 100 files** (was 870/98 at baseline; +7 from this pass's regression tests) |
 | Build | `npm run build` | ✅ builds + prerenders 19 routes + sitemap |
 | Install | `node_modules` present | ✅ (fresh-install path not re-verified this pass) |
 
@@ -41,7 +41,7 @@ not fake controls.
 | SEC-2 | P1 | Dependency advisories | `npm audit`: `fast-xml-parser` (DOCTYPE entity expansion, used in XML validate path) + `sharp`/libvips CVEs (process external image bytes) | ✅ **Fixed** — fast-xml-parser 5.9.3→5.10.1; sharp 0.34.5→0.35.3. `npm audit` now **0 vulnerabilities**; typecheck/build/870 tests green; Netlify Linux sharp binaries retained |
 | SEC-3 | P2 | Secret hygiene | `.gitignore` lacked `*.pem`/`*.key`/`id_rsa` (nothing leaking) | ✅ **Fixed** |
 | RUN-1 | P2 | Data/UX correctness | Dashboard rendered **duplicate React keys** (`listProjects()` returned rows with the same project id → duplicate/double-counted course cards). Root cause: env where migration-0004 unique index isn't applied, or pre-0004 null `app_project_id` rows | ✅ **Fixed** — `dedupeById` in `listProjects` (keeps freshest, newest-first). Verified live: 28→24 rows, **0** fresh duplicate-key warnings after re-render; regression test added |
-| PERF-1 | P2 | Performance | `dist/assets/index-*.js` = 1.69 MB; `App.tsx` (~4.3k lines) imported eagerly; no route-level code-split | 🟡 **Largely fixed** — entry **1650.6 → 964.1 kB** (−41.6%); INITIAL **1971.8 → 1660.8 kB** raw / **515.8 → 436.0 kB** gzip (−15.5%). See PERF-1 detail below; one large lever remains (PERF-2) |
+| PERF-1 | P2 | Performance | `dist/assets/index-*.js` = 1.69 MB; `App.tsx` (~4.3k lines) imported eagerly; no route-level code-split; 322.7 kB render-blocking CSS | 🟡 **Largely fixed** — entry **1650.6 → 966.5 kB** (−41.4%); CSS **322.7 → 268.3 kB**; INITIAL **1971.8 → 1608.9 kB** raw / **515.8 → 427.5 kB** gzip (−17.1%). See PERF-1 detail below; one large lever remains (PERF-2) |
 | BUILD-1 | P1 | Build correctness | `tsconfig.node.json` (composite, no outDir) made `tsc -b` emit **`vite.config.js` next to `vite.config.ts`** — and Vite resolves `.js` first, so any build config in the `.ts` would be **silently ignored** | ✅ **Fixed** (`b4dc386`) — emit redirected to `node_modules/.tmp`; proven live because the `react-vendor` chunk now actually appears |
 | REL-1 | P1 | Reliability | **No ErrorBoundary anywhere in `src/`**. With netlify's `/* → /index.html 200` catch-all, a chunk missing after a deploy returns HTML with status 200 → dynamic import parse-error → React unmounts the whole tree = **blank white page** | ✅ **Fixed** (`b4dc386`) — `ChunkErrorBoundary` around `<App/>`, detects chunk failures across Chrome/Safari/Firefox message shapes, leads with a reload action; 4 unit tests |
 | PERF-3 | P2 | Caching | No header matched `/assets/*`, so content-hashed chunks revalidated every load — which would cancel out splitting | ✅ **Fixed** (`b4dc386`) — immutable 1-year `Cache-Control`. Verified all 42 emitted asset files are content-hashed and that `index.html`/favicons/`robots.txt` sit outside `/assets/` and stay revalidated |
