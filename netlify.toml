@@ -14,6 +14,18 @@
   # and ships the linux-x64 binary instead of esbuild producing a bundle without a usable runtime.
   external_node_modules = ["sharp"]
 
+# Build assets must NEVER fall through to the SPA shell. Without this rule a
+# request for a chunk that no longer exists (tab open across a deploy) is
+# answered by the catch-all below with index.html and HTTP 200 — and because
+# /assets/* is cached `immutable` for a year, the browser would then cache an
+# HTML document under a .js URL, poisoning that filename for anyone who later
+# gets the same content hash (a revert restores it). A real 404 keeps the
+# failure honest and lets the chunk-error handling show its reload prompt.
+[[redirects]]
+  from = "/assets/*"
+  to = "/index.html"
+  status = 404
+
 # SPA fallback: prerendered marketing routes (dist/<path>/index.html) and real files are served
 # directly; any other path (e.g. the in-app /app screens) falls back to the client shell.
 [[redirects]]

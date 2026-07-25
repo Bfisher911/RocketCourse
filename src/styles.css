@@ -1937,7 +1937,9 @@ p {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--ink-3);
+  /* --ink-3 is only defined inside the prototype-scoped [data-rc-ds] sheet;
+     the app's muted token is --muted. */
+  color: var(--muted);
 }
 .project-exp__select {
   font: inherit;
@@ -14378,7 +14380,7 @@ p {
 
 .chunk-error__body {
   margin: 0 0 20px;
-  color: var(--ink-2);
+  color: var(--muted);
   line-height: 1.6;
 }
 
@@ -14400,7 +14402,7 @@ p {
 .chunk-error__detail {
   margin: 18px 0 0;
   font-size: 13px;
-  color: var(--ink-3);
+  color: var(--muted);
   line-height: 1.5;
 }
 
@@ -14411,14 +14413,20 @@ p {
 
 /* Suspense fallback for lazily-loaded screens (ScreenSkeleton.tsx) */
 .screen-skeleton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   gap: 12px;
   min-height: 60vh;
   padding: 40px 24px;
-  color: var(--ink-3);
+  color: var(--muted);
   font-size: 14px;
+}
+
+.screen-skeleton__status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
 }
 
 .screen-skeleton__dot {
@@ -14433,5 +14441,12 @@ p {
 @keyframes screen-skeleton-spin { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .screen-skeleton__dot { animation: none; border-top-color: var(--line-strong); }
+  .screen-skeleton__status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+.screen-skeleton__dot { animation: none; border-top-color: var(--line-strong); }
 }

@@ -95,6 +95,7 @@ import { ReviewMode } from "./components/ReviewMode";
 import { WorkflowHost, type WorkflowFocusHandle } from "./components/WorkflowHost";
 import { ExperienceChrome } from "./components/ExperienceChrome";
 import { ScreenSkeleton } from "./components/ScreenSkeleton";
+import { isChunkLoadError } from "./components/ChunkErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
 import { typeToTab, type CommandContext } from "./workflows/commandRegistry";
 import { experiencesByCode, getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
@@ -731,7 +732,10 @@ function App() {
     const fileList = Array.from(files);
     const imsccFile = fileList.find((file) => /\.imscc$/i.test(file.name));
     if (imsccFile) {
-      const { importCanvasCourseFromImscc } = await import("./services/imsccImport");
+      const { importCanvasCourseFromImscc } = await import("./services/imsccImport").catch((error) => {
+        setExportError("The Canvas import tools could not be loaded. Reload the page and try again.");
+        throw error;
+      });
       const result = await importCanvasCourseFromImscc(imsccFile, settings);
       setCourse(result.course);
       setProjects((current) => [result.course, ...current.filter((project) => project.id !== result.course.id)]);
@@ -895,17 +899,19 @@ function App() {
   // React state to settle. Never throws past the proxy: each builder falls back to its template.
   const fillFullCourseContent = async (): Promise<CourseProject | null> => {
     if (!exportAllowed) return null;
-    const { fillEntireCourseContent, planFullCourseFill } = await import("./services/fullCourseContent");
-    const plan = planFullCourseFill(course);
-    if (plan.total === 0) {
-      setFillSummary("Nothing to fill — this course has no lessons, assignments, discussions, or quizzes yet.");
-      return course;
-    }
     setIsFillingContent(true);
     setExportError(null);
     setFillSummary(null);
-    setFillProgress({ completed: 0, total: plan.total, label: "Starting" });
     try {
+      // Inside the try: a failed chunk fetch must reach the catch below, or the
+      // caller reports success for content that was never generated.
+      const { fillEntireCourseContent, planFullCourseFill } = await import("./services/fullCourseContent");
+      const plan = planFullCourseFill(course);
+      if (plan.total === 0) {
+        setFillSummary("Nothing to fill — this course has no lessons, assignments, discussions, or quizzes yet.");
+        return course;
+      }
+      setFillProgress({ completed: 0, total: plan.total, label: "Starting" });
       const result = await fillEntireCourseContent(course, { onProgress: setFillProgress });
       updateCourse(() => result.course);
       const { pages, assignments, discussions, quizzes, announcements } = result.applied;
@@ -931,59 +937,95 @@ function App() {
     }
   };
 
+  // Every download engine below is code-split, so a click can now fail on a
+  // chunk fetch (e.g. the tab was open across a deploy). Those rejections happen
+  // outside React's render phase, so the error boundary cannot see them and the
+  // `() => void` prop signatures discard the promise — without this the button
+  // would silently do nothing, permanently. Report the same way the .imscc
+  // export path already does, so ExportTab renders it.
+  const withDownloadErrors = async (what: string, run: () => Promise<void>): Promise<void> => {
+    try {
+      await run();
+    } catch (error) {
+      setExportError(
+        isChunkLoadError(error)
+          ? `RocketCourse updated while this tab was open, so the ${what} tools could not load. Reload the page and try again.`
+          : error instanceof Error
+            ? `Could not build the ${what}: ${error.message}`
+            : `Could not build the ${what}.`
+      );
+    }
+  };
+
   // Download a readable PDF copy of the whole course (no Canvas import needed).
   // These handlers are async only because the PDF/QTI engines are code-split —
   // `() => Promise<void>` is assignable to the `() => void` props they feed, so
   // no downstream signature changes.
   const downloadCoursePdf = async (): Promise<void> => {
     if (!exportAllowed) return;
-    const { coursePdfFileName, generateCoursePdfBlob } = await import("./services/coursePdf");
-    downloadBlob(generateCoursePdfBlob(course), coursePdfFileName(course));
+    await withDownloadErrors("course PDF", async () => {
+      const { coursePdfFileName, generateCoursePdfBlob } = await import("./services/coursePdf");
+      downloadBlob(generateCoursePdfBlob(course), coursePdfFileName(course));
+    });
   };
 
   // Download a clean PDF of the syllabus (aligned with the Canvas syllabus page).
   const downloadSyllabusPdf = async (): Promise<void> => {
     if (!exportAllowed) return;
-    const { buildSyllabusPdfBlob, syllabusPdfFileName } = await import("./services/syllabusPdf");
-    downloadBlob(buildSyllabusPdfBlob(course), syllabusPdfFileName(course));
+    await withDownloadErrors("syllabus PDF", async () => {
+      const { buildSyllabusPdfBlob, syllabusPdfFileName } = await import("./services/syllabusPdf");
+      downloadBlob(buildSyllabusPdfBlob(course), syllabusPdfFileName(course));
+    });
   };
 
   // Download every quiz as one bulk Canvas-importable QTI .zip.
   const downloadAllQuizzesQti = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
-    const { generateAllQuizzesQtiBlob } = await import("./services/imsccExport");
-    const { blob, fileName } = await generateAllQuizzesQtiBlob(course);
-    downloadBlob(blob, fileName);
+    await withDownloadErrors("quiz QTI package", async () => {
+      const { generateAllQuizzesQtiBlob } = await import("./services/imsccExport");
+      const { blob, fileName } = await generateAllQuizzesQtiBlob(course);
+      downloadBlob(blob, fileName);
+    });
   };
 
   // Download a single quiz as a standalone QTI .zip.
   const downloadQuizQti = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
-    const { generateQuizQtiBlob } = await import("./services/imsccExport");
-    const { blob, fileName } = await generateQuizQtiBlob(quiz);
-    downloadBlob(blob, fileName);
+    await withDownloadErrors("quiz QTI package", async () => {
+      const { generateQuizQtiBlob } = await import("./services/imsccExport");
+      const { blob, fileName } = await generateQuizQtiBlob(quiz);
+      downloadBlob(blob, fileName);
+    });
   };
 
   // Printable quiz PDFs — student copy and instructor answer key (single + combined).
   const downloadQuizStudentPdf = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
-    const { buildQuizStudentPdfBlob, quizStudentPdfFileName } = await import("./services/quizPdf");
-    downloadBlob(buildQuizStudentPdfBlob(course, quiz), quizStudentPdfFileName(course, quiz));
+    await withDownloadErrors("quiz PDF", async () => {
+      const { buildQuizStudentPdfBlob, quizStudentPdfFileName } = await import("./services/quizPdf");
+      downloadBlob(buildQuizStudentPdfBlob(course, quiz), quizStudentPdfFileName(course, quiz));
+    });
   };
   const downloadQuizAnswerKeyPdf = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
-    const { buildQuizAnswerKeyPdfBlob, quizAnswerKeyPdfFileName } = await import("./services/quizPdf");
-    downloadBlob(buildQuizAnswerKeyPdfBlob(course, quiz), quizAnswerKeyPdfFileName(course, quiz));
+    await withDownloadErrors("answer key PDF", async () => {
+      const { buildQuizAnswerKeyPdfBlob, quizAnswerKeyPdfFileName } = await import("./services/quizPdf");
+      downloadBlob(buildQuizAnswerKeyPdfBlob(course, quiz), quizAnswerKeyPdfFileName(course, quiz));
+    });
   };
   const downloadAllQuizzesStudentPdf = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
-    const { buildAllQuizzesStudentPdfBlob, allQuizzesStudentPdfFileName } = await import("./services/quizPdf");
-    downloadBlob(buildAllQuizzesStudentPdfBlob(course), allQuizzesStudentPdfFileName(course));
+    await withDownloadErrors("quiz PDFs", async () => {
+      const { buildAllQuizzesStudentPdfBlob, allQuizzesStudentPdfFileName } = await import("./services/quizPdf");
+      downloadBlob(buildAllQuizzesStudentPdfBlob(course), allQuizzesStudentPdfFileName(course));
+    });
   };
   const downloadAllQuizzesAnswerKeyPdf = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
-    const { buildAllQuizzesAnswerKeyPdfBlob, allQuizzesAnswerKeyPdfFileName } = await import("./services/quizPdf");
-    downloadBlob(buildAllQuizzesAnswerKeyPdfBlob(course), allQuizzesAnswerKeyPdfFileName(course));
+    await withDownloadErrors("answer key PDFs", async () => {
+      const { buildAllQuizzesAnswerKeyPdfBlob, allQuizzesAnswerKeyPdfFileName } = await import("./services/quizPdf");
+      downloadBlob(buildAllQuizzesAnswerKeyPdfBlob(course), allQuizzesAnswerKeyPdfFileName(course));
+    });
   };
 
   // Enter the public demo: load the static sample course, turn on demo chrome, optionally start the

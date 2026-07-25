@@ -37,8 +37,34 @@ interface State {
   isChunkError: boolean;
 }
 
+/** Set by the mounted boundary so non-render code paths can reach it. */
+let notifyChunkFailure: ((error: unknown) => void) | null = null;
+
+/**
+ * Surface a chunk-load failure that happened OUTSIDE React's render phase —
+ * i.e. a rejected `await import(...)` inside an event handler, which an error
+ * boundary can never see. Wired up from main.tsx's `unhandledrejection`
+ * listener. No-ops if the boundary is not mounted.
+ */
+export function reportChunkLoadFailure(error: unknown): void {
+  notifyChunkFailure?.(error);
+}
+
 export class ChunkErrorBoundary extends Component<Props, State> {
   state: State = { error: null, isChunkError: false };
+
+  componentDidMount(): void {
+    notifyChunkFailure = (error: unknown) => {
+      // Only escalate to the full-page prompt for chunk failures; ordinary
+      // rejected promises elsewhere in the app must not blank the screen.
+      if (!isChunkLoadError(error)) return;
+      this.setState({ error: error instanceof Error ? error : new Error(String(error)), isChunkError: true });
+    };
+  }
+
+  componentWillUnmount(): void {
+    notifyChunkFailure = null;
+  }
 
   static getDerivedStateFromError(error: Error): State {
     return { error, isChunkError: isChunkLoadError(error) };
