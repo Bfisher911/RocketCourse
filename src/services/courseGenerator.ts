@@ -1,5 +1,10 @@
 import { defaultSettings } from "../data/defaultSettings";
 import { getTheme } from "../data/themes";
+// Moved to a leaf module so consumers of the workload model do not drag the
+// whole generation engine (and its module-scope demo course) into their bundle.
+import { HOURS_PER_CREDIT, makeContactHours } from "./contactHoursModel";
+export { HOURS_PER_CREDIT, makeContactHours };
+
 import type {
   Announcement,
   Assignment,
@@ -917,29 +922,6 @@ const makeRubric = (
     publishState: "published",
     status: "generated",
     metadata: metadata(timestamp)
-  };
-};
-
-export const HOURS_PER_CREDIT = 45;
-
-export const makeContactHours = (settings: CourseSettings): ContactHourPlan => {
-  const totalHours = settings.creditHours * HOURS_PER_CREDIT;
-  const instructionalTime = Math.round(totalHours * 0.22);
-  const readingMediaTime = Math.round(totalHours * 0.25);
-  const assignmentTime = Math.round(totalHours * 0.22);
-  const discussionTime = Math.round(totalHours * 0.1);
-  const quizStudyTime = Math.round(totalHours * 0.08);
-  const finalProjectTime = Math.max(0, totalHours - instructionalTime - readingMediaTime - assignmentTime - discussionTime - quizStudyTime);
-
-  return {
-    instructionalTime,
-    readingMediaTime,
-    assignmentTime,
-    discussionTime,
-    quizStudyTime,
-    finalProjectTime,
-    totalHours,
-    justification: `${settings.creditHours} credit hours over ${settings.lengthWeeks} weeks is planned as approximately ${totalHours} total student workload hours. The plan balances instructor-presented content, reading and media, discussion, quiz preparation, applied assignments, and final project development.`
   };
 };
 

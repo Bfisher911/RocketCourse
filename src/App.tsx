@@ -62,22 +62,25 @@ const PublicBlogPost = lazy(() => import("./components/blog/PublicBlog").then(m 
 const JoinScreen = lazy(() => import("./components/admin/JoinScreen").then(m => ({ default: m.JoinScreen })));
 const WorkspaceAdminScreen = lazy(() => import("./components/admin/WorkspaceAdminScreen").then(m => ({ default: m.WorkspaceAdminScreen })));
 const SuperAdminScreen = lazy(() => import("./components/admin/SuperAdminScreen").then(m => ({ default: m.SuperAdminScreen })));
-import { AssignmentsTab } from "./components/AssignmentsTab";
+// Editor tabs are lazy. Only one renders at a time, and reaching any of them
+// requires opening a course — but statically they dragged the course-generation
+// engine, every content builder and the export stack onto the landing page.
+const AssignmentsTab = lazy(() => import("./components/AssignmentsTab").then(m => ({ default: m.AssignmentsTab })));
 import { AuthScreen, type AuthScreenMode } from "./components/AuthScreen";
 import { applySeo, pathToScreen, screenToPath } from "./seo";
-import { ContactHoursTab } from "./components/ContactHoursTab";
-import { DiscussionsTab } from "./components/DiscussionsTab";
-import { ExportTab } from "./components/ExportTab";
-import { GradebookTab } from "./components/GradebookTab";
-import { HomepageTab } from "./components/HomepageTab";
-import { ImageryTab } from "./components/ImageryTab";
-import { InteractionsTab } from "./components/InteractionsTab";
-import { OverviewTab } from "./components/OverviewTab";
-import { PagesTab } from "./components/PagesTab";
+const ContactHoursTab = lazy(() => import("./components/ContactHoursTab").then(m => ({ default: m.ContactHoursTab })));
+const DiscussionsTab = lazy(() => import("./components/DiscussionsTab").then(m => ({ default: m.DiscussionsTab })));
+const ExportTab = lazy(() => import("./components/ExportTab").then(m => ({ default: m.ExportTab })));
+const GradebookTab = lazy(() => import("./components/GradebookTab").then(m => ({ default: m.GradebookTab })));
+const HomepageTab = lazy(() => import("./components/HomepageTab").then(m => ({ default: m.HomepageTab })));
+const ImageryTab = lazy(() => import("./components/ImageryTab").then(m => ({ default: m.ImageryTab })));
+const InteractionsTab = lazy(() => import("./components/InteractionsTab").then(m => ({ default: m.InteractionsTab })));
+const OverviewTab = lazy(() => import("./components/OverviewTab").then(m => ({ default: m.OverviewTab })));
+const PagesTab = lazy(() => import("./components/PagesTab").then(m => ({ default: m.PagesTab })));
 const PricingPage = lazy(() => import("./components/PricingPage").then(m => ({ default: m.PricingPage })));
-import { QuizzesTab } from "./components/QuizzesTab";
-import { RubricsTab } from "./components/RubricsTab";
-import { SyllabusTab } from "./components/SyllabusTab";
+const QuizzesTab = lazy(() => import("./components/QuizzesTab").then(m => ({ default: m.QuizzesTab })));
+const RubricsTab = lazy(() => import("./components/RubricsTab").then(m => ({ default: m.RubricsTab })));
+const SyllabusTab = lazy(() => import("./components/SyllabusTab").then(m => ({ default: m.SyllabusTab })));
 const AboutPage = lazy(() => import("./components/AboutPage").then(m => ({ default: m.AboutPage })));
 const GuidesPage = lazy(() => import("./components/GuidesPage").then(m => ({ default: m.GuidesPage })));
 const ContactPage = lazy(() => import("./components/ContactPage").then(m => ({ default: m.ContactPage })));
@@ -86,7 +89,7 @@ import { DemoTour } from "./components/DemoTour";
 const LegalPage = lazy(() => import("./components/LegalPage").then(m => ({ default: m.LegalPage })));
 const IntegrationPage = lazy(() => import("./components/IntegrationPage").then(m => ({ default: m.IntegrationPage })));
 const FoundingCohortPage = lazy(() => import("./components/FoundingCohortPage").then(m => ({ default: m.FoundingCohortPage })));
-import { TransformTab } from "./components/TransformTab";
+const TransformTab = lazy(() => import("./components/TransformTab").then(m => ({ default: m.TransformTab })));
 import { PublicFooter } from "./components/PublicFooter";
 import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
@@ -103,7 +106,9 @@ import { loadCoursePreferred, loadUserPreferred, saveCoursePreferred, saveUserPr
 import { useModalFocus } from "./hooks/useModalFocus";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
-import { buildCourseFromBlueprint, generateBlueprint } from "./services/aiGeneration";
+// aiGeneration and courseTransforms both reach services/courseGenerator, whose
+// module body generates the demo course at evaluation time. Import them at the
+// call site so neither pulls the generation engine onto the first paint.
 import { recordCourseAiSpend } from "./services/aiSpendMeter";
 import type { ChatCompletionCost } from "./services/openaiClient";
 import { AiSpendBadge } from "./components/AiSpendBadge";
@@ -145,7 +150,7 @@ import {
 } from "./services/modulePlanner";
 import { listProjects, persistenceEnabled, saveProject } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
-import { makeCourseExportReady } from "./services/courseTransforms";
+
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
 import { inferSettingsFromPrompt } from "./services/promptInference";
 import { stripHtml } from "./utils/text";
@@ -680,6 +685,7 @@ function App() {
     setAiBusy(true);
     setAiError(null);
     try {
+      const { generateBlueprint } = await import("./services/aiGeneration");
       const result = await generateBlueprint(
         augmentPromptWithSources(prompt, settings.sourceFiles) + buildScheduleContext(settings.schedule),
         settings
@@ -695,8 +701,9 @@ function App() {
   };
 
   // Approve the blueprint → build a full, export-valid course seeded by it, then open the editor.
-  const approveBlueprint = (): void => {
+  const approveBlueprint = async (): Promise<void> => {
     if (!blueprint) return;
+    const { buildCourseFromBlueprint } = await import("./services/aiGeneration");
     const generated = buildCourseFromBlueprint(blueprint, settings, prompt);
     // Attribute the blueprint's real cost to the course now that it has an id.
     recordCourseAiSpend(generated.id, blueprintCostRef.current);
@@ -3277,6 +3284,10 @@ function Editor({
           </div>
         </div>
         <div className="tab-body">
+          {/* One boundary: exactly one tab renders at a time, so this is
+              equivalent to a boundary per tab. It is scoped to the tab body so
+              suspending never unmounts the editor chrome around it. */}
+          <Suspense fallback={<ScreenSkeleton label="Loading section" />}>
           {activeTab === "Overview" && <OverviewTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Imagery" && <ImageryTab course={course} onUpdateCourse={onUpdateCourse} subscriptionActive={imageSubscriptionActive} demoMode={demoMode} />}
           {activeTab === "Homepage" && <HomepageTab course={course} onUpdateCourse={onUpdateCourse} />}
@@ -3349,6 +3360,7 @@ function Editor({
               onJumpToTab={setActiveTab}
             />
           )}
+          </Suspense>
         </div>
         {viewMode === "guided" && (
           <nav className="guided-footer" aria-label="Step navigation">
@@ -4316,7 +4328,8 @@ function ReadinessPanel({
           <button
             type="button"
             className="secondary"
-            onClick={() => {
+            onClick={async () => {
+              const { makeCourseExportReady } = await import("./services/courseTransforms");
               const result = makeCourseExportReady(course);
               onUpdateCourse(() => result.course);
               setFixSummary(result.summary);
