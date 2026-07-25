@@ -51,7 +51,11 @@ import { type CSSProperties, type ReactNode, lazy, Suspense, useEffect, useMemo,
 import { BrandBadge, BrandHeader, BrandOrbitalAccent, LogoMark, LogoWordmark, RocketCourseLoader } from "./components/brand";
 import { ReadinessRing } from "./components/ReadinessRing";
 import { usePlatformAccess, type UsePlatformAccess } from "./services/usePlatformAccess";
-import { PublicBlogIndex, PublicBlogPost } from "./components/blog/PublicBlog";
+// Public marketing/legal surfaces: leaf views reachable only by navigation, so
+// they load on demand. `Landing` (and the widgets it renders) stay EAGER — that
+// is the prerendered first paint for 19 SEO routes and must never wait on a chunk.
+const PublicBlogIndex = lazy(() => import("./components/blog/PublicBlog").then(m => ({ default: m.PublicBlogIndex })));
+const PublicBlogPost = lazy(() => import("./components/blog/PublicBlog").then(m => ({ default: m.PublicBlogPost })));
 // Admin consoles are lazy: they sit behind an authenticated role check, are the
 // largest single components in the tree, and SuperAdminScreen -> CampaignsManager
 // -> waitlistExport pins JSZip into whatever chunk contains it.
@@ -70,18 +74,18 @@ import { ImageryTab } from "./components/ImageryTab";
 import { InteractionsTab } from "./components/InteractionsTab";
 import { OverviewTab } from "./components/OverviewTab";
 import { PagesTab } from "./components/PagesTab";
-import { PricingPage } from "./components/PricingPage";
+const PricingPage = lazy(() => import("./components/PricingPage").then(m => ({ default: m.PricingPage })));
 import { QuizzesTab } from "./components/QuizzesTab";
 import { RubricsTab } from "./components/RubricsTab";
 import { SyllabusTab } from "./components/SyllabusTab";
-import { AboutPage } from "./components/AboutPage";
-import { GuidesPage } from "./components/GuidesPage";
-import { ContactPage } from "./components/ContactPage";
-import { DemoIntro } from "./components/DemoIntro";
+const AboutPage = lazy(() => import("./components/AboutPage").then(m => ({ default: m.AboutPage })));
+const GuidesPage = lazy(() => import("./components/GuidesPage").then(m => ({ default: m.GuidesPage })));
+const ContactPage = lazy(() => import("./components/ContactPage").then(m => ({ default: m.ContactPage })));
+const DemoIntro = lazy(() => import("./components/DemoIntro").then(m => ({ default: m.DemoIntro })));
 import { DemoTour } from "./components/DemoTour";
-import { LegalPage } from "./components/LegalPage";
-import { IntegrationPage } from "./components/IntegrationPage";
-import { FoundingCohortPage } from "./components/FoundingCohortPage";
+const LegalPage = lazy(() => import("./components/LegalPage").then(m => ({ default: m.LegalPage })));
+const IntegrationPage = lazy(() => import("./components/IntegrationPage").then(m => ({ default: m.IntegrationPage })));
+const FoundingCohortPage = lazy(() => import("./components/FoundingCohortPage").then(m => ({ default: m.FoundingCohortPage })));
 import { TransformTab } from "./components/TransformTab";
 import { PublicFooter } from "./components/PublicFooter";
 import { CampaignBanner } from "./components/CampaignBanner";
@@ -1035,7 +1039,7 @@ function App() {
         </>
       )}
       {screen === "pricing" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading pricing" />}>
           <PricingPage
             onChoosePlan={handleChoosePlan}
             onTryDemo={() => setScreen("demo")}
@@ -1044,59 +1048,59 @@ function App() {
             error={checkoutError}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "about" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading" />}>
           <AboutPage
             onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
             onContact={() => setScreen("contact")}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "guides" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading guides" />}>
           <GuidesPage onTryDemo={() => setScreen("demo")} onStartBuilding={() => startNewIntake()} />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "contact" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading contact" />}>
           <ContactPage />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "demo" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading demo" />}>
           <DemoIntro onStartTour={() => enterDemo(true)} onExplore={() => enterDemo(false)} onBackHome={() => setScreen("landing")} />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {(screen === "terms" || screen === "privacy") && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading" />}>
           <LegalPage kind={screen} onContact={() => setScreen("contact")} />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "integration" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading" />}>
           <IntegrationPage
             onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "foundingCohort" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading" />}>
           <FoundingCohortPage
             onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {(screen === "login" || screen === "signup") && (
         <AuthScreen
@@ -1290,7 +1294,7 @@ function App() {
       )}
 
       {screen === "blog" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading blog" />}>
           <PublicBlogIndex
             onOpenPost={(slug) => {
               window.history.pushState({}, "", `/blog/${slug}`);
@@ -1298,13 +1302,13 @@ function App() {
             }}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "blogPost" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading article" />}>
           <PublicBlogPost slug={blogSlug} onBack={() => setScreen("blog")} />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "join" && (
         <Suspense fallback={<ScreenSkeleton label="Loading invitation" />}>
