@@ -14408,3 +14408,30 @@ p {
   font-family: var(--mono, ui-monospace, monospace);
   word-break: break-word;
 }
+
+/* Suspense fallback for lazily-loaded screens (ScreenSkeleton.tsx) */
+.screen-skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 60vh;
+  padding: 40px 24px;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+.screen-skeleton__dot {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: screen-skeleton-spin 0.7s linear infinite;
+}
+
+@keyframes screen-skeleton-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-skeleton__dot { animation: none; border-top-color: var(--line-strong); }
+}

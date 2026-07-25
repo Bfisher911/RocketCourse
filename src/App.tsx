@@ -47,14 +47,17 @@ import {
   Wand2,
   X
 } from "lucide-react";
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { BrandBadge, BrandHeader, BrandOrbitalAccent, LogoMark, LogoWordmark, RocketCourseLoader } from "./components/brand";
 import { ReadinessRing } from "./components/ReadinessRing";
 import { usePlatformAccess, type UsePlatformAccess } from "./services/usePlatformAccess";
 import { PublicBlogIndex, PublicBlogPost } from "./components/blog/PublicBlog";
-import { JoinScreen } from "./components/admin/JoinScreen";
-import { WorkspaceAdminScreen } from "./components/admin/WorkspaceAdminScreen";
-import { SuperAdminScreen } from "./components/admin/SuperAdminScreen";
+// Admin consoles are lazy: they sit behind an authenticated role check, are the
+// largest single components in the tree, and SuperAdminScreen -> CampaignsManager
+// -> waitlistExport pins JSZip into whatever chunk contains it.
+const JoinScreen = lazy(() => import("./components/admin/JoinScreen").then(m => ({ default: m.JoinScreen })));
+const WorkspaceAdminScreen = lazy(() => import("./components/admin/WorkspaceAdminScreen").then(m => ({ default: m.WorkspaceAdminScreen })));
+const SuperAdminScreen = lazy(() => import("./components/admin/SuperAdminScreen").then(m => ({ default: m.SuperAdminScreen })));
 import { AssignmentsTab } from "./components/AssignmentsTab";
 import { AuthScreen, type AuthScreenMode } from "./components/AuthScreen";
 import { applySeo, pathToScreen, screenToPath } from "./seo";
@@ -87,6 +90,7 @@ import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { ReviewMode } from "./components/ReviewMode";
 import { WorkflowHost, type WorkflowFocusHandle } from "./components/WorkflowHost";
 import { ExperienceChrome } from "./components/ExperienceChrome";
+import { ScreenSkeleton } from "./components/ScreenSkeleton";
 import { CommandPalette } from "./components/CommandPalette";
 import { typeToTab, type CommandContext } from "./workflows/commandRegistry";
 import { experiencesByCode, getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
@@ -107,22 +111,14 @@ import { themes } from "./data/themes";
 import { applyThemeToGeneratedContent, applyVisualTemplate, generateCourseProject, sampleProject } from "./services/courseGenerator";
 import { visualTemplates, visualTemplateForThemeId } from "./data/visualTemplates";
 import { buildCourseQualityReport } from "./services/courseQuality";
-import { generateAllQuizzesQtiBlob, generateImsccBlob, generateQuizQtiBlob } from "./services/imsccExport";
-import { fillEntireCourseContent, planFullCourseFill, type FullFillProgress } from "./services/fullCourseContent";
-import { coursePdfFileName, generateCoursePdfBlob } from "./services/coursePdf";
-import {
-  allQuizzesAnswerKeyPdfFileName,
-  allQuizzesStudentPdfFileName,
-  buildAllQuizzesAnswerKeyPdfBlob,
-  buildAllQuizzesStudentPdfBlob,
-  buildQuizAnswerKeyPdfBlob,
-  buildQuizStudentPdfBlob,
-  quizAnswerKeyPdfFileName,
-  quizStudentPdfFileName
-} from "./services/quizPdf";
-import { buildSyllabusPdfBlob, syllabusPdfFileName } from "./services/syllabusPdf";
-import { augmentPromptWithSources, parseSourceFile } from "./services/sourceParsing";
-import { importCanvasCourseFromImscc } from "./services/imsccImport";
+// The export / import / PDF cluster is deliberately NOT imported statically.
+// It pulls JSZip (~96 kB) plus the IMSCC, QTI and PDF engines — none of which a
+// visitor needs to render the landing page. Every entry point below is a click
+// handler that already awaits, so each one `await import(...)`s its engine at
+// the call site. See the `type` imports kept below for signatures only (erased
+// at build time, so they cost nothing).
+import type { FullFillProgress } from "./services/fullCourseContent";
+import { augmentPromptWithSources } from "./services/sourceParsing";
 import {
   duplicateModuleWithContent,
   getModuleItemTarget,
@@ -731,6 +727,7 @@ function App() {
     const fileList = Array.from(files);
     const imsccFile = fileList.find((file) => /\.imscc$/i.test(file.name));
     if (imsccFile) {
+      const { importCanvasCourseFromImscc } = await import("./services/imsccImport");
       const result = await importCanvasCourseFromImscc(imsccFile, settings);
       setCourse(result.course);
       setProjects((current) => [result.course, ...current.filter((project) => project.id !== result.course.id)]);
@@ -761,6 +758,7 @@ function App() {
 
     await Promise.all(
       stamped.map(async ({ file, id, sizeLabel }) => {
+        const { parseSourceFile } = await import("./services/sourceParsing");
         const parsed = await parseSourceFile(file);
         const updated: SourceFile = {
           id,
@@ -832,6 +830,7 @@ function App() {
     setIsExporting(true);
     setExportError(null);
     try {
+      const { generateImsccBlob } = await import("./services/imsccExport");
       const { report } = await generateImsccBlob({ ...course, exportMode }, exportMode);
       setValidationReport(report);
     } catch (error) {
@@ -848,6 +847,7 @@ function App() {
     setExportError(null);
     setLastDownloadName(null);
     try {
+      const { generateImsccBlob } = await import("./services/imsccExport");
       const { blob, report, fileName } = await generateImsccBlob({ ...courseToExport, exportMode }, exportMode);
       setValidationReport(report);
       if (!report.valid) {
@@ -891,6 +891,7 @@ function App() {
   // React state to settle. Never throws past the proxy: each builder falls back to its template.
   const fillFullCourseContent = async (): Promise<CourseProject | null> => {
     if (!exportAllowed) return null;
+    const { fillEntireCourseContent, planFullCourseFill } = await import("./services/fullCourseContent");
     const plan = planFullCourseFill(course);
     if (plan.total === 0) {
       setFillSummary("Nothing to fill — this course has no lessons, assignments, discussions, or quizzes yet.");
@@ -927,20 +928,26 @@ function App() {
   };
 
   // Download a readable PDF copy of the whole course (no Canvas import needed).
-  const downloadCoursePdf = (): void => {
+  // These handlers are async only because the PDF/QTI engines are code-split —
+  // `() => Promise<void>` is assignable to the `() => void` props they feed, so
+  // no downstream signature changes.
+  const downloadCoursePdf = async (): Promise<void> => {
     if (!exportAllowed) return;
+    const { coursePdfFileName, generateCoursePdfBlob } = await import("./services/coursePdf");
     downloadBlob(generateCoursePdfBlob(course), coursePdfFileName(course));
   };
 
   // Download a clean PDF of the syllabus (aligned with the Canvas syllabus page).
-  const downloadSyllabusPdf = (): void => {
+  const downloadSyllabusPdf = async (): Promise<void> => {
     if (!exportAllowed) return;
+    const { buildSyllabusPdfBlob, syllabusPdfFileName } = await import("./services/syllabusPdf");
     downloadBlob(buildSyllabusPdfBlob(course), syllabusPdfFileName(course));
   };
 
   // Download every quiz as one bulk Canvas-importable QTI .zip.
   const downloadAllQuizzesQti = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
+    const { generateAllQuizzesQtiBlob } = await import("./services/imsccExport");
     const { blob, fileName } = await generateAllQuizzesQtiBlob(course);
     downloadBlob(blob, fileName);
   };
@@ -948,25 +955,30 @@ function App() {
   // Download a single quiz as a standalone QTI .zip.
   const downloadQuizQti = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
+    const { generateQuizQtiBlob } = await import("./services/imsccExport");
     const { blob, fileName } = await generateQuizQtiBlob(quiz);
     downloadBlob(blob, fileName);
   };
 
   // Printable quiz PDFs — student copy and instructor answer key (single + combined).
-  const downloadQuizStudentPdf = (quiz: Quiz): void => {
+  const downloadQuizStudentPdf = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
+    const { buildQuizStudentPdfBlob, quizStudentPdfFileName } = await import("./services/quizPdf");
     downloadBlob(buildQuizStudentPdfBlob(course, quiz), quizStudentPdfFileName(course, quiz));
   };
-  const downloadQuizAnswerKeyPdf = (quiz: Quiz): void => {
+  const downloadQuizAnswerKeyPdf = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
+    const { buildQuizAnswerKeyPdfBlob, quizAnswerKeyPdfFileName } = await import("./services/quizPdf");
     downloadBlob(buildQuizAnswerKeyPdfBlob(course, quiz), quizAnswerKeyPdfFileName(course, quiz));
   };
-  const downloadAllQuizzesStudentPdf = (): void => {
+  const downloadAllQuizzesStudentPdf = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
+    const { buildAllQuizzesStudentPdfBlob, allQuizzesStudentPdfFileName } = await import("./services/quizPdf");
     downloadBlob(buildAllQuizzesStudentPdfBlob(course), allQuizzesStudentPdfFileName(course));
   };
-  const downloadAllQuizzesAnswerKeyPdf = (): void => {
+  const downloadAllQuizzesAnswerKeyPdf = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
+    const { buildAllQuizzesAnswerKeyPdfBlob, allQuizzesAnswerKeyPdfFileName } = await import("./services/quizPdf");
     downloadBlob(buildAllQuizzesAnswerKeyPdfBlob(course), allQuizzesAnswerKeyPdfFileName(course));
   };
 
@@ -1295,19 +1307,23 @@ function App() {
         </>
       )}
       {screen === "join" && (
-        <JoinScreen
-          isAuthed={Boolean(auth.session)}
-          onSignIn={() => {
-            setAuthMode("login");
-            setScreen("login");
-          }}
-          onDone={() => setScreen(workspaceForAdmin ? "workspace" : "dashboard")}
-        />
+        <Suspense fallback={<ScreenSkeleton label="Loading invitation" />}>
+          <JoinScreen
+            isAuthed={Boolean(auth.session)}
+            onSignIn={() => {
+              setAuthMode("login");
+              setScreen("login");
+            }}
+            onDone={() => setScreen(workspaceForAdmin ? "workspace" : "dashboard")}
+          />
+        </Suspense>
       )}
       {screen === "workspace" &&
         auth.session &&
         (workspaceForAdmin ? (
-          <WorkspaceAdminScreen workspaceId={workspaceForAdmin} onOpenBilling={handleOpenBillingPortal} />
+          <Suspense fallback={<ScreenSkeleton label="Loading workspace" />}>
+            <WorkspaceAdminScreen workspaceId={workspaceForAdmin} onOpenBilling={handleOpenBillingPortal} />
+          </Suspense>
         ) : (
           <main id="main-content" tabIndex={-1} className="page-shell">
             <div className="empty-state">
@@ -1319,7 +1335,9 @@ function App() {
         ))}
       {screen === "admin" &&
         (access.isSuperAdmin && auth.session ? (
-          <SuperAdminScreen selfUserId={auth.session.user.id} />
+          <Suspense fallback={<ScreenSkeleton label="Loading admin" />}>
+            <SuperAdminScreen selfUserId={auth.session.user.id} />
+          </Suspense>
         ) : (
           <main id="main-content" tabIndex={-1} className="page-shell">
             <div className="empty-state">
