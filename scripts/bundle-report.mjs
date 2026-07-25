@@ -37,12 +37,18 @@ const preloaded = new Set(
   [...indexHtml.matchAll(/<link[^>]+rel="modulepreload"[^>]+href="\/assets\/([^"]+\.js)"/g)].map((m) => m[1])
 );
 
+// Only stylesheets actually <link>ed from the shell are render-blocking. CSS
+// that belongs to a lazy chunk is injected at runtime and costs nothing up front.
+const linkedCss = new Set(
+  [...indexHtml.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="\/assets\/([^"]+\.css)"/g)].map((m) => m[1])
+);
+
 const files = readdirSync(assets)
   .filter((f) => f.endsWith(".js") || f.endsWith(".css"))
   .map((name) => {
     const buf = readFileSync(join(assets, name));
     const isEntry = name === entryName;
-    const critical = isEntry || preloaded.has(name) || name.endsWith(".css");
+    const critical = isEntry || preloaded.has(name) || linkedCss.has(name);
     return { name, bytes: buf.length, gzip: gzipSync(buf).length, isEntry, critical };
   })
   .sort((a, b) => b.bytes - a.bytes);

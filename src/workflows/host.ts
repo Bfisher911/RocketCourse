@@ -12,11 +12,28 @@
 import { getExperience } from "./experienceRegistry";
 import type { WorkflowContext } from "./workflowContext";
 
-// Vite: eagerly inject all prototype CSS (the prototypes' own ensureCss uses
-// lab-relative <link> paths that don't resolve here; importing via Vite applies
-// the styles properly and makes those stray links a harmless no-op).
-import.meta.glob("./prototypes/shared/*.css", { eager: true });
-import.meta.glob("./prototypes/concepts/*.css", { eager: true });
+// Prototype CSS is loaded through Vite (the prototypes' own ensureCss uses
+// lab-relative <link> paths that don't resolve here, so those stray links are a
+// harmless no-op). These globs are deliberately NOT eager: ~67 kB of experience
+// styling is meaningless until someone actually opens an experience, and eager
+// globs put all of it in the single render-blocking stylesheet that every
+// marketing visitor downloads. show() awaits the sheets before mounting, so the
+// stage never paints unstyled.
+const sharedCssLoaders = import.meta.glob("./prototypes/shared/*.css");
+const conceptCssLoaders = import.meta.glob("./prototypes/concepts/*.css");
+
+/** Shared prototype sheets (base/shell/blocks) — needed by every experience, loaded once. */
+let sharedCssPromise: Promise<unknown> | null = null;
+function loadSharedCss(): Promise<unknown> {
+  sharedCssPromise ??= Promise.all(Object.values(sharedCssLoaders).map((load) => load()));
+  return sharedCssPromise;
+}
+
+/** The one concept's sheet. Missing entry resolves rather than throwing — a
+ * concept without its own CSS is valid, and styling must never break a mount. */
+function loadConceptCss(prototypeKey: string): Promise<unknown> {
+  return conceptCssLoaders[`./prototypes/concepts/${prototypeKey}.css`]?.() ?? Promise.resolve();
+}
 
 type ConceptModule = {
   mount: (stage: HTMLElement, ctx: any) => { goToTask?: (n: number) => void };
@@ -77,7 +94,13 @@ export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: 
     }
     const load = loaderFor(exp.prototypeKey);
     if (!load) { stage.append(errorPanel(`No renderer for ${experienceId}`)); return; }
-    const mod = await load();
+    // Fetch the renderer and its styling together, and await BOTH before
+    // mounting — otherwise the stage paints for a frame with no experience CSS.
+    const [mod] = await Promise.all([
+      load(),
+      loadSharedCss(),
+      loadConceptCss(exp.prototypeKey)
+    ]);
     if (disposed || seq !== showSeq) return; // superseded during load — do not mount
     stage.innerHTML = ""; // clear anything a superseded show may have left
     const api: ConceptApi = mod.mount(stage, {
