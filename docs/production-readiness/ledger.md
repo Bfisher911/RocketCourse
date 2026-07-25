@@ -66,19 +66,26 @@ iframes itself, so `X-Frame-Options: DENY` is safe).
 `node scripts/bundle-report.mjs` (added this pass) separates the critical path
 from lazy chunks so each step is measured, not guessed.
 
-| | Entry chunk | INITIAL raw | INITIAL gzip |
-| --- | --- | --- | --- |
-| Baseline | 1650.6 kB | 1971.8 kB | 515.8 kB |
-| After split | **964.1 kB** | **1660.8 kB** | **436.0 kB** |
-| Change | **−41.6 %** | **−15.8 %** | **−15.5 %** |
+| | Entry chunk | Render-blocking CSS | INITIAL raw | INITIAL gzip |
+| --- | --- | --- | --- | --- |
+| Baseline | 1650.6 kB | 322.7 kB | 1971.8 kB | 515.8 kB |
+| After split | **966.5 kB** | **268.3 kB** | **1608.9 kB** | **427.5 kB** |
+| Change | **−41.4 %** | **−16.9 %** | **−18.4 %** | **−17.1 %** |
+
+Asset count went 11 → 53: that is the point. The critical path shrank while the
+deferred work (JSZip, export/PDF engines, admin, marketing screens, 11
+experience stylesheets) moved behind the navigation that actually needs it, all
+cached `immutable`.
 
 What moved off the first load: JSZip (93.6 kB — it had **four** eager anchors, the
 fourth being `waitlistExport` via `SuperAdminScreen`, which is why the admin step
 had to ship in the same commit), the IMSCC exporter + importer, `fast-xml-parser`,
-all four PDF/QTI engines, the three admin consoles, and nine public
-marketing/legal/blog screens. React moved to its own cacheable `react-vendor`
-chunk. `Landing` and its widgets stay **eager** — that is the prerendered first
-paint for 19 SEO routes.
+all four PDF/QTI engines, the three admin consoles, nine public
+marketing/legal/blog screens, and the 11 workflow-experience stylesheets
+(`host.ts` eager-globbed ~67 kB of prototype CSS into the render-blocking sheet
+even for visitors who never open the editor). React moved to its own cacheable
+`react-vendor` chunk. `Landing` and its widgets stay **eager** — that is the
+prerendered first paint for 19 SEO routes.
 
 Verified in the browser, not only by tests (the 100 test files are pure logic and
 would stay green through a total UI break): on a cold load neither `jszip` nor
