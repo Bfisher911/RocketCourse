@@ -5,7 +5,13 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowSyntheticDefaultImports": true,
-    "strict": true
+    "strict": true,
+    // `composite` forces an emit. Without an outDir, `tsc -b` wrote vite.config.js
+    // next to vite.config.ts — and Vite resolves vite.config.JS BEFORE .ts, so a
+    // stale sibling silently shadowed the real config (build options would be
+    // dropped with no error). Emit into node_modules instead so the .ts is always
+    // the config Vite loads.
+    "outDir": "node_modules/.tmp/tsconfig-node"
   },
   "include": ["vite.config.ts"]
 }
