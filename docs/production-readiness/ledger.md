@@ -45,7 +45,7 @@ not fake controls.
 | BUILD-1 | P1 | Build correctness | `tsconfig.node.json` (composite, no outDir) made `tsc -b` emit **`vite.config.js` next to `vite.config.ts`** — and Vite resolves `.js` first, so any build config in the `.ts` would be **silently ignored** | ✅ **Fixed** (`b4dc386`) — emit redirected to `node_modules/.tmp`; proven live because the `react-vendor` chunk now actually appears |
 | REL-1 | P1 | Reliability | **No ErrorBoundary anywhere in `src/`**. With netlify's `/* → /index.html 200` catch-all, a chunk missing after a deploy returns HTML with status 200 → dynamic import parse-error → React unmounts the whole tree = **blank white page** | ✅ **Fixed** (`b4dc386`) — `ChunkErrorBoundary` around `<App/>`, detects chunk failures across Chrome/Safari/Firefox message shapes, leads with a reload action; 4 unit tests |
 | PERF-3 | P2 | Caching | No header matched `/assets/*`, so content-hashed chunks revalidated every load — which would cancel out splitting | ✅ **Fixed** (`b4dc386`) — immutable 1-year `Cache-Control`. Verified all 42 emitted asset files are content-hashed and that `index.html`/favicons/`robots.txt` sit outside `/assets/` and stay revalidated |
-| PERF-2 | P2 | Performance | **`sampleProject` is generated at module-evaluation time** (`courseGenerator.ts:2791` runs `generateCourseProject(...)`), so *every* visitor — including on the marketing landing page — synchronously builds a **2.03 MB** demo course before React renders. Measured **~73 ms** warm/JIT'd pure execution (cold is materially worse), and it pins the whole generation engine (incl. the still-critical `rubricBuilder` 139.5 kB + `syllabusTemplates` 93.5 kB chunks) into the initial payload | 🔜 **Open** — see design + blocker below |
+| PERF-2 | P2 | Performance | **`sampleProject` is generated at module-evaluation time** (`courseGenerator.ts:2791` runs `generateCourseProject(...)`), so *every* visitor — including on the marketing landing page — synchronously builds a **2.03 MB** demo course before React renders. Measured **~73 ms** warm/JIT'd pure execution. | 🟡 **Partly done — perf win NOT yet realized.** App no longer imports the generator statically (groundwork + the product change landed), but the generation *still runs at boot*: three other eager modules keep `courseGenerator` in the entry chunk. Verified by finding the module-scope call `pf=uf({prompt:\`Build me a 12-week undergraduate course…` still present in the built entry chunk. See PERF-2 detail |
 | MAINT-1 | P3 | Maintainability | Build warns: `supabaseClient.ts` dynamically imported by `openaiClient.ts` but statically elsewhere → dynamic import ineffective | 🔜 Open — **downgraded**: `@supabase/supabase-js` is *already* split (196.6 kB `dist-*.js`), so the warning names only the 1.6 kB local wrapper. Worth ~1 kB, not 201 kB |
 | NAME-1 | P3 | Naming | Legacy "CourseForge": Netlify slug `thecourseforge.netlify.app` (prerender canonical/OG), repo dir, some internal ids. Product name is RocketCourse | 🔜 Open — migrate only where safe (not the live site slug / historical records) |
 | UX-1 | ✅ | Workspace | Experience side-rails lost sticky travel in the SPA (chrome scrolled away → overhang; async `host.show()` double-mounted a second stage that stole rail travel) | ✅ **Fixed** (`855492c`) — persistent measured chrome + cancellable `show()` |
@@ -127,36 +127,55 @@ rejected promise does **not** blank the screen; muted text resolves to
 `rgb(91,85,79)`; `#main-content` exists for the skip link; marketing routes still
 render.
 
-### PERF-2 — the remaining lever, and why it is not a code-split problem
+### PERF-2 — what landed, and the honest negative result
 
-Everything still on the critical path is gated behind one line:
-`src/App.tsx` imports `sampleProject`, and `courseGenerator.ts:2791` *executes*
-`generateCourseProject(...)` at module scope. No bundler can split that: the
-demo course, the generation engine, every content builder and the readiness /
-quality reports are all reachable from module evaluation.
+**Landed (owner decision, 2026-07-24):** a signed-in account with no saved
+courses now gets the dashboard's real *"No course projects yet"* empty state
+instead of the built-in demo course presented as their own work. The demo stays
+reachable from *Try the demo*. This is what this ledger's own rules ask for
+("keep demo content out of normal accounts", "genuine empty states for new
+users"). `src/services/sampleCourse.ts` now owns the demo course's identity
+(`SAMPLE_PROJECT_ID`, export mode, seed prompt) plus a memoised async
+`getSampleProject()`, and `App.tsx` no longer imports `courseGenerator` at all —
+its four remaining call sites `await import(...)`. 8 new tests assert the
+identity constants still equal the generated course (they are slug-derived, so
+a title change must fail loudly) and that `PLACEHOLDER_COURSE` has no field
+drift from a real one.
 
-Fixing it is **not** a bundler change — it is an App-state change with a product
-decision inside it, which is why it is filed rather than done:
+**Not achieved: the boot-time generation still runs.** Removing App's static
+import was necessary but *not sufficient*. Three other modules still import
+`courseGenerator` statically and are all eagerly reachable:
 
-1. `sampleProject` becomes memoized `getSampleProject()` (async), with the stable
-   id `course_ai-and-modern-society` exported as a plain constant so the ~6
-   identity comparisons in `App.tsx` never trigger generation.
-2. `enterDemo` awaits it. The editor is **never** a boot screen (`pathToScreen`
-   cannot return `"editor"`; it is only ever reached via `setScreen("editor")`),
-   so nothing renders a course at load.
-3. `projects` initial state stops being `[sampleProject]`. **This is the product
-   decision**: today a signed-in user with zero saved courses sees the
-   *AI and Modern Society* sample sitting in their dashboard. Removing it is what
-   this ledger's own rules ask for ("keep demo content out of normal accounts",
-   "genuine empty states for new users") and the real empty state already exists —
-   but it changes what an existing user sees, so it needs an owner's yes.
-4. `readiness`/`quality` `useMemo`s at `App.tsx:390-391` run unconditionally on
-   the boot course and statically pull `readiness.ts → themeDesign.ts →` all six
-   builders. They must be gated on the editor screen for the cluster to actually
-   leave.
+| Module | Needs | Reached eagerly via |
+| --- | --- | --- |
+| `services/courseTransforms.ts` | `applyThemeToGeneratedContent` | `App.tsx:148` + `TransformTab` |
+| `services/aiGeneration.ts` | `generateCourseProject` | `App.tsx:106` |
+| `services/contactHoursSummary.ts` | `HOURS_PER_CREDIT`, `makeContactHours` | `ContactHoursTab` (eager editor tab) |
 
-Expected: removes ~73 ms of blocking CPU from **every** page load plus the
-`rubricBuilder` (139.5 kB) and `syllabusTemplates` (93.5 kB) critical chunks.
+So `courseGenerator` stays in the entry chunk, its module body still evaluates
+at boot, and `export const sampleProject = generateCourseProject(...)` still
+costs ~73 ms on every page load. **Verified, not assumed:** the minified
+module-scope call is still in the built entry chunk —
+`pf=uf({prompt:\`Build me a 12-week undergraduate course…` — and the bundle
+totals moved only +1.8 kB (1608.9 → 1610.7 kB), i.e. no byte win either.
+
+**What it would actually take** (deliberately not attempted — this is the
+"structural gate" the analysis rated high-risk):
+
+1. `HOURS_PER_CREDIT` + `makeContactHours` extracted to a leaf module (small,
+   clean, no behaviour change) — frees `contactHoursSummary`.
+2. `courseTransforms` and `aiGeneration` to stop importing the generator
+   statically, which means their own consumers (`TransformTab`, the generation
+   handlers) must tolerate an async boundary.
+3. The 14 editor tabs `React.lazy`'d — they are already separate files, so this
+   is the same proven pattern used for admin/marketing, not a rewrite.
+4. `buildReadinessReport`/`buildCourseQualityReport`: the `useMemo`s at
+   `App.tsx:390-391` and `projectStore.ts:63` pull `readiness.ts → themeDesign.ts
+   → all six builders`, which is what keeps the still-critical `rubricBuilder`
+   (139.5 kB) and `syllabusTemplates` (93.5 kB) chunks on the critical path.
+   These must be gated or made async for that cluster to leave.
+
+Only after all four does the ~73 ms and the ~233 kB actually move.
 
 ## External blockers (precise owner action required)
 
@@ -187,3 +206,14 @@ from this environment without credentials; no result for them may be fabricated.
   0 vulnerabilities) and SEC-3 (.gitignore). Types/lint/build/870-tests all green.
   Next candidate batch: PERF-1 (route/vendor code-split) toward the Lighthouse
   gate, then NAME-1 safe rename.
+- **Pass 3** — PERF-1 code-split (6 commits): entry 1650.6 → 966.5 kB (−41.4%),
+  render-blocking CSS 322.7 → 268.3 kB, INITIAL gzip 515.8 → 427.5 kB (−17.1%).
+  Found + fixed BUILD-1 (config shadow), REL-1 (no ErrorBoundary), PERF-3
+  (no asset caching). A 26-agent adversarial pass then found six real defects the
+  split had introduced (SPLIT-1…6) — all fixed; every one had kept the suite
+  green. **PERF-2 attempted and only partly achieved**: the product decision
+  landed (real empty state for new accounts) and App no longer imports the
+  generator, but the boot-time generation still runs — three other eager modules
+  keep `courseGenerator` in the entry chunk. Recorded honestly above rather than
+  claimed. Next: either the 4-part structural gate in the PERF-2 detail, or the
+  `styles.css` carve-up (~185 kB editor-only CSS) with a screenshot-diff pass.
