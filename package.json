@@ -9,7 +9,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
     "typecheck": "tsc -b && tsc -p tsconfig.functions.json --noEmit",
-    "lint": "node scripts/lint.mjs"
+    "lint": "node scripts/lint.mjs",
+    "bundle:report": "node scripts/bundle-report.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
