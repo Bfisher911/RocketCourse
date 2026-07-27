@@ -87,51 +87,38 @@ describe("App smoke", () => {
     }
   }, 30000);
 
-  it("enters the demo course and renders the editor with its tabs", async () => {
+  // The three editor assertions share ONE demo entry on purpose. Each entry
+  // materializes the full demo course through the code-split generator (~450 ms
+  // plus jsdom overhead); doing it three times added enough parallel-fork CPU
+  // load to time out the heavy imscc XML suite. One entry, three assertions.
+  it("enters the demo, walks the inline editor screens, and shows readiness", async () => {
     const user = userEvent.setup();
+    // ?exp=original selects the classic tabbed editor; without it the demo opens
+    // in the default guided WORKFLOW experience, which has no tab bar at all.
+    window.history.pushState({}, "", "/?exp=original");
     render(<App />);
-    // Query by text content: these buttons pair an icon with a label, so their
+    // Query by text: these buttons pair an icon with a label, so their
     // accessible name is not a clean match.
     const byText = (re: RegExp): HTMLButtonElement => {
       const el = [...document.querySelectorAll("button")].find((b) => re.test((b.textContent || "").trim()));
       if (!el) throw new Error(`no button matching ${re}`);
       return el as HTMLButtonElement;
     };
-    await user.click(byText(/Try the demo/i));
-    await waitFor(() => expect(byText(/Explore on my own/i)).toBeInTheDocument(), { timeout: 5000 });
-    // enterDemo is async: it materializes the demo course from the code-split generator
-    await user.click(byText(/Explore on my own/i));
-    await waitFor(
-      () => {
-        // .tab-body (classic editor) or .rc-workflow-stage (workflow experience)
-        // only exist once a real course is loaded and the editor has mounted.
-        expect(document.querySelector(".tab-body, .rc-workflow-stage")).toBeInTheDocument();
-      },
-      { timeout: 30000 }
-    );
-    expect(document.body.textContent).toContain("AI and Modern Society");
-    expect(document.querySelector(".chunk-error")).not.toBeInTheDocument();
-  }, 60000);
 
-  it("walks the editor's tabs — covers the components about to be extracted", async () => {
-    const user = userEvent.setup();
-    // ?exp=original selects the classic tabbed editor; without it the demo opens
-    // in the default guided WORKFLOW experience, which has no tab bar at all.
-    window.history.pushState({}, "", "/?exp=original");
-    render(<App />);
-    const byText = (re: RegExp): HTMLButtonElement => {
-      const el = [...document.querySelectorAll("button")].find((b) => re.test((b.textContent || "").trim()));
-      if (!el) throw new Error(`no button matching ${re}`);
-      return el as HTMLButtonElement;
-    };
     await user.click(byText(/Try the demo/i));
     await waitFor(() => expect(byText(/Explore on my own/i)).toBeInTheDocument(), { timeout: 5000 });
+    // enterDemo is async: it materializes the demo course from the code-split
+    // generator. Wait for .tab-body — the demo INTRO copy already contains
+    // "AI and Modern Society", so waiting on that string resolves too early.
     await user.click(byText(/Explore on my own/i));
     await waitFor(() => expect(document.querySelector(".tab-body")).toBeInTheDocument(), { timeout: 30000 });
+    expect(document.body.textContent).toContain("AI and Modern Society");
 
-    // Reveal every section, then visit the tabs whose components still live
-    // inline in App.tsx (Modules, Theme -> ThemeTab/CustomThemeBuilder) plus a
-    // lazy one, asserting each renders real content and nothing throws.
+    // The readiness state chip comes from App's inline ReadinessPanel path.
+    expect(document.body.textContent).toMatch(/Ready|Review|Blocked/);
+
+    // Visit the tabs whose components still live inline in App.tsx (Modules,
+    // Theme -> ThemeTab/CustomThemeBuilder) plus a lazy one.
     await user.click(byText(/All sections/i));
     for (const tab of ["Modules", "Theme", "Overview"]) {
       await user.click(byText(new RegExp(`^${tab}$`)));
@@ -144,23 +131,6 @@ describe("App smoke", () => {
       );
       expect(document.querySelector(".chunk-error")).not.toBeInTheDocument();
     }
-  }, 60000);
-
-  it("renders the readiness panel inside the editor", async () => {
-    const user = userEvent.setup();
-    window.history.pushState({}, "", "/?exp=original");
-    render(<App />);
-    const byText = (re: RegExp): HTMLButtonElement => {
-      const el = [...document.querySelectorAll("button")].find((b) => re.test((b.textContent || "").trim()));
-      if (!el) throw new Error(`no button matching ${re}`);
-      return el as HTMLButtonElement;
-    };
-    await user.click(byText(/Try the demo/i));
-    await waitFor(() => expect(byText(/Explore on my own/i)).toBeInTheDocument(), { timeout: 5000 });
-    await user.click(byText(/Explore on my own/i));
-    await waitFor(() => expect(document.querySelector(".tab-body")).toBeInTheDocument(), { timeout: 30000 });
-    // The readiness chip is rendered by App's inline ReadinessPanel path.
-    expect(document.body.textContent).toMatch(/Ready|Review|Blocked/);
   }, 60000);
 });
 
