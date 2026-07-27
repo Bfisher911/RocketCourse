@@ -44,6 +44,8 @@ import { aiGenerateDiscussionPrompt } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import { RockContentToolbox } from "./RockContentToolbox";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 type RubricFilter = "all" | "with-rubric" | "without-rubric";

@@ -3,6 +3,8 @@ import { ArrowRight, Palette, ShieldCheck, Sparkles, Wand2 } from "lucide-react"
 import type { CourseProject } from "../types";
 import { themes as builtInThemes } from "../data/themes";
 import { makeCourseExportReady, polishCourse, restyleCourse, type TransformResult } from "../services/courseTransforms";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 

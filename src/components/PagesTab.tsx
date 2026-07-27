@@ -47,6 +47,8 @@ import { aiGeneratePageBody } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import { RockContentToolbox } from "./RockContentToolbox";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 type PageFilter = "all" | "module" | "front-page" | "draft" | "instructor-only" | "warnings";

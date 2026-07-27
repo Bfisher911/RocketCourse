@@ -44,6 +44,8 @@ import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import { RockContentToolbox } from "./RockContentToolbox";
 import type { Assignment, CourseProject, ObjectMetadata, PublishState } from "../types";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 

@@ -25,6 +25,8 @@ import {
   updateAssignmentGroup,
   type GradedItemType
 } from "../services/gradebookSummary";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 

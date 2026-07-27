@@ -228,4 +228,14 @@ from this environment without credentials; no result for them may be fabricated.
   full no-AI course generation with no demo-topic leak. PERF-1 and PERF-2 now
   both closed; remaining perf work is the `styles.css` carve-up (~185 kB
   editor-only CSS) and the Lighthouse run, which needs BLK-1.
+- **Pass 5** — First cut into `styles.css` itself. Rather than trusting the
+  audit's ~185 kB line-range estimate, each candidate section's class names were
+  checked against the components that reference them; five sections
+  (Assignments, Discussions, Rubrics, Overview + Gradebook command centers,
+  47.6 kB) proved to be referenced *only* by lazily-loaded tabs and moved to
+  `src/styles.editor-tabs.css`. Five more (Pages, Quizzes, Export, Export
+  command center, Contact hours) are **still referenced by eager code**
+  (`App.tsx`'s inline components, `contentBlocks`, `RockContentToolbox`) and were
+  deliberately left behind — moving them would need the inline-screen extraction
+  first. Render-blocking CSS 268.3 → 231.2 kB (43.7 → 39.9 kB gz).
 

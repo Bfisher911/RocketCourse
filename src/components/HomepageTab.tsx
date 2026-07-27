@@ -43,6 +43,8 @@ import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import { ReadinessRing } from "./ReadinessRing";
 import { RockContentToolbox } from "./RockContentToolbox";
 import type { CourseProject, HomepageContent, HomepageLink, HomepageSnapshot, HomepageState } from "../types";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 type DeviceMode = "desktop" | "tablet" | "mobile";

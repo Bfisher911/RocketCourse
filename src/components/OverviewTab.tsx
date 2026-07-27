@@ -38,6 +38,8 @@ import { getOutcomeFramework } from "../services/outcomeFrameworks";
 import { aiGenerateCourseOverview } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
 import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 
