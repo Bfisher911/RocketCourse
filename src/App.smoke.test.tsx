@@ -103,11 +103,64 @@ describe("App smoke", () => {
     await user.click(byText(/Explore on my own/i));
     await waitFor(
       () => {
-        expect(document.body.textContent).toContain("AI and Modern Society");
+        // .tab-body (classic editor) or .rc-workflow-stage (workflow experience)
+        // only exist once a real course is loaded and the editor has mounted.
+        expect(document.querySelector(".tab-body, .rc-workflow-stage")).toBeInTheDocument();
       },
-      { timeout: 20000 }
+      { timeout: 30000 }
     );
+    expect(document.body.textContent).toContain("AI and Modern Society");
     expect(document.querySelector(".chunk-error")).not.toBeInTheDocument();
-  }, 40000);
+  }, 60000);
+
+  it("walks the editor's tabs — covers the components about to be extracted", async () => {
+    const user = userEvent.setup();
+    // ?exp=original selects the classic tabbed editor; without it the demo opens
+    // in the default guided WORKFLOW experience, which has no tab bar at all.
+    window.history.pushState({}, "", "/?exp=original");
+    render(<App />);
+    const byText = (re: RegExp): HTMLButtonElement => {
+      const el = [...document.querySelectorAll("button")].find((b) => re.test((b.textContent || "").trim()));
+      if (!el) throw new Error(`no button matching ${re}`);
+      return el as HTMLButtonElement;
+    };
+    await user.click(byText(/Try the demo/i));
+    await waitFor(() => expect(byText(/Explore on my own/i)).toBeInTheDocument(), { timeout: 5000 });
+    await user.click(byText(/Explore on my own/i));
+    await waitFor(() => expect(document.querySelector(".tab-body")).toBeInTheDocument(), { timeout: 30000 });
+
+    // Reveal every section, then visit the tabs whose components still live
+    // inline in App.tsx (Modules, Theme -> ThemeTab/CustomThemeBuilder) plus a
+    // lazy one, asserting each renders real content and nothing throws.
+    await user.click(byText(/All sections/i));
+    for (const tab of ["Modules", "Theme", "Overview"]) {
+      await user.click(byText(new RegExp(`^${tab}$`)));
+      await waitFor(
+        () => {
+          expect(document.querySelector(".screen-skeleton")).not.toBeInTheDocument();
+          expect(document.querySelector(".tab-body")!.textContent!.length).toBeGreaterThan(120);
+        },
+        { timeout: 10000 }
+      );
+      expect(document.querySelector(".chunk-error")).not.toBeInTheDocument();
+    }
+  }, 60000);
+
+  it("renders the readiness panel inside the editor", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/?exp=original");
+    render(<App />);
+    const byText = (re: RegExp): HTMLButtonElement => {
+      const el = [...document.querySelectorAll("button")].find((b) => re.test((b.textContent || "").trim()));
+      if (!el) throw new Error(`no button matching ${re}`);
+      return el as HTMLButtonElement;
+    };
+    await user.click(byText(/Try the demo/i));
+    await waitFor(() => expect(byText(/Explore on my own/i)).toBeInTheDocument(), { timeout: 5000 });
+    await user.click(byText(/Explore on my own/i));
+    await waitFor(() => expect(document.querySelector(".tab-body")).toBeInTheDocument(), { timeout: 30000 });
+    // The readiness chip is rendered by App's inline ReadinessPanel path.
+    expect(document.body.textContent).toMatch(/Ready|Review|Blocked/);
+  }, 60000);
 });
 
