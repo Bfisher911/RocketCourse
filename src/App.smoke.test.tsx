@@ -132,5 +132,20 @@ describe("App smoke", () => {
       expect(document.querySelector(".chunk-error")).not.toBeInTheDocument();
     }
   }, 60000);
+
+  it("sets the document title and canonical for the screen being navigated TO", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    // Regression guard for a real SEO bug: applySeo() resolves its route from
+    // window.location.pathname first, so calling it BEFORE history.pushState
+    // tagged every page with the PREVIOUS screen's title/canonical/OG — one
+    // navigation behind, on every client-side navigation.
+    for (const [label, expected] of [["Guides", /Guides/i], ["About", /About/i], ["Contact", /Contact/i]] as const) {
+      await user.click(screen.getAllByRole("button", { name: new RegExp(`^${label}$`) })[0]);
+      await waitFor(() => expect(document.title).toMatch(expected), { timeout: 8000 });
+      const canonical = document.querySelector("link[rel=canonical]")?.getAttribute("href") ?? "";
+      expect(canonical.endsWith(window.location.pathname)).toBe(true);
+    }
+  }, 30000);
 });
 

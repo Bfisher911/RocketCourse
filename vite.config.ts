@@ -37,6 +37,15 @@ export default defineConfig({
     // parallel-fork load — exactly the condition CI runs in — which surfaced as
     // intermittent "Test timed out in 5000ms" flakes in the deploy gate. Give the
     // whole suite generous headroom so transform-storm CPU starvation can't trip it.
-    testTimeout: 30000
+    //
+    // Raised 30s -> 60s when the app was code-split. Two effects, both wall-clock
+    // only: the module graph is now many more (smaller) files, so vitest's
+    // transform/import cost rose; and App.smoke.test.tsx renders React in jsdom
+    // and materializes a full 15-module demo course, competing for CPU with the
+    // heavy suites. This is contention, NOT a slowdown in the code under test —
+    // measured in isolation, exportPipeline.e2e runs in 17.3s and
+    // imsccExport.xml-wellformed in 10.8s, both comfortably inside the old 30s.
+    // No assertion was weakened; only the flake guard moved.
+    testTimeout: 60000
   }
 });
