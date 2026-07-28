@@ -46,6 +46,8 @@ not fake controls.
 | REL-1 | P1 | Reliability | **No ErrorBoundary anywhere in `src/`**. With netlify's `/* → /index.html 200` catch-all, a chunk missing after a deploy returns HTML with status 200 → dynamic import parse-error → React unmounts the whole tree = **blank white page** | ✅ **Fixed** (`b4dc386`) — `ChunkErrorBoundary` around `<App/>`, detects chunk failures across Chrome/Safari/Firefox message shapes, leads with a reload action; 4 unit tests |
 | PERF-3 | P2 | Caching | No header matched `/assets/*`, so content-hashed chunks revalidated every load — which would cancel out splitting | ✅ **Fixed** (`b4dc386`) — immutable 1-year `Cache-Control`. Verified all 42 emitted asset files are content-hashed and that `index.html`/favicons/`robots.txt` sit outside `/assets/` and stay revalidated |
 | PERF-2 | P2 | Performance | **`sampleProject` was generated at module-evaluation time** (`courseGenerator.ts:2791`), so every visitor — including on the marketing landing page — synchronously built a **2.03 MB** demo course (~**73 ms** warm) before React rendered, and that pinned the whole generation + readiness cluster into the initial payload | ✅ **Fixed** — the four-part structural gate landed. Entry **968.2 → 652.0 kB**; INITIAL **1610.7 → 1134.3 kB** raw / **428.0 → 295.8 kB** gzip. `rubricBuilder` (139.5 kB) and `syllabusTemplates` (93.5 kB) left the critical path entirely. Verified decisively: the demo seed prompt `12-week undergraduate course` now appears **0×** in the built entry chunk (was 1×) |
+| SEO-1 | P2 | SEO correctness | **Pre-existing**: the screen effect called `applySeo(screen)` **before** `history.pushState`, and `applySeo` resolves its route from `window.location.pathname` first — so every client-side navigation tagged the page with the **previous** screen's title, canonical and OG data | ✅ **Fixed** — URL now moves first. Verified live: title *and* canonical match the path on all four marketing routes (previously all but the first were wrong). Regression test in `App.smoke.test.tsx` |
+| SPLIT-7 | P1 | Reliability | Once every screen became lazy, `setScreen()` from a click handler was a **synchronous** update that suspends — React refuses, warns *"A component suspended while responding to synchronous input"*, and replaces the whole UI with the fallback | ✅ **Fixed** — the setter (not all 41 call sites) is wrapped in `startTransition`, the documented fix; React now keeps the current screen visible until the next chunk arrives instead of flashing a skeleton |
 | MAINT-1 | P3 | Maintainability | Build warns: `supabaseClient.ts` dynamically imported by `openaiClient.ts` but statically elsewhere → dynamic import ineffective | 🔜 Open — **downgraded**: `@supabase/supabase-js` is *already* split (196.6 kB `dist-*.js`), so the warning names only the 1.6 kB local wrapper. Worth ~1 kB, not 201 kB |
 | NAME-1 | P3 | Naming | Legacy "CourseForge": Netlify slug `thecourseforge.netlify.app` (prerender canonical/OG), repo dir, some internal ids. Product name is RocketCourse | 🔜 Open — migrate only where safe (not the live site slug / historical records) |
 | UX-1 | ✅ | Workspace | Experience side-rails lost sticky travel in the SPA (chrome scrolled away → overhang; async `host.show()` double-mounted a second stage that stole rail travel) | ✅ **Fixed** (`855492c`) — persistent measured chrome + cancellable `show()` |
@@ -238,4 +240,14 @@ from this environment without credentials; no result for them may be fabricated.
   (`App.tsx`'s inline components, `contentBlocks`, `RockContentToolbox`) and were
   deliberately left behind — moving them would need the inline-screen extraction
   first. Render-blocking CSS 268.3 → 231.2 kB (43.7 → 39.9 kB gz).
+- **Pass 5** — Inline-screen extraction, with a real React test harness landed
+  first (@testing-library; the repo previously had ZERO rendering tests, so all
+  885 logic tests would have stayed green through a total UI break). App.tsx
+  **4575 → 1993 lines (−56%)**: form primitives, ModulesTab/ThemeTab/
+  ReadinessPanel, and Editor/Intake/Dashboard/BlueprintReview/Progress/
+  WelcomeSummary all extracted and lazy-loaded (Landing stays eager). INITIAL
+  **1023.8 kB raw / 276.6 kB gzip** — vs the 1971.8 / 515.8 baseline, that is
+  **−48% raw, −46% gzip**. The harness paid for itself immediately, catching a
+  test-isolation bug, a false-positive assertion, the synchronous-suspend defect
+  (SPLIT-7) and a pre-existing SEO bug (SEO-1). 891 tests green.
 
