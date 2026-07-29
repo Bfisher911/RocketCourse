@@ -222,6 +222,42 @@ signed-out session could not exercise authenticated Supabase calls, Stripe
 checkout redirect, or image generation. Recommend promoting after one signed-in
 pass over those three.
 
+## Migration + RLS verification (2026-07-28)
+
+Run against a **local** stack (`supabase start` + `supabase db reset`) — no
+credentials, no remote project, nothing touched outside this machine. Local ports
+were remapped to 554xx in `supabase/config.toml` so an already-running Supabase
+project on the default ports was left alone.
+
+| Check | Result |
+| --- | --- |
+| **All 17 migrations apply to an empty DB** | ✅ clean; only benign `does not exist, skipping` notices from idempotent guards |
+| Resulting schema | ✅ **29 tables**, and **every one has RLS enabled** (queried from `pg_class.relrowsecurity`, not inferred from SQL) |
+| Policy count | ✅ 50 policies; no table is RLS-on-but-policy-less (which would be silently deny-all) |
+| **Cross-user read** | ✅ Alice sees exactly 1 row (her own), **0** of Bob's |
+| **Cross-user write** | ✅ Alice's `UPDATE` and `DELETE` of Bob's row both affect **0 rows**; superuser ground truth confirms Bob's row unmodified |
+| **Cross-workspace read** | ✅ non-member Bob sees **0** of Alice's workspaces and **0** member rows |
+| **Privilege escalation** | ✅ Bob inserting himself as workspace `admin` is **rejected by RLS** |
+| Not over-restrictive | ✅ owner Alice still sees her own workspace |
+
+Captured as a re-runnable test: **`supabase/tests/rls_isolation.sql`**. Every
+assertion `RAISE EXCEPTION`s on failure.
+
+**The test was proved to have teeth**, not just to pass: disabling RLS on
+`course_projects` makes it fail with `RLS LEAK: Alice can see 1 of Bob's course
+rows`, and re-enabling restores the pass.
+
+**A trap worth recording:** `set local role` / `set local request.jwt.claims`
+only apply inside a transaction. Outside one Postgres emits a WARNING and the
+statements run as **superuser, which bypasses RLS entirely** — an early version of
+this test did that and appeared to show total isolation failure. The committed
+test keeps every impersonation inside `BEGIN/COMMIT`, and says so in a comment.
+
+**Static analysis agreed:** 26 policies scope directly on `auth.uid()`/`owner_id`/
+`user_id`; 23 scope via `SECURITY DEFINER` helpers (`is_workspace_admin`,
+`can_edit_workspace`, `is_super_admin`); the one unconditional `using (true)` is
+the intentional public `plans` pricing catalog.
+
 ## External blockers (precise owner action required)
 
 These gate several completion criteria in the mandate. None can be satisfied
@@ -231,7 +267,7 @@ from this environment without credentials; no result for them may be fabricated.
 | --- | --- | --- |
 | BLK-1 | ~~Netlify preview deploy + deployed smoke tests~~ | ✅ **RESOLVED 2026-07-28.** Draft deployed to `https://6a6954d6940b29e8f2b07f72--thecourseforge.netlify.app` (production URL untouched). See "Preview verification" below. |
 | BLK-2 | Live-AI smoke tests / generation quality on real model | Provide a budgeted, test-scoped `OPENAI_API_KEY` in a non-CI environment. Deterministic fixture + schema-contract tests already run without it; CI must not depend on a live model. |
-| BLK-3 | Migrations apply + RLS cross-user/-org isolation tests | Provide a throwaway Supabase project (URL + service-role key). 10 migrations exist under `supabase/migrations/`; application + RLS isolation are unverified here. |
+| BLK-3 | ~~Migrations apply + RLS cross-user/-org isolation tests~~ | ✅ **RESOLVED 2026-07-28** — verified against a local Postgres via `supabase start` + `supabase db reset`, needing **no credentials at all**. See "Migration + RLS verification" below. |
 | BLK-4 | Stripe billing end-to-end | Provide **test-mode** Stripe keys + a test product catalog (current config is live-mode). Entitlement is already read-only from trusted server state. |
 | BLK-5 | Real Canvas import verification / "Canvas-ready" claim | Import a generated `.imscc` into a Canvas sandbox and inspect objects. Until then the UI correctly says "Canvas IMSCC export" / "locally validated", never "Canvas-ready". |
 | BLK-6 | Lighthouse Perf ≥90 / A11y ≥95 / Best-Practices ≥95 | Run Lighthouse against a production-like deploy (depends on BLK-1). Local a11y is checked via in-browser contrast/keyboard passes; PERF-1 is the main perf lever. |
