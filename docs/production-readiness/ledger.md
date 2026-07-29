@@ -259,6 +259,39 @@ test keeps every impersonation inside `BEGIN/COMMIT`, and says so in a comment.
 `can_edit_workspace`, `is_super_admin`); the one unconditional `using (true)` is
 the intentional public `plans` pricing catalog.
 
+## Stripe test-mode verification (2026-07-28)
+
+Endpoint: `https://stripe-test--thecourseforge.netlify.app` — deployed to a
+**stable alias** on purpose, because draft deploys get a fresh URL every time and
+a webhook endpoint pinned to one goes stale on the next deploy.
+
+| Check | Result |
+| --- | --- |
+| Products/prices in test mode | ✅ 6 plans, every price `livemode=false` |
+| `rocketcourse_premium` | ✅ **created** — it was the one plan missing from Stripe, matching BILL-1 (also missing from `.env.example`). Added at $25/month |
+| `STRIPE_PRICE_*` env vars | ✅ all 6 set via `netlify env:set` (price IDs are public identifiers, not secrets) |
+| Webhook endpoint | ✅ `we_1TyOVS…`, test mode, 6 events, pointed at the stable alias |
+| Forged signature | ✅ rejected, HTTP 400 |
+| **Genuine Stripe-signed event** | ✅ **`pending_webhooks=0`** — the deployed function returned 2xx |
+
+**Isolating the result.** Two endpoints are registered on this account and both
+live on the same Netlify site, so they share one `STRIPE_WEBHOOK_SECRET` — but
+each Stripe endpoint has its *own* signing secret, so only the matching one can
+verify. With both enabled a trigger left `pending_webhooks=1`; temporarily
+disabling the older production endpoint and re-triggering gave **0**, proving the
+success belonged to ours. The older endpoint was re-enabled immediately after.
+
+**Safety.** Every configured price is `livemode=false`, and Stripe refuses to mix
+a live key with test-mode prices — so a live `STRIPE_SECRET_KEY` would *error*
+rather than silently charge a card. Note `netlify env:get` returns "No value" for
+these: they are stored as Netlify **secret** vars (write-only), so the prefix
+check in the setup guide cannot actually read them. Runtime behaviour is the
+usable signal — a missing key throws 500, a present one gives 400 on a bad signature.
+
+**Not covered:** a browser checkout requires a signed-in session, which the agent
+cannot create (entering passwords is out of scope). The Supabase entitlement write
+also lands in the *production* project, which was not inspected.
+
 ## External blockers (precise owner action required)
 
 These gate several completion criteria in the mandate. None can be satisfied
@@ -269,7 +302,7 @@ from this environment without credentials; no result for them may be fabricated.
 | BLK-1 | ~~Netlify preview deploy + deployed smoke tests~~ | ✅ **RESOLVED 2026-07-28.** Draft deployed to `https://6a6954d6940b29e8f2b07f72--thecourseforge.netlify.app` (production URL untouched). See "Preview verification" below. |
 | BLK-2 | Live-AI smoke tests / generation quality on real model | Provide a budgeted, test-scoped `OPENAI_API_KEY` in a non-CI environment. Deterministic fixture + schema-contract tests already run without it; CI must not depend on a live model. |
 | BLK-3 | ~~Migrations apply + RLS cross-user/-org isolation tests~~ | ✅ **RESOLVED 2026-07-28** — verified against a local Postgres via `supabase start` + `supabase db reset`, needing **no credentials at all**. See "Migration + RLS verification" below. |
-| BLK-4 | Stripe billing end-to-end | 🟡 **Partly closed.** The webhook's *security contract* is now proven WITHOUT credentials (8 tests, `netlify/functions/stripe-webhook.security.test.ts`): forged, wrong-secret, tampered-payload and replayed events are all rejected; a genuine signature is accepted; and an unset `STRIPE_WEBHOOK_SECRET` fails **closed** (503). Still needs **test-mode keys + a test catalog** to exercise a real checkout → webhook → entitlement round trip. |
+| BLK-4 | Stripe billing end-to-end | 🟢 **Largely closed 2026-07-28.** Webhook *security contract* proven by 8 credential-free tests. Test-mode config now complete: 6 products/prices (`livemode=false`) + 6 `STRIPE_PRICE_*` vars set. **Live round trip verified** — `stripe trigger checkout.session.completed` delivered a genuine Stripe-signed event to the deployed function and Stripe reported `pending_webhooks=0`, i.e. a 2xx. Remaining: a browser checkout needs a signed-in session (agent cannot authenticate), and the Supabase entitlement write lands in the *production* project so it was not inspected here. |
 | BLK-5 | Real Canvas import verification / "Canvas-ready" claim | Import a generated `.imscc` into a Canvas sandbox and inspect objects. Until then the UI correctly says "Canvas IMSCC export" / "locally validated", never "Canvas-ready". |
 | BLK-6 | Lighthouse Perf ≥90 / A11y ≥95 / Best-Practices ≥95 | Run Lighthouse against a production-like deploy (depends on BLK-1). Local a11y is checked via in-browser contrast/keyboard passes; PERF-1 is the main perf lever. |
 
