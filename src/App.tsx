@@ -177,7 +177,7 @@ import { buildCourseQualityReport } from "./services/courseQuality";
 // the call site. See the `type` imports kept below for signatures only (erased
 // at build time, so they cost nothing).
 import type { FullFillProgress } from "./services/fullCourseContent";
-import { augmentPromptWithSources } from "./services/sourceParsing";
+import { augmentPromptWithSources, parseSourceFile } from "./services/sourceParsing";
 import {
   duplicateModuleWithContent,
   getModuleItemTarget,
@@ -735,7 +735,6 @@ function App() {
 
     await Promise.all(
       stamped.map(async ({ file, id, sizeLabel }) => {
-        const { parseSourceFile } = await import("./services/sourceParsing");
         const parsed = await parseSourceFile(file);
         const updated: SourceFile = {
           id,

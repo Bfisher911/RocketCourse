@@ -48,6 +48,7 @@ not fake controls.
 | PERF-2 | P2 | Performance | **`sampleProject` was generated at module-evaluation time** (`courseGenerator.ts:2791`), so every visitor — including on the marketing landing page — synchronously built a **2.03 MB** demo course (~**73 ms** warm) before React rendered, and that pinned the whole generation + readiness cluster into the initial payload | ✅ **Fixed** — the four-part structural gate landed. Entry **968.2 → 652.0 kB**; INITIAL **1610.7 → 1134.3 kB** raw / **428.0 → 295.8 kB** gzip. `rubricBuilder` (139.5 kB) and `syllabusTemplates` (93.5 kB) left the critical path entirely. Verified decisively: the demo seed prompt `12-week undergraduate course` now appears **0×** in the built entry chunk (was 1×) |
 | SEO-1 | P2 | SEO correctness | **Pre-existing**: the screen effect called `applySeo(screen)` **before** `history.pushState`, and `applySeo` resolves its route from `window.location.pathname` first — so every client-side navigation tagged the page with the **previous** screen's title, canonical and OG data | ✅ **Fixed** — URL now moves first. Verified live: title *and* canonical match the path on all four marketing routes (previously all but the first were wrong). Regression test in `App.smoke.test.tsx` |
 | SPLIT-7 | P1 | Reliability | Once every screen became lazy, `setScreen()` from a click handler was a **synchronous** update that suspends — React refuses, warns *"A component suspended while responding to synchronous input"*, and replaces the whole UI with the fallback | ✅ **Fixed** — the setter (not all 41 call sites) is wrapped in `startTransition`, the documented fix; React now keeps the current screen visible until the next chunk arrives instead of flashing a skeleton |
+| MAINT-2 | P3 | Build hygiene | Build warned `INEFFECTIVE_DYNAMIC_IMPORT`: `sourceParsing.ts` was `await import()`ed in App while also statically imported there and by IntakeScreen (for the sync `augmentPromptWithSources`) — so it deferred nothing | ✅ **Fixed** — call site uses the static import. JSZip (the real weight) stays deferred inside `docxToText`; verified **0 refs** in the entry chunk and the build now emits **zero warnings** |
 | MAINT-1 | P3 | Maintainability | Build warns: `supabaseClient.ts` dynamically imported by `openaiClient.ts` but statically elsewhere → dynamic import ineffective | 🔜 Open — **downgraded**: `@supabase/supabase-js` is *already* split (196.6 kB `dist-*.js`), so the warning names only the 1.6 kB local wrapper. Worth ~1 kB, not 201 kB |
 | NAME-1 | P3 | Naming | Legacy "CourseForge": Netlify slug `thecourseforge.netlify.app` (prerender canonical/OG), repo dir, some internal ids. Product name is RocketCourse | 🔜 Open — migrate only where safe (not the live site slug / historical records) |
 | UX-1 | ✅ | Workspace | Experience side-rails lost sticky travel in the SPA (chrome scrolled away → overhang; async `host.show()` double-mounted a second stage that stole rail travel) | ✅ **Fixed** (`855492c`) — persistent measured chrome + cancellable `show()` |
@@ -250,4 +251,11 @@ from this environment without credentials; no result for them may be fabricated.
   **−48% raw, −46% gzip**. The harness paid for itself immediately, catching a
   test-isolation bug, a false-positive assertion, the synchronous-suspend defect
   (SPLIT-7) and a pre-existing SEO bug (SEO-1). 891 tests green.
+- **Pass 6** — Second full production audit (`PROD_AUDIT.md`). **PASS, 0 P0 / 0 P1.**
+  Security clean (no secrets, no tracked env, `.gitignore` complete, no RLS
+  disables, **0 npm vulnerabilities** — the pass-2 advisory fixes have not
+  regressed). Typecheck 0 errors, lint clean, build green with **zero warnings**
+  (the old 1.69 MB chunk-size warning is gone), 891 tests passing. Found and
+  fixed MAINT-2. Remaining local item is the `styles.css` carve-up; everything
+  else is gated on BLK-1…BLK-6.
 
