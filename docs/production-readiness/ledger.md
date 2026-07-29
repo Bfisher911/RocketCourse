@@ -48,6 +48,7 @@ not fake controls.
 | PERF-2 | P2 | Performance | **`sampleProject` was generated at module-evaluation time** (`courseGenerator.ts:2791`), so every visitor — including on the marketing landing page — synchronously built a **2.03 MB** demo course (~**73 ms** warm) before React rendered, and that pinned the whole generation + readiness cluster into the initial payload | ✅ **Fixed** — the four-part structural gate landed. Entry **968.2 → 652.0 kB**; INITIAL **1610.7 → 1134.3 kB** raw / **428.0 → 295.8 kB** gzip. `rubricBuilder` (139.5 kB) and `syllabusTemplates` (93.5 kB) left the critical path entirely. Verified decisively: the demo seed prompt `12-week undergraduate course` now appears **0×** in the built entry chunk (was 1×) |
 | SEO-1 | P2 | SEO correctness | **Pre-existing**: the screen effect called `applySeo(screen)` **before** `history.pushState`, and `applySeo` resolves its route from `window.location.pathname` first — so every client-side navigation tagged the page with the **previous** screen's title, canonical and OG data | ✅ **Fixed** — URL now moves first. Verified live: title *and* canonical match the path on all four marketing routes (previously all but the first were wrong). Regression test in `App.smoke.test.tsx` |
 | SPLIT-7 | P1 | Reliability | Once every screen became lazy, `setScreen()` from a click handler was a **synchronous** update that suspends — React refuses, warns *"A component suspended while responding to synchronous input"*, and replaces the whole UI with the fallback | ✅ **Fixed** — the setter (not all 41 call sites) is wrapped in `startTransition`, the documented fix; React now keeps the current screen visible until the next chunk arrives instead of flashing a skeleton |
+| CACHE-1 | P3 | Caching | Preview verification showed the `/assets/* → 404` response **also** carries `cache-control: public,max-age=31536000,immutable`, because Netlify header rules match on request path and cannot vary by status. A browser may therefore cache a 404 for a year under a hashed asset URL | 🔜 **Open, documented.** Strictly better than the HTML-200 it replaced (which would be parsed as JS). Only bites if a rollback restores a byte-identical content hash whose URL a client already 404-cached; recoverable with a hard reload. Netlify offers no status-conditional header rule, so the alternatives are worse |
 | MAINT-2 | P3 | Build hygiene | Build warned `INEFFECTIVE_DYNAMIC_IMPORT`: `sourceParsing.ts` was `await import()`ed in App while also statically imported there and by IntakeScreen (for the sync `augmentPromptWithSources`) — so it deferred nothing | ✅ **Fixed** — call site uses the static import. JSZip (the real weight) stays deferred inside `docxToText`; verified **0 refs** in the entry chunk and the build now emits **zero warnings** |
 | MAINT-1 | P3 | Maintainability | Build warns: `supabaseClient.ts` dynamically imported by `openaiClient.ts` but statically elsewhere → dynamic import ineffective | 🔜 Open — **downgraded**: `@supabase/supabase-js` is *already* split (196.6 kB `dist-*.js`), so the warning names only the 1.6 kB local wrapper. Worth ~1 kB, not 201 kB |
 | NAME-1 | P3 | Naming | Legacy "CourseForge": Netlify slug `thecourseforge.netlify.app` (prerender canonical/OG), repo dir, some internal ids. Product name is RocketCourse | 🔜 Open — migrate only where safe (not the live site slug / historical records) |
@@ -113,7 +114,7 @@ all of them**, because the 100 test files are pure logic.
 | SPLIT-1 | P2 | Eight code-split download handlers (`downloadCoursePdf`, `downloadSyllabusPdf`, both QTI, four quiz PDFs) had a bare `await import(...)` with no `catch`. Their `() => void` prop signatures discard the promise, and an error boundary only sees **render-phase** errors — so a chunk failure was a permanently dead button with no message anywhere (a failed module fetch is cached as errored, so retries re-reject). | `withDownloadErrors()` wrapper reports via `setExportError`, which ExportTab already renders **plus** a global `unhandledrejection` listener in `main.tsx` that routes chunk failures to the boundary's reload prompt — covering *all* call-site `await import()`, which `React.lazy` coverage alone misses |
 | SPLIT-2 | P2 | `.imscc` intake import: chunk failure silently no-oped the upload zone (no row, no error) | `.catch()` that surfaces a real message |
 | SPLIT-3 | P2 | `fillFullCourseContent`'s chunk import sat **above** its `try`, so a failure skipped the catch *and* `blocks.js` still fired a green "Full content marked generated" toast — reporting success for content never generated | Import moved inside the `try` |
-| SPLIT-4 | P2 | `/assets/*` immutable caching + the `/*  →  /index.html 200` catch-all meant a missing chunk returned **HTML with status 200**, which would then be cached for a year under a `.js` URL | Added a `/assets/* → 404` redirect ahead of the catch-all so missing assets fail honestly. ⚠️ **Verify on the preview (BLK-1)** — Netlify redirect/header interaction cannot be exercised locally |
+| SPLIT-4 | P2 | `/assets/*` immutable caching + the `/*  →  /index.html 200` catch-all meant a missing chunk returned **HTML with status 200**, which would then be cached for a year under a `.js` URL | Added a `/assets/* → 404` redirect ahead of the catch-all so missing assets fail honestly. ✅ **Verified on the preview**: a missing chunk returns **HTTP 404**, not an HTML 200. See CACHE-1 for a residual nuance |
 | SPLIT-5 | P3 | `ScreenSkeleton` used `<main role="status">`, which **replaces** the main landmark and has no `id="main-content"` — the always-rendered skip link pointed at nothing while any lazy screen loaded | `<main id="main-content">` with the live region as a child |
 | SPLIT-6 | P3 | New CSS used `var(--ink-3)` / `var(--ink-2)`, which are defined **only** in the prototype-scoped `[data-rc-ds]` sheet, not the app's `:root` — muted text rendered at full ink. (Also fixed the same bug in the dashboard "Open in" label from `6cf795e`.) | Use the app's `--muted` token |
 
@@ -182,6 +183,32 @@ would stay green through a total UI break:
   holds through the split;
 - demo entry, experience switching and the export/validate path all still work.
 
+## Preview verification (2026-07-28)
+
+Draft deploy: `https://6a6954d6940b29e8f2b07f72--thecourseforge.netlify.app`
+(`netlify deploy --build`, **no** `--prod` — the production URL was not touched.)
+
+Everything below could only be checked on a real deploy:
+
+| Check | Result |
+| --- | --- |
+| All 7 security headers on `/*` | ✅ live and correct |
+| `index.html` caching | ✅ `max-age=0, must-revalidate` (deploys picked up immediately) |
+| Real asset caching | ✅ `max-age=31536000, immutable`, `content-type: application/javascript` |
+| **Missing chunk** (SPLIT-4) | ✅ **HTTP 404** — not an HTML 200. See CACHE-1 for the residual nuance |
+| 8 prerendered SEO routes | ✅ all 200 after trailing-slash 301, each with its own `<title>` + canonical |
+| SPA deep-link refresh | ✅ `/app`, `/dashboard`, `/login`, `/app?exp=course-map` all 200 |
+| Netlify functions | ✅ all 15 deployed; `openai`/`contact`/`generate-blueprint`/`stripe-webhook` return 405 to GET (running, correctly rejecting) |
+| `robots.txt` / `sitemap.xml` | ✅ 200 / 200 with 19 URLs |
+| **CSP violations** | ✅ **zero** across landing, Pricing, Guides, About, Demo, and the full editor |
+| Editor on the deploy | ✅ demo course loads at `/app`, chrome renders, no error boundary, no stuck skeleton |
+
+**CSP promotion.** Report-Only produced **zero** violations on every path exercised.
+That is the evidence needed to promote it to enforcing — with the caveat that the
+signed-out session could not exercise authenticated Supabase calls, Stripe
+checkout redirect, or image generation. Recommend promoting after one signed-in
+pass over those three.
+
 ## External blockers (precise owner action required)
 
 These gate several completion criteria in the mandate. None can be satisfied
@@ -189,7 +216,7 @@ from this environment without credentials; no result for them may be fabricated.
 
 | ID | Blocks | Smallest owner action |
 | --- | --- | --- |
-| BLK-1 | Netlify preview deploy + deployed smoke tests | Authorize Netlify CLI (or link the existing `thecourseforge` site) and provide preview-safe env vars; then `netlify deploy --build` (draft/branch, **no** `--prod`). |
+| BLK-1 | ~~Netlify preview deploy + deployed smoke tests~~ | ✅ **RESOLVED 2026-07-28.** Draft deployed to `https://6a6954d6940b29e8f2b07f72--thecourseforge.netlify.app` (production URL untouched). See "Preview verification" below. |
 | BLK-2 | Live-AI smoke tests / generation quality on real model | Provide a budgeted, test-scoped `OPENAI_API_KEY` in a non-CI environment. Deterministic fixture + schema-contract tests already run without it; CI must not depend on a live model. |
 | BLK-3 | Migrations apply + RLS cross-user/-org isolation tests | Provide a throwaway Supabase project (URL + service-role key). 10 migrations exist under `supabase/migrations/`; application + RLS isolation are unverified here. |
 | BLK-4 | Stripe billing end-to-end | Provide **test-mode** Stripe keys + a test product catalog (current config is live-mode). Entitlement is already read-only from trusted server state. |
