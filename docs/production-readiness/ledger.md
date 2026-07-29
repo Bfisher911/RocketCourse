@@ -37,7 +37,7 @@ not fake controls.
 
 | ID | Sev | Area | Evidence | Status |
 | --- | --- | --- | --- | --- |
-| SEC-1 | P1 | Security headers | `netlify.toml` had **no** CSP / HSTS / X-Content-Type-Options / frame / Referrer / Permissions-Policy | ✅ **Fixed** — hardening headers added (enforced) + CSP in **Report-Only** (see note) |
+| SEC-1 | P1 | Security headers | `netlify.toml` had **no** CSP / HSTS / X-Content-Type-Options / frame / Referrer / Permissions-Policy | ✅ **Fixed and fully enforcing** — all 7 headers live; CSP **promoted from Report-Only to enforcing** on 2026-07-28 after preview verification (see below) |
 | SEC-2 | P1 | Dependency advisories | `npm audit`: `fast-xml-parser` (DOCTYPE entity expansion, used in XML validate path) + `sharp`/libvips CVEs (process external image bytes) | ✅ **Fixed** — fast-xml-parser 5.9.3→5.10.1; sharp 0.34.5→0.35.3. `npm audit` now **0 vulnerabilities**; typecheck/build/870 tests green; Netlify Linux sharp binaries retained |
 | SEC-3 | P2 | Secret hygiene | `.gitignore` lacked `*.pem`/`*.key`/`id_rsa` (nothing leaking) | ✅ **Fixed** |
 | RUN-1 | P2 | Data/UX correctness | Dashboard rendered **duplicate React keys** (`listProjects()` returned rows with the same project id → duplicate/double-counted course cards). Root cause: env where migration-0004 unique index isn't applied, or pre-0004 null `app_project_id` rows | ✅ **Fixed** — `dedupeById` in `listProjects` (keeps freshest, newest-first). Verified live: 28→24 rows, **0** fresh duplicate-key warnings after re-render; regression test added |
@@ -56,12 +56,25 @@ not fake controls.
 | UX-2 | ✅ | Discoverability | Nine building experiences only reachable after entering the editor | ✅ **Fixed** (`6cf795e`) — per-course "Open in <experience>" on the dashboard |
 | FEAT-1 | ✅ | Interactions | No per-item recommendation layer | ✅ **Fixed** (`177d9fd`) — deterministic recommender + coverage-gap report |
 
-**SEC-1 note.** Netlify header rules only take effect on a real deploy, so an
-enforcing CSP we cannot exercise locally risks breaking fonts/Supabase/Stripe.
-CSP therefore ships as `Content-Security-Policy-Report-Only`; promote it to
-`Content-Security-Policy` after verifying zero violations on a branch preview.
-The other headers are safe to enforce immediately (verified: the app never
-iframes itself, so `X-Frame-Options: DENY` is safe).
+**SEC-1 note — CSP is now ENFORCING.** Promoted from Report-Only on 2026-07-28
+against draft deploy `6a695786ccf9a22348d275ee`. Evidence gathered without
+credentials (I cannot enter a password):
+
+- **Runtime**: a `fetch()` from the deployed page to the project's
+  `*.supabase.co` origin **reached the server (HTTP 401)** — proving `connect-src`
+  is not blocking it. The `wss:` realtime endpoint and an `img-src` load from
+  Supabase storage likewise produced **no** `securitypolicyviolation` event.
+- **Static**: Stripe checkout is a top-level `window.location.href` navigation
+  (`billing/checkout.ts:43/53/63`), which no directive here governs; no component
+  loads an `<img>` from a remote origin (generated imagery arrives as Supabase
+  storage signed URLs); no unexpected external origin appears in any deployed chunk.
+- **Post-promotion**: re-deployed with the header enforcing — **zero violations**,
+  fonts still load, Pricing/Guides/Demo render, and the editor reaches with no
+  error boundary.
+
+Residual: a fully authenticated session was never exercised, but it uses the same
+`*.supabase.co` origin already proven at runtime. If a future integration adds an
+origin, the CSP will now **block** rather than warn — add it in the same commit.
 
 ---
 

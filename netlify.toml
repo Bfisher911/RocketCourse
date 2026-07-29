@@ -33,12 +33,20 @@
   to = "/index.html"
   status = 200
 
-# Security headers for every response. The enforcing set below is safe for this
-# app (no same-origin iframing of itself; secrets live only in functions). The
-# Content-Security-Policy ships in REPORT-ONLY first: Netlify headers can only be
-# exercised on a real deploy, so enforcing a CSP we cannot verify locally could
-# break fonts / Supabase / Stripe. Verify zero violations on a branch preview,
-# then rename `Content-Security-Policy-Report-Only` -> `Content-Security-Policy`.
+# Security headers for every response. The Content-Security-Policy is now
+# ENFORCING, promoted from Report-Only after being verified on a real draft
+# deploy (2026-07-28):
+#   - zero securitypolicyviolation events across the landing page, Pricing,
+#     Guides, About, Demo and the full editor;
+#   - connect-src proven at RUNTIME — a fetch to the project's
+#     *.supabase.co origin reached the server (HTTP 401, i.e. not CSP-blocked);
+#   - img-src and the wss: realtime endpoint likewise produced no violation;
+#   - Stripe checkout is a top-level `window.location.href` navigation
+#     (billing/checkout.ts), which no directive here governs;
+#   - no component loads an <img> from a remote origin — generated imagery
+#     arrives as Supabase storage signed URLs, covered by img-src.
+# If a future integration adds an origin, this will now BLOCK rather than warn:
+# add the origin here in the same commit.
 [[headers]]
   for = "/*"
   [headers.values]
@@ -53,7 +61,7 @@
     # functions (the OpenAI proxy, Stripe session creation), Stripe (checkout is
     # a top-level redirect; js.stripe.com allowed for future embedded flows),
     # and data:/blob: images (SVG course tiles, generated assets).
-    Content-Security-Policy-Report-Only = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self' https://js.stripe.com; form-action 'self' https://checkout.stripe.com https://billing.stripe.com; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self' https://js.stripe.com; form-action 'self' https://checkout.stripe.com https://billing.stripe.com; manifest-src 'self'; worker-src 'self' blob:; upgrade-insecure-requests"
 
 # Build assets are content-hashed (index-<hash>.js), so a given URL's bytes never
 # change — cache them for a year and skip revalidation entirely. Without this the
