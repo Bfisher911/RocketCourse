@@ -32,8 +32,12 @@ Copy both:
 
 | Dashboard label | Starts with | Env var |
 | --- | --- | --- |
-| Publishable key | `pk_test_…` | `VITE_STRIPE_PUBLISHABLE_KEY` |
 | Secret key (click **Reveal**) | `sk_test_…` | `STRIPE_SECRET_KEY` |
+
+> You do **not** need the publishable key. Checkout is created entirely
+> server-side (`create-checkout-session` returns a URL and the client redirects
+> via `window.location.href`), and `VITE_STRIPE_PUBLISHABLE_KEY` is referenced
+> nowhere in `src/`. It is listed in `.env.example` for historical reasons only.
 
 The code already asserts this: `netlify/functions/_shared/stripe.ts` exposes
 `isStripeTestMode()`, which is true only when the secret key starts with
@@ -102,10 +106,9 @@ After creating it, click **Reveal** under *Signing secret* and copy the
 
 🔗 https://app.netlify.com/projects/thecourseforge/configuration/env
 
-Add all nine:
+Add these eight:
 
 ```
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_…
 STRIPE_SECRET_KEY=sk_test_…
 STRIPE_WEBHOOK_SECRET=whsec_…
 STRIPE_PRICE_INDIVIDUAL_SEMESTER=price_…
@@ -119,6 +122,14 @@ STRIPE_PRICE_TEAM=price_…
 Only `VITE_`-prefixed variables reach the browser bundle. `STRIPE_SECRET_KEY` and
 `STRIPE_WEBHOOK_SECRET` must **never** get a `VITE_` prefix — that would publish
 them to every visitor.
+
+**Verify the deployed key is test mode before running a checkout.** A live key
+would charge a real card. `netlify env:list` redacts secret values, so check via
+the CLI instead:
+
+```bash
+netlify env:get STRIPE_SECRET_KEY | head -c 8   # must print sk_test_
+```
 
 Redeploy afterwards so the functions pick the values up:
 

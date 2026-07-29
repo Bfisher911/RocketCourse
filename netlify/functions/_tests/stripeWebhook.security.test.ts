@@ -13,7 +13,14 @@
 
 import Stripe from "stripe";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import handler from "./stripe-webhook";
+// Lives in _tests/ deliberately. Netlify treats every file in netlify/functions
+// as a deployable function and rejects names containing dots ("Incorrect function
+// names", 422) — but it ignores `_`-prefixed paths, which is also why _shared/
+// works. Staying under netlify/functions keeps it inside tsconfig.functions.json,
+// which compiles with lib ES2022; putting it in src/ instead pulls this handler
+// into the browser project, where `WebSocket` resolves to the DOM type and the
+// Supabase admin client fails to typecheck.
+import handler from "../stripe-webhook";
 
 const WEBHOOK_SECRET = "whsec_test_local_only_not_a_real_secret";
 const OTHER_SECRET = "whsec_test_a_different_local_secret_value";
