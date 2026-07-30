@@ -50,6 +50,8 @@ not fake controls.
 | SPLIT-7 | P1 | Reliability | Once every screen became lazy, `setScreen()` from a click handler was a **synchronous** update that suspends — React refuses, warns *"A component suspended while responding to synchronous input"*, and replaces the whole UI with the fallback | ✅ **Fixed** — the setter (not all 41 call sites) is wrapped in `startTransition`, the documented fix; React now keeps the current screen visible until the next chunk arrives instead of flashing a skeleton |
 | CACHE-1 | P3 | Caching | Preview verification showed the `/assets/* → 404` response **also** carries `cache-control: public,max-age=31536000,immutable`, because Netlify header rules match on request path and cannot vary by status. A browser may therefore cache a 404 for a year under a hashed asset URL | 🔜 **Open, documented.** Strictly better than the HTML-200 it replaced (which would be parsed as JS). Only bites if a rollback restores a byte-identical content hash whose URL a client already 404-cached; recoverable with a hard reload. Netlify offers no status-conditional header rule, so the alternatives are worse |
 | BILL-1 | P2 | Billing config | `STRIPE_PRICE_ROCKETCOURSE_PREMIUM` is **required by the code** (`resolvePriceId('rocketcourse_premium')`, a `checkoutMode: "subscription"` plan) but was **missing from `.env.example`** — so that plan's checkout would fail on any environment set up from the documented list | ✅ **Fixed** — added to `.env.example`; all 6 paid plans now documented. Found while writing `docs/billing/STRIPE_TEST_MODE_SETUP.md` |
+| BILL-2 | P1 | Billing config | **Self-inflicted.** `netlify env:set` writes to the **`all` deploy context** by default, so setting the six `STRIPE_PRICE_*` vars for test-mode verification overwrote production's LIVE price IDs with TEST ones. With production's key being LIVE (`…7Ot5`), that combination breaks checkout — Stripe rejects a live key against test-mode prices | ✅ **Fixed** — all 8 Stripe vars now hold per-context values, verified 8/8 by reading production vs deploy-preview back from Netlify. **No customer impact:** no production deploy occurred while the config was wrong, and Stripe shows zero live payment events (only admin events, all `pending_webhooks=0`) |
+| BILL-3 | P1 | Billing config | `STRIPE_WEBHOOK_SECRET` was a single shared value across contexts, holding the **test** endpoint's secret (proven — the test round trip returned 2xx against it). Production's live endpoint `we_1Tlggi…` signs with a different secret, so live events would have failed signature verification and paid customers would never have been granted access | ✅ **Fixed** — production now holds the live endpoint's secret (`…7HG9`); previews keep the test one (`…NhMP`) |
 | MAINT-2 | P3 | Build hygiene | Build warned `INEFFECTIVE_DYNAMIC_IMPORT`: `sourceParsing.ts` was `await import()`ed in App while also statically imported there and by IntakeScreen (for the sync `augmentPromptWithSources`) — so it deferred nothing | ✅ **Fixed** — call site uses the static import. JSZip (the real weight) stays deferred inside `docxToText`; verified **0 refs** in the entry chunk and the build now emits **zero warnings** |
 | MAINT-1 | P3 | Maintainability | Build warns: `supabaseClient.ts` dynamically imported by `openaiClient.ts` but statically elsewhere → dynamic import ineffective | 🔜 Open — **downgraded**: `@supabase/supabase-js` is *already* split (196.6 kB `dist-*.js`), so the warning names only the 1.6 kB local wrapper. Worth ~1 kB, not 201 kB |
 | NAME-1 | P3 | Naming | Legacy "CourseForge": Netlify slug `thecourseforge.netlify.app` (prerender canonical/OG), repo dir, some internal ids. Product name is RocketCourse | 🔜 Open — migrate only where safe (not the live site slug / historical records) |
@@ -291,6 +293,34 @@ usable signal — a missing key throws 500, a present one gives 400 on a bad sig
 **Not covered:** a browser checkout requires a signed-in session, which the agent
 cannot create (entering passwords is out of scope). The Supabase entitlement write
 also lands in the *production* project, which was not inspected.
+
+## Stripe environment configuration (2026-07-28)
+
+Netlify env vars are now split per deploy context — **8/8 verified** by reading
+production vs deploy-preview back from the API:
+
+| Variable | Production | Previews / Branch |
+| --- | --- | --- |
+| `STRIPE_SECRET_KEY` | LIVE `…7Ot5` | TEST `…e4CP` |
+| `STRIPE_WEBHOOK_SECRET` | LIVE endpoint `…7HG9` | TEST endpoint `…NhMP` |
+| 6 × `STRIPE_PRICE_*` | live price IDs (`price_1Tlgg…`, `price_1TvgEm…`) | test price IDs (`price_1Tlfo…`, `price_1TyO8H…`) |
+
+**Two traps worth remembering.**
+
+1. `netlify env:set` defaults to the **`all` context**. It silently overwrites the
+   production value. Always pass `--context` when a variable is environment-specific.
+2. `netlify env:list --json` reports `contexts: ['all']` for **secret** variables even
+   when the UI shows four per-context rows, because the values are redacted. The
+   reliable check is `netlify env:get <VAR> --context <ctx>` per context and comparing
+   the masked suffixes — identical suffixes mean one shared value.
+
+**Live/test price IDs are visually near-identical** (`price_1Tlgg…` vs `price_1Tlfo…`),
+which is exactly the kind of pair that gets transposed. The table above is the reference.
+
+**No customer was affected.** Stripe shows zero live payment events (only
+`account.updated` / `customer.created` / product+price admin events, all with
+`pending_webhooks=0`), and no production deploy happened while the config was wrong —
+Netlify functions read env vars per deploy, so the bad values never went live.
 
 ## External blockers (precise owner action required)
 
