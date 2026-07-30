@@ -39,6 +39,7 @@ export const defaultSettings: CourseSettings = {
   modulePattern: "standard",
   themeIntensity: "polished",
   includeContactHours: true,
+  interactionDensity: "balanced",
   accessibilityFocus: true,
   accessibilityTier: "AA",
   schedule: {

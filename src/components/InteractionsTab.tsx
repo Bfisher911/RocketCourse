@@ -12,6 +12,8 @@ import { renderInteractionBlock } from "../services/interactionRender";
 import { validateInteractionHtml } from "../services/interactionValidation";
 import { AUTO_SELECTABLE_PATTERN_IDS, buildEditorSampleContent, classifyPage } from "../services/interactionSelection";
 import { sanitizeHtmlForPreview } from "../services/htmlSafety";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 

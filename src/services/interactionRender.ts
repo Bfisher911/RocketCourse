@@ -521,6 +521,4 @@ export const composeBodyWithInteractions = (
 export const describePatternTier = (pattern: InteractionPatternDef): string =>
   pattern.tier === "iframe"
     ? "External embed — renders its native fallback until an external host is configured"
-    : pattern.tier === "canvas-native"
-      ? "Canvas quiz / LTI companion"
-      : "Native Canvas HTML";
+    : "Native Canvas HTML";

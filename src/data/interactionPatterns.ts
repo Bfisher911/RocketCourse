@@ -13,11 +13,13 @@
 //             interactive service yet, so these patterns always render their
 //             native fallback until an external interactive is configured;
 //             the export validator continues to treat raw iframes as unsafe.
-//   canvas-native — the pattern's graded form is a Canvas quiz/LTI assignment;
-//             the native rendering here is the ungraded page-side companion.
+//
+// The graded/companion concept (a persistent score needs a Canvas quiz/LTI) is
+// carried by the `supportsGrading` flag on the relevant iframe patterns — their
+// page-side companion is the native `fallbackPatternId` — not by a separate tier.
 // ============================================================================
 
-export type InteractionTier = "native" | "iframe" | "canvas-native";
+export type InteractionTier = "native" | "iframe";
 
 export type InteractionCategory =
   | "structure"      // Disclosure, Structure, and Navigation (1-22)
@@ -179,7 +181,7 @@ export const INTERACTION_PATTERNS: InteractionPatternDef[] = [
   def({ n: 14, id: "scenario-card", name: "Scenario Card", cat: "structure", tpl: "scenario", best: "Present a short situation that frames a discussion or decision.", guide: "Introduce the setting, stakeholders, tension, and decision point.", purposes: ["application", "discussion"], pages: ["discussion", "content"], cx: 2 }),
   def({ n: 15, id: "expandable-timeline", name: "Expandable Timeline", cat: "structure", tpl: "timeline", best: "Present events in sequence while keeping explanations compact.", guide: "Use one expandable event per date or milestone.", purposes: ["sequence", "comprehension"], pages: ["content"], disc: ["humanities", "social-science", "business", "health"], cx: 2 }),
   def({ n: 16, id: "responsive-card-grid", name: "Responsive Card Grid", cat: "structure", tpl: "card-link-grid", best: "Create a visual menu of modules, topics, resources, or tasks.", guide: "Replace links and labels with actual Canvas destinations.", purposes: ["navigation"], pages: ["module-overview", "homepage"], freq: "frequent", cx: 1 }),
-  def({ n: 17, id: "clickable-image-map", name: "Clickable Image Map", cat: "structure", tpl: "image-map", best: "Turn regions of an image into linked hotspots using allowed map and area elements.", guide: "Update the image source, coordinates, alternative text, and destination links.", purposes: ["navigation", "visual"], pages: [], assets: ["image"], cx: 3, freq: "rare" }),
+  def({ n: 17, id: "clickable-image-map", name: "Clickable Image Map", cat: "structure", tpl: "image-map", best: "Explore regions of an image, rendered as an accessible labelled figure with a text-equivalent region list (coordinate hotspots aren't Canvas-reliable, so the export uses the accessible companion form).", guide: "Provide the image, descriptive alt text, and a labelled description of each region and where it leads.", purposes: ["navigation", "visual"], pages: [], assets: ["image"], cx: 3, freq: "rare" }),
   def({ n: 18, id: "basic-audio-player", name: "Basic Audio Player", cat: "structure", tpl: "media-audio", best: "Embed an audio clip directly on the page.", guide: "Provide a transcript and a short listening purpose.", purposes: ["media"], pages: [], assets: ["audio"], cx: 1 }),
   def({ n: 19, id: "basic-video-player", name: "Basic Video Player", cat: "structure", tpl: "media-video", best: "Embed a video file directly on the page.", guide: "Provide captions, a transcript, and a clear viewing purpose.", purposes: ["media"], pages: [], assets: ["video"], cx: 1 }),
   def({ n: 20, id: "responsive-external-interactive", name: "Responsive External Interactive", cat: "structure", tpl: "iframe-embed", best: "Embed a custom interactive hosted on an HTTPS website.", guide: "Replace the source URL and confirm the external site permits iframe display.", purposes: ["interactive"], fallback: "responsive-card-grid" }),
@@ -299,6 +301,5 @@ export const INTERACTION_CATEGORY_LABELS: Record<InteractionCategory, string> = 
 
 export const INTERACTION_TIER_LABELS: Record<InteractionTier, string> = {
   native: "Native Canvas HTML",
-  iframe: "External embed (native fallback until a host is configured)",
-  "canvas-native": "Canvas quiz / LTI"
+  iframe: "External embed (native fallback until a host is configured)"
 };

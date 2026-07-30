@@ -9,7 +9,7 @@
 // ============================================================================
 
 import type { ContactHourPlan, CourseProject, EditorTab } from "../types";
-import { HOURS_PER_CREDIT, makeContactHours } from "./courseGenerator";
+import { HOURS_PER_CREDIT, makeContactHours } from "./contactHoursModel";
 import { nowIso } from "../utils/text";
 
 export type ContactHourCategoryKey = "instructionalTime" | "readingMediaTime" | "assignmentTime" | "discussionTime" | "quizStudyTime" | "finalProjectTime";

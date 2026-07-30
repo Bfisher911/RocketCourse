@@ -17,7 +17,7 @@
 // appended to the generation prompt.
 // ============================================================================
 
-import JSZip from "jszip";
+
 import type { SourceFile, SourceParseStatus } from "../types";
 import { decodeHtmlEntities, stripHtml } from "../utils/text";
 
@@ -63,6 +63,11 @@ const htmlToText = (html: string): string =>
   );
 
 const docxToText = async (file: File): Promise<string> => {
+  // JSZip (~96 kB) is loaded on demand: this module also exports the synchronous
+  // buildSourcesDigest/augmentPromptWithSources, which the intake screen calls on
+  // every render, so a static JSZip import would pin the zip library to the
+  // initial chunk for every visitor — including ones who never upload a .docx.
+  const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const xml = await zip.file("word/document.xml")?.async("string");
   if (!xml) return "";

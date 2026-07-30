@@ -9,6 +9,14 @@ import type { CourseProject } from "../types";
 
 export const persistenceEnabled = (): boolean => supabaseConfig.isConfigured;
 
+/** Keep the first occurrence of each id (input is newest-first), dropping later
+ * duplicates. Guards the dashboard against duplicate React keys / double counts
+ * when storage carries more than one row for the same project id. */
+export const dedupeById = <T extends { id: string }>(items: T[]): T[] => {
+  const seen = new Set<string>();
+  return items.filter((item) => (seen.has(item.id) ? false : seen.add(item.id)));
+};
+
 const currentUserId = async (): Promise<string | null> => {
   const client = await getSupabaseClient();
   if (!client) return null;
@@ -25,9 +33,16 @@ export const listProjects = async (): Promise<CourseProject[]> => {
     .select("course_json")
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
-  return data
+  const projects = data
     .map((row) => row.course_json as CourseProject | null)
     .filter((project): project is CourseProject => Boolean(project && project.id));
+  // Defend the UI contract "one row per project id": rows are ordered newest
+  // first, so keeping the first occurrence of each id both dedupes the dashboard
+  // (no duplicate React keys, no double counts) and keeps the freshest copy.
+  // Duplicates can appear when the (owner_id, app_project_id) unique index from
+  // migration 0004 has not been applied, or from pre-0004 rows whose null
+  // app_project_id does not participate in the unique index.
+  return dedupeById(projects);
 };
 
 /** Upsert a project for the signed-in user (keyed on owner + app project id). */

@@ -9,36 +9,36 @@
 
 :root {
   /* --- Brand palette (exact brand hexes) --- */
-  --rc-hot-pink: #ff2ea6;
-  --rc-cyan: #00e5ff;
-  --rc-orange: #ff8a00;
-  --rc-lavender: #ba68c8;
-  --rc-magenta: #e0249a;
-  --rc-laser-yellow: #d7ff00;
-  --rc-midnight: #0b1020;
+  --brand-hot-pink: #ff2ea6;
+  --brand-cyan: #00e5ff;
+  --brand-orange: #ff8a00;
+  --brand-lavender: #ba68c8;
+  --brand-magenta: #e0249a;
+  --brand-laser-yellow: #d7ff00;
+  --brand-midnight: #0b1020;
 
   /* --- Brand glows / surfaces --- */
-  --rc-glow-cyan: 0 0 0 1px rgba(0, 229, 255, 0.5), 0 12px 34px rgba(0, 229, 255, 0.32);
-  --rc-glow-pink: 0 0 0 1px rgba(255, 46, 166, 0.45), 0 12px 36px rgba(255, 46, 166, 0.32);
-  --rc-card-bg: linear-gradient(180deg, rgba(20, 24, 56, 0.72), rgba(12, 15, 38, 0.66));
-  --rc-border-glow: rgba(0, 229, 255, 0.28);
+  --brand-glow-cyan: 0 0 0 1px rgba(0, 229, 255, 0.5), 0 12px 34px rgba(0, 229, 255, 0.32);
+  --brand-glow-pink: 0 0 0 1px rgba(255, 46, 166, 0.45), 0 12px 36px rgba(255, 46, 166, 0.32);
+  --brand-card-bg: linear-gradient(180deg, rgba(20, 24, 56, 0.72), rgba(12, 15, 38, 0.66));
+  --brand-border-glow: rgba(0, 229, 255, 0.28);
 
   /* --- Decorative gradients --- */
-  --rc-galaxy: conic-gradient(
+  --brand-galaxy: conic-gradient(
     from 200deg at 50% 50%,
-    var(--rc-cyan),
-    var(--rc-lavender),
-    var(--rc-hot-pink),
-    var(--rc-orange),
-    var(--rc-laser-yellow),
-    var(--rc-cyan)
+    var(--brand-cyan),
+    var(--brand-lavender),
+    var(--brand-hot-pink),
+    var(--brand-orange),
+    var(--brand-laser-yellow),
+    var(--brand-cyan)
   );
-  --rc-trail-grad: linear-gradient(
+  --brand-trail-grad: linear-gradient(
     90deg,
     transparent,
-    var(--rc-cyan) 16%,
-    var(--rc-hot-pink) 58%,
-    var(--rc-orange) 84%,
+    var(--brand-cyan) 16%,
+    var(--brand-hot-pink) 58%,
+    var(--brand-orange) 84%,
     transparent
   );
 }
@@ -73,8 +73,8 @@
   display: block;
 }
 .rc-mark--framed {
-  background: var(--rc-midnight);
-  border: 1px solid var(--rc-border-glow);
+  background: var(--brand-midnight);
+  border: 1px solid var(--brand-border-glow);
   box-shadow: 0 6px 18px rgba(4, 6, 22, 0.5);
   overflow: hidden;
   transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
@@ -116,8 +116,8 @@
   border-color: rgba(0, 229, 255, 0.35);
 }
 .brand:hover .rc-mark--framed {
-  border-color: var(--rc-cyan);
-  box-shadow: var(--rc-glow-cyan);
+  border-color: var(--brand-cyan);
+  box-shadow: var(--brand-glow-cyan);
   transform: translateY(-1px);
 }
 .brand:focus-visible {
@@ -144,14 +144,14 @@
   inset: 0;
   border-radius: 50%;
   border: 2px solid transparent;
-  border-top-color: var(--rc-cyan);
-  border-right-color: var(--rc-hot-pink);
+  border-top-color: var(--brand-cyan);
+  border-right-color: var(--brand-hot-pink);
   animation: rc-spin 1.5s linear infinite;
 }
 .rc-loader__orbit--inner {
   inset: 13%;
-  border-top-color: var(--rc-lavender);
-  border-right-color: var(--rc-cyan);
+  border-top-color: var(--brand-lavender);
+  border-right-color: var(--brand-cyan);
   animation-duration: 2.3s;
   animation-direction: reverse;
 }
@@ -210,7 +210,7 @@
 .rc-trail {
   height: 2px;
   border-radius: 2px;
-  background: var(--rc-trail-grad);
+  background: var(--brand-trail-grad);
   background-size: 220% 100%;
   animation: rc-trail 3.4s linear infinite;
   opacity: 0.9;
@@ -305,8 +305,8 @@
   margin-top: 16px;
   padding: 12px 14px;
   border-radius: var(--radius);
-  background: var(--rc-card-bg);
-  border: 1px solid var(--rc-border-glow);
+  background: var(--brand-card-bg);
+  border: 1px solid var(--brand-border-glow);
 }
 .rc-launch__text strong {
   display: block;

@@ -33,6 +33,8 @@ import {
   type RichIssue
 } from "../services/exportSummary";
 import { planFullCourseFill, type FullFillProgress } from "../services/fullCourseContent";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 const EXPORT_MODE_LABELS: Record<ExportMode, string> = {
   full: "Full course",

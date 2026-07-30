@@ -42,6 +42,8 @@ import {
 import { getSupabaseClient, supabaseConfig } from "../services/supabaseClient";
 import { ReadinessRing } from "./ReadinessRing";
 import { startImageCreditPackCheckout } from "../billing/checkout";
+// Code-split editor-tab styles: arrives with whichever tab loads first.
+import "../styles.editor-tabs.css";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 

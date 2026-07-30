@@ -47,48 +47,108 @@ import {
   Wand2,
   X
 } from "lucide-react";
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BrandBadge, BrandHeader, BrandOrbitalAccent, LogoMark, LogoWordmark, RocketCourseLoader } from "./components/brand";
 import { ReadinessRing } from "./components/ReadinessRing";
 import { usePlatformAccess, type UsePlatformAccess } from "./services/usePlatformAccess";
-import { PublicBlogIndex, PublicBlogPost } from "./components/blog/PublicBlog";
-import { JoinScreen } from "./components/admin/JoinScreen";
-import { WorkspaceAdminScreen } from "./components/admin/WorkspaceAdminScreen";
-import { SuperAdminScreen } from "./components/admin/SuperAdminScreen";
-import { AssignmentsTab } from "./components/AssignmentsTab";
+// Public marketing/legal surfaces: leaf views reachable only by navigation, so
+// they load on demand. `Landing` (and the widgets it renders) stay EAGER — that
+// is the prerendered first paint for 19 SEO routes and must never wait on a chunk.
+const PublicBlogIndex = lazy(() => import("./components/blog/PublicBlog").then(m => ({ default: m.PublicBlogIndex })));
+const PublicBlogPost = lazy(() => import("./components/blog/PublicBlog").then(m => ({ default: m.PublicBlogPost })));
+// Admin consoles are lazy: they sit behind an authenticated role check, are the
+// largest single components in the tree, and SuperAdminScreen -> CampaignsManager
+// -> waitlistExport pins JSZip into whatever chunk contains it.
+const JoinScreen = lazy(() => import("./components/admin/JoinScreen").then(m => ({ default: m.JoinScreen })));
+const WorkspaceAdminScreen = lazy(() => import("./components/admin/WorkspaceAdminScreen").then(m => ({ default: m.WorkspaceAdminScreen })));
+const SuperAdminScreen = lazy(() => import("./components/admin/SuperAdminScreen").then(m => ({ default: m.SuperAdminScreen })));
+// Editor tabs are lazy. Only one renders at a time, and reaching any of them
+// requires opening a course — but statically they dragged the course-generation
+// engine, every content builder and the export stack onto the landing page.
+const AssignmentsTab = lazy(() => import("./components/AssignmentsTab").then(m => ({ default: m.AssignmentsTab })));
 import { AuthScreen, type AuthScreenMode } from "./components/AuthScreen";
 import { applySeo, pathToScreen, screenToPath } from "./seo";
-import { ContactHoursTab } from "./components/ContactHoursTab";
-import { DiscussionsTab } from "./components/DiscussionsTab";
-import { ExportTab } from "./components/ExportTab";
-import { GradebookTab } from "./components/GradebookTab";
-import { HomepageTab } from "./components/HomepageTab";
-import { ImageryTab } from "./components/ImageryTab";
-import { InteractionsTab } from "./components/InteractionsTab";
-import { OverviewTab } from "./components/OverviewTab";
-import { PagesTab } from "./components/PagesTab";
-import { PricingPage } from "./components/PricingPage";
-import { QuizzesTab } from "./components/QuizzesTab";
-import { RubricsTab } from "./components/RubricsTab";
-import { SyllabusTab } from "./components/SyllabusTab";
-import { AboutPage } from "./components/AboutPage";
-import { GuidesPage } from "./components/GuidesPage";
-import { ContactPage } from "./components/ContactPage";
-import { DemoIntro } from "./components/DemoIntro";
+const ContactHoursTab = lazy(() => import("./components/ContactHoursTab").then(m => ({ default: m.ContactHoursTab })));
+const DiscussionsTab = lazy(() => import("./components/DiscussionsTab").then(m => ({ default: m.DiscussionsTab })));
+const ExportTab = lazy(() => import("./components/ExportTab").then(m => ({ default: m.ExportTab })));
+const GradebookTab = lazy(() => import("./components/GradebookTab").then(m => ({ default: m.GradebookTab })));
+const HomepageTab = lazy(() => import("./components/HomepageTab").then(m => ({ default: m.HomepageTab })));
+const ImageryTab = lazy(() => import("./components/ImageryTab").then(m => ({ default: m.ImageryTab })));
+const InteractionsTab = lazy(() => import("./components/InteractionsTab").then(m => ({ default: m.InteractionsTab })));
+const OverviewTab = lazy(() => import("./components/OverviewTab").then(m => ({ default: m.OverviewTab })));
+const PagesTab = lazy(() => import("./components/PagesTab").then(m => ({ default: m.PagesTab })));
+const PricingPage = lazy(() => import("./components/PricingPage").then(m => ({ default: m.PricingPage })));
+const QuizzesTab = lazy(() => import("./components/QuizzesTab").then(m => ({ default: m.QuizzesTab })));
+const RubricsTab = lazy(() => import("./components/RubricsTab").then(m => ({ default: m.RubricsTab })));
+const SyllabusTab = lazy(() => import("./components/SyllabusTab").then(m => ({ default: m.SyllabusTab })));
+const AboutPage = lazy(() => import("./components/AboutPage").then(m => ({ default: m.AboutPage })));
+const GuidesPage = lazy(() => import("./components/GuidesPage").then(m => ({ default: m.GuidesPage })));
+const ContactPage = lazy(() => import("./components/ContactPage").then(m => ({ default: m.ContactPage })));
+const DemoIntro = lazy(() => import("./components/DemoIntro").then(m => ({ default: m.DemoIntro })));
 import { DemoTour } from "./components/DemoTour";
-import { LegalPage } from "./components/LegalPage";
-import { IntegrationPage } from "./components/IntegrationPage";
-import { FoundingCohortPage } from "./components/FoundingCohortPage";
-import { TransformTab } from "./components/TransformTab";
+const LegalPage = lazy(() => import("./components/LegalPage").then(m => ({ default: m.LegalPage })));
+const IntegrationPage = lazy(() => import("./components/IntegrationPage").then(m => ({ default: m.IntegrationPage })));
+const FoundingCohortPage = lazy(() => import("./components/FoundingCohortPage").then(m => ({ default: m.FoundingCohortPage })));
+const TransformTab = lazy(() => import("./components/TransformTab").then(m => ({ default: m.TransformTab })));
 import { PublicFooter } from "./components/PublicFooter";
 import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
 import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { ReviewMode } from "./components/ReviewMode";
+import { WorkflowHost, type WorkflowFocusHandle } from "./components/WorkflowHost";
+import { ExperienceChrome } from "./components/ExperienceChrome";
+import {
+  editorPhases,
+  editorTabs,
+  formatDate,
+  phaseIndexForTab,
+  progressSteps,
+  readStoredEditorView,
+  stepDescriptions,
+  storeEditorView,
+  weekdayLabels,
+  weekdayOptions,
+  type EditorTab,
+  type EditorViewMode
+} from "./screens/appModel";
+import { ScreenSkeleton } from "./components/ScreenSkeleton";
+// Screens extracted from App.tsx. Landing stays EAGER (prerendered first paint);
+// everything reachable only by navigation is lazy.
+const BlueprintReview = lazy(() => import("./screens/BlueprintReview").then(m => ({ default: m.BlueprintReview })));
+const DashboardScreen = lazy(() => import("./screens/DashboardScreen").then(m => ({ default: m.Dashboard })));
+const Editor = lazy(() => import("./screens/EditorScreen").then(m => ({ default: m.Editor })));
+const Intake = lazy(() => import("./screens/IntakeScreen").then(m => ({ default: m.Intake })));
+const Progress = lazy(() => import("./screens/ProgressScreen").then(m => ({ default: m.Progress })));
+const WelcomeSummary = lazy(() => import("./screens/WelcomeSummary").then(m => ({ default: m.WelcomeSummary })));
+import { editMetadata, moveItem, readinessTab, renumberModules } from "./components/editor/shared";
+// Extracted editor screens, loaded on demand. ThemeTab in particular is the only
+// consumer of data/visualTemplates and the main consumer of data/themes, so
+// deferring it is what lets those leave the first paint.
+const ModulesTab = lazy(() => import("./components/editor/ModulesTab").then(m => ({ default: m.ModulesTab })));
+const ReadinessPanel = lazy(() => import("./components/editor/ReadinessPanel").then(m => ({ default: m.ReadinessPanel })));
+const ThemeTab = lazy(() => import("./components/editor/ThemeTab").then(m => ({ default: m.ThemeTab })));
+import {
+  CollapsibleSection,
+  EmptyState,
+  Input,
+  ListTextArea,
+  NumberInput,
+  Select,
+  SourceStatusBadge,
+  TextArea,
+  Toggle
+} from "./components/form";
+import { isChunkLoadError } from "./components/ChunkErrorBoundary";
+import { CommandPalette } from "./components/CommandPalette";
+import { typeToTab, type CommandContext } from "./workflows/commandRegistry";
+import { experiencesByCode, getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
+import { loadCoursePreferred, loadUserPreferred, saveCoursePreferred, saveUserPreferred } from "./workflows/workflowContext";
 import { useModalFocus } from "./hooks/useModalFocus";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
-import { buildCourseFromBlueprint, generateBlueprint } from "./services/aiGeneration";
+// aiGeneration and courseTransforms both reach services/courseGenerator, whose
+// module body generates the demo course at evaluation time. Import them at the
+// call site so neither pulls the generation engine onto the first paint.
 import { recordCourseAiSpend } from "./services/aiSpendMeter";
 import type { ChatCompletionCost } from "./services/openaiClient";
 import { AiSpendBadge } from "./components/AiSpendBadge";
@@ -98,25 +158,26 @@ import { defaultSettings } from "./data/defaultSettings";
 import type { Plan, PlanKey } from "./data/plans";
 import { plans } from "./data/plans";
 import { themes } from "./data/themes";
-import { applyThemeToGeneratedContent, applyVisualTemplate, generateCourseProject, sampleProject } from "./services/courseGenerator";
+// courseGenerator is NEVER imported statically: it executes a full course
+// generation at module scope (see services/sampleCourse.ts). Identity constants
+// and the lazy materializer come from that tiny module instead; the generator
+// itself is awaited at the call sites that actually generate.
+import {
+  getSampleProject,
+  PLACEHOLDER_COURSE,
+  SAMPLE_PROJECT_EXPORT_MODE,
+  SAMPLE_PROJECT_ID
+} from "./services/sampleCourse";
 import { visualTemplates, visualTemplateForThemeId } from "./data/visualTemplates";
 import { buildCourseQualityReport } from "./services/courseQuality";
-import { generateAllQuizzesQtiBlob, generateImsccBlob, generateQuizQtiBlob } from "./services/imsccExport";
-import { fillEntireCourseContent, planFullCourseFill, type FullFillProgress } from "./services/fullCourseContent";
-import { coursePdfFileName, generateCoursePdfBlob } from "./services/coursePdf";
-import {
-  allQuizzesAnswerKeyPdfFileName,
-  allQuizzesStudentPdfFileName,
-  buildAllQuizzesAnswerKeyPdfBlob,
-  buildAllQuizzesStudentPdfBlob,
-  buildQuizAnswerKeyPdfBlob,
-  buildQuizStudentPdfBlob,
-  quizAnswerKeyPdfFileName,
-  quizStudentPdfFileName
-} from "./services/quizPdf";
-import { buildSyllabusPdfBlob, syllabusPdfFileName } from "./services/syllabusPdf";
+// The export / import / PDF cluster is deliberately NOT imported statically.
+// It pulls JSZip (~96 kB) plus the IMSCC, QTI and PDF engines — none of which a
+// visitor needs to render the landing page. Every entry point below is a click
+// handler that already awaits, so each one `await import(...)`s its engine at
+// the call site. See the `type` imports kept below for signatures only (erased
+// at build time, so they cost nothing).
+import type { FullFillProgress } from "./services/fullCourseContent";
 import { augmentPromptWithSources, parseSourceFile } from "./services/sourceParsing";
-import { importCanvasCourseFromImscc } from "./services/imsccImport";
 import {
   duplicateModuleWithContent,
   getModuleItemTarget,
@@ -129,7 +190,7 @@ import {
 } from "./services/modulePlanner";
 import { listProjects, persistenceEnabled, saveProject } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
-import { makeCourseExportReady } from "./services/courseTransforms";
+
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
 import { inferSettingsFromPrompt } from "./services/promptInference";
 import { stripHtml } from "./utils/text";
@@ -153,111 +214,6 @@ import type {
   VisualTemplateCategory
 } from "./types";
 
-const progressSteps = [
-  "Reading course prompt and uploads",
-  "Building course blueprint",
-  "Creating learning objectives",
-  "Designing modules",
-  "Creating assignments and discussions",
-  "Creating quizzes and rubrics",
-  "Building homepage and syllabus",
-  "Preparing Canvas export structure",
-  "Validating course package"
-];
-
-const editorTabs = [
-  "Overview",
-  "Imagery",
-  "Homepage",
-  "Syllabus",
-  "Modules",
-  "Pages",
-  "Interactions",
-  "Assignments",
-  "Discussions",
-  "Quizzes",
-  "Rubrics",
-  "Gradebook Setup",
-  "Contact Hours",
-  "Theme",
-  "Transform",
-  "Export"
-] as const;
-
-type EditorTab = (typeof editorTabs)[number];
-
-/**
- * Guided mode shows one build step (tab) at a time with back/next controls so new
- * users never face all fourteen sections at once. "tabs" restores the full strip.
- */
-type EditorViewMode = "guided" | "tabs";
-
-const EDITOR_VIEW_STORAGE_KEY = "rocketcourse.editor-view";
-
-const readStoredEditorView = (): EditorViewMode => {
-  try {
-    return window.localStorage.getItem(EDITOR_VIEW_STORAGE_KEY) === "tabs" ? "tabs" : "guided";
-  } catch {
-    return "guided";
-  }
-};
-
-const storeEditorView = (mode: EditorViewMode): void => {
-  try {
-    window.localStorage.setItem(EDITOR_VIEW_STORAGE_KEY, mode);
-  } catch {
-    // Storage unavailable (private mode) — the choice just won't persist.
-  }
-};
-
-/**
- * The build steps grouped into 5 phases so the guided rail reads as a short,
- * approachable journey ("Phase 2 of 5") instead of a wall. Order must
- * match editorTabs — every tab appears in exactly one phase.
- */
-const editorPhases: Array<{ name: string; steps: EditorTab[] }> = [
-  { name: "Foundations", steps: ["Overview", "Imagery", "Homepage", "Syllabus"] },
-  { name: "Content", steps: ["Modules", "Pages", "Interactions"] },
-  { name: "Assessment", steps: ["Assignments", "Discussions", "Quizzes", "Rubrics"] },
-  { name: "Logistics", steps: ["Gradebook Setup", "Contact Hours"] },
-  { name: "Finish", steps: ["Theme", "Transform", "Export"] }
-];
-
-const phaseIndexForTab = (tab: EditorTab): number =>
-  Math.max(0, editorPhases.findIndex((phase) => phase.steps.includes(tab)));
-
-const stepDescriptions: Record<EditorTab, string> = {
-  Overview: "Confirm the course title, description, and learning outcomes.",
-  Imagery: "Prepare accessible course images and Canvas-sized crops.",
-  Homepage: "Design the first page students see in Canvas.",
-  Syllabus: "Review and polish the syllabus students will read.",
-  Modules: "Organize lessons into modules and set their order.",
-  Pages: "Edit the content pages inside your modules.",
-  Interactions: "Review and adjust the Canvas interaction patterns placed on your pages.",
-  Assignments: "Set up graded assignments and their instructions.",
-  Discussions: "Write discussion prompts and participation guidance.",
-  Quizzes: "Build quizzes, questions, and answer keys.",
-  Rubrics: "Attach grading rubrics to your assessments.",
-  "Gradebook Setup": "Balance grading categories so they total 100%.",
-  "Contact Hours": "Verify instructional time meets your requirements.",
-  Theme: "Pick the visual style applied to exported Canvas pages.",
-  Transform: "Optional: apply bulk changes across the whole course.",
-  Export: "Validate everything and download your Canvas package."
-};
-
-const weekdayOptions = ["0", "1", "2", "3", "4", "5", "6"];
-const weekdayLabels: Record<string, string> = {
-  "0": "Sunday",
-  "1": "Monday",
-  "2": "Tuesday",
-  "3": "Wednesday",
-  "4": "Thursday",
-  "5": "Friday",
-  "6": "Saturday"
-};
-
-const formatDate = (iso: string): string =>
-  new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
 
 const downloadBlob = (blob: Blob, fileName: string): void => {
   const url = URL.createObjectURL(blob);
@@ -268,22 +224,11 @@ const downloadBlob = (blob: Blob, fileName: string): void => {
   URL.revokeObjectURL(url);
 };
 
-const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number): T[] => {
-  const next = [...items];
-  const [removed] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, removed);
-  return next;
-};
 
-const renumberModules = (modules: CourseModule[]): CourseModule[] =>
-  modules.map((module, index) => ({ ...module, order: index, status: "edited" }));
 
-const editMetadata = (): ObjectMetadata => ({
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  exportVersion: 0,
-  source: "edited"
-});
+
+
+
 
 const lengthPresetWeeks: Record<CourseSettings["courseLengthPreset"], number> = {
   "4-weeks": 4,
@@ -297,15 +242,53 @@ const lengthPresetWeeks: Record<CourseSettings["courseLengthPreset"], number> = 
 };
 
 function App() {
-  const [screen, setScreen] = useState<Screen>(() => pathToScreen(window.location.pathname));
-  const [projects, setProjects] = useState<CourseProject[]>([sampleProject]);
-  const [course, setCourse] = useState<CourseProject>(sampleProject);
+  const [screen, setScreenNow] = useState<Screen>(() => pathToScreen(window.location.pathname));
+  // Every screen except Landing is React.lazy, so a screen change can suspend.
+  // Doing that from a click handler is a SYNCHRONOUS update, which React refuses
+  // to suspend on: it warns "A component suspended while responding to
+  // synchronous input" and replaces the whole UI with the fallback. Marking the
+  // navigation as a transition is the documented fix, and it is also the better
+  // experience — React keeps the current screen on-screen until the next one's
+  // chunk has arrived, instead of flashing a skeleton. Wrapping the setter keeps
+  // all 41 call sites unchanged.
+  const setScreen = useCallback((next: Screen | ((current: Screen) => Screen)) => {
+    startTransition(() => setScreenNow(next));
+  }, []);
+  // Empty until the user's own courses load: a signed-in account must not be
+  // pre-populated with the demo course. The dashboard's real "No course projects
+  // yet" empty state handles this.
+  const [projects, setProjects] = useState<CourseProject[]>([]);
+  // Placeholder, never rendered: the editor is unreachable at boot (pathToScreen
+  // cannot return "editor"), so a real course is always set before anything
+  // reads this. Keeps `course` non-nullable across ~100 call sites.
+  const [course, setCourse] = useState<CourseProject>(PLACEHOLDER_COURSE);
   const [settings, setSettings] = useState<CourseSettings>(defaultSettings);
   // Starts empty on purpose: seeding this with the sample prompt made every generation
   // that didn't overwrite it inherit the demo's "AI and Modern Society" topic.
   const [prompt, setPrompt] = useState("");
   const [progressIndex, setProgressIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<EditorTab>("Overview");
+  // Which of the nine workflow experiences renders the editor screen.
+  // Hierarchy: ?exp= deep link → course-specific preference → user preference
+  // → the default (Guided Course Journey). Presentation only — switching an
+  // experience never touches course content.
+  const [experienceId, setExperienceId] = useState<string>(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("exp");
+    if (fromUrl && getExperience(fromUrl)?.enabled) return fromUrl;
+    return resolveExperienceId(loadCoursePreferred(SAMPLE_PROJECT_ID), loadUserPreferred());
+  });
+  const chooseExperience = (id: string): void => {
+    if (!getExperience(id)?.enabled) return;
+    setExperienceId(id);
+    saveCoursePreferred(course.id, id);
+    saveUserPreferred(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set("exp", id);
+    window.history.replaceState(window.history.state, "", url.toString());
+  };
+  // Command palette (⌘K) — one shared command surface across every experience.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const workflowFocusRef = useRef<WorkflowFocusHandle | null>(null);
   const auth = useAuthSession();
   const access = usePlatformAccess(auth.session);
   const adminWorkspaces = access.workspaces.filter((w) => w.myRole === "owner" || w.myRole === "admin");
@@ -329,7 +312,7 @@ function App() {
   const [draggedModuleId, setDraggedModuleId] = useState<string | null>(null);
   const [draggedItem, setDraggedItem] = useState<{ moduleId: string; itemId: string } | null>(null);
   const [importNotes, setImportNotes] = useState<string[]>([]);
-  const [exportMode, setExportMode] = useState<ExportMode>(sampleProject.exportMode);
+  const [exportMode, setExportMode] = useState<ExportMode>(SAMPLE_PROJECT_EXPORT_MODE);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [blueprint, setBlueprint] = useState<CourseBlueprint | null>(null);
   // Blueprint is priced before the course exists; stash its cost and attribute it on approval.
@@ -353,6 +336,13 @@ function App() {
   // user-generated courses still require a paid plan; the costly server-side AI stays entitlement-gated.
   const exportAllowed = subscriptionActive || demoActive;
 
+  // A course explicitly opened with its own preferred experience wins over the
+  // session's current one (deep-linked ?exp= already seeded initial state).
+  useEffect(() => {
+    const fromCourse = loadCoursePreferred(course.id);
+    if (fromCourse && getExperience(fromCourse)?.enabled) setExperienceId(fromCourse);
+  }, [course.id]);
+
   const readiness = useMemo(() => buildReadinessReport(course), [course]);
   const quality = useMemo(() => buildCourseQualityReport(course), [course]);
   const homepage = course.pages.find((page) => page.frontPage) ?? course.pages[0];
@@ -363,6 +353,8 @@ function App() {
     if (progressIndex >= progressSteps.length) {
       // Normally pre-generated by startGeneration (so Progress can show real module
       // titles); the fallback covers any path that reaches "progress" without it.
+      void (async () => {
+      const { generateCourseProject } = await import("./services/courseGenerator");
       const generated: CourseProject =
         pendingCourseRef.current ?? {
           ...generateCourseProject({
@@ -382,6 +374,7 @@ function App() {
       setTourOpen(false);
       setWelcomeOpen(true);
       setScreen("editor");
+      })();
       return;
     }
     const timer = window.setTimeout(() => setProgressIndex((index) => index + 1), 420);
@@ -418,7 +411,6 @@ function App() {
   // Keep the URL + document head in sync with the active screen so marketing pages have real,
   // shareable, indexable URLs and correct per-page SEO. In-app screens collapse to /app.
   useEffect(() => {
-    applySeo(screen);
     const current = window.location.pathname.replace(/\/+$/, "") || "/";
     // Integration is a family of /integration/<lms> URLs reached by full navigation; keep the
     // current path rather than collapsing every one of them to the hub.
@@ -426,6 +418,11 @@ function App() {
     if (current !== (desired.replace(/\/+$/, "") || "/")) {
       window.history.pushState({ screen }, "", desired);
     }
+    // MUST run after pushState: applySeo resolves the route by
+    // window.location.pathname first (so /integration/<lms> gets its own meta),
+    // so calling it before the URL moves tags the page with the PREVIOUS
+    // screen's title, canonical and OG data — one navigation behind, every time.
+    applySeo(screen);
   }, [screen]);
 
   // Back/forward buttons: restore the screen from the URL.
@@ -440,7 +437,11 @@ function App() {
     if (!auth.session || !persistenceEnabled()) return;
     let active = true;
     void listProjects().then((loaded) => {
-      if (active && loaded.length) setProjects(loaded);
+      // No `loaded.length` guard: it existed only to stop an empty result from
+      // wiping the demo course that used to seed this list. The list now starts
+      // empty, so an account with no saved courses correctly keeps showing the
+      // real "No course projects yet" empty state.
+      if (active) setProjects(loaded);
     });
     return () => {
       active = false;
@@ -474,7 +475,7 @@ function App() {
   // The public sample course is never persisted to an account.
   useEffect(() => {
     if (!auth.session || !persistenceEnabled()) return;
-    if (course.id === sampleProject.id) return;
+    if (course.id === SAMPLE_PROJECT_ID) return;
     if (!auth.entitlement.canCreateProject) return;
     setSaveState("saving");
     const timer = window.setTimeout(() => {
@@ -566,6 +567,20 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
 
+  // ⌘K / Ctrl+K — open the shared command palette in the editor (safe from any
+  // field; it's a dedicated chord). Esc/selection close it from inside.
+  useEffect(() => {
+    if (screen !== "editor") return;
+    const onKey = (event: KeyboardEvent): void => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [screen]);
+
   const updateSettings = <K extends keyof CourseSettings>(key: K, value: CourseSettings[K]): void => {
     setSettings((current) => {
       if (key === "courseLengthPreset" && typeof value === "string" && value !== "custom") {
@@ -590,7 +605,8 @@ function App() {
   // titles as it advances — evidence the draft is substantive, not a generic spinner.
   const pendingCourseRef = useRef<CourseProject | null>(null);
 
-  const startGeneration = (): void => {
+  const startGeneration = async (): Promise<void> => {
+    const { generateCourseProject } = await import("./services/courseGenerator");
     const base = generateCourseProject({
       prompt: augmentPromptWithSources(prompt, settings.sourceFiles) + buildScheduleContext(settings.schedule),
       settings
@@ -608,6 +624,7 @@ function App() {
     setAiBusy(true);
     setAiError(null);
     try {
+      const { generateBlueprint } = await import("./services/aiGeneration");
       const result = await generateBlueprint(
         augmentPromptWithSources(prompt, settings.sourceFiles) + buildScheduleContext(settings.schedule),
         settings
@@ -623,8 +640,9 @@ function App() {
   };
 
   // Approve the blueprint → build a full, export-valid course seeded by it, then open the editor.
-  const approveBlueprint = (): void => {
+  const approveBlueprint = async (): Promise<void> => {
     if (!blueprint) return;
+    const { buildCourseFromBlueprint } = await import("./services/aiGeneration");
     const generated = buildCourseFromBlueprint(blueprint, settings, prompt);
     // Attribute the blueprint's real cost to the course now that it has an id.
     recordCourseAiSpend(generated.id, blueprintCostRef.current);
@@ -683,6 +701,10 @@ function App() {
     const fileList = Array.from(files);
     const imsccFile = fileList.find((file) => /\.imscc$/i.test(file.name));
     if (imsccFile) {
+      const { importCanvasCourseFromImscc } = await import("./services/imsccImport").catch((error) => {
+        setExportError("The Canvas import tools could not be loaded. Reload the page and try again.");
+        throw error;
+      });
       const result = await importCanvasCourseFromImscc(imsccFile, settings);
       setCourse(result.course);
       setProjects((current) => [result.course, ...current.filter((project) => project.id !== result.course.id)]);
@@ -784,6 +806,7 @@ function App() {
     setIsExporting(true);
     setExportError(null);
     try {
+      const { generateImsccBlob } = await import("./services/imsccExport");
       const { report } = await generateImsccBlob({ ...course, exportMode }, exportMode);
       setValidationReport(report);
     } catch (error) {
@@ -800,6 +823,7 @@ function App() {
     setExportError(null);
     setLastDownloadName(null);
     try {
+      const { generateImsccBlob } = await import("./services/imsccExport");
       const { blob, report, fileName } = await generateImsccBlob({ ...courseToExport, exportMode }, exportMode);
       setValidationReport(report);
       if (!report.valid) {
@@ -843,16 +867,19 @@ function App() {
   // React state to settle. Never throws past the proxy: each builder falls back to its template.
   const fillFullCourseContent = async (): Promise<CourseProject | null> => {
     if (!exportAllowed) return null;
-    const plan = planFullCourseFill(course);
-    if (plan.total === 0) {
-      setFillSummary("Nothing to fill — this course has no lessons, assignments, discussions, or quizzes yet.");
-      return course;
-    }
     setIsFillingContent(true);
     setExportError(null);
     setFillSummary(null);
-    setFillProgress({ completed: 0, total: plan.total, label: "Starting" });
     try {
+      // Inside the try: a failed chunk fetch must reach the catch below, or the
+      // caller reports success for content that was never generated.
+      const { fillEntireCourseContent, planFullCourseFill } = await import("./services/fullCourseContent");
+      const plan = planFullCourseFill(course);
+      if (plan.total === 0) {
+        setFillSummary("Nothing to fill — this course has no lessons, assignments, discussions, or quizzes yet.");
+        return course;
+      }
+      setFillProgress({ completed: 0, total: plan.total, label: "Starting" });
       const result = await fillEntireCourseContent(course, { onProgress: setFillProgress });
       updateCourse(() => result.course);
       const { pages, assignments, discussions, quizzes, announcements } = result.applied;
@@ -878,55 +905,104 @@ function App() {
     }
   };
 
+  // Every download engine below is code-split, so a click can now fail on a
+  // chunk fetch (e.g. the tab was open across a deploy). Those rejections happen
+  // outside React's render phase, so the error boundary cannot see them and the
+  // `() => void` prop signatures discard the promise — without this the button
+  // would silently do nothing, permanently. Report the same way the .imscc
+  // export path already does, so ExportTab renders it.
+  const withDownloadErrors = async (what: string, run: () => Promise<void>): Promise<void> => {
+    try {
+      await run();
+    } catch (error) {
+      setExportError(
+        isChunkLoadError(error)
+          ? `RocketCourse updated while this tab was open, so the ${what} tools could not load. Reload the page and try again.`
+          : error instanceof Error
+            ? `Could not build the ${what}: ${error.message}`
+            : `Could not build the ${what}.`
+      );
+    }
+  };
+
   // Download a readable PDF copy of the whole course (no Canvas import needed).
-  const downloadCoursePdf = (): void => {
+  // These handlers are async only because the PDF/QTI engines are code-split —
+  // `() => Promise<void>` is assignable to the `() => void` props they feed, so
+  // no downstream signature changes.
+  const downloadCoursePdf = async (): Promise<void> => {
     if (!exportAllowed) return;
-    downloadBlob(generateCoursePdfBlob(course), coursePdfFileName(course));
+    await withDownloadErrors("course PDF", async () => {
+      const { coursePdfFileName, generateCoursePdfBlob } = await import("./services/coursePdf");
+      downloadBlob(generateCoursePdfBlob(course), coursePdfFileName(course));
+    });
   };
 
   // Download a clean PDF of the syllabus (aligned with the Canvas syllabus page).
-  const downloadSyllabusPdf = (): void => {
+  const downloadSyllabusPdf = async (): Promise<void> => {
     if (!exportAllowed) return;
-    downloadBlob(buildSyllabusPdfBlob(course), syllabusPdfFileName(course));
+    await withDownloadErrors("syllabus PDF", async () => {
+      const { buildSyllabusPdfBlob, syllabusPdfFileName } = await import("./services/syllabusPdf");
+      downloadBlob(buildSyllabusPdfBlob(course), syllabusPdfFileName(course));
+    });
   };
 
   // Download every quiz as one bulk Canvas-importable QTI .zip.
   const downloadAllQuizzesQti = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
-    const { blob, fileName } = await generateAllQuizzesQtiBlob(course);
-    downloadBlob(blob, fileName);
+    await withDownloadErrors("quiz QTI package", async () => {
+      const { generateAllQuizzesQtiBlob } = await import("./services/imsccExport");
+      const { blob, fileName } = await generateAllQuizzesQtiBlob(course);
+      downloadBlob(blob, fileName);
+    });
   };
 
   // Download a single quiz as a standalone QTI .zip.
   const downloadQuizQti = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
-    const { blob, fileName } = await generateQuizQtiBlob(quiz);
-    downloadBlob(blob, fileName);
+    await withDownloadErrors("quiz QTI package", async () => {
+      const { generateQuizQtiBlob } = await import("./services/imsccExport");
+      const { blob, fileName } = await generateQuizQtiBlob(quiz);
+      downloadBlob(blob, fileName);
+    });
   };
 
   // Printable quiz PDFs — student copy and instructor answer key (single + combined).
-  const downloadQuizStudentPdf = (quiz: Quiz): void => {
+  const downloadQuizStudentPdf = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
-    downloadBlob(buildQuizStudentPdfBlob(course, quiz), quizStudentPdfFileName(course, quiz));
+    await withDownloadErrors("quiz PDF", async () => {
+      const { buildQuizStudentPdfBlob, quizStudentPdfFileName } = await import("./services/quizPdf");
+      downloadBlob(buildQuizStudentPdfBlob(course, quiz), quizStudentPdfFileName(course, quiz));
+    });
   };
-  const downloadQuizAnswerKeyPdf = (quiz: Quiz): void => {
+  const downloadQuizAnswerKeyPdf = async (quiz: Quiz): Promise<void> => {
     if (!exportAllowed) return;
-    downloadBlob(buildQuizAnswerKeyPdfBlob(course, quiz), quizAnswerKeyPdfFileName(course, quiz));
+    await withDownloadErrors("answer key PDF", async () => {
+      const { buildQuizAnswerKeyPdfBlob, quizAnswerKeyPdfFileName } = await import("./services/quizPdf");
+      downloadBlob(buildQuizAnswerKeyPdfBlob(course, quiz), quizAnswerKeyPdfFileName(course, quiz));
+    });
   };
-  const downloadAllQuizzesStudentPdf = (): void => {
+  const downloadAllQuizzesStudentPdf = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
-    downloadBlob(buildAllQuizzesStudentPdfBlob(course), allQuizzesStudentPdfFileName(course));
+    await withDownloadErrors("quiz PDFs", async () => {
+      const { buildAllQuizzesStudentPdfBlob, allQuizzesStudentPdfFileName } = await import("./services/quizPdf");
+      downloadBlob(buildAllQuizzesStudentPdfBlob(course), allQuizzesStudentPdfFileName(course));
+    });
   };
-  const downloadAllQuizzesAnswerKeyPdf = (): void => {
+  const downloadAllQuizzesAnswerKeyPdf = async (): Promise<void> => {
     if (!exportAllowed || course.quizzes.length === 0) return;
-    downloadBlob(buildAllQuizzesAnswerKeyPdfBlob(course), allQuizzesAnswerKeyPdfFileName(course));
+    await withDownloadErrors("answer key PDFs", async () => {
+      const { buildAllQuizzesAnswerKeyPdfBlob, allQuizzesAnswerKeyPdfFileName } = await import("./services/quizPdf");
+      downloadBlob(buildAllQuizzesAnswerKeyPdfBlob(course), allQuizzesAnswerKeyPdfFileName(course));
+    });
   };
 
   // Enter the public demo: load the static sample course, turn on demo chrome, optionally start the
   // guided tour. No AI, no account, nothing persisted.
-  const enterDemo = (withTour: boolean): void => {
-    setCourse(sampleProject);
-    setExportMode(sampleProject.exportMode);
+  const enterDemo = async (withTour: boolean): Promise<void> => {
+    // Generates the demo course on first entry (code-split), memoised after.
+    const demo = await getSampleProject();
+    setCourse(demo);
+    setExportMode(demo.exportMode);
     setValidationReport(null);
     setImportNotes([]);
     setActiveTab("Overview");
@@ -975,7 +1051,7 @@ function App() {
         </>
       )}
       {screen === "pricing" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading pricing" />}>
           <PricingPage
             onChoosePlan={handleChoosePlan}
             onTryDemo={() => setScreen("demo")}
@@ -984,59 +1060,59 @@ function App() {
             error={checkoutError}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "about" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading" />}>
           <AboutPage
             onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
             onContact={() => setScreen("contact")}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "guides" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading guides" />}>
           <GuidesPage onTryDemo={() => setScreen("demo")} onStartBuilding={() => startNewIntake()} />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "contact" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading contact" />}>
           <ContactPage />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "demo" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading demo" />}>
           <DemoIntro onStartTour={() => enterDemo(true)} onExplore={() => enterDemo(false)} onBackHome={() => setScreen("landing")} />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {(screen === "terms" || screen === "privacy") && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading" />}>
           <LegalPage kind={screen} onContact={() => setScreen("contact")} />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "integration" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading" />}>
           <IntegrationPage
             onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "foundingCohort" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading" />}>
           <FoundingCohortPage
             onStartBuilding={() => startNewIntake()}
             onTryDemo={() => setScreen("demo")}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {(screen === "login" || screen === "signup") && (
         <AuthScreen
@@ -1052,7 +1128,7 @@ function App() {
         />
       )}
       {screen === "dashboard" && auth.session && (
-        <Dashboard
+        <DashboardScreen
           projects={projects}
           entitlement={auth.entitlement}
           onCreate={() => startNewIntake()}
@@ -1060,13 +1136,20 @@ function App() {
           onRefreshStatus={auth.refreshSubscription}
           onBillingPortal={handleOpenBillingPortal}
           billingError={checkoutError}
-          onOpen={(project) => {
+          onOpen={(project, expId) => {
             setDemoActive(false);
             setTourOpen(false);
             setCourse(project);
             setExportMode(project.exportMode);
             setImportNotes([]);
             setValidationReport(null);
+            // Optional per-card experience choice: persist it so the course-open
+            // effect resolves to it, and set it directly for an immediate open.
+            if (expId && getExperience(expId)?.enabled) {
+              saveCoursePreferred(project.id, expId);
+              saveUserPreferred(expId);
+              setExperienceId(expId);
+            }
             setScreen("editor");
           }}
         />
@@ -1103,6 +1186,57 @@ function App() {
         <Progress progressIndex={progressIndex} moduleTitles={pendingCourseRef.current?.modules.map((module) => module.title) ?? []} />
       )}
       {screen === "editor" && (
+        <ExperienceChrome
+          courseTitle={course.title}
+          experienceId={experienceId}
+          readinessScore={readiness.score}
+          readinessBlockers={readiness.blockers}
+          saveState={auth.session && course.id !== SAMPLE_PROJECT_ID ? saveState : "idle"}
+          onSwitch={chooseExperience}
+          onOpenPalette={() => setPaletteOpen(true)}
+        />
+      )}
+      {screen === "editor" && experienceId !== "original" && (
+        <WorkflowHost
+          course={course}
+          experienceId={experienceId}
+          onUpdateCourse={updateCourse}
+          onRunValidation={runValidation}
+          onDownload={downloadPackage}
+          onFillFullContent={fillFullCourseContent}
+          onFocusHandle={(handle) => { workflowFocusRef.current = handle; }}
+        />
+      )}
+      {screen === "editor" && paletteOpen && (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          ctx={{
+            course,
+            experienceId,
+            isOriginal: experienceId === "original",
+            chooseExperience,
+            focusModule: (id) => {
+              if (experienceId === "original") setActiveTab("Modules");
+              else workflowFocusRef.current?.focusModule(id);
+            },
+            focusRef: (refId, type) => {
+              if (experienceId === "original") setActiveTab(typeToTab(type) as EditorTab);
+              else workflowFocusRef.current?.focusRef(refId);
+            },
+            goDashboard: () => setScreen("dashboard"),
+            runValidation,
+            download: downloadPackage,
+            canExport: exportAllowed,
+            openReview: () => setReviewOpen(true),
+            undo: undoCourse,
+            redo: redoCourse,
+            canUndo: undoStackRef.current.length > 0,
+            canRedo: redoStackRef.current.length > 0,
+            setTab: (tab) => setActiveTab(tab as EditorTab),
+          } satisfies CommandContext}
+        />
+      )}
+      {screen === "editor" && experienceId === "original" && (
         <Editor
           course={course}
           activeTab={activeTab}
@@ -1140,7 +1274,7 @@ function App() {
           exportMode={exportMode}
           onExportModeChange={setExportMode}
           importNotes={importNotes}
-          saveState={auth.session && course.id !== sampleProject.id ? saveState : "idle"}
+          saveState={auth.session && course.id !== SAMPLE_PROJECT_ID ? saveState : "idle"}
           customThemes={customThemes}
           canCreateCustomTheme={auth.entitlement.canCreateCustomTheme}
           onSaveCustomTheme={handleSaveCustomTheme}
@@ -1172,7 +1306,7 @@ function App() {
       )}
 
       {screen === "blog" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading blog" />}>
           <PublicBlogIndex
             onOpenPost={(slug) => {
               window.history.pushState({}, "", `/blog/${slug}`);
@@ -1180,28 +1314,32 @@ function App() {
             }}
           />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "blogPost" && (
-        <>
+        <Suspense fallback={<ScreenSkeleton label="Loading article" />}>
           <PublicBlogPost slug={blogSlug} onBack={() => setScreen("blog")} />
           <PublicFooter onNavigate={setScreen} />
-        </>
+        </Suspense>
       )}
       {screen === "join" && (
-        <JoinScreen
-          isAuthed={Boolean(auth.session)}
-          onSignIn={() => {
-            setAuthMode("login");
-            setScreen("login");
-          }}
-          onDone={() => setScreen(workspaceForAdmin ? "workspace" : "dashboard")}
-        />
+        <Suspense fallback={<ScreenSkeleton label="Loading invitation" />}>
+          <JoinScreen
+            isAuthed={Boolean(auth.session)}
+            onSignIn={() => {
+              setAuthMode("login");
+              setScreen("login");
+            }}
+            onDone={() => setScreen(workspaceForAdmin ? "workspace" : "dashboard")}
+          />
+        </Suspense>
       )}
       {screen === "workspace" &&
         auth.session &&
         (workspaceForAdmin ? (
-          <WorkspaceAdminScreen workspaceId={workspaceForAdmin} onOpenBilling={handleOpenBillingPortal} />
+          <Suspense fallback={<ScreenSkeleton label="Loading workspace" />}>
+            <WorkspaceAdminScreen workspaceId={workspaceForAdmin} onOpenBilling={handleOpenBillingPortal} />
+          </Suspense>
         ) : (
           <main id="main-content" tabIndex={-1} className="page-shell">
             <div className="empty-state">
@@ -1213,7 +1351,9 @@ function App() {
         ))}
       {screen === "admin" &&
         (access.isSuperAdmin && auth.session ? (
-          <SuperAdminScreen selfUserId={auth.session.user.id} />
+          <Suspense fallback={<ScreenSkeleton label="Loading admin" />}>
+            <SuperAdminScreen selfUserId={auth.session.user.id} />
+          </Suspense>
         ) : (
           <main id="main-content" tabIndex={-1} className="page-shell">
             <div className="empty-state">
@@ -1846,2497 +1986,6 @@ function Landing({
         </div>
       </section>
     </main>
-  );
-}
-
-function Dashboard({
-  projects,
-  entitlement,
-  onCreate,
-  onPricing,
-  onRefreshStatus,
-  onBillingPortal,
-  billingError,
-  onOpen
-}: {
-  projects: CourseProject[];
-  entitlement: AuthSessionState["entitlement"];
-  onCreate: () => void;
-  onPricing: () => void;
-  onRefreshStatus: () => Promise<void>;
-  onBillingPortal: () => void;
-  billingError?: string | null;
-  onOpen: (project: CourseProject) => void;
-}) {
-  const [refreshing, setRefreshing] = useState(false);
-  const fmtLimit = (used: number, remaining: number | null): string =>
-    remaining === null ? `${used} used · unlimited` : `${remaining} of ${used + remaining} left`;
-  // Visual meter that turns amber near the limit and red when exhausted, so users
-  // aren't surprised mid-build by running out of generations or exports.
-  const usageMeter = (used: number, remaining: number | null): ReactNode => {
-    if (remaining === null) return null;
-    const total = used + remaining;
-    const pct = total === 0 ? 0 : Math.round((used / total) * 100);
-    const level = remaining === 0 ? "empty" : used / total >= 0.75 ? "low" : "ok";
-    return (
-      <span className={`usage-meter ${level}`} aria-hidden="true">
-        <i style={{ width: `${pct}%` }} />
-      </span>
-    );
-  };
-  const refresh = async (): Promise<void> => {
-    setRefreshing(true);
-    try {
-      await onRefreshStatus();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-  return (
-    <main id="main-content" tabIndex={-1} className="dashboard page-shell">
-      <section className="page-heading">
-        <div>
-          <BrandBadge className="dashboard-badge" />
-          <h1>Dashboard</h1>
-          <p>Your projects, exports, plan, and usage.</p>
-        </div>
-        <button className="primary" onClick={onCreate} disabled={!entitlement.canCreateProject} title={entitlement.canCreateProject ? "Create a new course" : "Upgrade to create private courses"}>
-          <Plus size={18} /> Create new course
-        </button>
-      </section>
-
-      {/* Plan + usage panel — driven by the trusted subscription snapshot */}
-      <section className={`plan-panel ${entitlement.active ? "active" : "free"}`}>
-        <div className="plan-panel-main">
-          <span className="hp-eyebrow">
-            <CreditCard size={14} /> {entitlement.active ? "Active plan" : "No active plan"}
-          </span>
-          <h2>{entitlement.planName}</h2>
-          <p>
-            {entitlement.active
-              ? entitlement.currentPeriodEnd
-                ? `Access through ${new Date(entitlement.currentPeriodEnd).toLocaleDateString()}`
-                : "Active subscription"
-              : "Choose a plan to generate and export private Canvas courses."}
-          </p>
-        </div>
-        <div className="plan-usage">
-          <div>
-            <strong>{entitlement.aiGenerationsLimit === null ? "Unlimited" : fmtLimit(entitlement.aiGenerationsUsed, entitlement.aiGenerationsRemaining)}</strong>
-            <span>AI generations</span>
-            {usageMeter(entitlement.aiGenerationsUsed, entitlement.aiGenerationsRemaining)}
-          </div>
-          <div>
-            <strong>{entitlement.exportsLimit === null ? "Unlimited" : fmtLimit(entitlement.exportsUsed, entitlement.exportsRemaining)}</strong>
-            <span>Exports</span>
-            {usageMeter(entitlement.exportsUsed, entitlement.exportsRemaining)}
-          </div>
-        </div>
-        <div className="plan-panel-actions">
-          <button className="secondary" onClick={onPricing}>
-            {entitlement.active ? "Change plan" : "View pricing"}
-          </button>
-          {entitlement.active && (
-            <button className="ghost-button" onClick={onBillingPortal} title="Manage payment method, invoices, cancellation">
-              <CreditCard size={15} /> Billing portal
-            </button>
-          )}
-          <button className="ghost-button" onClick={refresh} disabled={refreshing} title="Re-check subscription status (after checkout)">
-            <RefreshCw size={15} className={refreshing ? "spin" : ""} /> Refresh status
-          </button>
-        </div>
-        {billingError && (
-          <p className="intake-ai-error" role="alert" style={{ marginTop: 12 }}>
-            <AlertTriangle size={15} /> {billingError}
-          </p>
-        )}
-      </section>
-
-      <section className="dashboard-grid">
-        <div className="stat-panel">
-          <span className="stat-icon">
-            <BookOpen size={20} />
-          </span>
-          <span>{projects.length}</span>
-          <p>Course projects</p>
-        </div>
-        <div className="stat-panel pink">
-          <span className="stat-icon">
-            <FileArchive size={20} />
-          </span>
-          <span>{projects.reduce((sum, project) => sum + project.exportHistory.length, 0)}</span>
-          <p>Validated exports</p>
-        </div>
-        <div className="stat-panel orchid">
-          <span className="stat-icon">
-            <Gauge size={20} />
-          </span>
-          <span>{projects.length ? Math.round(projects.reduce((sum, project) => sum + buildReadinessReport(project).score, 0) / projects.length) : 0}%</span>
-          <p>Avg readiness</p>
-        </div>
-      </section>
-      {projects.length === 0 ? (
-        <EmptyState title="No course projects yet" body="Start a new RocketCourse build to see it here with readiness and export status." />
-      ) : (
-        <section className="project-list" aria-label="Course projects">
-          {projects.map((project) => {
-            const score = buildReadinessReport(project).score;
-            return (
-              <button key={project.id} className="project-row" onClick={() => onOpen(project)}>
-                <span className="project-main">
-                  <span className="project-glyph project-tile" aria-hidden="true">
-                    {project.theme ? (
-                      <img
-                        src={`data:image/svg+xml;utf8,${encodeURIComponent(buildCourseTileSvg(project.title, project.theme))}`}
-                        alt=""
-                        style={{ display: "block", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <BookOpen size={20} />
-                    )}
-                  </span>
-                  <span>
-                    <strong>{project.title}</strong>
-                    <small>
-                      {project.modules.length} modules • {project.assignments.length} assignments • updated {formatDate(project.updatedAt)}
-                    </small>
-                  </span>
-                </span>
-                <span className="project-meta">
-                  <span className="readiness-mini" title={`Readiness ${score}%`}>
-                    <span className="bar" aria-hidden="true">
-                      <i style={{ width: `${score}%` }} />
-                    </span>
-                    {score}%
-                  </span>
-                  <span className={`status-pill ${project.status}`}>{project.status}</span>
-                  <ArrowRight size={16} aria-hidden="true" />
-                </span>
-              </button>
-            );
-          })}
-        </section>
-      )}
-    </main>
-  );
-}
-
-function Intake({
-  prompt,
-  settings,
-  onPromptChange,
-  onSettingsChange,
-  onFiles,
-  onPasteSource,
-  onRemoveSource,
-  onGenerate,
-  canUseAi,
-  isAuthed,
-  onGenerateBlueprint,
-  aiBusy,
-  aiError,
-  onUpgrade
-}: {
-  prompt: string;
-  settings: CourseSettings;
-  onPromptChange: (value: string) => void;
-  onSettingsChange: <K extends keyof CourseSettings>(key: K, value: CourseSettings[K]) => void;
-  onFiles: (files: FileList | null) => void;
-  onPasteSource: (text: string) => void;
-  onRemoveSource: (id: string) => void;
-  onGenerate: () => void;
-  canUseAi: boolean;
-  isAuthed: boolean;
-  onGenerateBlueprint: () => void;
-  aiBusy: boolean;
-  aiError: string | null;
-  onUpgrade: () => void;
-}) {
-  const [pasteText, setPasteText] = useState("");
-  // Guided mode (the default) walks through one step at a time — a calm wizard for most users.
-  // Quick build stays available for experienced users who want every setting on one page. Both
-  // expose the full settings — just at different paces.
-  const [intakeMode, setIntakeMode] = useState<"quick" | "guided">("guided");
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  const [guidedStep, setGuidedStep] = useState(0);
-  // Assumptions inferred from the course description when leaving step 1, shown as an
-  // editable-banner on later steps. Only fields still at their defaults are pre-filled.
-  const [inferredNotes, setInferredNotes] = useState<string[]>([]);
-
-  const applyPromptInference = (): void => {
-    const intakeContext = augmentPromptWithSources(prompt, settings.sourceFiles);
-    if (!intakeContext.trim()) return;
-    const { updates, notes } = inferSettingsFromPrompt(intakeContext);
-    const applied: string[] = [];
-    (Object.entries(updates) as Array<[keyof typeof updates, never]>).forEach(([key, value]) => {
-      if (settings[key] === defaultSettings[key]) {
-        onSettingsChange(key, value);
-        applied.push(key);
-      }
-    });
-    setInferredNotes(applied.length > 0 ? notes : []);
-  };
-
-  // Quick build has no "Continue" moment, so inference runs as the user types (debounced).
-  // It still only fills fields the user hasn't touched, exactly like the guided path.
-  const promptRef = useRef(prompt);
-  promptRef.current = prompt;
-  useEffect(() => {
-    const hasSourceText = settings.sourceFiles.some((source) => Boolean(source.text?.trim()));
-    if (intakeMode !== "quick" || (!prompt.trim() && !hasSourceText)) return;
-    const timer = window.setTimeout(() => {
-      if (promptRef.current === prompt) applyPromptInference();
-    }, 700);
-    return () => window.clearTimeout(timer);
-    // applyPromptInference reads current props/state; re-running on prompt/mode change is the point.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prompt, intakeMode, settings.sourceFiles]);
-  const toggleSection = (key: string): void => setOpenSections((current) => ({ ...current, [key]: !current[key] }));
-  const updateSchedule = <K extends keyof CourseSettings["schedule"]>(key: K, value: CourseSettings["schedule"][K]) => {
-    onSettingsChange("schedule", { ...settings.schedule, [key]: value });
-  };
-  const submitPaste = (): void => {
-    onPasteSource(pasteText);
-    setPasteText("");
-  };
-
-  // Generation needs a course brief, explicit title, or source text. A source-only workflow is
-  // valid (for example, starting from a syllabus), but an entirely empty intake is not.
-  const hasReadableSource = settings.sourceFiles.some(
-    (source) => (source.status === "parsed" || source.status === "needs-review") && Boolean(source.text?.trim())
-  );
-  const hasIntake = Boolean(prompt.trim() || settings.title.trim() || hasReadableSource);
-  const emptyIntakeHint = !hasIntake ? (
-    <p className="prompt-hint" role="status">
-      Describe your course, set a title, or add a readable source to continue.
-    </p>
-  ) : null;
-
-  const generateButton = canUseAi ? (
-    <>
-      <button className="primary" onClick={onGenerateBlueprint} disabled={aiBusy || !hasIntake}>
-        {aiBusy ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
-        {aiBusy ? "Generating blueprint…" : "Generate Blueprint with AI"}
-      </button>
-      {/* The instant deterministic draft stays available so an unreachable AI service is
-          never a dead end — the user always has a way to get their course. */}
-      <button
-        className="secondary"
-        onClick={onGenerate}
-        disabled={aiBusy || !hasIntake}
-        title="Build a structured draft instantly from your settings — no AI credits used. You can fill it with AI content later from the Export tab."
-      >
-        <Wand2 size={17} /> Build instant draft (no AI)
-      </button>
-      {emptyIntakeHint}
-    </>
-  ) : isAuthed ? (
-    <button className="primary" onClick={onUpgrade}>
-      <Lock size={18} /> Upgrade to generate with AI
-    </button>
-  ) : (
-    <>
-      <button className="primary" onClick={onGenerate} disabled={!hasIntake}>
-        <Sparkles size={18} /> Generate sample course (no AI)
-      </button>
-      {emptyIntakeHint}
-    </>
-  );
-
-  const promptPanel = (
-    <div className="prompt-panel">
-          <span className="panel-label">
-            <Wand2 size={14} /> Course brief
-          </span>
-          <div className="rc-trail prompt-trail" aria-hidden="true" />
-          <label htmlFor="prompt">Describe your course</label>
-          <p className="prompt-hint">Plain language is fine — topic, audience, goals, tone, and anything you want emphasized.</p>
-          <textarea id="prompt" className="prompt-textarea" value={prompt} onChange={(event) => onPromptChange(event.target.value)} placeholder="e.g. An 8-week undergraduate course on AI and Modern Society for non-majors. Emphasize ethics, real-world cases, and weekly discussion. Friendly, practical tone." />
-          {!prompt.trim() && (
-            <div className="prompt-examples" aria-label="Example course briefs">
-              <span className="prompt-examples-label">Try an example:</span>
-              {[
-                "An 8-week undergraduate course on AI and Modern Society for non-majors. Emphasize ethics, real-world cases, and weekly discussion. Friendly, practical tone.",
-                "A 16-week graduate research methods course for nursing students. Include APA writing support, a scaffolded literature-review project, and biweekly quizzes.",
-                "A 6-week professional development course on workplace safety for new EMS supervisors. Scenario-based, practical, with a final case-study presentation."
-              ].map((example) => (
-                <button key={example} type="button" className="prompt-example-chip" onClick={() => onPromptChange(example)}>
-                  {example.split(".")[0]}
-                </button>
-              ))}
-            </div>
-          )}
-          <label className="upload-zone">
-            <Upload size={22} />
-            <span>Attach a syllabus, notes, reading list, or an existing Canvas .imscc export</span>
-            <input type="file" multiple accept=".imscc,.txt,.md,.markdown,.csv,.json,.rtf,.doc,.docx,.pdf,.html,.htm" onChange={(event) => onFiles(event.target.files)} />
-          </label>
-          <p className="upload-note">
-            Uploading an <strong>.imscc</strong> imports its structure right away. Text, Markdown, HTML, and <strong>.docx</strong>{" "}
-            files are parsed in your browser and their content informs generation. PDFs are best-effort — if the text can't be
-            extracted, paste key sections below. Review all generated content before publishing.
-          </p>
-          {settings.sourceFiles.length > 0 && (
-            <ul className="source-list" aria-label="Attached sources">
-              {settings.sourceFiles.map((file) => (
-                <li key={file.id} className={`source-item ${file.status}`}>
-                  <div className="source-item-head">
-                    <span className="source-item-name">
-                      <FileText size={14} /> {file.name} <small>{file.sizeLabel}</small>
-                    </span>
-                    <span className="source-status-row">
-                      <SourceStatusBadge status={file.status} />
-                      <button type="button" className="source-remove" onClick={() => onRemoveSource(file.id)} aria-label={`Remove ${file.name}`}>
-                        <Trash2 size={13} />
-                      </button>
-                    </span>
-                  </div>
-                  {file.status === "parsed" && typeof file.chars === "number" && (
-                    <p className="source-meta">{file.chars.toLocaleString()} characters extracted</p>
-                  )}
-                  {file.note && <p className="source-note">{file.note}</p>}
-                  {file.preview && file.status !== "failed" && <p className="source-preview">{file.preview}</p>}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="paste-source">
-            <label htmlFor="paste-source">Or paste source material</label>
-            <p className="prompt-hint">
-              Course/catalog description, outcomes, readings, assignment ideas, policies, or instructor notes — anything you
-              want reflected in the draft.
-            </p>
-            <textarea
-              id="paste-source"
-              className="paste-textarea"
-              value={pasteText}
-              onChange={(event) => setPasteText(event.target.value)}
-              placeholder="Paste a syllabus section, learning outcomes, a reading list, or notes…"
-            />
-            <button type="button" className="secondary" onClick={submitPaste} disabled={!pasteText.trim()}>
-              <Plus size={15} /> Add as source
-            </button>
-          </div>
-          <p className="upload-note privacy-note">
-            <Lock size={13} /> When you choose an AI blueprint, your prompt and extracted source text are sent to the AI provider only to generate your draft.
-            Generated content is a first draft and must be reviewed for accuracy, accessibility, grading, and policy before use.
-          </p>
-        </div>
-  );
-
-  const basicsFields = (
-    <>
-            <Select
-              label="Course content"
-              value={settings.contentDepth ?? "complete-course"}
-              options={["complete-course", "generic-template"]}
-              labels={{ "complete-course": "Fully generated course", "generic-template": "Generic editable template" }}
-              hint="Fully generated writes subject-specific drafts for every page and activity. Generic template builds the same structure with neutral placeholder text you fill in yourself."
-              onChange={(value) => onSettingsChange("contentDepth", value as CourseSettings["contentDepth"])}
-            />
-            <Input label="Course title" value={settings.title} placeholder="Leave blank to derive from your course brief" onChange={(value) => onSettingsChange("title", value)} />
-            <TextArea label="Course description" value={settings.description} placeholder="Optional — a catalog-style description. Leave blank and we'll write one from your brief." onChange={(value) => onSettingsChange("description", value)} compact />
-            <div className="field-grid">
-              <Select label="Level" value={settings.level} options={["Undergraduate", "Graduate", "Professional", "High school", "Continuing education"]} onChange={(value) => onSettingsChange("level", value)} />
-              <Select label="Modality" value={settings.modality} options={["Online asynchronous", "Online synchronous", "Hybrid", "Face-to-face", "Accelerated"]} onChange={(value) => onSettingsChange("modality", value)} />
-              <NumberInput label="Credit hours" value={settings.creditHours} min={1} max={6} onChange={(value) => onSettingsChange("creditHours", value)} />
-              <Select label="Tone" value={settings.tone} options={["Friendly academic", "Formal", "Practical", "Technical", "Clinical"]} hint="The writing voice used across generated pages, assignments, and announcements." onChange={(value) => onSettingsChange("tone", value)} />
-            </div>
-    </>
-  );
-
-  const structureFields = (
-            <div className="field-grid">
-              <Select
-                label="Length preset"
-                value={settings.courseLengthPreset}
-                options={["4-weeks", "6-weeks", "8-weeks", "12-weeks", "15-weeks", "16-weeks", "maymester", "custom"]}
-                labels={{ "4-weeks": "4 weeks", "6-weeks": "6 weeks", "8-weeks": "8 weeks", "12-weeks": "12 weeks", "15-weeks": "15 weeks", "16-weeks": "16 weeks", maymester: "Maymester", custom: "Custom" }}
-                onChange={(value) => onSettingsChange("courseLengthPreset", value as CourseSettings["courseLengthPreset"])}
-              />
-              <NumberInput label="Course length" value={settings.lengthWeeks} min={3} max={18} suffix="weeks" onChange={(value) => onSettingsChange("lengthWeeks", value)} />
-              <NumberInput label="Teaching modules" value={settings.moduleCount} min={3} max={18} onChange={(value) => onSettingsChange("moduleCount", value)} />
-              <Select
-                label="Organize by"
-                value={settings.organizationPattern}
-                options={["weeks", "topics", "chapters", "units", "quarters", "custom"]}
-                labels={{ weeks: "Weeks", topics: "Topics", chapters: "Chapters", units: "Units", quarters: "Quarters", custom: "Custom sections" }}
-                onChange={(value) => onSettingsChange("organizationPattern", value as CourseSettings["organizationPattern"])}
-              />
-              <Select label="Theme" value={settings.themeId} options={themes.map((theme) => theme.id)} labels={themes.reduce<Record<string, string>>((map, theme) => ({ ...map, [theme.id]: theme.name }), {})} onChange={(value) => onSettingsChange("themeId", value)} />
-              <Select
-                label="Outcome framework"
-                value={settings.outcomeFramework}
-                options={["bloom", "solo", "knowledge", "kolb"]}
-                labels={{ bloom: "Bloom's Taxonomy", solo: "SOLO Taxonomy", knowledge: "Dimensions of Knowledge", kolb: "Kolb's Cycle" }}
-                hint="How learning outcomes are worded and leveled. Bloom's is the safe default."
-                onChange={(value) => onSettingsChange("outcomeFramework", value as CourseSettings["outcomeFramework"])}
-              />
-              <Select
-                label="Course structure"
-                value={settings.structureFramework}
-                options={["linear", "backward", "spiral", "thematic", "competency"]}
-                labels={{ linear: "Subject-centred (linear)", backward: "Backward design (UbD)", spiral: "Spiral", thematic: "Thematic", competency: "Competency-based" }}
-                hint="The overall teaching approach — e.g. backward design drafts assessments first, then content to match."
-                onChange={(value) => onSettingsChange("structureFramework", value as CourseSettings["structureFramework"])}
-              />
-              <Select
-                label="Module pattern"
-                value={settings.modulePattern}
-                options={["standard", "addie", "gagne", "inquiry", "conceptual"]}
-                labels={{ standard: "Standard learning path", addie: "ADDIE", gagne: "Gagné's Nine Events", inquiry: "Inquiry-based", conceptual: "Conceptual framework" }}
-                hint="How each module's items are ordered inside — overview, content, practice, assessment."
-                onChange={(value) => onSettingsChange("modulePattern", value as CourseSettings["modulePattern"])}
-              />
-            </div>
-  );
-
-  const assessmentsFields = (
-            <div className="field-grid">
-              <Select label="Quizzes" value={settings.quizFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("quizFrequency", value as CourseSettings["quizFrequency"])} />
-              {settings.quizFrequency !== "none" && (
-                <>
-                  <NumberInput label="Questions per quiz" value={settings.quizQuestionsPerQuiz} min={1} max={10} onChange={(value) => onSettingsChange("quizQuestionsPerQuiz", value)} />
-                  <Select label="Quiz difficulty" value={settings.quizDifficulty} options={["introductory", "balanced", "challenging"]} onChange={(value) => onSettingsChange("quizDifficulty", value as CourseSettings["quizDifficulty"])} />
-                  <Select label="Quiz purpose" value={settings.quizPurpose} options={["knowledge-check", "pre-assessment", "application", "scenario", "socratic", "review"]} labels={{ "knowledge-check": "Knowledge check", "pre-assessment": "Pre-assessment", application: "Application", scenario: "Scenario-based", socratic: "Socratic", review: "Review & reinforce" }} hint="What quizzes are for — quick recall checks, applying ideas to scenarios, or end-of-module review." onChange={(value) => onSettingsChange("quizPurpose", value as CourseSettings["quizPurpose"])} />
-                </>
-              )}
-              <Select label="Discussions" value={settings.discussionFrequency} options={["weekly", "biweekly", "module", "none"]} onChange={(value) => onSettingsChange("discussionFrequency", value as CourseSettings["discussionFrequency"])} />
-              {settings.discussionFrequency !== "none" && <Select label="Discussion style" value={settings.discussionStyle} options={["reflective", "case-based", "debate", "peer-review", "application"]} hint="The kind of prompt students respond to — personal reflection, analyzing a case, structured debate, reviewing peer work, or applying ideas to new situations." onChange={(value) => onSettingsChange("discussionStyle", value as CourseSettings["discussionStyle"])} />}
-              <Select label="Assignments" value={settings.assignmentCadence} options={["every-module", "every-other-module", "major-milestones", "custom"]} labels={{ "every-module": "Every module", "every-other-module": "Every other module", "major-milestones": "Major milestones", custom: "Custom" }} onChange={(value) => onSettingsChange("assignmentCadence", value as CourseSettings["assignmentCadence"])} />
-              {settings.finalProject && <Select label="Final project type" value={settings.finalProjectType} options={["project", "presentation", "paper", "portfolio", "exam", "case-study", "simulation", "other"]} onChange={(value) => onSettingsChange("finalProjectType", value as CourseSettings["finalProjectType"])} />}
-              {settings.finalProject && settings.scaffoldFinalProject && <Select label="Scaffold pattern" value={settings.scaffoldPattern} options={["every-other-module", "key-milestones", "custom"]} labels={{ "every-other-module": "Every other module", "key-milestones": "Key milestones", custom: "Custom" }} hint="How often students submit final-project check-ins along the way, so the big project isn't one giant deadline." onChange={(value) => onSettingsChange("scaffoldPattern", value as CourseSettings["scaffoldPattern"])} />}
-            </div>
-  );
-
-  const optionsFields = (
-            <div className="toggle-grid">
-              <Toggle label="Final project" hint="Adds a culminating final project with its own module, rubric, and gradebook weight." checked={settings.finalProject} onChange={(value) => { onSettingsChange("finalProject", value); if (!value) onSettingsChange("scaffoldFinalProject", false); }} />
-              {settings.finalProject && <Toggle label="Scaffold final project" hint="Spreads the final project across smaller graded check-ins during the term instead of one big deadline." checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />}
-              <Toggle label="Rubrics" hint="Generates a Canvas rubric for every graded assignment and discussion, aligned to the course outcomes." checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
-              <Toggle label="AAA contrast" hint="Uses the strictest WCAG AAA color-contrast tier for themed content (larger text, stronger contrast). Default is AA, the common institutional standard." checked={settings.accessibilityTier === "AAA"} onChange={(value) => onSettingsChange("accessibilityTier", value ? "AAA" : "AA")} />
-              <Select
-                label="Course card image"
-                value={settings.imageSettings.courseTileMode}
-                options={["generated-svg", "upload", "future-ai", "url"]}
-                labels={{ "generated-svg": "Start with theme artwork", upload: "Upload after build", "future-ai": "Generate with Premium", url: "Keep saved image URL" }}
-                hint="Canvas dashboard cards use a wide crop. Uploading your own image never uses AI credits."
-                onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, courseTileMode: value as CourseSettings["imageSettings"]["courseTileMode"] })}
-              />
-              <Select
-                label="Homepage banner"
-                value={settings.imageSettings.homepageBannerMode}
-                options={["generated-svg", "upload", "future-ai", "url"]}
-                labels={{ "generated-svg": "Start with theme artwork", upload: "Upload after build", "future-ai": "Generate with Premium", url: "Keep saved image URL" }}
-                hint="After the course is built, the Imagery step handles crop, focal point, alt text, versions, and export."
-                onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, homepageBannerMode: value as CourseSettings["imageSettings"]["homepageBannerMode"] })}
-              />
-              <Toggle label="Module image hooks" hint="Adds a decorative SVG header image to each module overview page (no external image services)." checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
-            </div>
-  );
-
-  const scheduleFields = (
-    <>
-            <Toggle label="Generate due dates" checked={settings.schedule.enableDueDates} onChange={(value) => updateSchedule("enableDueDates", value)} />
-            {settings.schedule.enableDueDates ? (
-              <>
-                <div className="field-grid">
-                  <Input label="Term start" type="date" value={settings.schedule.termStartDate ?? ""} onChange={(value) => updateSchedule("termStartDate", value || undefined)} />
-                  <Input label="Term end" type="date" value={settings.schedule.termEndDate ?? ""} onChange={(value) => updateSchedule("termEndDate", value || undefined)} />
-                  <Select label="Module release day" value={String(settings.schedule.moduleReleaseDay)} options={weekdayOptions} labels={weekdayLabels} onChange={(value) => updateSchedule("moduleReleaseDay", Number(value))} />
-                  <Select label="Preferred due day" value={String(settings.schedule.preferredDueDay)} options={weekdayOptions} labels={weekdayLabels} onChange={(value) => updateSchedule("preferredDueDay", Number(value))} />
-                  <Input label="Preferred due time" type="time" value={settings.schedule.preferredDueTime} onChange={(value) => updateSchedule("preferredDueTime", value)} />
-                </div>
-                <ListTextArea label="Holidays" helper="One per line or comma-separated. Press Enter for a new line — e.g. Thanksgiving Break, Spring Break." value={settings.schedule.holidays} onChange={(value) => updateSchedule("holidays", value)} />
-                <ListTextArea label="Blackout dates" helper="Dates to keep clear of due dates. One per line or comma-separated — paste freely." value={settings.schedule.blackoutDates} onChange={(value) => updateSchedule("blackoutDates", value)} />
-                <TextArea label="Paste your school academic calendar (optional)" value={settings.schedule.academicCalendar ?? ""} onChange={(value) => updateSchedule("academicCalendar", value)} rows={5} />
-                <p className="field-hint">Paste a term calendar here and RocketCourse uses it as context to avoid holidays, breaks, exam periods, and blackout dates when scheduling. Multi-line text, spacing, and line breaks are preserved.</p>
-                <Toggle label="Allow dates outside term" checked={settings.schedule.allowDueDatesOutsideTerm} onChange={(value) => updateSchedule("allowDueDatesOutsideTerm", value)} />
-              </>
-            ) : (
-              <p className="field-hint">Turn this on to set term dates, release timing, holidays, and blackout dates.</p>
-            )}
-    </>
-  );
-
-  // Advanced sections are collapsed by default in Quick mode (calm first glance) and become the
-  // steps of the Guided wizard. Both expose exactly the same controls.
-  const advancedSections = [
-    { key: "structure", title: "Structure & cadence", node: structureFields },
-    { key: "assessments", title: "Assessments", node: assessmentsFields },
-    { key: "options", title: "Options", node: optionsFields },
-    { key: "schedule", title: "Course schedule", node: scheduleFields }
-  ];
-  const guidedSteps = [
-    { key: "describe", title: "Describe your course", node: promptPanel },
-    { key: "basics", title: "Course basics", node: <div className="settings-section">{basicsFields}</div> },
-    { key: "structure", title: "Structure & cadence", node: <div className="settings-section">{structureFields}</div> },
-    { key: "assessments", title: "Assessments", node: <div className="settings-section">{assessmentsFields}</div> },
-    { key: "options", title: "Options", node: <div className="settings-section">{optionsFields}</div> },
-    { key: "schedule", title: "Schedule", node: <div className="settings-section">{scheduleFields}</div> }
-  ];
-  const lastStep = guidedSteps.length - 1;
-
-  return (
-    <main id="main-content" tabIndex={-1} className="intake page-shell">
-      <section className="page-heading intake-heading">
-        <div>
-          <BrandBadge className="dashboard-badge" />
-          <h1>Create a Course</h1>
-          <p>
-            {intakeMode === "quick"
-              ? "Describe your course and generate. Open Advanced options only if you want to fine-tune."
-              : "Walk through each part of your course design, one step at a time."}
-          </p>
-          <p className="intake-brand-hint">Launch a course draft from your syllabus, notes, or idea.</p>
-        </div>
-        <div className="intake-controls">
-          <div className="intake-mode-toggle" role="tablist" aria-label="Create mode">
-            <button role="tab" aria-selected={intakeMode === "guided"} className={intakeMode === "guided" ? "active" : ""} onClick={() => { setIntakeMode("guided"); setGuidedStep(0); }}>
-              <ListChecks size={15} /> Guided steps
-            </button>
-            <button role="tab" aria-selected={intakeMode === "quick"} className={intakeMode === "quick" ? "active" : ""} onClick={() => setIntakeMode("quick")}>
-              <Wand2 size={15} /> Quick build
-            </button>
-          </div>
-          {intakeMode === "quick" && generateButton}
-        </div>
-      </section>
-      {aiError && (
-        <p className="intake-ai-error">
-          <AlertTriangle size={15} /> {aiError}
-        </p>
-      )}
-
-      {intakeMode === "quick" ? (
-        <section className="intake-layout">
-          {promptPanel}
-          <div className="settings-panel">
-            <span className="panel-label">
-              <Sparkles size={14} /> Course settings
-            </span>
-            <div className="settings-section">
-              <div className="subsection-heading">
-                <h2>Course basics</h2>
-              </div>
-              {basicsFields}
-            </div>
-            {advancedSections.map((section) => (
-              <CollapsibleSection key={section.key} title={section.title} open={Boolean(openSections[section.key])} onToggle={() => toggleSection(section.key)}>
-                {section.node}
-              </CollapsibleSection>
-            ))}
-          </div>
-        </section>
-      ) : (
-        <section className="intake-guided">
-          {/* Step 1 is a single focused question — the stepper appears once there's a journey to show. */}
-          {guidedStep > 0 && (
-            <ol className="guided-stepper" aria-label="Course setup steps">
-              {guidedSteps.map((step, index) => (
-                <li key={step.key} className={index === guidedStep ? "active" : index < guidedStep ? "done" : ""}>
-                  <button type="button" onClick={() => setGuidedStep(index)}>
-                    <span className="guided-step-num">{index < guidedStep ? <Check size={13} /> : index + 1}</span>
-                    <span>{step.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          )}
-          <div className={`guided-step-body${guidedStep === 0 ? " solo" : ""}`}>
-            <div className="guided-progress" aria-hidden="true">
-              <i style={{ width: `${((guidedStep + 1) / guidedSteps.length) * 100}%` }} />
-            </div>
-            {guidedStep === 0 ? (
-              <>
-                <h2 className="guided-step-title">What do you teach?</h2>
-                <p className="guided-step-sub">
-                  One or two sentences is enough — we'll set up the rest from your description, and you can adjust
-                  everything before generating.
-                </p>
-              </>
-            ) : (
-              <h2 className="guided-step-title">
-                Step {guidedStep + 1} of {guidedSteps.length}: {guidedSteps[guidedStep].title}
-              </h2>
-            )}
-            {guidedStep > 0 && inferredNotes.length > 0 && (
-              <p className="inferred-note" role="note">
-                <Sparkles size={14} /> Pre-filled from your description: <strong>{inferredNotes.join(" · ")}</strong> —
-                adjust anything below.
-              </p>
-            )}
-            <div className={`guided-step-content ${guidedStep > 0 ? "with-blueprint" : ""}`}>
-              <div className="guided-step-fields">{guidedSteps[guidedStep].node}</div>
-              {guidedStep > 0 && <CourseBlueprintPreview settings={settings} />}
-            </div>
-            <div className="guided-nav">
-              <button className="secondary" onClick={() => setGuidedStep((value) => Math.max(0, value - 1))} disabled={guidedStep === 0}>
-                <ArrowLeft size={15} /> Back
-              </button>
-              {guidedStep < lastStep ? (
-                <button
-                  className="primary"
-                  disabled={guidedStep === 0 && !hasIntake}
-                  onClick={() => {
-                    if (guidedStep === 0) applyPromptInference();
-                    setGuidedStep((value) => Math.min(lastStep, value + 1));
-                  }}
-                >
-                  {guidedStep === 0 ? "Continue" : "Next"} <ArrowRight size={15} />
-                </button>
-              ) : (
-                generateButton
-              )}
-            </div>
-            {guidedStep === 0 && emptyIntakeHint}
-          </div>
-        </section>
-      )}
-    </main>
-  );
-}
-
-function BlueprintReview({
-  blueprint,
-  busy,
-  error,
-  onApprove,
-  onRegenerate,
-  onBack
-}: {
-  blueprint: CourseBlueprint;
-  busy: boolean;
-  error: string | null;
-  onApprove: () => void;
-  onRegenerate: () => void;
-  onBack: () => void;
-}) {
-  return (
-    <main id="main-content" tabIndex={-1} className="blueprint page-shell">
-      <section className="page-heading">
-        <div>
-          <span className="section-eyebrow">
-            <Sparkles size={14} /> AI Blueprint — Step 2 of 3
-          </span>
-          <h1>{blueprint.title}</h1>
-          <p>
-            Review the AI's instructional plan below. Approving builds the full Canvas course (step 3) — you can still edit
-            everything afterwards.
-          </p>
-        </div>
-        <div className="blueprint-actions">
-          <button className="secondary" onClick={onBack}>
-            Back
-          </button>
-          <button className="secondary" onClick={onRegenerate} disabled={busy}>
-            {busy ? <Loader2 size={16} className="spin" /> : <RotateCcw size={16} />} Regenerate
-          </button>
-          <button className="primary" onClick={onApprove} disabled={busy}>
-            <CheckCircle2 size={18} /> Approve &amp; Build Course
-          </button>
-        </div>
-      </section>
-
-      {error && (
-        <p className="intake-ai-error">
-          <AlertTriangle size={15} /> {error}
-        </p>
-      )}
-
-      <section className="blueprint-meta">
-        <span><strong>Audience</strong>{blueprint.audience || "—"}</span>
-        <span><strong>Level</strong>{blueprint.level || "—"}</span>
-        <span><strong>Modality</strong>{blueprint.modality || "—"}</span>
-        <span><strong>Credit hours</strong>{blueprint.creditHours}</span>
-        <span><strong>Length</strong>{blueprint.lengthWeeks} weeks</span>
-        <span><strong>Modules</strong>{blueprint.modules.length}</span>
-      </section>
-
-      <p className="blueprint-description">{blueprint.description}</p>
-      {blueprint.teachingApproach && (
-        <p className="blueprint-approach"><strong>Teaching approach:</strong> {blueprint.teachingApproach}</p>
-      )}
-
-      <div className="blueprint-grid">
-        <section className="blueprint-card">
-          <h2>Learning outcomes</h2>
-          <ul className="blueprint-outcomes">
-            {blueprint.outcomes.length === 0 && <li>No outcomes returned.</li>}
-            {blueprint.outcomes.map((outcome) => (
-              <li key={outcome.code}>
-                <span className="outcome-code">{outcome.code}</span> {outcome.text}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="blueprint-card">
-          <h2>Assessment plan</h2>
-          <ul className="blueprint-assessments">
-            {blueprint.majorAssessments.map((item, index) => (
-              <li key={index}>
-                <ClipboardCheck size={14} /> {item}
-              </li>
-            ))}
-          </ul>
-          {blueprint.finalProject && (
-            <p className="blueprint-final">
-              <strong>Final project:</strong> {blueprint.finalProject}
-            </p>
-          )}
-        </section>
-      </div>
-
-      <section className="blueprint-modules">
-        <h2>Module map</h2>
-        <div className="blueprint-module-list">
-          {blueprint.modules.map((module, index) => (
-            <article key={index} className="blueprint-module">
-              <span className="blueprint-module-index">{index + 1}</span>
-              <div>
-                <strong>{module.title}</strong>
-                <p>{module.summary}</p>
-                {module.objectives.length > 0 && (
-                  <ul>
-                    {module.objectives.map((objective, objectiveIndex) => (
-                      <li key={objectiveIndex}>{objective}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {blueprint.validationWarnings.length > 0 && (
-        <section className="blueprint-warnings">
-          <h2><AlertTriangle size={16} /> Things to verify</h2>
-          <ul>
-            {blueprint.validationWarnings.map((warning, index) => (
-              <li key={index}>{warning}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </main>
-  );
-}
-
-// Shown once, right after generation finishes: celebrate what was built and hand the
-// user a single obvious next action ("Start reviewing") instead of a cold workspace.
-function WelcomeSummary({
-  course,
-  onStartReviewing,
-  onDismiss
-}: {
-  course: CourseProject;
-  onStartReviewing: () => void;
-  onDismiss: () => void;
-}) {
-  const dialogRef = useModalFocus<HTMLDivElement>(true, onDismiss);
-
-  const teachingModuleCount = course.modules.filter((module) => module.kind === "content").length;
-  const supportModuleCount = course.modules.length - teachingModuleCount;
-  const stats: Array<[number, string]> = [
-    [course.modules.length, "total modules"],
-    [course.pages.length, "pages"],
-    [course.assignments.length, "assignments"],
-    [course.discussions.length, "discussions"],
-    [course.quizzes.length, "quizzes"],
-    [course.rubrics.length, "rubrics"]
-  ];
-
-  return (
-    <div ref={dialogRef} tabIndex={-1} className="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title" onClick={onDismiss}>
-      <div className="welcome-card" onClick={(event) => event.stopPropagation()}>
-        <span className="hp-eyebrow">
-          <Sparkles size={14} /> Draft complete
-        </span>
-        <h2 id="welcome-title">{course.title} is ready to review</h2>
-        <div className="welcome-stats">
-          {stats.filter(([count]) => count > 0).map(([count, label]) => (
-            <div key={label}>
-              <strong>{count}</strong>
-              <span>{label}</span>
-            </div>
-          ))}
-        </div>
-        {supportModuleCount > 0 && (
-          <p className="welcome-module-note">{teachingModuleCount} teaching modules plus {supportModuleCount} support modules for orientation, final work, or instructor resources.</p>
-        )}
-        <p>
-          This is a complete first draft — not a finished course. Walk through the five build phases to review and
-          polish it, then export to Canvas.
-        </p>
-        <div className="welcome-actions">
-          <button className="primary" onClick={onStartReviewing}>
-            <Rocket size={16} /> Start reviewing <ArrowRight size={16} />
-          </button>
-          <button className="ghost-button" onClick={onDismiss}>
-            Explore on my own
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Progress({ progressIndex, moduleTitles = [] }: { progressIndex: number; moduleTitles?: string[] }) {
-  const percent = Math.min(100, Math.round(((progressIndex + 1) / progressSteps.length) * 100));
-  // Reveal the actual module titles being built as progress advances — real evidence
-  // of the draft taking shape rather than a generic spinner.
-  const visibleModules = Math.min(moduleTitles.length, Math.ceil((percent / 100) * moduleTitles.length));
-  return (
-    <main id="main-content" tabIndex={-1} className="progress page-shell">
-      <section className="progress-card">
-        <RocketCourseLoader size="lg" className="progress-loader" />
-        <h1>Building your Canvas course</h1>
-        <p aria-live="polite">{progressSteps[Math.min(progressIndex, progressSteps.length - 1)]}</p>
-        <div className="progress-track" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-          <span style={{ width: `${percent}%` }} />
-        </div>
-        <span className="progress-percent">{percent}% complete</span>
-        <ol>
-          {progressSteps.map((step, index) => (
-            <li key={step} className={index < progressIndex ? "done" : index === progressIndex ? "current" : ""}>
-              {index < progressIndex ? <CheckCircle2 size={16} /> : index === progressIndex ? <Loader2 size={16} className="spin" /> : <ChevronRight size={16} />}
-              {step}
-            </li>
-          ))}
-        </ol>
-        {moduleTitles.length > 0 && (
-          <div className="progress-modules" aria-label="Modules being created">
-            <span className="progress-modules-label">Your modules</span>
-            <ul>
-              {moduleTitles.slice(0, visibleModules).map((title) => (
-                <li key={title}>
-                  <CheckCircle2 size={13} /> {title}
-                </li>
-              ))}
-            </ul>
-            {visibleModules < moduleTitles.length && (
-              <small>
-                +{moduleTitles.length - visibleModules} more on the way…
-              </small>
-            )}
-          </div>
-        )}
-      </section>
-    </main>
-  );
-}
-
-function Editor({
-  course,
-  activeTab,
-  setActiveTab,
-  readiness,
-  quality,
-  subscriptionActive,
-  imageSubscriptionActive,
-  validationReport,
-  isExporting,
-  draggedModuleId,
-  onDragModule,
-  onDropModule,
-  onDragItem,
-  onDropItem,
-  onUpdateCourse,
-  onRunValidation,
-  onDownload,
-  onFillFullContent,
-  isFillingContent,
-  fillProgress,
-  fillSummary,
-  onDownloadPdf,
-  onDownloadSyllabusPdf,
-  onDownloadAllQti,
-  onExportQuizQti,
-  onExportQuizStudentPdf,
-  onExportQuizAnswerKeyPdf,
-  onDownloadAllQuizzesStudentPdf,
-  onDownloadAllQuizzesAnswerKeyPdf,
-  exportError,
-  lastDownloadName,
-  onDuplicateModule,
-  onDeleteModule,
-  exportMode,
-  onExportModeChange,
-  importNotes,
-  saveState,
-  customThemes,
-  canCreateCustomTheme,
-  onSaveCustomTheme,
-  demoMode = false,
-  onExitDemo,
-  onOpenReview,
-  canUndo = false,
-  canRedo = false,
-  onUndo,
-  onRedo
-}: {
-  course: CourseProject;
-  activeTab: EditorTab;
-  setActiveTab: (tab: EditorTab) => void;
-  readiness: ReturnType<typeof buildReadinessReport>;
-  quality: ReturnType<typeof buildCourseQualityReport>;
-  subscriptionActive: boolean;
-  imageSubscriptionActive: boolean;
-  validationReport: ExportValidationReport | null;
-  isExporting: boolean;
-  draggedModuleId: string | null;
-  onDragModule: (moduleId: string | null) => void;
-  onDropModule: (moduleId: string) => void;
-  onDragItem: (item: { moduleId: string; itemId: string } | null) => void;
-  onDropItem: (moduleId: string, itemId?: string) => void;
-  onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
-  onRunValidation: () => void;
-  onDownload: () => void;
-  onFillFullContent: () => Promise<CourseProject | null>;
-  isFillingContent: boolean;
-  fillProgress: FullFillProgress | null;
-  fillSummary: string | null;
-  onDownloadPdf: () => void;
-  onDownloadSyllabusPdf: () => void;
-  onDownloadAllQti: () => void;
-  onExportQuizQti: (quiz: Quiz) => void;
-  onExportQuizStudentPdf: (quiz: Quiz) => void;
-  onExportQuizAnswerKeyPdf: (quiz: Quiz) => void;
-  onDownloadAllQuizzesStudentPdf: () => void;
-  onDownloadAllQuizzesAnswerKeyPdf: () => void;
-  exportError: string | null;
-  lastDownloadName: string | null;
-  onDuplicateModule: (moduleId: string) => void;
-  onDeleteModule: (moduleId: string, moveItemsToModuleId?: string) => void;
-  exportMode: ExportMode;
-  onExportModeChange: (mode: ExportMode) => void;
-  importNotes: string[];
-  saveState: "idle" | "saving" | "saved" | "error";
-  customThemes: Theme[];
-  canCreateCustomTheme: boolean;
-  onSaveCustomTheme: (input: CustomThemeInput) => Promise<{ ok: boolean; theme?: Theme; error?: string }>;
-  demoMode?: boolean;
-  onExitDemo?: () => void;
-  onOpenReview?: () => void;
-  canUndo?: boolean;
-  canRedo?: boolean;
-  onUndo?: () => void;
-  onRedo?: () => void;
-}) {
-  const tabsRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<EditorViewMode>(readStoredEditorView);
-  // Readiness lives in a slide-over drawer (opened from the header chip) so the
-  // editor is two calm columns instead of three competing ones.
-  const [readinessOpen, setReadinessOpen] = useState(false);
-  const readinessDialogRef = useModalFocus<HTMLElement>(readinessOpen, () => setReadinessOpen(false));
-
-  const stepIndex = editorTabs.indexOf(activeTab);
-  const stepCount = editorTabs.length;
-  const currentPhaseIndex = phaseIndexForTab(activeTab);
-  const currentPhase = editorPhases[currentPhaseIndex];
-
-  // The rail doubles as a live status map: each step shows a check when its area has
-  // no failing readiness checks, or an amber count when something needs attention.
-  const tabIssueCounts = useMemo(() => {
-    const counts = new Map<EditorTab, number>();
-    for (const check of readiness.checks) {
-      if (check.passed) continue;
-      const tab = readinessTab(check.id);
-      counts.set(tab, (counts.get(tab) ?? 0) + 1);
-    }
-    return counts;
-  }, [readiness]);
-
-  const changeViewMode = (mode: EditorViewMode): void => {
-    setViewMode(mode);
-    storeEditorView(mode);
-  };
-
-  const goToStep = (index: number): void => {
-    const clamped = Math.min(stepCount - 1, Math.max(0, index));
-    setActiveTab(editorTabs[clamped]);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    const active = tabsRef.current?.querySelector<HTMLButtonElement>("button.active");
-    active?.scrollIntoView({ block: "nearest", inline: "center" });
-  }, [activeTab]);
-
-  return (
-    <main id="main-content" tabIndex={-1} className="editor-shell">
-      <aside className="editor-rail" aria-label="Course navigation">
-        <div className="rail-section">
-          <strong>{course.title}</strong>
-          <small>
-            {course.modules.length} modules • {course.pages.length} pages
-          </small>
-        </div>
-        {viewMode === "guided" ? (
-          <>
-            <span className="rail-label">Build phases</span>
-            {editorPhases.map((phase, index) => {
-              const activePhase = phase.steps.includes(activeTab);
-              const phaseIssues = phase.steps.reduce((sum, tab) => sum + (tabIssueCounts.get(tab) ?? 0), 0);
-              return (
-                <div key={phase.name} className={`rail-phase${activePhase ? " active" : ""}`}>
-                  <button
-                    className={`step-link phase-link${activePhase ? " active" : ""}${phaseIssues === 0 ? " visited" : ""}`}
-                    aria-expanded={activePhase}
-                    title={phaseIssues > 0 ? `${phaseIssues} readiness check${phaseIssues === 1 ? "" : "s"} to address` : "All readiness checks pass"}
-                    onClick={() => goToStep(editorTabs.indexOf(phase.steps[0]))}
-                  >
-                    <span className="step-num" aria-hidden="true">
-                      {phaseIssues === 0 ? <Check size={13} /> : index + 1}
-                    </span>
-                    {phase.name}
-                    <small className={`phase-count${phaseIssues > 0 ? " warn" : ""}`}>
-                      {phaseIssues > 0 ? phaseIssues : phase.steps.length}
-                    </small>
-                  </button>
-                  {activePhase && (
-                    <div className="phase-steps">
-                      {phase.steps.map((tab) => {
-                        const tabIndex = editorTabs.indexOf(tab);
-                        const issues = tabIssueCounts.get(tab) ?? 0;
-                        return (
-                          <button
-                            key={tab}
-                            className={`step-link phase-step${activeTab === tab ? " active" : ""}${issues === 0 ? " visited" : ""}`}
-                            aria-current={activeTab === tab ? "step" : undefined}
-                            title={issues > 0 ? `${issues} readiness check${issues === 1 ? "" : "s"} to address` : "All readiness checks pass"}
-                            onClick={() => goToStep(tabIndex)}
-                          >
-                            <span className={`step-dot${issues > 0 ? " warn" : ""}`} aria-hidden="true">
-                              {issues === 0 ? <Check size={11} /> : null}
-                            </span>
-                            {tab}
-                            {issues > 0 && <small className="step-issues">{issues}</small>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </>
-        ) : (
-          <>
-            <span className="rail-label">Quick nav</span>
-            {[
-              ["Overview", BookOpen],
-              ["Modules", GripVertical],
-              ["Assignments", ClipboardCheck],
-              ["Discussions", MessageSquareText],
-              ["Export", FileArchive]
-            ].map(([label, Icon]) => (
-              <button key={String(label)} className={activeTab === label ? "active" : ""} onClick={() => setActiveTab(label as EditorTab)}>
-                <Icon size={17} /> {String(label)}
-              </button>
-            ))}
-          </>
-        )}
-      </aside>
-
-      <section className="editor-main">
-        {demoMode && (
-          <div className="demo-banner" role="note">
-            <span className="demo-banner-text">
-              <Sparkles size={15} />
-              <span>
-                You're exploring the <strong>RocketCourse demo</strong> — a pre-populated AI and Modern Society course.
-                No AI credits are used and edits here aren't saved.
-              </span>
-            </span>
-            <button className="ghost-button" onClick={onExitDemo}>
-              <Home size={15} /> Back to RocketCourse Home
-            </button>
-          </div>
-        )}
-        <div className="editor-header">
-          <div className="editor-titlewrap">
-            <LogoMark size={34} decorative className="editor-mark" />
-            <div>
-              <h1>{course.title}</h1>
-            <p>
-              Structured Canvas course preview and editor
-              {saveState === "saving" && <span className="save-chip saving"><Loader2 size={12} className="spin" /> Saving…</span>}
-              {saveState === "saved" && <span className="save-chip saved"><CheckCircle2 size={12} /> Saved</span>}
-              {saveState === "error" && <span className="save-chip error"><AlertTriangle size={12} /> Save failed</span>}
-              <AiSpendBadge courseId={course.id} />
-            </p>
-            </div>
-          </div>
-          <div className="editor-header-right">
-            <div className="editor-header-chips">
-            {onUndo && (
-              <button
-                type="button"
-                className="readiness-chip history-chip"
-                onClick={onUndo}
-                disabled={!canUndo}
-                title="Undo last change (Ctrl/Cmd+Z)"
-              >
-                <RotateCcw size={14} /> Undo
-              </button>
-            )}
-            {onRedo && (
-              <button
-                type="button"
-                className="readiness-chip history-chip"
-                onClick={onRedo}
-                disabled={!canRedo}
-                title="Redo (Ctrl/Cmd+Shift+Z)"
-                aria-label="Redo"
-              >
-                <RotateCw size={14} />
-              </button>
-            )}
-            {onOpenReview && (
-              <button type="button" className="readiness-chip" onClick={onOpenReview}>
-                <ListChecks size={15} /> Review course
-              </button>
-            )}
-            <button
-              type="button"
-              className={`readiness-chip ${readiness.blockers > 0 ? "blocked" : readiness.checks.some((item) => !item.passed) ? "review" : "ready"}`}
-              onClick={() => setReadinessOpen(true)}
-              aria-haspopup="dialog"
-              aria-expanded={readinessOpen}
-            >
-              <Gauge size={15} />
-              {readiness.blockers > 0
-                ? `${readiness.blockers} blocking issue${readiness.blockers === 1 ? "" : "s"}`
-                : (() => {
-                    const review = readiness.checks.filter((item) => !item.passed).length;
-                    return review > 0 ? `Ready — ${review} to review` : "Ready to export";
-                  })()}
-              <ChevronRight size={14} aria-hidden="true" />
-            </button>
-            </div>
-          </div>
-        </div>
-        <div className="editor-viewbar">
-          {viewMode === "guided" ? (
-            <div className="guided-bar" aria-label="Guided build steps">
-              <div className="guided-info">
-                <span className="guided-count">
-                  Phase {currentPhaseIndex + 1} of {editorPhases.length} — {currentPhase.name}
-                </span>
-                <strong>{activeTab}</strong>
-                <span className="guided-desc">{stepDescriptions[activeTab]}</span>
-              </div>
-              <div
-                className="guided-progress"
-                role="progressbar"
-                aria-label="Course build progress"
-                aria-valuemin={1}
-                aria-valuemax={stepCount}
-                aria-valuenow={stepIndex + 1}
-              >
-                <span className="guided-progress-fill" style={{ width: `${((stepIndex + 1) / stepCount) * 100}%` }} />
-              </div>
-            </div>
-          ) : (
-            <div className="tabs" role="tablist" aria-label="Course editor sections" ref={tabsRef}>
-              {editorTabs.map((tab) => (
-                <button key={tab} role="tab" aria-selected={activeTab === tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
-                  {tab}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="view-toggle" role="group" aria-label="Editor view mode">
-            <button className={viewMode === "guided" ? "active" : ""} aria-pressed={viewMode === "guided"} onClick={() => changeViewMode("guided")}>
-              <ListChecks size={14} /> Guided
-            </button>
-            <button className={viewMode === "tabs" ? "active" : ""} aria-pressed={viewMode === "tabs"} onClick={() => changeViewMode("tabs")}>
-              <LayoutDashboard size={14} /> All sections
-            </button>
-          </div>
-        </div>
-        <div className="tab-body">
-          {activeTab === "Overview" && <OverviewTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Imagery" && <ImageryTab course={course} onUpdateCourse={onUpdateCourse} subscriptionActive={imageSubscriptionActive} demoMode={demoMode} />}
-          {activeTab === "Homepage" && <HomepageTab course={course} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Syllabus" && <SyllabusTab course={course} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Modules" && (
-            <ModulesTab
-              course={course}
-              draggedModuleId={draggedModuleId}
-              onDragModule={onDragModule}
-              onDropModule={onDropModule}
-              onDragItem={onDragItem}
-              onDropItem={onDropItem}
-              onUpdateCourse={onUpdateCourse}
-              onDuplicateModule={onDuplicateModule}
-              onDeleteModule={onDeleteModule}
-              onJumpToTab={setActiveTab}
-            />
-          )}
-          {activeTab === "Pages" && <PagesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Interactions" && <InteractionsTab course={course} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Assignments" && <AssignmentsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Discussions" && <DiscussionsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Quizzes" && (
-            <QuizzesTab
-              course={course}
-              onUpdateCourse={onUpdateCourse}
-              onJumpToTab={setActiveTab}
-              onExportQti={onExportQuizQti}
-              onExportStudentPdf={onExportQuizStudentPdf}
-              onExportAnswerKeyPdf={onExportQuizAnswerKeyPdf}
-            />
-          )}
-          {activeTab === "Rubrics" && <RubricsTab course={course} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Gradebook Setup" && <GradebookTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Contact Hours" && <ContactHoursTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Theme" && (
-            <ThemeTab
-              course={course}
-              onUpdateCourse={onUpdateCourse}
-              customThemes={customThemes}
-              canCreateCustomTheme={canCreateCustomTheme}
-              onSaveCustomTheme={onSaveCustomTheme}
-            />
-          )}
-          {activeTab === "Transform" && <TransformTab course={course} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Export" && (
-            <ExportTab
-              course={course}
-              demoMode={demoMode}
-              readiness={readiness}
-              validationReport={validationReport}
-              isExporting={isExporting}
-              exportMode={exportMode}
-              onExportModeChange={onExportModeChange}
-              importNotes={importNotes}
-              subscriptionActive={subscriptionActive}
-              exportError={exportError}
-              lastDownloadName={lastDownloadName}
-              onRunValidation={onRunValidation}
-              onDownload={onDownload}
-              onFillFullContent={onFillFullContent}
-              isFillingContent={isFillingContent}
-              fillProgress={fillProgress}
-              fillSummary={fillSummary}
-              onDownloadPdf={onDownloadPdf}
-              onDownloadSyllabusPdf={onDownloadSyllabusPdf}
-              onDownloadAllQti={onDownloadAllQti}
-              onDownloadAllQuizzesStudentPdf={onDownloadAllQuizzesStudentPdf}
-              onDownloadAllQuizzesAnswerKeyPdf={onDownloadAllQuizzesAnswerKeyPdf}
-              onJumpToTab={setActiveTab}
-            />
-          )}
-        </div>
-        {viewMode === "guided" && (
-          <nav className="guided-footer" aria-label="Step navigation">
-            <button className="ghost-button" onClick={() => goToStep(stepIndex - 1)} disabled={stepIndex === 0}>
-              <ArrowLeft size={15} /> Back{stepIndex > 0 ? `: ${editorTabs[stepIndex - 1]}` : ""}
-            </button>
-            <span className="guided-footer-count" aria-hidden="true">
-              {stepIndex + 1} / {stepCount}
-            </span>
-            {stepIndex < stepCount - 1 ? (
-              <button className="guided-next" onClick={() => goToStep(stepIndex + 1)}>
-                Next: {editorTabs[stepIndex + 1]} <ArrowRight size={15} />
-              </button>
-            ) : (
-              <span className="guided-done">
-                <CheckCircle2 size={15} /> Final step — download your course above
-              </span>
-            )}
-          </nav>
-        )}
-      </section>
-
-      {readinessOpen && (
-        <div className="readiness-drawer-backdrop" onClick={() => setReadinessOpen(false)}>
-          <aside
-            ref={readinessDialogRef}
-            tabIndex={-1}
-            className="readiness-drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Course readiness"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button className="ghost-button readiness-drawer-close" onClick={() => setReadinessOpen(false)}>
-              <X size={15} /> Close
-            </button>
-            <ReadinessPanel
-              course={course}
-              readiness={readiness}
-              quality={quality}
-              validationReport={validationReport}
-              subscriptionActive={subscriptionActive}
-              onUpdateCourse={onUpdateCourse}
-              onJumpToTab={(tab) => {
-                setReadinessOpen(false);
-                setActiveTab(tab);
-              }}
-            />
-          </aside>
-        </div>
-      )}
-    </main>
-  );
-}
-
-function ModulesTab({
-  course,
-  draggedModuleId,
-  onDragModule,
-  onDropModule,
-  onDragItem,
-  onDropItem,
-  onUpdateCourse,
-  onDuplicateModule,
-  onDeleteModule,
-  onJumpToTab
-}: {
-  course: CourseProject;
-  draggedModuleId: string | null;
-  onDragModule: (moduleId: string | null) => void;
-  onDropModule: (moduleId: string) => void;
-  onDragItem: (item: { moduleId: string; itemId: string } | null) => void;
-  onDropItem: (moduleId: string, itemId?: string) => void;
-  onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
-  onDuplicateModule: (moduleId: string) => void;
-  onDeleteModule: (moduleId: string, moveItemsToModuleId?: string) => void;
-  onJumpToTab: (tab: EditorTab) => void;
-}) {
-  const [selectedModuleId, setSelectedModuleId] = useState(course.modules[0]?.id ?? "");
-  const [previewFilter, setPreviewFilter] = useState<ModulePreviewFilter>("all");
-  const [pendingDeleteModuleId, setPendingDeleteModuleId] = useState<string | null>(null);
-  const [moveTargetModuleId, setMoveTargetModuleId] = useState("");
-  const validation = useMemo(() => validateModulePlan(course), [course]);
-  const totalItems = course.modules.reduce((sum, module) => sum + module.items.length, 0);
-  const emptyModules = course.modules.filter((module) => module.items.length === 0).length;
-  const totalWorkload = course.modules.reduce((sum, module) => sum + Number(module.workloadHours || 0), 0);
-  const selectedModule = course.modules.find((module) => module.id === selectedModuleId) ?? course.modules[0];
-
-  useEffect(() => {
-    if (!course.modules.some((module) => module.id === selectedModuleId)) {
-      setSelectedModuleId(course.modules[0]?.id ?? "");
-    }
-  }, [course.modules, selectedModuleId]);
-
-  const tabForItem = (type: ModuleItem["type"]): EditorTab => {
-    if (type === "assignment") return "Assignments";
-    if (type === "discussion") return "Discussions";
-    if (type === "quiz") return "Quizzes";
-    if (type === "syllabus") return "Syllabus";
-    return "Pages";
-  };
-
-  const iconForType = (type: ModuleItem["type"]) => {
-    if (type === "assignment") return <ClipboardCheck size={14} />;
-    if (type === "discussion") return <MessageSquareText size={14} />;
-    if (type === "quiz") return <CheckCircle2 size={14} />;
-    return <FileText size={14} />;
-  };
-
-  const updateModuleField = <K extends keyof CourseModule>(moduleId: string, key: K, value: CourseModule[K]): void => {
-    onUpdateCourse((current) => ({
-      ...current,
-      modules: current.modules.map((module) => (module.id === moduleId ? { ...module, [key]: value, status: "edited" } : module))
-    }));
-  };
-
-  const renameModuleItem = (moduleId: string, item: ModuleItem, title: string): void => {
-    onUpdateCourse((current) => ({
-      ...current,
-      modules: current.modules.map((module) =>
-        module.id === moduleId
-          ? {
-              ...module,
-              items: module.items.map((moduleItem) => (moduleItem.id === item.id ? { ...moduleItem, title, status: "edited" } : moduleItem))
-            }
-          : module
-      ),
-      pages: item.type === "page" || item.type === "syllabus" ? current.pages.map((page) => (page.id === item.refId ? { ...page, title, status: "edited" } : page)) : current.pages,
-      assignments: item.type === "assignment" ? current.assignments.map((assignment) => (assignment.id === item.refId ? { ...assignment, title, status: "edited" } : assignment)) : current.assignments,
-      discussions: item.type === "discussion" ? current.discussions.map((discussion) => (discussion.id === item.refId ? { ...discussion, title, status: "edited" } : discussion)) : current.discussions,
-      quizzes: item.type === "quiz" ? current.quizzes.map((quiz) => (quiz.id === item.refId ? { ...quiz, title, status: "edited" } : quiz)) : current.quizzes
-    }));
-  };
-
-  const moveModuleBy = (moduleId: string, offset: number): void => {
-    const index = course.modules.findIndex((module) => module.id === moduleId);
-    const targetIndex = index + offset;
-    if (index < 0 || targetIndex < 0 || targetIndex >= course.modules.length) return;
-    onUpdateCourse((current) => ({ ...current, modules: renumberModules(moveItem(current.modules, index, targetIndex)) }));
-  };
-
-  const startDelete = (module: CourseModule): void => {
-    setPendingDeleteModuleId(module.id);
-    setMoveTargetModuleId(course.modules.find((candidate) => candidate.id !== module.id)?.id ?? "");
-  };
-
-  const moduleSummaryFor = (moduleId: string) => validation.moduleSummaries.find((summary) => summary.moduleId === moduleId);
-  const itemIssues = (itemId: string) => validation.issues.filter((issue) => issue.itemId === itemId);
-  const visiblePreviewItems =
-    selectedModule?.items
-      .map((item) => ({ item, target: getModuleItemTarget(course, item), issues: itemIssues(item.id) }))
-      .filter(({ item, target, issues }) => {
-        if (previewFilter === "pages") return item.type === "page" || item.type === "syllabus";
-        if (previewFilter === "graded") return item.type === "assignment" || item.type === "quiz" || (target?.points ?? 0) > 0;
-        if (previewFilter === "risky") return issues.length > 0 || !target;
-        return true;
-      }) ?? [];
-
-  if (course.modules.length === 0) {
-    return <EmptyState title="No modules yet" body="Add a module to begin building the Canvas course sequence." />;
-  }
-
-  return (
-    <div className="module-planner">
-      <section className="module-planner-hero">
-        <div>
-          <span className="hp-eyebrow"><Layers size={14} /> Canvas module planner</span>
-          <h2>Course Sequence Builder</h2>
-          <p>Plan the student path, edit module metadata, move content safely, and catch broken Canvas references before export.</p>
-        </div>
-        <div className={`module-readiness-badge ${validation.status === "Ready" ? "ready" : "review"}`}>
-          {validation.status === "Ready" ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
-          <strong>{validation.score}%</strong>
-          <span>{validation.status}</span>
-        </div>
-      </section>
-
-      <section className="module-metric-grid" aria-label="Module planner summary">
-        <div>
-          <strong>{course.modules.length}</strong>
-          <span>Modules</span>
-        </div>
-        <div>
-          <strong>{totalItems}</strong>
-          <span>Items in sequence</span>
-        </div>
-        <div className={emptyModules ? "warn" : ""}>
-          <strong>{emptyModules}</strong>
-          <span>Empty modules</span>
-        </div>
-        <div>
-          <strong>{totalWorkload}</strong>
-          <span>Estimated hours</span>
-        </div>
-      </section>
-
-      <section className="module-sequence" aria-label="Visual course sequence">
-        {course.modules.map((module, index) => {
-          const summary = moduleSummaryFor(module.id);
-          return (
-            <button key={module.id} className={selectedModule?.id === module.id ? "active" : ""} onClick={() => setSelectedModuleId(module.id)}>
-              <span>{index + 1}</span>
-              <strong>{module.title || "Untitled module"}</strong>
-              <small>{summary?.status ?? "Ready"}</small>
-            </button>
-          );
-        })}
-      </section>
-
-      <div className="module-planner-actions">
-        <button
-          type="button"
-          className="secondary"
-          onClick={() =>
-            onUpdateCourse((current) => ({
-              ...current,
-              modules: renumberModules([
-                ...current.modules,
-                {
-                  id: `module_custom_${Date.now()}`,
-                  title: "New Module",
-                  description: "Add a module description.",
-                  objectives: ["Add a measurable module objective."],
-                  workloadHours: 4,
-                  order: current.modules.length,
-                  kind: "content",
-                  publishState: "published",
-                  expanded: true,
-                  items: [],
-                  status: "draft",
-                  metadata: editMetadata()
-                }
-              ])
-            }))
-          }
-        >
-          <Plus size={16} /> Add module
-        </button>
-      </div>
-
-      <div className="module-planner-layout">
-        <section className="module-board" aria-label="Editable module cards">
-          {course.modules.map((module, moduleIndex) => {
-            const counts = itemCountsForModule(module);
-            const summary = moduleSummaryFor(module.id);
-            const currentDelete = pendingDeleteModuleId === module.id;
-            return (
-              <article
-                key={module.id}
-                className={`module-editor ${draggedModuleId === module.id ? "dragging" : ""} ${summary?.status === "Needs review" ? "needs-review" : ""}`}
-                draggable
-                onDragStart={() => onDragModule(module.id)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => onDropModule(module.id)}
-              >
-                <header>
-                  <span className="module-drag-handle" aria-label={`Drag ${module.title}`} title="Drag to reorder">
-                    <GripVertical size={16} /> Drag
-                  </span>
-                  <button
-                    className="icon-button"
-                    onClick={() => updateModuleField(module.id, "expanded", !module.expanded)}
-                    aria-label={`${module.expanded ? "Collapse" : "Expand"} ${module.title}`}
-                  >
-                    {module.expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                  </button>
-                  <div className="module-title-block">
-                    <input value={module.title} aria-label={`${module.title} title`} onChange={(event) => updateModuleField(module.id, "title", event.target.value)} />
-                    <div className="module-card-meta">
-                      <span>{module.objectives.filter(Boolean).length} objectives</span>
-                      <span>{module.workloadHours} hours</span>
-                      <span>{module.items.length} items</span>
-                      <span className={summary?.status === "Needs review" ? "warn" : "ok"}>{summary?.status ?? "Ready"}</span>
-                    </div>
-                  </div>
-                  <select value={module.publishState} aria-label={`${module.title} publish state`} onChange={(event) => updateModuleField(module.id, "publishState", event.target.value as CourseModule["publishState"])}>
-                    <option value="published">Published</option>
-                    <option value="unpublished">Unpublished</option>
-                  </select>
-                  <div className="module-card-actions">
-                    <button className="small-button" onClick={() => moveModuleBy(module.id, -1)} disabled={moduleIndex === 0}>
-                      Up
-                    </button>
-                    <button className="small-button" onClick={() => moveModuleBy(module.id, 1)} disabled={moduleIndex === course.modules.length - 1}>
-                      Down
-                    </button>
-                    <button className="small-button" onClick={() => onDuplicateModule(module.id)}>
-                      Duplicate
-                    </button>
-                  </div>
-                </header>
-                {module.expanded && (
-                  <div className="module-body" onDragOver={(event) => event.preventDefault()} onDrop={() => onDropItem(module.id)}>
-                    <div className="module-card-fields">
-                      <label>
-                        <span>Description</span>
-                        <textarea value={module.description} onChange={(event) => updateModuleField(module.id, "description", event.target.value)} />
-                      </label>
-                      <label>
-                        <span>Objectives</span>
-                        <textarea value={module.objectives.join("\n")} onChange={(event) => updateModuleField(module.id, "objectives", event.target.value.split("\n").filter((value) => value.trim()))} />
-                      </label>
-                      <label>
-                        <span>Workload hours</span>
-                        <input type="number" min={0} step={0.5} value={module.workloadHours} onChange={(event) => updateModuleField(module.id, "workloadHours", Number(event.target.value))} />
-                      </label>
-                    </div>
-
-                    <div className="module-count-row" aria-label={`${module.title} item counts`}>
-                      {(Object.keys(counts) as ModuleItem["type"][]).map((type) =>
-                        counts[type] > 0 ? (
-                          <span key={type} className={`item-type ${type}`}>
-                            {iconForType(type)} {counts[type]} {moduleItemTypeLabel(type)}
-                          </span>
-                        ) : null
-                      )}
-                      {module.items.length === 0 && <span className="module-empty-note">Drop items here or add content from another tab.</span>}
-                    </div>
-
-                    {summary && summary.issues.length > 0 && (
-                      <div className="module-issue-list" aria-label={`${module.title} module checks`}>
-                        {summary.issues.slice(0, 4).map((issue) => (
-                          <p key={issue.id} className={issue.severity}>
-                            {issue.severity === "error" ? <AlertTriangle size={14} /> : <ShieldCheck size={14} />}
-                            <strong>{issue.title}:</strong> {issue.detail}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="module-items">
-                      {module.items.map((item) => {
-                        const target = getModuleItemTarget(course, item);
-                        const issues = itemIssues(item.id);
-                        return (
-                          <div
-                            key={item.id}
-                            className={`module-item ${issues.length ? "risky" : ""}`}
-                            draggable
-                            onDragStart={(event) => {
-                              event.stopPropagation();
-                              onDragItem({ moduleId: module.id, itemId: item.id });
-                            }}
-                            onDragOver={(event) => event.preventDefault()}
-                            onDrop={(event) => {
-                              event.stopPropagation();
-                              onDropItem(module.id, item.id);
-                            }}
-                          >
-                            <GripVertical size={15} />
-                            <span className={`item-type ${item.type}`}>{iconForType(item.type)} {moduleItemTypeLabel(item.type)}</span>
-                            <input value={item.title} aria-label={`${item.title} module item title`} onChange={(event) => renameModuleItem(module.id, item, event.target.value)} />
-                            <small>{target ? target.summary || "No preview text available yet." : "Missing referenced object."}</small>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="module-delete-zone">
-                      {module.items.length === 0 ? (
-                        <button className="small-button danger" onClick={() => onDeleteModule(module.id)}>
-                          <Trash2 size={14} /> Delete empty module
-                        </button>
-                      ) : (
-                        <>
-                          <button className="small-button danger" onClick={() => startDelete(module)}>
-                            <Trash2 size={14} /> Delete or move
-                          </button>
-                          {currentDelete && (
-                            <div className="module-delete-panel">
-                              <strong>Move items before deleting</strong>
-                              <p>Non-empty modules cannot be deleted silently. Choose where the {module.items.length} item(s) should go.</p>
-                              <select value={moveTargetModuleId} onChange={(event) => setMoveTargetModuleId(event.target.value)} aria-label="Move items to module">
-                                {course.modules
-                                  .filter((candidate) => candidate.id !== module.id)
-                                  .map((candidate) => (
-                                    <option key={candidate.id} value={candidate.id}>
-                                      {candidate.title}
-                                    </option>
-                                  ))}
-                              </select>
-                              <div>
-                                <button className="small-button" onClick={() => setPendingDeleteModuleId(null)}>
-                                  Cancel
-                                </button>
-                                <button
-                                  className="small-button"
-                                  disabled={!moveTargetModuleId}
-                                  onClick={() => {
-                                    onDeleteModule(module.id, moveTargetModuleId);
-                                    setPendingDeleteModuleId(null);
-                                  }}
-                                >
-                                  <MoveRight size={14} /> Move items and delete
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </section>
-
-        <aside className="module-preview-panel" aria-label="Module path preview">
-          <div className="module-preview-sticky">
-            <header>
-              <span className="hp-eyebrow"><BookOpen size={14} /> Preview module path</span>
-              <h2>{selectedModule?.title ?? "Select a module"}</h2>
-              <p>{selectedModule?.description || "Choose a module to preview what students will see in order."}</p>
-            </header>
-            <div className="module-preview-tabs" role="tablist" aria-label="Module preview filter">
-              {[
-                ["all", "All items"],
-                ["pages", "Pages only"],
-                ["graded", "Graded"],
-                ["risky", "Missing or risky"]
-              ].map(([id, label]) => (
-                <button key={id} className={previewFilter === id ? "active" : ""} onClick={() => setPreviewFilter(id as ModulePreviewFilter)} aria-pressed={previewFilter === id}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="module-preview-list">
-              {visiblePreviewItems.length === 0 && <p className="module-empty-note">No items match this preview filter.</p>}
-              {visiblePreviewItems.map(({ item, target, issues }, index) => (
-                <article key={item.id} className={issues.length ? "risky" : ""}>
-                  <span className={`item-type ${item.type}`}>{iconForType(item.type)} {moduleItemTypeLabel(item.type)}</span>
-                  <strong>{index + 1}. {item.title}</strong>
-                  <p>{target?.summary || "No linked content preview is available."}</p>
-                  {issues.map((issue) => (
-                    <small key={issue.id} className={issue.severity}>{issue.title}: {issue.detail}</small>
-                  ))}
-                  <button className="small-button" onClick={() => onJumpToTab(tabForItem(item.type))}>
-                    Open {tabForItem(item.type)}
-                  </button>
-                </article>
-              ))}
-            </div>
-          </div>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-const themePreviewModes: Array<{ id: ThemePreviewKind; label: string }> = [
-  { id: "homepage", label: "Homepage" },
-  { id: "syllabus", label: "Syllabus" },
-  { id: "assignment", label: "Assignment" },
-  { id: "quiz", label: "Quiz" },
-  { id: "rubric", label: "Rubric" }
-];
-
-function ThemeSwatch({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="theme-swatch-row">
-      <span className="theme-swatch" style={{ background: value }} />
-      <span>
-        <strong>{label}</strong>
-        <small>{value}</small>
-      </span>
-    </div>
-  );
-}
-
-function CustomThemeBuilder({
-  canCreate,
-  currentThemeId,
-  onApply,
-  onSave
-}: {
-  canCreate: boolean;
-  currentThemeId: string;
-  onApply: (theme: Theme) => void;
-  onSave: (input: CustomThemeInput) => Promise<{ ok: boolean; theme?: Theme; error?: string }>;
-}) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("My School Theme");
-  const [institution, setInstitution] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("#1d4ed8");
-  const [backgroundColor, setBackgroundColor] = useState("#eef2ff");
-  const [textColor, setTextColor] = useState("#0f172a");
-  const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(undefined);
-  const [basePresetId, setBasePresetId] = useState<string>("");
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const input: CustomThemeInput = { name, institutionName: institution, primaryColor, backgroundColor, textColor, logoDataUrl, basePresetId: basePresetId || undefined };
-  const preview = useMemo(() => buildThemeFromCustom(input), [name, institution, primaryColor, backgroundColor, textColor, logoDataUrl, basePresetId]);
-  const check = useMemo(() => validateTheme(preview), [preview]);
-
-  const handleLogo = (file: File | null): void => {
-    setError(null);
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Logo must be an image.");
-      return;
-    }
-    if (file.size > 200 * 1024) {
-      setError("Logo must be under 200 KB (use a small PNG/SVG).");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setLogoDataUrl(typeof reader.result === "string" ? reader.result : undefined);
-    reader.readAsDataURL(file);
-  };
-
-  const applyOnly = (): void => {
-    setNotice(`Applied "${preview.name}" to this course.`);
-    onApply(preview);
-  };
-
-  const saveAndApply = async (): Promise<void> => {
-    setSaving(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const result = await onSave(input);
-      if (!result.ok) {
-        setError(result.error ?? "Could not save theme.");
-        return;
-      }
-      onApply(result.theme ?? preview);
-      setNotice(`Saved "${preview.name}" to your account and applied it.`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <section className="custom-theme-builder">
-      <header>
-        <div>
-          <h2>Create a custom school theme</h2>
-          <p>Match your institution's colors and logo — optionally co-branded onto any template's look (motif, hero, cards). Apply it now, or save it to your account to reuse and export.</p>
-        </div>
-        <button className="secondary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-          <Palette size={16} /> {open ? "Hide builder" : "New custom theme"}
-        </button>
-      </header>
-
-      {open && (
-        <div className="custom-theme-grid">
-          <div className="custom-theme-fields">
-            <Input label="Theme name" value={name} onChange={setName} />
-            <Input label="Institution / program (optional)" value={institution} onChange={setInstitution} />
-            <label className="color-field" style={{ display: "block" }}>
-              <span>Base on a template (optional — applies your brand colors to its look)</span>
-              <select value={basePresetId} onChange={(event) => setBasePresetId(event.target.value)} aria-label="Base template" style={{ width: "100%" }}>
-                <option value="">None — plain brand palette</option>
-                {visualTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>{template.name}</option>
-                ))}
-              </select>
-            </label>
-            <div className="custom-color-row">
-              <label className="color-field">
-                <span>Primary</span>
-                <input type="color" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} aria-label="Primary color" />
-              </label>
-              <label className="color-field">
-                <span>Background</span>
-                <input type="color" value={backgroundColor} onChange={(event) => setBackgroundColor(event.target.value)} aria-label="Background color" />
-              </label>
-              <label className="color-field">
-                <span>Text</span>
-                <input type="color" value={textColor} onChange={(event) => setTextColor(event.target.value)} aria-label="Text color" />
-              </label>
-            </div>
-            <label className="logo-upload">
-              <Upload size={16} /> {logoDataUrl ? "Replace logo" : "Upload logo (small PNG/SVG, optional)"}
-              <input type="file" accept="image/png,image/svg+xml,image/jpeg" onChange={(event) => handleLogo(event.target.files?.[0] ?? null)} />
-            </label>
-            {error && <p className="auth-error">{error}</p>}
-            {notice && <p className="auth-info">{notice}</p>}
-            <div className="custom-theme-actions">
-              <button className="secondary" onClick={applyOnly}>
-                Apply to course
-              </button>
-              {canCreate ? (
-                <button className="primary" onClick={() => void saveAndApply()} disabled={saving}>
-                  {saving ? <Loader2 size={16} className="spin" /> : <CheckCircle2 size={16} />} Save &amp; apply
-                </button>
-              ) : (
-                <span className="custom-theme-lock">
-                  <Lock size={14} /> Saving custom themes needs a paid plan
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="custom-theme-preview" style={{ background: preview.soft, color: preview.contrastText }}>
-            <div className="custom-preview-banner" style={{ background: preview.accent, color: "#fff" }}>
-              {logoDataUrl ? <img src={logoDataUrl} alt="Theme logo preview" /> : <Palette size={18} />}
-              <strong>{preview.bannerLabel}</strong>
-            </div>
-            <h3 style={{ color: preview.contrastText }}>{name || "Theme name"}</h3>
-            <p>Sample course content uses your soft background and text color.</p>
-            <span className="custom-preview-button" style={{ background: preview.accentDark, color: "#fff" }}>
-              Start Here
-            </span>
-            <em className={check.status === "pass" ? "ok" : "warn"}>
-              {check.status === "pass" ? "Contrast pass" : "Low contrast — adjust text/background"}
-            </em>
-            {currentThemeId === preview.id && <span className="custom-preview-active">Currently applied</span>}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ThemeTab({
-  course,
-  onUpdateCourse,
-  customThemes,
-  canCreateCustomTheme,
-  onSaveCustomTheme
-}: {
-  course: CourseProject;
-  onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
-  customThemes: Theme[];
-  canCreateCustomTheme: boolean;
-  onSaveCustomTheme: (input: CustomThemeInput) => Promise<{ ok: boolean; theme?: Theme; error?: string }>;
-}) {
-  const [previewKind, setPreviewKind] = useState<ThemePreviewKind>("homepage");
-  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
-  const [templateQuery, setTemplateQuery] = useState("");
-  const [templateCategory, setTemplateCategory] = useState<VisualTemplateCategory | "All">("All");
-  const libraryThemes = useMemo(() => [...customThemes, ...themes], [customThemes]);
-  const validation = useMemo(() => validateTheme(course.theme), [course.theme]);
-  const colorblind = useMemo(() => colorblindSafetyReport(course.theme), [course.theme]);
-  const styles = useMemo(() => getThemeStyles(course.theme), [course.theme]);
-  const previewHtml = useMemo(() => buildThemePreviewHtml(course.theme, previewKind, course.title), [course.theme, previewKind, course.title]);
-  const editedObjects = [
-    ...course.pages,
-    ...course.assignments,
-    ...course.discussions,
-    ...course.quizzes,
-    ...course.rubrics,
-    ...course.modules
-  ].filter((item) => item.status === "edited").length;
-  const builderThemeDrift = [
-    course.homepage && course.homepage.mode === "builder" && course.homepage.themeId !== course.theme.id ? "Homepage" : null,
-    course.syllabus && course.syllabus.mode === "builder" && course.syllabus.themeId !== course.theme.id ? "Syllabus" : null
-  ].filter((value): value is string => Boolean(value));
-  const templateCategories: Array<VisualTemplateCategory | "All"> = ["All", "Core", "Genre", "Art style", "Era", "Mood"];
-  const visibleTemplates = useMemo(() => {
-    const query = templateQuery.trim().toLowerCase();
-    return visualTemplates.filter((template) => {
-      const category = template.category ?? "Core";
-      const matchesCategory = templateCategory === "All" || category === templateCategory;
-      const searchable = `${template.name} ${template.shortName} ${template.description} ${template.bestFor} ${category}`.toLowerCase();
-      return matchesCategory && (!query || searchable.includes(query));
-    });
-  }, [templateCategory, templateQuery]);
-
-  const chooseTheme = (theme: Theme): void => {
-    setRefreshNotice(null);
-    onUpdateCourse((current) => ({ ...current, theme, settings: { ...current.settings, themeId: theme.id, themeIntensity: theme.intensity ?? current.settings.themeIntensity }, status: "edited" }));
-  };
-
-  const refreshThemeStyling = (): void => {
-    onUpdateCourse((current) => applyThemeToGeneratedContent(current, current.theme));
-    setRefreshNotice("Theme styling refreshed. Template-generated content was recolored, builder pages received snapshots, and manually edited objects were preserved where possible.");
-  };
-
-  const activeTemplateId = course.settings.visualTemplateId ?? visualTemplateForThemeId(course.theme.id)?.id;
-  const applyTemplate = (template: (typeof visualTemplates)[number]): void => {
-    // One move: swap the curated theme, point homepage/syllabus at the template layouts, and re-theme
-    // all generated content so previews + export reflect the look immediately.
-    onUpdateCourse((current) => applyVisualTemplate(current, template));
-    setRefreshNotice(`Applied the ${template.name} visual template. Homepage, syllabus, module cards, and the export banner were restyled. Manually edited objects were preserved where possible.`);
-  };
-
-  return (
-    <div className="theme-system">
-      <section className="theme-summary-card">
-        <div>
-          <span className="hp-eyebrow"><Palette size={14} /> Canvas visual design system</span>
-          <h2>{course.theme.name}</h2>
-          <p>
-            Theme selection updates this preview immediately. Use refresh when you are ready to recolor generated Canvas HTML while preserving manually edited content.
-          </p>
-          <div className="theme-summary-meta">
-            <span>{course.theme.bannerLabel}</span>
-            <span>{validation.score}% contrast score</span>
-            <span title={colorblind.warnings.join(" ") || "Distinctions survive color blindness"}>
-              {colorblind.safe ? "Colorblind-safe" : `${colorblind.warnings.length} colorblind note(s)`}
-            </span>
-            <span>{editedObjects} edited object(s) preserved on refresh</span>
-          </div>
-        </div>
-        <div className={`theme-access-badge ${validation.status}`}>
-          {validation.status === "pass" ? <CheckCircle2 size={18} /> : <ShieldCheck size={18} />}
-          <strong>{validation.status === "pass" ? "Accessible" : "Needs review"}</strong>
-          <small>{validation.warnings ? `${validation.warnings} contrast warning(s)` : "All theme checks pass"}</small>
-        </div>
-      </section>
-
-      <div className="theme-token-grid" aria-label="Theme color tokens">
-        <ThemeSwatch label="Accent" value={styles.accent} />
-        <ThemeSwatch label="Accent dark" value={styles.accentDark} />
-        <ThemeSwatch label="Soft background" value={styles.soft} />
-        <ThemeSwatch label="Contrast text" value={styles.contrastText} />
-        <ThemeSwatch label="Button text" value={styles.onAccent} />
-      </div>
-
-      <section className="template-gallery-panel" aria-label="Visual template gallery">
-        <header className="template-gallery-head">
-          <div>
-            <span className="hp-eyebrow"><Sparkles size={14} /> Visual template gallery</span>
-            <h2>Pick a complete course look</h2>
-            <p>Each template bundles a palette, gradient hero, decorative motif, typography, and section-card style, plus matching homepage and syllabus layouts. Apply any look to any course; you can still fine-tune colors below.</p>
-          </div>
-        </header>
-        <div className="template-gallery-tools">
-          <label className="template-search-field">
-            <span>Find a course look</span>
-            <input
-              type="search"
-              value={templateQuery}
-              onChange={(event) => setTemplateQuery(event.target.value)}
-              placeholder="Try cyberpunk, watercolor, 1980s…"
-            />
-          </label>
-          <div className="template-category-filters" role="group" aria-label="Filter visual templates by category">
-            {templateCategories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                className={templateCategory === category ? "active" : ""}
-                aria-pressed={templateCategory === category}
-                onClick={() => setTemplateCategory(category)}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-          <span className="template-result-count" aria-live="polite">{visibleTemplates.length} look{visibleTemplates.length === 1 ? "" : "s"}</span>
-        </div>
-        <div className="template-gallery-grid">
-          {visibleTemplates.map((template) => {
-            const ts = getThemeStyles(template.theme);
-            const isActive = activeTemplateId === template.id;
-            return (
-              <article key={template.id} className={`template-card ${isActive ? "active" : ""}`}>
-                <div
-                  className="template-card-thumb"
-                  style={{ background: `linear-gradient(135deg, ${ts.gradientFrom} 0%, ${ts.gradientTo} 100%)` }}
-                  aria-hidden="true"
-                >
-                  <span className="template-card-chip" style={{ fontFamily: ts.font, color: ts.accentDark }}>{template.shortName}</span>
-                  <span className="template-card-swatches">
-                    <i style={{ background: template.theme.accent }} />
-                    <i style={{ background: template.theme.soft }} />
-                    <i style={{ background: ts.gradientTo }} />
-                  </span>
-                </div>
-                <div className="template-card-body">
-                  <span className="template-card-category">{template.category ?? "Core"}</span>
-                  <strong style={{ fontFamily: ts.font }}>{template.name}</strong>
-                  <p>{template.description}</p>
-                  <span className="template-card-bestfor">Best for: {template.bestFor}</span>
-                </div>
-                <div className="template-card-actions">
-                  <button
-                    type="button"
-                    className={isActive ? "secondary" : "primary"}
-                    onClick={() => applyTemplate(template)}
-                    aria-pressed={isActive}
-                  >
-                    {isActive ? <><CheckCircle2 size={15} /> Applied</> : <>Apply template</>}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-          {visibleTemplates.length === 0 && (
-            <div className="template-gallery-empty" role="status">
-              <strong>No matching course looks</strong>
-              <span>Try a broader search or choose All.</span>
-              <button type="button" className="secondary" onClick={() => { setTemplateQuery(""); setTemplateCategory("All"); }}>Clear filters</button>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <div className="theme-workbench">
-        <section className="theme-library-panel">
-          <header>
-            <div>
-              <h2>Theme Library</h2>
-              <p>Higher-ed palettes with Canvas-safe colors and readable button/link states.</p>
-            </div>
-          </header>
-          <div className="theme-grid">
-            {libraryThemes.map((theme) => {
-              const themeCheck = validateTheme(theme);
-              const isCustom = theme.id.startsWith("custom_");
-              return (
-                <button
-                  key={theme.id}
-                  className={`theme-choice ${course.theme.id === theme.id ? "active" : ""}`}
-                  onClick={() => chooseTheme(theme)}
-                  aria-pressed={course.theme.id === theme.id}
-                >
-                  {isCustom && <span className="theme-custom-tag">Custom</span>}
-                  <span className="theme-choice-swatches" aria-hidden="true">
-                    <i style={{ background: theme.accent }} />
-                    <i style={{ background: theme.accentDark }} />
-                    <i style={{ background: theme.soft }} />
-                  </span>
-                  <strong>{theme.name}</strong>
-                  <small>{theme.bannerLabel}</small>
-                  <em className={themeCheck.status}>{themeCheck.status === "pass" ? "Contrast pass" : "Review contrast"}</em>
-                </button>
-              );
-            })}
-          </div>
-          <CustomThemeBuilder
-            canCreate={canCreateCustomTheme}
-            currentThemeId={course.theme.id}
-            onApply={(theme) => chooseTheme(theme)}
-            onSave={onSaveCustomTheme}
-          />
-        </section>
-
-        <section className="theme-preview-panel">
-          <header>
-            <div>
-              <h2>Live Canvas Preview</h2>
-              <p>See how the selected theme treats common exported Canvas surfaces.</p>
-            </div>
-            <div className="theme-preview-tabs" role="tablist" aria-label="Theme preview type">
-              {themePreviewModes.map((mode) => (
-                <button key={mode.id} className={previewKind === mode.id ? "active" : ""} onClick={() => setPreviewKind(mode.id)} role="tab" aria-selected={previewKind === mode.id}>
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-          </header>
-          <div className="theme-canvas-frame">
-            <div className="theme-canvas-bar">
-              <span>Canvas preview</span>
-              <strong>{themePreviewModes.find((mode) => mode.id === previewKind)?.label}</strong>
-            </div>
-            <div className="theme-canvas-page" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-          </div>
-        </section>
-      </div>
-
-      <div className="theme-support-grid">
-        <section className="theme-check-panel">
-          <header>
-            <h2>Theme Safety Checks</h2>
-            <span className={`hp-badge ${validation.status === "pass" ? "ok" : "warn"}`}>{validation.status === "pass" ? "Pass" : "Review"}</span>
-          </header>
-          <ul>
-            {validation.checks.map((check) => (
-              <li key={check.id} className={check.passed ? "pass" : "warn"}>
-                <span>{check.passed ? <CheckCircle2 size={15} /> : <ShieldCheck size={15} />}</span>
-                <strong>{check.label}</strong>
-                <small>{check.detail}</small>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="theme-refresh-card">
-          <h2>Apply Theme to Course Content</h2>
-          <p>
-            Rebuilds generated homepage, syllabus, guide, module, assignment, discussion, and support page HTML with the selected theme. Manual edits are preserved where possible.
-          </p>
-          {builderThemeDrift.length > 0 && <p className="theme-refresh-hint">{builderThemeDrift.join(", ")} can be refreshed from structured builder data.</p>}
-          <button className="primary" onClick={refreshThemeStyling}>
-            <Sparkles size={18} /> Apply theme to course content
-          </button>
-          {refreshNotice && <p className="theme-refresh-success"><CheckCircle2 size={15} /> {refreshNotice}</p>}
-        </section>
-
-        <section className="theme-refresh-card">
-          <h2>Export Assets</h2>
-          <p>The exported banner, tile, module headers, badges, icons, and dividers use the selected theme's palette, motif, and intensity.</p>
-          <ul className="compact-list">
-            <li>Homepage banner: {course.settings.imageSettings.homepageBannerMode}</li>
-            <li>Course tile: {course.settings.imageSettings.courseTileMode}</li>
-            <li>Module headers: {course.settings.imageSettings.moduleHeaderImages ? "Included" : "Off"}</li>
-            <li>Reusable SVG assets: {course.fileAssets.filter((asset) => /badge|icon|divider/i.test(asset.fileName)).length}</li>
-          </ul>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-
-// Map a readiness check to the editor tab where the user can act on it, so each item is a shortcut.
-const readinessTab = (id: string): EditorTab => {
-  if (id.startsWith("homepage")) return "Homepage";
-  if (id.startsWith("syllabus")) return "Syllabus";
-  if (id.startsWith("discussion")) return "Discussions";
-  if (id.startsWith("quiz")) return "Quizzes";
-  if (id.startsWith("rubric")) return "Rubrics";
-  if (id.startsWith("assignment-group") || /^(weight|weights|nonzero-weight)/.test(id)) return "Gradebook Setup";
-  if (id.startsWith("assignment")) return "Assignments";
-  if (/^(workload|contact|calendar|schedule|due-date|graded-due)/.test(id)) return "Contact Hours";
-  if (/^(export|instructor-pdf|syllabus-pdf|human-review|reference-integrity)/.test(id)) return "Export";
-  if (/^(module|required-modules|content-module|start-here|instructor-unpublished)/.test(id)) return "Modules";
-  if (/^(page-quality|internal-links|placeholder-links|thin-content|empty-content)/.test(id)) return "Pages";
-  return "Overview"; // outcomes, objectives, bloom, accessibility, navigation, alignment-map
-};
-
-function ReadinessPanel({
-  course,
-  readiness,
-  quality,
-  validationReport,
-  subscriptionActive,
-  onUpdateCourse,
-  onJumpToTab
-}: {
-  course: CourseProject;
-  readiness: ReturnType<typeof buildReadinessReport>;
-  quality: ReturnType<typeof buildCourseQualityReport>;
-  validationReport: ExportValidationReport | null;
-  subscriptionActive: boolean;
-  onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
-  onJumpToTab: (tab: EditorTab) => void;
-}) {
-  const [fixSummary, setFixSummary] = useState<string[]>([]);
-  // Surface what needs attention first (failed required, then recommended), then the passed checks.
-  const ordered = [...readiness.checks].sort((a, b) => {
-    const weight = (item: ReadinessCheck): number => (item.passed ? 2 : item.severity === "required" ? 0 : 1);
-    return weight(a) - weight(b);
-  });
-  // Speak in outcomes, not scores: say whether the course is ready and what's left,
-  // instead of leaving the user to interpret a percentage.
-  const reviewCount = readiness.checks.filter((item) => !item.passed && item.severity !== "required").length;
-  const statusSentence =
-    readiness.blockers > 0
-      ? `Not ready yet — ${readiness.blockers} blocking issue${readiness.blockers === 1 ? "" : "s"} to fix first.`
-      : reviewCount > 0
-        ? `Ready to export — ${reviewCount} small thing${reviewCount === 1 ? "" : "s"} worth reviewing.`
-        : "Ready to export — everything checks out.";
-  return (
-    <div className="readiness-card">
-      <ReadinessRing score={readiness.score} size={96} className="readiness-ring" ariaLabel={`Course readiness ${readiness.score} percent`} />
-      <h2>Course Readiness</h2>
-      <p>{statusSentence}</p>
-      <div className="export-status">
-        <strong>Content quality</strong>
-        <span>{quality.score}% instructional</span>
-      </div>
-      {readiness.checks.some((item) => !item.passed) && (
-        <div className="readiness-safe-fix">
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              const result = makeCourseExportReady(course);
-              onUpdateCourse(() => result.course);
-              setFixSummary(result.summary);
-            }}
-          >
-            <ShieldCheck size={15} /> Fix all safe issues
-          </button>
-          <p>Repairs references, slugs, alignments, and gradebook weights. It never rewrites your teaching content, and you can Undo afterward.</p>
-          {fixSummary.length > 0 && (
-            <ul className="transform-summary" role="status" aria-label="Safe-fix results">
-              {fixSummary.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
-            </ul>
-          )}
-        </div>
-      )}
-      <ul className="readiness-list">
-        {ordered.map((item) => {
-          const target = readinessTab(item.id);
-          const Icon = item.passed ? CheckCircle2 : item.severity === "required" ? AlertTriangle : Info;
-          return (
-            <li key={item.id} className={item.passed ? "passed" : item.severity}>
-              <button type="button" onClick={() => onJumpToTab(target)} title={`${item.detail} — go to ${target}`}>
-                <Icon size={15} /> <span>{item.label}</span> <ChevronRight size={14} className="readiness-go" aria-hidden="true" />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="export-status">
-        <strong>Export</strong>
-        <span>{subscriptionActive ? "Enabled" : "Subscription required"}</span>
-      </div>
-      <div className="export-status">
-        <strong>Canvas package check</strong>
-        <span>{validationReport ? `${validationReport.score}% passed` : "Not run yet"}</span>
-      </div>
-    </div>
-  );
-}
-
-function Input({
-  label,
-  value,
-  type = "text",
-  placeholder,
-  onChange
-}: {
-  label: string;
-  value: string;
-  type?: "text" | "date" | "time";
-  placeholder?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function NumberInput({
-  label,
-  value,
-  min,
-  max,
-  suffix,
-  onChange
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  suffix?: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <div className="number-input">
-        <input type="number" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-        {suffix && <small>{suffix}</small>}
-      </div>
-    </label>
-  );
-}
-
-function TextArea({
-  label,
-  value,
-  onChange,
-  compact,
-  placeholder,
-  rows = compact ? 4 : 8
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  compact?: boolean;
-  placeholder?: string;
-  rows?: number;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <textarea rows={rows} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-// A multi-line list field (Holidays / Blackout dates) whose EDITABLE text is held locally and
-// decoupled from the parsed array. This is the fix for the long-standing bug where pressing Enter,
-// typing a trailing space, or pasting a multi-line list was stripped on every keystroke (the field
-// used to re-derive its value from the parsed array each render). The parsed array is kept in sync
-// for scheduling/generation; the visible text is whatever the user typed or pasted.
-function ListTextArea({
-  label,
-  value,
-  onChange,
-  helper,
-  rows = 3
-}: {
-  label: string;
-  value: string[];
-  onChange: (value: string[]) => void;
-  helper?: string;
-  rows?: number;
-}) {
-  const [draft, setDraft] = useState(() => seedDateList(value));
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <textarea
-        rows={rows}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          onChange(parseDateList(event.target.value));
-        }}
-      />
-      {helper && <small className="field-hint">{helper}</small>}
-    </label>
-  );
-}
-
-function Select({
-  label,
-  value,
-  options,
-  labels,
-  hint,
-  onChange
-}: {
-  label: string;
-  value: string;
-  options: string[];
-  labels?: Record<string, string>;
-  /** One plain-language sentence about what this choice changes — shown under the control. */
-  hint?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {labels?.[option] ?? option}
-          </option>
-        ))}
-      </select>
-      {hint && <small className="field-help">{hint}</small>}
-    </label>
-  );
-}
-
-function Toggle({ label, checked, hint, onChange }: { label: string; checked: boolean; hint?: string; onChange: (value: boolean) => void }) {
-  return (
-    <label className="toggle" title={hint}>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
-      <span>{label}</span>
-      {hint && (
-        <span className="toggle-hint" aria-hidden="true">
-          <Info size={13} />
-        </span>
-      )}
-      {hint && <span className="sr-only">{hint}</span>}
-    </label>
-  );
-}
-
-// Accordion section used on the Create page so advanced settings stay tucked away until wanted.
-function CollapsibleSection({
-  title,
-  open,
-  onToggle,
-  children
-}: {
-  title: string;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className={`collapsible-section ${open ? "open" : ""}`}>
-      <button type="button" className="collapsible-head" onClick={onToggle} aria-expanded={open}>
-        <ChevronRight size={16} className="collapsible-chevron" />
-        <span>{title}</span>
-        <small>{open ? "Hide" : "Edit"}</small>
-      </button>
-      {open && <div className="collapsible-body">{children}</div>}
-    </div>
-  );
-}
-
-function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="empty-state">
-      <LogoMark size={48} decorative className="empty-state-mark" />
-      <h2>{title}</h2>
-      <p>{body}</p>
-    </div>
-  );
-}
-
-// Parse-status pill for an attached/pasted source on the Create page.
-function SourceStatusBadge({ status }: { status: SourceFile["status"] }) {
-  const map: Record<SourceFile["status"], { label: string; tone: string; icon: typeof CheckCircle2 }> = {
-    attached: { label: "Attached", tone: "muted", icon: FileText },
-    parsing: { label: "Parsing…", tone: "info", icon: Loader2 },
-    parsed: { label: "Parsed", tone: "ok", icon: CheckCircle2 },
-    "needs-review": { label: "Needs review", tone: "warn", icon: AlertTriangle },
-    failed: { label: "Failed to parse", tone: "danger", icon: AlertTriangle }
-  };
-  const { label, tone, icon: Icon } = map[status];
-  return (
-    <span className={`source-badge ${tone}`}>
-      <Icon size={12} className={status === "parsing" ? "spin" : ""} /> {label}
-    </span>
   );
 }
 

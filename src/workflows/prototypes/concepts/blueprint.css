@@ -1,0 +1,44 @@
+/* Concept 2 — Blueprint-First Studio. Structured, decision-forward. */
+.bp2 { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - var(--rc-chrome-offset, 96px)); }
+.bp2-nav { border-right: 1px solid var(--line); background: var(--surface); padding: 16px 12px; position: sticky; top: var(--rc-chrome-offset, 96px); align-self: start; height: calc(100vh - var(--rc-chrome-offset, 96px)); overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.bp2-nav__seg { display: flex; flex-direction: column; padding: 6px 8px 2px; }
+.bp2-nav__eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--ink); }
+.bp2-nav__list { list-style: none; margin: 0 0 6px; padding: 0; }
+.bp2-nav__list.is-locked { opacity: .55; }
+.bp2-nav__item { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; text-align: left; padding: 8px 9px; border-radius: 8px; color: var(--ink-2); font-size: 13.5px; font-weight: 500; }
+.bp2-nav__item:hover:not(:disabled) { background: var(--surface-2); }
+.bp2-nav__item.is-on { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--ink); font-weight: 700; }
+.bp2-nav__item:disabled { cursor: not-allowed; }
+.bp2-nav__num { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; background: var(--surface-2); font-size: 11px; font-weight: 700; color: var(--ink-3); flex-shrink: 0; }
+.bp2-nav__item.is-on .bp2-nav__num { background: var(--accent); color: #fff; }
+.bp2-nav__item--x { font-style: normal; color: var(--ink-3); }
+.bp2-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-left: auto; }
+.bp2-gate { padding: 8px; }
+.bp2-gate__done { background: var(--ok-bg); color: var(--ok); text-align: center; padding: 9px; border-radius: 8px; font-weight: 700; font-size: 13px; }
+
+.bp2-main { max-width: 900px; width: 100%; margin: 0 auto; padding: 30px 32px 50px; }
+.bp2-head__eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+.bp2-head h1 { font-size: 28px; letter-spacing: -.02em; margin: 0 0 14px; }
+.bp2-lead { color: var(--ink-2); max-width: 66ch; margin: 0 0 18px; }
+.bp2-foot { display: flex; align-items: center; gap: 10px; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); }
+.bp2-approvebar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; padding: 16px; background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; }
+
+.bp2-outcomes { display: flex; flex-direction: column; gap: 10px; }
+.bp2-outcome { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+.bp2-assess { display: flex; flex-direction: column; gap: 10px; }
+.bp2-assess__row { display: grid; grid-template-columns: 200px 1fr 48px; align-items: center; gap: 12px; }
+.bp2-assess__row input[type=range] { width: 100%; }
+.bp2-assess__val { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.bp2-assess__total { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
+.bp2-pol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.bp2-pol__i { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--surface); }
+
+.bp2-studio { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 20px; align-items: start; margin-top: 12px; }
+.bp2-studio__editor { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 18px; min-height: 260px; }
+.bp2-empty { display: grid; place-items: center; height: 220px; text-align: center; }
+
+@container (max-width: 900px) {
+  .bp2 { grid-template-columns: 1fr; }
+  .bp2-nav { position: static; height: auto; }
+  .bp2-studio { grid-template-columns: 1fr; }
+}
