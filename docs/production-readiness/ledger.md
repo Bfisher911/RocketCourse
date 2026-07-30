@@ -3,7 +3,8 @@
 Living record for the production hardening loop. Running code, migrations, and
 tests are the source of truth; audit docs are treated as findings to verify.
 
-**Branch:** `feature/nine-workflows-units-design` · **Never deploys to production; Netlify preview only.**
+**Merged to `main` and deployed to production 2026-07-30** (PR #4, merge commit `5f86c40`, 50 commits).
+Production: https://thecourseforge.netlify.app · see "Production deploy verification" below.
 
 Severities: **P0** security/privacy/data-loss/billing/auth/corrupt-export/outage ·
 **P1** core-workflow failure / major a11y / misleading paid feature ·
@@ -321,6 +322,33 @@ which is exactly the kind of pair that gets transposed. The table above is the r
 `account.updated` / `customer.created` / product+price admin events, all with
 `pending_webhooks=0`), and no production deploy happened while the config was wrong —
 Netlify functions read env vars per deploy, so the bad values never went live.
+
+## Production deploy verification (2026-07-30)
+
+PR #4 merged at 17:14:54Z; Netlify **auto-publish fired 3 seconds later** (17:14:57Z)
+and the production deploy reached `ready` — worth knowing: on this site a merge to
+`main` *is* a production deploy, so a separate explicit deploy would only republish
+identical content.
+
+| Check | Result |
+| --- | --- |
+| All 7 security headers | ✅ live |
+| CSP | ✅ **enforcing** (not Report-Only) |
+| 9 prerendered routes | ✅ all 200 |
+| SPA deep links (`/app`, `/dashboard`, `?exp=`) | ✅ all 200 |
+| Asset caching | ✅ `max-age=31536000, immutable`; `index.html` revalidates |
+| Missing chunk | ✅ **404**, not an HTML 200 |
+| Functions | ✅ all deployed (405 to GET) |
+| Webhook, forged signature | ✅ 400 — secret present and verifying |
+| Landing / Pricing / Demo / editor | ✅ render; fonts load |
+| **CSP violations · console errors** | ✅ **zero · zero** |
+
+**Not proven, deliberately:** that production's webhook secret is the *live*
+endpoint's. Confirming it needs a real live Stripe event, and creating one would mean
+real money — so it was not attempted. The chain of custody is that the value
+(`…7HG9`) was copied from live endpoint `we_1Tlggi…`, and it differs from the test
+secret (`…NhMP`) still used by previews. First real payment will confirm it; watch
+that delivery in the Stripe dashboard.
 
 ## External blockers (precise owner action required)
 
