@@ -24,6 +24,38 @@ const currentUserId = async (): Promise<string | null> => {
   return data.user?.id ?? null;
 };
 
+/** Lightweight dashboard row — everything needed to paint a project card
+ * without downloading the (potentially multi-megabyte) course_json. */
+export interface ProjectSummary {
+  id: string;
+  title: string;
+  status: string;
+  readinessScore: number;
+  updatedAt: string;
+}
+
+/** Fast first paint: only the denormalized columns, no course_json. */
+export const listProjectSummaries = async (): Promise<ProjectSummary[]> => {
+  const client = await getSupabaseClient();
+  if (!client) return [];
+  const { data, error } = await client
+    .from("course_projects")
+    .select("app_project_id,title,status,readiness_score,updated_at")
+    .order("updated_at", { ascending: false });
+  if (error || !data) return [];
+  return dedupeById(
+    data
+      .filter((row) => Boolean(row.app_project_id))
+      .map((row) => ({
+        id: row.app_project_id as string,
+        title: (row.title as string) ?? "",
+        status: (row.status as string) ?? "draft",
+        readinessScore: Number(row.readiness_score ?? 0),
+        updatedAt: (row.updated_at as string) ?? ""
+      }))
+  );
+};
+
 /** Load all of the signed-in user's saved projects, newest first. Empty array if none/unavailable. */
 export const listProjects = async (): Promise<CourseProject[]> => {
   const client = await getSupabaseClient();

@@ -248,13 +248,21 @@ export const loadSuperOverview = async (): Promise<SuperOverview> => {
   const imageCreditsUsedThisMonth = imageRows.reduce((sum: number, row: { credits?: number }) => sum + Number(row.credits ?? 0), 0);
   const imageCostCents = Math.round(imageRows.reduce((sum: number, row: { estimated_cost_usd?: number }) => sum + Number(row.estimated_cost_usd ?? 0), 0) * 100);
 
-  // Estimated LLM cost this month from logged jobs.
-  const { data: jobs } = await client
-    .from("ai_generation_jobs")
-    .select("estimated_cost_cents,created_at")
-    .gte("created_at", since)
-    .limit(2000);
-  const estCostCents = (jobs ?? []).reduce((s, j) => s + ((j.estimated_cost_cents as number) ?? 0), 0) + imageCostCents;
+  // Estimated LLM cost this month. A single builder call costs a fraction of a cent, so the
+  // integer ai_generation_jobs.estimated_cost_cents column rounds most rows to 0 — sum the
+  // full-precision micro-dollar figures logged on usage_events instead, and keep the jobs
+  // column as a floor for rows written before the metadata carried cost.
+  const [{ data: jobs }, { data: aiEvents }] = await Promise.all([
+    client.from("ai_generation_jobs").select("estimated_cost_cents,created_at").gte("created_at", since).limit(5000),
+    c.from("usage_events").select("metadata").eq("event_type", "ai_generation").gte("created_at", since).limit(5000)
+  ]);
+  const jobCents = (jobs ?? []).reduce((s: number, j: { estimated_cost_cents?: number | null }) => s + (j.estimated_cost_cents ?? 0), 0);
+  const eventMicroUsd = ((aiEvents ?? []) as Array<{ metadata?: { costMicroUsd?: number; costUsd?: number } | null }>).reduce((s, row) => {
+    const meta = row.metadata ?? {};
+    const micro = Number(meta.costMicroUsd ?? Number(meta.costUsd) * 1_000_000);
+    return s + (Number.isFinite(micro) && micro > 0 ? micro : 0);
+  }, 0);
+  const estCostCents = Math.max(jobCents, eventMicroUsd / 10_000) + imageCostCents;
 
   // Estimated annualized revenue from active subscriptions (catalog prices).
   const { data: subs } = await client.from("subscriptions").select("plan_key,status").in("status", ["active", "trialing"]);

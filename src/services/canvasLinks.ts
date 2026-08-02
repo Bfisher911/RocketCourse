@@ -141,3 +141,36 @@ export const canvasRefResolves = (href: string, course: CourseProject): boolean 
       return false;
   }
 };
+
+// ============================================================================
+// In-app preview handling for packaged-file images
+// ----------------------------------------------------------------------------
+// Editor previews render generated HTML straight into the browser, where
+// packaged-file image sources ($IMS-CC-FILEBASE$/… or web_resources/… paths)
+// cannot resolve — the browser shows its broken-image glyph. At PREVIEW time
+// those srcs are swapped for an inline "shown after Canvas import" placeholder.
+// Export and persistence paths must never call this: the token has to survive
+// into the .imscc for Canvas to migrate it into a real file URL.
+// ============================================================================
+
+const PREVIEW_PLACEHOLDER_SVG = [
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150' role='img'>",
+  "<rect width='200' height='150' rx='12' fill='#eef2ff'/>",
+  "<rect x='6' y='6' width='188' height='138' rx='9' fill='none' stroke='#c7d2fe' stroke-width='2' stroke-dasharray='6 5'/>",
+  "<circle cx='68' cy='52' r='13' fill='#c7d2fe'/>",
+  "<path d='M28 108 L76 66 L110 96 L136 76 L172 108 Z' fill='#a5b4fc'/>",
+  "<text x='100' y='132' font-family='Helvetica, Arial, sans-serif' font-size='13' font-weight='700' fill='#4f46e5' text-anchor='middle'>Shown after Canvas import</text>",
+  "</svg>"
+].join("");
+
+/** Inline stand-in shown wherever a packaged-file image cannot render in the app. */
+export const PREVIEW_IMAGE_PLACEHOLDER_SRC = `data:image/svg+xml,${encodeURIComponent(PREVIEW_PLACEHOLDER_SVG)}`;
+
+// img srcs that only a Canvas import can resolve: the file token (raw or URL-encoded)
+// and package-relative web_resources paths.
+const PACKAGED_IMG_SRC =
+  /(<img\b[^>]*\ssrc\s*=\s*)(["'])((?:\$IMS-CC-FILEBASE\$|%24IMS-CC-FILEBASE%24|(?:\.\.\/)?web_resources\/)[^"']*)\2/gi;
+
+/** Swap packaged-file img srcs for the inline placeholder. Preview rendering only. */
+export const resolvePreviewImageSources = (html: string): string =>
+  html.replace(PACKAGED_IMG_SRC, (_match, prefix: string, quote: string) => `${prefix}${quote}${PREVIEW_IMAGE_PLACEHOLDER_SRC}${quote}`);

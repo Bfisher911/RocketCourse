@@ -197,7 +197,21 @@ const danglingReferences = (course: CourseProject): string[] => {
   return problems;
 };
 
+// Building a report walks and validates the ENTIRE course (every page's HTML
+// included), so it is far too heavy to recompute per render — the dashboard
+// alone calls this for every project card. Course objects are replaced
+// immutably on every edit, so object identity is a sound cache key.
+const reportCache = new WeakMap<CourseProject, ReadinessReport>();
+
 export const buildReadinessReport = (course: CourseProject): ReadinessReport => {
+  const cached = reportCache.get(course);
+  if (cached) return cached;
+  const report = computeReadinessReport(course);
+  reportCache.set(course, report);
+  return report;
+};
+
+const computeReadinessReport = (course: CourseProject): ReadinessReport => {
   const gradeWeightTotal = course.assignmentGroups.reduce((sum, group) => sum + Number(group.weight || 0), 0);
   const homepage = course.pages.find((page) => page.frontPage);
   const syllabus = course.pages.find((page) => page.slug === "syllabus");

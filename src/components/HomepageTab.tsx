@@ -34,7 +34,7 @@ import {
   type HomepageReviseAction
 } from "../services/homepageTemplates";
 import { validateHomepage, type HomepageValidationResult } from "../services/homepageValidation";
-import { canvasRefTargets } from "../services/canvasLinks";
+import { canvasRefTargets, resolvePreviewImageSources } from "../services/canvasLinks";
 import { buildBannerSvg } from "../services/themeDesign";
 import { slugify } from "../utils/text";
 import { aiGenerateHomepageContent } from "../services/aiBuilders";
@@ -65,7 +65,9 @@ const bannerDataUri = (course: CourseProject): string => `data:image/svg+xml,${e
 // or imported homepages may still carry. split/join avoids escaping the token's regex-special "$".
 const withPreviewAssets = (html: string, course: CourseProject): string => {
   const dataUri = bannerDataUri(course);
-  return html.split(BANNER_SRC).join(dataUri).split("../web_resources/course-banner.svg").join(dataUri);
+  const withBanner = html.split(BANNER_SRC).join(dataUri).split("../web_resources/course-banner.svg").join(dataUri);
+  // Any other packaged-file img only resolves after Canvas import — show the placeholder.
+  return resolvePreviewImageSources(withBanner);
 };
 
 const relativeTime = (iso?: string): string => {
@@ -374,7 +376,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
           ) : (
             <>
               <div className="hp-revise" aria-label="Homepage revise actions">
-                <span className="hp-revise-label"><Sparkles size={13} /> Quick improvements</span>
+                <span className="hp-revise-label"><Sparkles size={13} /> Quick improvements — instant, no AI</span>
                 <div className="hp-revise-grid">
                   {HOMEPAGE_REVISE_ACTIONS.map((action) => (
                     <button key={action.id} className="hp-chip" title={action.hint} onClick={() => runRevise(action.id)}>

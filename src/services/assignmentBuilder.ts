@@ -1,5 +1,6 @@
 import type { Assignment, CourseModule, CourseOutcome, CourseProject, ModuleItem, ObjectMetadata, Rubric } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
+import { resolvePreviewImageSources } from "./canvasLinks";
 import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
 import { buildAssignmentCard, getThemeStyles } from "./themeDesign";
 import { withAlpha } from "../utils/color";
@@ -573,8 +574,10 @@ export const restoreAssignment = (course: CourseProject, assignment: Assignment,
   return changeAssignmentModule(withAssignment, assignment.id, assignment.moduleId, timestamp);
 };
 
-// Shared Canvas preview sanitizer (htmlSafety.ts), aliased so AssignmentsTab keeps its import.
-export const sanitizeAssignmentHtmlForPreview = sanitizeHtmlForPreview;
+// Shared Canvas preview sanitizer (htmlSafety.ts) plus the packaged-image placeholder,
+// aliased so AssignmentsTab keeps its import.
+export const sanitizeAssignmentHtmlForPreview = (html: string): string =>
+  resolvePreviewImageSources(sanitizeHtmlForPreview(html));
 
 export const rubricForAssignment = (course: CourseProject, assignment: Assignment): Rubric | undefined =>
   assignment.rubricId ? course.rubrics.find((rubric) => rubric.id === assignment.rubricId) : undefined;

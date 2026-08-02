@@ -88,7 +88,10 @@ export function mount(stage, ctx) {
         B.blueprintView({}).querySelector(".blk-bp__card:nth-child(2)") ? B.blueprintView({}) : B.blueprintView({})),
       assessment: () => body.append(h("p", { class: "bp2-lead" }, "Five graded categories totalling 100%. Weights are decisions — change them before content exists."), assessmentEditor()),
       workload: () => body.append(h("p", { class: "bp2-lead" }, "Planned student time, by activity. Module 7 is well above the norm."), B.blueprintView({})),
-      policies: () => body.append(h("p", { class: "bp2-lead" }, "Required policies and support content. Two are still empty."), policiesList()),
+      policies: () => {
+        const empties = B.session.syllabus.sections.filter(s => ["s-integrity", "s-ai", "s-late", "s-access"].includes(s.id) && !s.complete).length;
+        body.append(h("p", { class: "bp2-lead" }, "Required policies and support content." + (empties ? ` ${empties} ${empties === 1 ? "is" : "are"} still empty.` : " All filled in.")), policiesList());
+      },
     })[sel]?.();
     // footer with move-to-next / approve
     const i = BP_SECTIONS.findIndex(x => x.id === sel);

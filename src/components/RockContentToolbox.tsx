@@ -1,4 +1,4 @@
-import { Blocks, LayoutGrid, Sparkles } from "lucide-react";
+import { Blocks, LayoutGrid } from "lucide-react";
 import { type RefObject, useMemo, useState } from "react";
 import { CONTENT_BLOCKS } from "../data/contentBlocks";
 import { ROCK_CATEGORY_BLOCKS, ROCK_CONTENT_CATEGORIES, ROCK_QUICK_ACTIONS, type RockContentCategory, type RockQuickActionId } from "../data/contentBlockToolkit";
@@ -58,7 +58,7 @@ const insertAtCursor = (value: string, insert: string, textarea?: HTMLTextAreaEl
   return { next, cursor: before.length + insertion.length };
 };
 
-export function RockContentToolbox({ course, value, surface, onChange, textareaRef, title = "Rock Content", compact = false }: RockContentToolboxProps) {
+export function RockContentToolbox({ course, value, surface, onChange, textareaRef, title = "Content blocks", compact = false }: RockContentToolboxProps) {
   const contentSurface = surfaceToContentSurface(surface);
   const [activeCategory, setActiveCategory] = useState<RockContentCategory>("Welcome");
   const categoryBlocks = useMemo(() => {
@@ -128,7 +128,7 @@ export function RockContentToolbox({ course, value, surface, onChange, textareaR
       </div>
 
       <div className="rock-actions" aria-label="Quick deterministic actions">
-        <span className="rock-actions-label"><Sparkles size={13} /> Quick actions</span>
+        <span className="rock-actions-label"><LayoutGrid size={13} /> Layout actions — instant, no AI</span>
         <div>
           {ROCK_QUICK_ACTIONS.map((action) => (
             <button key={action.id} onClick={() => runAction(action.id)} title={action.description}>

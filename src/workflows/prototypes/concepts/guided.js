@@ -33,6 +33,19 @@ export function mount(stage, ctx) {
     if (ex) ex.value = value; else decisions.push({ label, value });
   }
 
+  // A built course re-enters this journey at Review (the host points the shared
+  // task at 6). Its earlier decisions are already settled, so seed the memory
+  // panel from the real course instead of showing "Nothing settled yet".
+  const isBuilt = B.session.modules.some(m => (m.items || []).length > 0);
+  if (isBuilt) {
+    const d = B.D.course || {};
+    addDecision("Course", d.title || "Your course");
+    if (d.level) addDecision("Level", d.level);
+    if (d.weeks) addDecision("Length", d.weeks + " weeks");
+    if (d.modality) addDecision("Modality", d.modality);
+    addDecision("Blueprint", "Approved");
+  }
+
   function renderRail() {
     clear(rail);
     rail.append(
@@ -93,9 +106,19 @@ export function mount(stage, ctx) {
       if (sub === "sources") sources.scrollIntoView?.({ block: "center" });
     },
     configure(body) {
-      body.append(gdField("Level", segment(["Intro", "Intermediate", "Advanced"], 0, v => addDecision("Level", v))),
-        gdField("Length", segment(["12 weeks", "14 weeks", "15 weeks", "16 weeks"], 2, v => addDecision("Length", v))),
-        gdField("Meets", segment(["Online", "Hybrid", "In person"], 2, v => addDecision("Modality", v))),
+      // Reflect the course's real settings: include the current length among
+      // the options and pre-select the chips that match what's already set.
+      const s = B.session.settings || {};
+      const weekOpts = Array.from(new Set([s.weeks, 8, 12, 15, 16].filter(w => Number.isFinite(w) && w > 0)))
+        .sort((a, b) => a - b).map(w => w + " weeks");
+      const weekDef = Math.max(0, weekOpts.indexOf((s.weeks || 0) + " weeks"));
+      const lvl = String(s.level || "").toLowerCase();
+      const levelDef = /intro|beginn|100/.test(lvl) ? 0 : /advanced|graduate(?!.*under)|masters|doctoral/.test(lvl) && !/under/.test(lvl) ? 2 : 1;
+      const mod = String(s.modality || "").toLowerCase();
+      const meetsDef = /hybrid|blended/.test(mod) ? 1 : /in.?person|campus|face/.test(mod) ? 2 : 0;
+      body.append(gdField("Level", segment(["Intro", "Intermediate", "Advanced"], levelDef, v => addDecision("Level", v))),
+        gdField("Length", segment(weekOpts, weekDef, v => addDecision("Length", v))),
+        gdField("Meets", segment(["Online", "Hybrid", "In person"], meetsDef, v => addDecision("Modality", v))),
         gdField("Assessment mix", h("p", { class: "tiny muted", style: { margin: 0 } }, "Reflections + short essays + discussion + low-stakes checks + capstone — you'll fine-tune weights later.")),
         h("div", { class: "gd-callout" }, h("span", {}, "💡"), h("p", { class: "tiny", style: { margin: 0 } }, "Only the decisions that change the plan appear now. Advanced settings (frameworks, quiz difficulty, contact-hour model) wait until they matter.")));
     },
@@ -128,7 +151,7 @@ export function mount(stage, ctx) {
     },
     review(body, sub) { review.render(body, sub); },
     resolve(body) {
-      body.append(h("p", { class: "gd-lead" }, "Two things must be fixed before a confident export, plus a few recommendations. Resolve them here — each shows exactly what to do."),
+      body.append(h("p", { class: "gd-lead" }, "Anything that blocks a confident export is listed here, along with recommendations. Resolve each one — every item shows exactly what to do."),
         B.readinessPanel({ onResolveGoto: it => { goStage(4, { open: it.refId }); } }));
     },
     preview(body) {
@@ -142,14 +165,19 @@ export function mount(stage, ctx) {
 
   function primaryButton(key) {
     const cfg = {
-      define: ["Save & continue", () => { addDecision("Course", B.D.course?.title || "Your course"); addDecision("Sources", "4 files"); advance(); }],
+      define: ["Save & continue", () => {
+        addDecision("Course", B.D.course?.title || "Your course");
+        const srcCount = (B.session.sourceFiles || []).length;
+        if (srcCount) addDecision("Sources", srcCount + (srcCount === 1 ? " file" : " files"));
+        advance();
+      }],
       configure: ["Continue to blueprint", () => advance()],
       blueprint: ["Approve blueprint & build", () => { addDecision("Blueprint", "Approved"); goStage(3); }],
       generate: ["Go to review", () => { if (!done.has(3)) { toast("Let the draft finish building", "info"); return; } advance(); }],
       review: ["Everything looks right →", () => advance()],
       resolve: ["Continue", () => advance()],
       preview: ["Looks good — to export", () => advance()],
-      export: ["Back to lab home", () => ctx.go("#/")],
+      export: ["Back to dashboard", () => ctx.go("#/")],
     };
     const [label, fn] = cfg[key];
     return h("button", { class: "btn btn--primary gd-foot__go", onClick: fn }, label);
@@ -158,7 +186,7 @@ export function mount(stage, ctx) {
     return {
       define: "One primary action per step.", configure: "3 quick choices — that's all we need now.",
       blueprint: "You approve the structure before any prose is written.", generate: "",
-      review: "Open Module 4 from the list to try the shared tasks.", resolve: B.openIssuesCount() + " open items",
+      review: "Open any module to read and edit its items.", resolve: B.openIssuesCount() + " open items",
       preview: "", export: "Import into Canvas is not verified until you test it.",
     }[key];
   }

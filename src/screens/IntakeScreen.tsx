@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Check, FileText, ListChecks, Load
 import { CourseBlueprintPreview } from "../components/CourseBlueprintPreview";
 import { BrandBadge } from "../components/brand";
 import { CollapsibleSection, Input, ListTextArea, NumberInput, Select, SourceStatusBadge, TextArea, Toggle } from "../components/form";
-import { defaultSettings } from "../data/defaultSettings";
+import { LEVEL_OPTIONS, MODALITY_OPTIONS, defaultSettings } from "../data/defaultSettings";
 import { themes } from "../data/themes";
 import { inferSettingsFromPrompt } from "../services/promptInference";
 import { augmentPromptWithSources } from "../services/sourceParsing";
@@ -231,8 +231,8 @@ export function Intake({
             <Input label="Course title" value={settings.title} placeholder="Leave blank to derive from your course brief" onChange={(value) => onSettingsChange("title", value)} />
             <TextArea label="Course description" value={settings.description} placeholder="Optional — a catalog-style description. Leave blank and we'll write one from your brief." onChange={(value) => onSettingsChange("description", value)} compact />
             <div className="field-grid">
-              <Select label="Level" value={settings.level} options={["Undergraduate", "Graduate", "Professional", "High school", "Continuing education"]} onChange={(value) => onSettingsChange("level", value)} />
-              <Select label="Modality" value={settings.modality} options={["Online asynchronous", "Online synchronous", "Hybrid", "Face-to-face", "Accelerated"]} onChange={(value) => onSettingsChange("modality", value)} />
+              <Select label="Level" value={settings.level} options={[...LEVEL_OPTIONS]} onChange={(value) => onSettingsChange("level", value)} />
+              <Select label="Modality" value={settings.modality} options={[...MODALITY_OPTIONS]} onChange={(value) => onSettingsChange("modality", value)} />
               <NumberInput label="Credit hours" value={settings.creditHours} min={1} max={6} onChange={(value) => onSettingsChange("creditHours", value)} />
               <Select label="Tone" value={settings.tone} options={["Friendly academic", "Formal", "Practical", "Technical", "Clinical"]} hint="The writing voice used across generated pages, assignments, and announcements." onChange={(value) => onSettingsChange("tone", value)} />
             </div>

@@ -31,7 +31,7 @@ interface RubricSnapshot {
   createdAt: string;
 }
 
-const label = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+const label = (count: number, noun: string, plural = `${noun}s`) => `${count} ${count === 1 ? noun : plural}`;
 
 export function RubricsTab({ course, onUpdateCourse }: RubricsTabProps) {
   const validation = useMemo(() => validateRubricPlan(course), [course]);
@@ -193,7 +193,7 @@ export function RubricsTab({ course, onUpdateCourse }: RubricsTabProps) {
               <button key={rubric.id} className={`rubric-list-card ${rubric.id === selectedRubric.id ? "active" : ""} ${issues.some((issue) => issue.severity === "error") ? "has-errors" : ""}`} onClick={() => setSelectedRubricId(rubric.id)}>
                 <span className={`rubric-status ${issues.length ? "review" : "ready"}`}>{issues.length ? `${issues.length} warning${issues.length === 1 ? "" : "s"}` : "Ready"}</span>
                 <strong>{rubric.title}</strong>
-                <small>{rubric.points} points • {label(rubric.criteria.length, "criterion")} • {label(usage.assignments.length, "assignment")} • {label(usage.discussions.length, "discussion")}</small>
+                <small>{rubric.points} points • {label(rubric.criteria.length, "criterion", "criteria")} • {label(usage.assignments.length, "assignment")} • {label(usage.discussions.length, "discussion")}</small>
               </button>
             );
           })}

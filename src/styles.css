@@ -456,7 +456,8 @@ p {
 .primary,
 .secondary,
 .ghost,
-.danger {
+button.danger,
+a.danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -491,7 +492,7 @@ p {
 .primary:active:not(:disabled),
 .secondary:active:not(:disabled),
 .ghost:active:not(:disabled),
-.danger:active:not(:disabled) {
+button.danger:active:not(:disabled) {
   transform: scale(0.97);
   transition-duration: var(--dur-fast);
 }
@@ -520,20 +521,21 @@ p {
   background: rgba(130, 146, 230, 0.1);
 }
 
-.danger {
+button.danger,
+a.danger {
   color: #fff;
   background: var(--danger);
   box-shadow: var(--shadow-soft);
 }
 
-.danger:hover:not(:disabled) {
+button.danger:hover:not(:disabled) {
   transform: translateY(-2px);
   filter: brightness(1.06);
 }
 
 .primary:disabled,
 .secondary:disabled,
-.danger:disabled {
+button.danger:disabled {
   opacity: 0.5;
   transform: none;
   box-shadow: none;
@@ -1922,43 +1924,8 @@ p {
 .project-open:hover { background: var(--surface-2); }
 .project-open:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
 
-/* Per-course "Open in <experience>" entry point — surfaces the nine building
-   experiences at the dashboard, before entering the editor. */
-.project-exp {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  padding: 0 18px 0 6px;
-  flex-shrink: 0;
-}
-.project-exp__k {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  /* --ink-3 is only defined inside the prototype-scoped [data-rc-ds] sheet;
-     the app's muted token is --muted. */
-  color: var(--muted);
-}
-.project-exp__select {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  padding: 7px 8px;
-  max-width: 220px;
-  min-height: 40px;
-}
-.project-exp__select:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
-@media (pointer: coarse) { .project-exp__select { min-height: 44px; } }
 @media (max-width: 620px) {
   .project-row { flex-wrap: wrap; }
-  .project-exp { width: 100%; padding: 0 22px 16px; }
-  .project-exp__select { max-width: none; width: 100%; }
 }
 
 .project-row::before {
@@ -3322,10 +3289,11 @@ p {
 }
 
 .quiz-toolbar {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(0, 1fr)) auto;
+  /* Wrapping flex: container-driven so filters never crush in a narrow pane. */
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  align-items: end;
+  align-items: flex-end;
   padding: 14px;
   background: var(--surface-2);
   border: 1px solid var(--line);
@@ -3559,7 +3527,8 @@ p {
 
 .quiz-outcome-picker > div {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Container-driven: collapses to one column when the editor pane is narrow. */
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 8px;
 }
 
@@ -3590,6 +3559,7 @@ p {
   color: var(--muted);
   font-size: 11.5px;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .quiz-template-bar {
@@ -3955,8 +3925,9 @@ p {
 }
 
 .page-toolbar {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(180px, 0.35fr) auto;
+  /* Wrapping flex: container-driven so filters never crush in a narrow pane. */
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: end;
   padding: 14px;
@@ -4399,7 +4370,9 @@ p {
 
 .rock-block-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Container-driven: card count follows available width so the swatch + text
+     never crush into 1-character-per-line columns in a narrow editor pane. */
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 8px;
 }
 
@@ -5104,6 +5077,10 @@ p {
   color: #ffd6d6;
   border-color: rgba(255, 94, 126, 0.32);
   background: rgba(255, 94, 126, 0.1);
+  /* Stay a SMALL button: undo the button.danger variant's size and shadow. */
+  min-height: 36px;
+  padding: 0 13px;
+  box-shadow: none;
 }
 
 .module-delete-panel {
@@ -7063,28 +7040,6 @@ p {
     position: static;
   }
 
-  .assignment-toolbar,
-  .discussion-toolbar,
-  .quiz-toolbar,
-  .rubric-toolbar {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .assignment-search,
-  .discussion-search,
-  .quiz-search,
-  .rubric-search {
-    grid-column: 1 / -1;
-  }
-
-  .page-toolbar {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .page-search {
-    grid-column: 1 / -1;
-  }
-
   .module-planner-layout {
     grid-template-columns: 1fr;
   }
@@ -7330,14 +7285,6 @@ p {
     .theme-grid,
     .how-grid,
     .feature-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .assignment-toolbar,
-  .discussion-toolbar,
-  .quiz-toolbar,
-  .rubric-toolbar,
-  .page-toolbar {
     grid-template-columns: 1fr;
   }
 
@@ -11953,4 +11900,36 @@ p {
 }
 
 .screen-skeleton__dot { animation: none; border-top-color: var(--line-strong); }
+}
+
+
+/* Toolbar children under wrapping flex: filters ≥150px, search wider, buttons natural. */
+.quiz-toolbar label,
+.page-toolbar label {
+  flex: 1 1 150px;
+}
+.quiz-search,
+.page-search {
+  flex: 2 1 240px;
+}
+.quiz-toolbar > button,
+.page-toolbar > button {
+  flex: 0 0 auto;
+}
+
+/* Canvas/QTI preview: the quiz description renders as HTML, scoped small. */
+.quiz-preview-purpose {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.quiz-preview-purpose img { max-width: 74px; height: auto; }
+.quiz-preview-purpose h2, .quiz-preview-purpose h3 { font-size: 13px; margin: 8px 0 4px; color: var(--ink); }
+
+/* Summary cards shown while full projects download: same look, not yet clickable. */
+.project-open--loading {
+  cursor: progress;
+  opacity: 0.85;
 }

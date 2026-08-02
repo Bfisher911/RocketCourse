@@ -1,6 +1,6 @@
 import type { CourseModule, CoursePage, CourseProject, ModuleItem, ModuleItemType, ObjectMetadata, PublishState } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
-import { canvasRefTargets } from "./canvasLinks";
+import { canvasRefTargets, resolvePreviewImageSources } from "./canvasLinks";
 import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
 import { buildVisualBlockHtml, type VisualBlockId } from "./visualBlocks";
 
@@ -595,6 +595,8 @@ export const restorePage = (course: CourseProject, page: CoursePage, timestamp =
   return changePageModule(withPage, page.id, page.moduleId, timestamp);
 };
 
-// Shared Canvas preview sanitizer (defined in htmlSafety.ts). Aliased under the page-specific
-// name so existing PagesTab and test imports keep working.
-export const sanitizePageHtmlForPreview = sanitizeHtmlForPreview;
+// Shared Canvas preview sanitizer (htmlSafety.ts) plus the packaged-image placeholder —
+// in-app previews cannot resolve $IMS-CC-FILEBASE$/web_resources srcs. Aliased under the
+// page-specific name so existing PagesTab and test imports keep working.
+export const sanitizePageHtmlForPreview = (html: string): string =>
+  resolvePreviewImageSources(sanitizeHtmlForPreview(html));

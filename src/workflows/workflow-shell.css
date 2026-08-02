@@ -67,8 +67,10 @@
 [data-rc-ds] .rc-tasktile.is-on { background: var(--rc-ink); color: #fff; border-color: var(--rc-ink); }
 [data-rc-ds] .rc-tasktile__n { font-family: var(--rc-font-mono); font-size: 11px; opacity: .8; }
 
-/* stage that hosts an experience */
-[data-rc-ds] .rc-stage { position: relative; min-height: calc(100vh - 130px); }
+/* stage that hosts an experience. It must BE a query container — the
+   prototypes' responsive rules (e.g. the W04 inspector relocation) are
+   @container queries and never fire without one. */
+[data-rc-ds] .rc-stage { position: relative; min-height: calc(100vh - 130px); container-type: inline-size; }
 
 /* SPA host + shared experience chrome ------------------------------------- */
 /* Inside the app the sticky stack is: app topbar (70px) + experience chrome

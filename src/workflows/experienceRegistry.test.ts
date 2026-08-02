@@ -29,13 +29,12 @@ describe("experience registry", () => {
     }
   });
 
-  it("every experience is enabled and carries registry metadata", () => {
+  it("only W01 and W02 ship enabled; the rest stay registered for the lab", () => {
+    const enabled = EXPERIENCES.filter(e => e.enabled).map(e => e.code).sort();
+    expect(enabled).toEqual(["W01", "W02"]);
     for (const exp of EXPERIENCES) {
-      expect(exp.enabled).toBe(true);
       expect(exp.name.length).toBeGreaterThan(0);
       expect(exp.bestFor.length).toBeGreaterThan(0);
-      expect(exp.featureFlag.startsWith("wf.")).toBe(true);
-      expect(exp.supportedResponsive.length).toBeGreaterThan(0);
     }
   });
 
@@ -45,11 +44,13 @@ describe("experience registry", () => {
     expect(byCode[8].code).toBe("W09");
   });
 
-  it("resolveExperienceId honors course → user → default hierarchy", () => {
-    expect(resolveExperienceId("course-map", "wildcard")).toBe("course-map");
-    expect(resolveExperienceId(null, "wildcard")).toBe("wildcard");
+  it("resolveExperienceId honors course → user → default hierarchy over ENABLED experiences", () => {
+    expect(resolveExperienceId("original", "guided-journey")).toBe("original");
+    expect(resolveExperienceId(null, "original")).toBe("original");
     expect(resolveExperienceId(null, null)).toBe(DEFAULT_EXPERIENCE_ID);
     expect(resolveExperienceId("not-a-real-id", "also-fake")).toBe(DEFAULT_EXPERIENCE_ID);
+    // A saved preference for a now-disabled experience falls back to the default.
+    expect(resolveExperienceId("course-map", "wildcard")).toBe(DEFAULT_EXPERIENCE_ID);
   });
 
   it("getExperience returns undefined for unknown ids", () => {

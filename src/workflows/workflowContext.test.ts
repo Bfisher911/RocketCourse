@@ -11,7 +11,6 @@ import {
   saveUserPreferred,
   loadUserPreferred,
 } from "./workflowContext";
-import { loadViewState, saveViewState } from "./adapterViewState";
 
 const uid = () => `c-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -37,32 +36,5 @@ describe("workflow preference persistence", () => {
     const ctx = createContext("guided-journey");
     expect(ctx.experienceId).toBe("guided-journey");
     expect(ctx.taskPointer).toBe(1);
-  });
-});
-
-describe("adapter view state", () => {
-  it("persists per-course acknowledged sets and export flags", () => {
-    const courseId = uid();
-    const vs = loadViewState(courseId);
-    expect(vs.acknowledged.size).toBe(0);
-    vs.acknowledged.add("check-1");
-    vs.validated = true;
-    saveViewState(courseId, vs);
-    const again = loadViewState(courseId);
-    expect(again.acknowledged.has("check-1")).toBe(true);
-    expect(again.validated).toBe(true);
-    expect(again.fullContentGenerated).toBe(false);
-    // a different course is untouched
-    expect(loadViewState(uid()).acknowledged.size).toBe(0);
-  });
-
-  it("view state never appears on a CourseProject shape", () => {
-    const courseId = uid();
-    const vs = loadViewState(courseId);
-    vs.fullContentGenerated = true;
-    saveViewState(courseId, vs);
-    // nothing here writes to a course; the adapter tests assert the same from
-    // the other side (resolveIssue leaves course JSON identical)
-    expect(Object.keys(vs).sort()).toEqual(["acknowledged", "fullContentGenerated", "validated"]);
   });
 });

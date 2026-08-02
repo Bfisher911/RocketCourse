@@ -200,7 +200,7 @@ export function OverviewTab({
                 <p className="overview-empty">Everything checks out. 🎉</p>
               ) : (
                 health.attention.map((item) => (
-                  <button type="button" className={`health-item jump ${item.severity === "required" ? "danger" : "warn"}`} key={item.id} onClick={() => onJumpToTab(item.tab)} title={item.detail}>
+                  <button type="button" className={`health-item jump ${item.severity === "required" ? "tone-danger" : "tone-warn"}`} key={item.id} onClick={() => onJumpToTab(item.tab)} title={item.detail}>
                     <span>{item.label}</span>
                     <small>
                       {item.tab} <ArrowRight size={12} />
@@ -411,7 +411,7 @@ export function OverviewTab({
                   ) : (
                     row.outcomes.map((outcome) => (
                       <span className="outcome-chip outcome-tag" key={outcome.id} title={`${outcome.code}: ${outcome.text}`}>
-                        {outcomeTag(outcome)}
+                        {outcome.code ? `${outcome.code} · ${outcomeTag(outcome)}` : outcomeTag(outcome)}
                       </span>
                     ))
                   )}
@@ -430,7 +430,7 @@ export function OverviewTab({
         </header>
         <div className="design-check-grid">
           {designChecks.map((check) => (
-            <button type="button" className={`design-check ${statusTone(check.status)}`} key={check.id} onClick={() => onJumpToTab(check.tab)} title={check.detail}>
+            <button type="button" className={`design-check tone-${statusTone(check.status)}`} key={check.id} onClick={() => onJumpToTab(check.tab)} title={check.detail}>
               {check.status === "pass" ? <CheckCircle2 size={15} /> : check.status === "warn" ? <ShieldCheck size={15} /> : <AlertTriangle size={15} />}
               <div>
                 <strong>{check.label}</strong>

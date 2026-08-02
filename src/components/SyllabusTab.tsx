@@ -36,7 +36,7 @@ import {
   type SyllabusReviseAction
 } from "../services/syllabusTemplates";
 import { validateSyllabus, type SyllabusValidationResult } from "../services/syllabusValidation";
-import { canvasRefTargets } from "../services/canvasLinks";
+import { canvasRefTargets, resolvePreviewImageSources } from "../services/canvasLinks";
 import { slugify, stripHtml } from "../utils/text";
 import { aiGenerateSyllabusContent } from "../services/aiBuilders";
 import { useAiAction } from "../hooks/useAiAction";
@@ -323,7 +323,8 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
   const changeListField = (key: keyof SyllabusContent, items: string[]): void => updateContent((prev) => ({ ...prev, [key]: items }) as SyllabusContent);
   const changeTextField = (key: keyof SyllabusContent, value: string): void => updateContent((prev) => ({ ...prev, [key]: value }) as SyllabusContent);
 
-  const previewHtml = page.bodyHtml;
+  // Packaged-file imgs (banner etc.) only resolve after Canvas import — placeholder them in-app.
+  const previewHtml = resolvePreviewImageSources(page.bodyHtml);
   const currentTemplateName = state ? syllabusTemplateMeta(state.templateId).name : syllabusTemplateMeta(DEFAULT_SYLLABUS_TEMPLATE_ID).name;
   const statusText = validation.failures ? `${validation.failures} fixes` : validation.warnings ? `${validation.warnings} reviews` : "Ready";
 
@@ -555,11 +556,11 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
           <div className="hp-compare-grid">
             <figure>
               <figcaption>Previous ({relativeTime(compareSnapshot.takenAt)})</figcaption>
-              <div className="hp-canvas-page mini" dangerouslySetInnerHTML={{ __html: compareSnapshot.bodyHtml }} />
+              <div className="hp-canvas-page mini" dangerouslySetInnerHTML={{ __html: resolvePreviewImageSources(compareSnapshot.bodyHtml) }} />
             </figure>
             <figure>
               <figcaption>Current</figcaption>
-              <div className="hp-canvas-page mini" dangerouslySetInnerHTML={{ __html: page.bodyHtml }} />
+              <div className="hp-canvas-page mini" dangerouslySetInnerHTML={{ __html: resolvePreviewImageSources(page.bodyHtml) }} />
             </figure>
           </div>
           <button className="hp-btn hp-btn-primary" onClick={() => restoreSnapshot(compareSnapshot)}><RotateCcw size={15} /> Restore this previous version</button>

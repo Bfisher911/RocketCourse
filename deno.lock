@@ -12,18 +12,24 @@
     "packageJson": {
       "dependencies": [
         "npm:@supabase/supabase-js@^2.108.2",
+        "npm:@testing-library/jest-dom@7",
+        "npm:@testing-library/react@^16.3.2",
+        "npm:@testing-library/user-event@^14.6.1",
         "npm:@types/react-dom@^19.2.3",
         "npm:@types/react@^19.2.17",
         "npm:@vitejs/plugin-react@^6.0.2",
         "npm:fast-xml-parser@^5.9.3",
+        "npm:jsdom@^29.1.1",
         "npm:jszip@^3.10.1",
         "npm:lucide-react@0.468",
         "npm:react-dom@^18.3.1",
         "npm:react@^18.3.1",
+        "npm:sharp@~0.35.3",
         "npm:stripe@^17.7.0",
         "npm:typescript@^6.0.3",
         "npm:vite@^8.0.16",
-        "npm:vitest@^4.1.9"
+        "npm:vitest@^4.1.9",
+        "npm:ws@^8.21.0"
       ]
     }
   }

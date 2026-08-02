@@ -10,7 +10,9 @@ import {
   moduleRef,
   modulesIndexRef,
   parseCanvasRef,
+  PREVIEW_IMAGE_PLACEHOLDER_SRC,
   quizRef,
+  resolvePreviewImageSources,
   webResourceHref,
   wikiPageRef
 } from "./canvasLinks";
@@ -61,5 +63,35 @@ describe("canvasLinks", () => {
   it("guarantees the well-known nav pages exist so the homepage/syllabus links resolve", () => {
     const ids = new Set(sampleProject.pages.map((page) => page.id));
     ["page_syllabus", "page_course_success_guide", "page_course_calendar_workload_plan"].forEach((id) => expect(ids.has(id)).toBe(true));
+  });
+});
+
+describe("resolvePreviewImageSources", () => {
+  it("swaps packaged-file img srcs (token, encoded token, web_resources) for the inline placeholder", () => {
+    const html = [
+      '<p><img src="$IMS-CC-FILEBASE$/quiz-icon.svg" alt="Quiz support icon" style="width: 74px;" /></p>',
+      '<img src="%24IMS-CC-FILEBASE%24/media/module-01.png" alt="Module image">',
+      "<img src='../web_resources/course-banner.svg' alt='Banner'>",
+      '<img class="x" src="web_resources/handout.png" alt="Handout">'
+    ].join("");
+    const out = resolvePreviewImageSources(html);
+    expect(out).not.toContain("$IMS-CC-FILEBASE$");
+    expect(out).not.toContain("%24IMS-CC-FILEBASE%24");
+    expect(out).not.toContain("web_resources/");
+    expect(out.match(new RegExp(PREVIEW_IMAGE_PLACEHOLDER_SRC.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))?.length).toBe(4);
+    // Alt text and other attributes survive the swap.
+    expect(out).toContain('alt="Quiz support icon"');
+    expect(out).toContain('class="x"');
+  });
+
+  it("leaves resolvable and data-URI img srcs untouched, and never rewrites hrefs", () => {
+    const html =
+      '<img src="data:image/svg+xml,abc" alt=""><img src="https://example.com/x.png" alt=""><a href="$IMS-CC-FILEBASE$/handout.pdf">Handout</a>';
+    expect(resolvePreviewImageSources(html)).toBe(html);
+  });
+
+  it("produces a browser-renderable data URI", () => {
+    expect(PREVIEW_IMAGE_PLACEHOLDER_SRC.startsWith("data:image/svg+xml,")).toBe(true);
+    expect(decodeURIComponent(PREVIEW_IMAGE_PLACEHOLDER_SRC.slice("data:image/svg+xml,".length))).toContain("Shown after Canvas import");
   });
 });

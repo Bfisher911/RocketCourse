@@ -145,7 +145,7 @@ export function GradebookTab({
           </header>
           <div className="gradebook-issue-list">
             {issues.map((issue) => (
-              <button type="button" className={`health-item jump ${issue.severity === "error" ? "danger" : "warn"}`} key={issue.id} onClick={() => onJumpToTab(issue.tab)} title={issue.detail}>
+              <button type="button" className={`health-item jump ${issue.severity === "error" ? "tone-danger" : "tone-warn"}`} key={issue.id} onClick={() => onJumpToTab(issue.tab)} title={issue.detail}>
                 <span>
                   <strong>{issue.title}.</strong> {issue.detail}
                 </span>

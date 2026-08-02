@@ -1,5 +1,9 @@
 import type { CourseSettings } from "../types";
 
+/** Canonical option lists shared by the intake and the guided journey. */
+export const LEVEL_OPTIONS = ["Undergraduate", "Graduate", "Professional", "High school", "Continuing education"] as const;
+export const MODALITY_OPTIONS = ["Online asynchronous", "Online synchronous", "Hybrid", "Face-to-face", "Accelerated"] as const;
+
 export const defaultSettings: CourseSettings = {
   // Retained for stored-project compatibility; the intake no longer exposes it.
   buildMode: "guided",

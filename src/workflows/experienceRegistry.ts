@@ -7,13 +7,22 @@
 // IMPORTANT: an experience only changes navigation / presentation / guidance.
 // It never owns course content. All experiences render the SAME shared course
 // state (see host.ts) and call the SAME shared actions.
+//
+// TIERING: only W01 (the real editor) and W02 (the recommended guided journey)
+// ship enabled in the app. W03–W09 stay registered but disabled — the app's
+// pickers hide/deactivate them, while the standalone lab (workflows.html)
+// ignores `enabled` and keeps every concept explorable.
+//
+// NOTE: the app renders W02 natively (components/GuidedJourney.tsx, a React
+// component over CourseProject). `prototypeKey` is read only by the lab's
+// host. Promoting another concept means building it as a React surface the
+// same way — not flipping `enabled` alone.
 // ============================================================================
 
 export type GuidanceLevel = "high" | "medium" | "adaptive" | "switchable" | "low";
 export type NavModel =
   | "linear-wizard" | "decision-canvas" | "spatial-tree" | "chat-plus-canvas"
   | "job-board" | "zoom-filmstrip" | "density-toggle" | "document-desk" | "legacy-tabs";
-export type ResponsiveMode = "desktop" | "tablet" | "mobile";
 
 export interface WorkflowExperience {
   /** Stable identifier (never a DB id; safe to expose in URLs). */
@@ -31,10 +40,6 @@ export interface WorkflowExperience {
   demoAvailable: boolean;
   isDefault: boolean;
   enabled: boolean;
-  recommendedUserTypes: string[];
-  supportedResponsive: ResponsiveMode[];
-  featureFlag: string;      // gate for staged rollout
-  analyticsId: string;      // used only if analytics exists
   accent: string;           // CSS var for the selector card accent (semantic, paired with label)
 }
 
@@ -47,9 +52,7 @@ export const EXPERIENCES: WorkflowExperience[] = [
     bestFor: "First-time or occasional course builders",
     guidance: "high", navModel: "linear-wizard", prototypeKey: "guided",
     demoAvailable: true, isDefault: true, enabled: true,
-    recommendedUserTypes: ["first-time instructor", "occasional builder"],
-    supportedResponsive: ["desktop", "tablet", "mobile"],
-    featureFlag: "wf.guided", analyticsId: "wf_guided", accent: "--rc-green",
+    accent: "--rc-green",
   },
   {
     id: "original", code: "W01", name: "Original RocketCourse",
@@ -59,9 +62,7 @@ export const EXPERIENCES: WorkflowExperience[] = [
     bestFor: "Returning users who know the current app",
     guidance: "medium", navModel: "legacy-tabs", prototypeKey: null,
     demoAvailable: false, isDefault: false, enabled: true,
-    recommendedUserTypes: ["existing power user"],
-    supportedResponsive: ["desktop", "tablet", "mobile"],
-    featureFlag: "wf.original", analyticsId: "wf_original", accent: "--rc-ink",
+    accent: "--rc-ink",
   },
   {
     id: "blueprint-studio", code: "W03", name: "Blueprint-First Studio",
@@ -70,10 +71,8 @@ export const EXPERIENCES: WorkflowExperience[] = [
       "Outcomes, module sequence, assessment strategy, workload and policies are approved first; content generation follows an approved structure.",
     bestFor: "Instructional designers; pedagogy-first instructors",
     guidance: "medium", navModel: "decision-canvas", prototypeKey: "blueprint",
-    demoAvailable: true, isDefault: false, enabled: true,
-    recommendedUserTypes: ["instructional designer"],
-    supportedResponsive: ["desktop", "tablet", "mobile"],
-    featureFlag: "wf.blueprint", analyticsId: "wf_blueprint", accent: "--rc-blue",
+    demoAvailable: true, isDefault: false, enabled: false,
+    accent: "--rc-blue",
   },
   {
     id: "course-map", code: "W04", name: "Course Map Workspace",
@@ -82,10 +81,8 @@ export const EXPERIENCES: WorkflowExperience[] = [
       "One persistent spatial map is the primary navigation; the centre shows the selected object and a contextual inspector shows only the controls relevant to it.",
     bestFor: "Visual thinkers; anyone reorganizing a course",
     guidance: "low", navModel: "spatial-tree", prototypeKey: "map",
-    demoAvailable: true, isDefault: false, enabled: true,
-    recommendedUserTypes: ["instructional designer", "power user"],
-    supportedResponsive: ["desktop", "tablet", "mobile"],
-    featureFlag: "wf.map", analyticsId: "wf_map", accent: "--rc-lilac",
+    demoAvailable: true, isDefault: false, enabled: false,
+    accent: "--rc-lilac",
   },
   {
     id: "course-partner", code: "W05", name: "Conversational Course Partner",
@@ -94,10 +91,8 @@ export const EXPERIENCES: WorkflowExperience[] = [
       "The live course and student preview stay primary; a bounded conversation proposes checkpointed changes with explicit scope and Accept / Modify / Reject / Undo.",
     bestFor: "Instructors who want help without a form",
     guidance: "adaptive", navModel: "chat-plus-canvas", prototypeKey: "partner",
-    demoAvailable: true, isDefault: false, enabled: true,
-    recommendedUserTypes: ["first-time instructor", "busy instructor"],
-    supportedResponsive: ["desktop", "tablet", "mobile"],
-    featureFlag: "wf.partner", analyticsId: "wf_partner", accent: "--rc-lilac",
+    demoAvailable: true, isDefault: false, enabled: false,
+    accent: "--rc-lilac",
   },
   {
     id: "task-command-center", code: "W06", name: "Task-Based Command Center",
@@ -106,10 +101,8 @@ export const EXPERIENCES: WorkflowExperience[] = [
       "Work is organized around meaningful jobs (strengthen assessments, improve accessibility, balance workload) with computed status and a single recommended next action.",
     bestFor: "Returning builders with a half-finished course",
     guidance: "medium", navModel: "job-board", prototypeKey: "tasks",
-    demoAvailable: true, isDefault: false, enabled: true,
-    recommendedUserTypes: ["returning builder"],
-    supportedResponsive: ["desktop", "tablet", "mobile"],
-    featureFlag: "wf.tasks", analyticsId: "wf_tasks", accent: "--rc-orange",
+    demoAvailable: true, isDefault: false, enabled: false,
+    accent: "--rc-orange",
   },
   {
     id: "visual-storyboard", code: "W07", name: "Visual Storyboard",
@@ -118,10 +111,8 @@ export const EXPERIENCES: WorkflowExperience[] = [
       "The course is a sequence of student experiences you zoom through (course → module → learning sequence → item). Scene height encodes workload so pacing problems are visible.",
     bestFor: "Designers thinking about the week-to-week arc",
     guidance: "low", navModel: "zoom-filmstrip", prototypeKey: "storyboard",
-    demoAvailable: true, isDefault: false, enabled: true,
-    recommendedUserTypes: ["instructional designer"],
-    supportedResponsive: ["desktop", "tablet"],
-    featureFlag: "wf.storyboard", analyticsId: "wf_storyboard", accent: "--rc-yellow",
+    demoAvailable: true, isDefault: false, enabled: false,
+    accent: "--rc-yellow",
   },
   {
     id: "guided-expert", code: "W08", name: "Guided & Expert Modes",
@@ -130,10 +121,8 @@ export const EXPERIENCES: WorkflowExperience[] = [
       "Guided mode emphasizes explanation and sequencing; Expert mode emphasizes density, shortcuts and direct access. Switching modes preserves exact context.",
     bestFor: "Teams spanning novices and instructional designers",
     guidance: "switchable", navModel: "density-toggle", prototypeKey: "modes",
-    demoAvailable: true, isDefault: false, enabled: true,
-    recommendedUserTypes: ["mixed team"],
-    supportedResponsive: ["desktop", "tablet", "mobile"],
-    featureFlag: "wf.modes", analyticsId: "wf_modes", accent: "--rc-blue",
+    demoAvailable: true, isDefault: false, enabled: false,
+    accent: "--rc-blue",
   },
   {
     id: "wildcard", code: "W09", name: "Wildcard · Reading-Room Desk",
@@ -142,10 +131,8 @@ export const EXPERIENCES: WorkflowExperience[] = [
       "A calm, content-first departure from dashboard idiom for humanities instructors: the course document is the spine, tools live in a desk drawer, and readiness is self-erasing marginalia.",
     bestFor: "Humanities instructors put off by ‘AI dashboards’",
     guidance: "low", navModel: "document-desk", prototypeKey: "wildcard",
-    demoAvailable: true, isDefault: false, enabled: true,
-    recommendedUserTypes: ["humanities instructor"],
-    supportedResponsive: ["desktop", "tablet"],
-    featureFlag: "wf.wildcard", analyticsId: "wf_wildcard", accent: "--rc-raspberry",
+    demoAvailable: true, isDefault: false, enabled: false,
+    accent: "--rc-raspberry",
   },
 ];
 

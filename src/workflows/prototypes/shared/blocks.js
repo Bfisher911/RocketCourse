@@ -113,6 +113,10 @@ export function provenance(edited) {
 
 // ---------------------------------------------------------------------------
 // PAGE EDITOR — reused everywhere pages are edited. Distinct save affordance.
+// Tags beyond simple prose mean the page has a designed layout (themed
+// sections, cards, images, interactions). Round-tripping that through a
+// plain-text box would silently flatten it to bare paragraphs.
+const RICH_LAYOUT_TAG = /<(?!\/?(?:p|br|strong|em|b|i|u|ul|ol|li|a|h2|h3)\b)[a-z][^>]*>/i;
 export function pageEditor(pageId, { scopeNote = "This change affects one page.", onSaved } = {}) {
   const page = session.pages[pageId];
   const wrap = h("div", { class: "blk-editor" });
@@ -124,15 +128,28 @@ export function pageEditor(pageId, { scopeNote = "This change affects one page."
     const markSaved = () => { page.edited = true; status.textContent = "✓ Saved · edits apply as you type"; };
     const titleI = h("input", { class: "blk-input blk-input--title", value: page.title, "aria-label": "Page title",
       onInput: e => { page.title = e.target.value; markSaved(); }, onChange: () => { session.commit(); onSaved?.(page); } });
+    const bar = h("div", { class: "blk-editor__bar" },
+      h("div", { class: "row gap-8" }, h("span", { class: "blk-kind" }, "▤ Page"), provenance(page.edited)),
+      h("span", { class: "blk-scope tiny muted" }, "Scope · " + scopeNote));
+    if (RICH_LAYOUT_TAG.test(page.body)) {
+      // Rich layout: preview faithfully, keep the title editable, and send body
+      // edits to the full Pages editor instead of flattening here.
+      wrap.append(bar, titleI,
+        h("div", { class: "blk-toolbar tiny muted" }, "Rich layout page · shown exactly as students will see it"),
+        h("article", { class: "prose", "aria-label": "Page content preview",
+          style: { maxHeight: "440px", overflow: "auto", border: "1px solid rgba(0,0,0,0.12)", borderRadius: "10px", padding: "14px 16px", background: "#fff" },
+          html: page.body }),
+        h("p", { class: "tiny muted", style: { marginTop: "10px" } },
+          "This page uses a designed layout, so plain-text editing here would flatten it. To edit the body, switch the Experience menu to W01 · Original RocketCourse and open the Pages tab. The title above stays editable."));
+      return;
+    }
     const bodyA = h("textarea", { class: "blk-textarea", "aria-label": "Page content", rows: 12,
       onInput: e => { page.body = textToHtml(e.target.value); markSaved(); }, onChange: () => { session.commit(); onSaved?.(page); } });
     bodyA.value = htmlToText(page.body);
     wrap.append(
-      h("div", { class: "blk-editor__bar" },
-        h("div", { class: "row gap-8" }, h("span", { class: "blk-kind" }, "▤ Page"), provenance(page.edited)),
-        h("span", { class: "blk-scope tiny muted" }, "Scope · " + scopeNote)),
+      bar,
       titleI,
-      h("div", { class: "blk-toolbar tiny muted" }, "Content · autosaves as you type (prototype)"),
+      h("div", { class: "blk-toolbar tiny muted" }, "Content · autosaves as you type"),
       bodyA,
       h("div", { class: "row spread", style: { marginTop: "10px" } }, status, h("span", { class: "pill ok tiny" }, "Autosave on")),
     );
@@ -142,7 +159,12 @@ export function pageEditor(pageId, { scopeNote = "This change affects one page."
 }
 function statusLine(page) { return h("span", { class: "tiny muted" }, page.edited ? "Saved · last edited just now" : "AI draft · not yet edited"); }
 function htmlToText(html) {
-  return html.replace(/<\/(p|h2|h3|li|ul)>/g, "\n").replace(/<li>/g, "• ").replace(/<[^>]+>/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  return html
+    .replace(/<\/(p|h[1-6]|li|ul|ol|div|section|blockquote)>|<br\s*\/?>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 function textToHtml(t) { return t.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, "<br>")}</p>`).join(""); }
 
@@ -243,7 +265,9 @@ export function readinessPanel({ onResolveGoto, compact } = {}) {
   function render() {
     clear(wrap);
     const r = session.readiness;
-    wrap.append(
+    // DOM append() stringifies null/false into literal "null"/"false" text
+    // nodes, so drop empty groups before appending.
+    const parts = [
       h("div", { class: "blk-readi__head" },
         ring(r.score, statusWord(r), r.blockers.length + " must-fix · " + r.warnings.length + " advisory"),
         h("p", { class: "tiny muted", style: { maxWidth: "34ch" } },
@@ -251,7 +275,8 @@ export function readinessPanel({ onResolveGoto, compact } = {}) {
       issueGroup("Must fix before export", r.blockers, "danger"),
       issueGroup("Advisory", r.warnings, "warn"),
       r.blockers.length === 0 && r.warnings.length === 0 && h("p", { class: "blk-readi__clear" }, "✓ All checks pass. Ready to export."),
-    );
+    ].filter(Boolean);
+    wrap.append(...parts);
   }
   function issueGroup(title, items, tone) {
     if (!items.length) return null;
@@ -259,7 +284,8 @@ export function readinessPanel({ onResolveGoto, compact } = {}) {
       h("h4", { class: "blk-readi__gt" }, title, h("span", { class: `pill ${tone}` }, items.length)),
       h("ul", { class: "blk-readi__list" }, items.map(it => h("li", { class: "blk-readi__item attn" + (tone === "danger" ? " attn--danger" : "") },
         h("div", { class: "grow" }, h("div", { class: "blk-readi__label" }, it.label),
-          h("div", { class: "tiny muted" }, it.where), it.help && h("div", { class: "tiny", style: { marginTop: "3px" } }, "→ " + it.help)),
+          h("div", { class: "tiny muted" }, it.where),
+          it.help && it.help !== it.where ? h("div", { class: "tiny", style: { marginTop: "3px" } }, "→ " + it.help) : null),
         it.resolvable
           ? h("button", { class: "btn btn--sm btn--primary", onClick: () => doResolve(it) }, "Resolve")
           : onResolveGoto ? h("button", { class: "btn btn--sm", onClick: () => onResolveGoto(it) }, "Open") : null))));
@@ -451,9 +477,12 @@ export function blueprintView({ onApprove, onChangeDecision } = {}) {
 // COURSE-LEVEL CHANGE — change one course-wide decision (task 5).
 export function courseChange({ onChanged } = {}) {
   const wrap = h("div", { class: "blk-cc" });
-  const weeks = [12, 14, 15, 16];
   function render() {
     clear(wrap);
+    // Always offer the course's CURRENT length alongside the common presets —
+    // otherwise a 10-week course shows only options that would change it.
+    const weeks = Array.from(new Set([session.settings.weeks, 8, 12, 14, 15, 16]
+      .filter(w => Number.isFinite(w) && w > 0))).sort((a, b) => a - b);
     wrap.append(
       h("p", { class: "blk-cc__scope" }, "🌐 Course-level decision · affects the whole course, not one item."),
       h("label", { class: "blk-cc__row" }, h("span", {}, "Course length"),

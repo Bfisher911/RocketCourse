@@ -108,7 +108,7 @@ ${text.length > 600 ? buildContentBlockHtml("need-help-support-panel", context) 
 };
 
 export const runRockQuickAction = (actionId: RockQuickActionId, context: ContentBlockContext, currentHtml: string): RockTransformResult => {
-  const label = ROCK_QUICK_ACTIONS.find((action) => action.id === actionId)?.label ?? "Rock Content action";
+  const label = ROCK_QUICK_ACTIONS.find((action) => action.id === actionId)?.label ?? "Content block action";
   switch (actionId) {
     case "make-more-visual":
       return { label, mode: "insert", html: blockSet(["card-grid", "quote-block", "process-diagram"], context) };

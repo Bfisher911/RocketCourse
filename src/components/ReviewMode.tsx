@@ -54,7 +54,14 @@ const writeReviewState = (courseId: string, state: ReviewState): void => {
 };
 
 const excerptOf = (html: string): string => {
-  const text = stripHtml(html).replace(/\s+/g, " ").trim();
+  // Mark block boundaries before stripping tags — otherwise headings, nav
+  // labels, and paragraphs run together into one unreadable line.
+  const separated = html.replace(/<\/(?:h[1-6]|p|li|div|section|blockquote|tr)>|<br\s*\/?>/gi, "$& · ");
+  const text = stripHtml(separated)
+    .replace(/\s+/g, " ")
+    .replace(/(?:\s*·\s*)+/g, " · ")
+    .replace(/^(?:\s*·\s*)+|(?:\s*·\s*)+$/g, "")
+    .trim();
   return text.length > 360 ? `${text.slice(0, 357)}…` : text;
 };
 
@@ -128,11 +135,14 @@ const buildQueue = (course: CourseProject): ReviewItem[] => {
 export function ReviewMode({
   course,
   onClose,
-  onJumpToTab
+  onJumpToTab,
+  onJumpToItem
 }: {
   course: CourseProject;
   onClose: () => void;
   onJumpToTab: (tab: EditorTab) => void;
+  /** Deep-link to a specific item (refId from the item key); falls back to onJumpToTab when absent. */
+  onJumpToItem?: (refId: string, tab: EditorTab) => void;
 }) {
   const items = useMemo(() => buildQueue(course), [course]);
   const [state, setState] = useState<ReviewState>(() => readReviewState(course.id));
@@ -165,13 +175,19 @@ export function ReviewMode({
     if (target !== -1) setIndex(target);
   };
 
+  const jumpToItem = (item: ReviewItem): void => {
+    const refId = item.key.slice(item.key.indexOf(":") + 1);
+    if (onJumpToItem && refId) onJumpToItem(refId, item.tab);
+    else onJumpToTab(item.tab);
+  };
+
   const fixNow = (): void => {
     const item = items[index];
     if (!item) return;
     const next: ReviewState = { ...state, [item.key]: "flagged" };
     setState(next);
     writeReviewState(course.id, next);
-    onJumpToTab(item.tab);
+    jumpToItem(item);
     onClose();
   };
 
@@ -213,7 +229,7 @@ export function ReviewMode({
                     <button
                       type="button"
                       onClick={() => {
-                        onJumpToTab(item.tab);
+                        jumpToItem(item);
                         onClose();
                       }}
                     >

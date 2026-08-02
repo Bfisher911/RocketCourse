@@ -308,13 +308,15 @@
   background: var(--brand-card-bg);
   border: 1px solid var(--brand-border-glow);
 }
+/* The launch card sits on the dark cosmic gradient (--brand-card-bg), so its
+   text needs explicit light colors — the page-level --ink/--muted are dark. */
 .rc-launch__text strong {
   display: block;
   font-family: var(--font-display);
-  color: var(--ink);
+  color: #f4f7ff;
 }
 .rc-launch__text span {
-  color: var(--muted);
+  color: rgba(224, 231, 255, 0.88);
   font-size: 13px;
 }
 

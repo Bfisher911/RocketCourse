@@ -186,7 +186,7 @@ export function Editor({
     <main id="main-content" tabIndex={-1} className="editor-shell">
       <aside className="editor-rail" aria-label="Course navigation">
         <div className="rail-section">
-          <strong>{course.title}</strong>
+          <strong>{course.title.trim() || "Untitled course"}</strong>
           <small>
             {course.modules.length} modules • {course.pages.length} pages
           </small>
@@ -277,7 +277,7 @@ export function Editor({
           <div className="editor-titlewrap">
             <LogoMark size={34} decorative className="editor-mark" />
             <div>
-              <h1>{course.title}</h1>
+              <h1>{course.title.trim() || "Untitled course"}</h1>
             <p>
               Structured Canvas course preview and editor
               {saveState === "saving" && <span className="save-chip saving"><Loader2 size={12} className="spin" /> Saving…</span>}

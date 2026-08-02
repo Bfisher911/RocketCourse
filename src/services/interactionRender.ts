@@ -184,10 +184,26 @@ type TemplateRenderer = (ctx: RenderCtx, content: InteractionContent) => string;
 const renderRevealPanels: TemplateRenderer = (ctx, content) =>
   sectionShell(ctx, content, `${content.items.map((item) => detailsPanel(ctx, item)).join("\n")}${content.reveal ? revealBlock(ctx, content.reveal) : ""}`);
 
+// A visual STEPPER: square step badges with a connecting rail — reads as a
+// procedure, not a list and not an accordion.
 const renderStepsReveal: TemplateRenderer = (ctx, content) => {
-  const steps = `<ol style="margin:0;padding-left:24px;">${content.items
-    .map((item) => `<li style="margin:12px 0;"><strong>${esc(item.heading)}:</strong> ${esc(item.body)}${item.meta ? ` <span style="color:${ctx.styles.mutedText};font-size:13px;">(${esc(item.meta)})</span>` : ""}</li>`)
-    .join("")}</ol>`;
+  const { styles } = ctx;
+  const last = content.items.length - 1;
+  const steps = content.items
+    .map((item, index) => {
+      const connector = index === last ? "" : `<span aria-hidden="true" style="display:block;width:3px;flex:1 1 auto;min-height:10px;margin:4px auto 0;background:${withAlpha(styles.accentDark, 0.35)};"></span>`;
+      return `<div style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:0 12px;">
+<div style="display:flex;flex-direction:column;align-items:center;">
+<span aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:${styles.soft};border:2px solid ${styles.accentDark};color:${styles.accentDark};font-weight:800;font-size:14px;">${index + 1}</span>
+${connector}
+</div>
+<div style="padding:2px 0 16px;">
+<p style="margin:0 0 2px;"><span style="font-size:11px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;color:${styles.mutedText};">Step ${index + 1}</span></p>
+<p style="margin:0;"><strong style="color:${styles.accentDark};">${esc(item.heading)}:</strong> ${esc(item.body)}${item.meta ? ` <span style="color:${styles.mutedText};font-size:13px;">(${esc(item.meta)})</span>` : ""}</p>
+</div>
+</div>`;
+    })
+    .join("\n");
   return sectionShell(ctx, content, `${steps}${content.reveal ? revealBlock(ctx, content.reveal) : ""}`);
 };
 
@@ -243,10 +259,18 @@ ${content.intro ? `<p style="margin:0 0 10px;">${esc(content.intro)}</p>` : ""}$
 </article>`;
 };
 
+// LETTERED CHOICES: each option is a distinct A/B/C card, so "weigh the options
+// then reveal" reads like a decision exercise, not another bullet list.
 const renderOptionsReveal: TemplateRenderer = (ctx, content) => {
-  const options = `<ol style="margin:0;padding-left:24px;">${content.items
-    .map((item) => `<li style="margin:10px 0;"><strong>${esc(item.heading)}:</strong> ${esc(item.body)}</li>`)
-    .join("")}</ol>`;
+  const { styles } = ctx;
+  const options = content.items
+    .map(
+      (item, index) => `<div style="display:grid;grid-template-columns:34px minmax(0,1fr);gap:0 12px;align-items:start;margin:10px 0;padding:12px 14px;background:#ffffff;border:1px solid ${withAlpha(styles.accentDark, 0.28)};border-radius:10px;">
+<span aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:${styles.accentDark};color:${styles.onAccentDark};font-weight:800;font-size:13px;">${String.fromCharCode(65 + (index % 26))}</span>
+<p style="margin:0;"><strong style="color:${styles.accentDark};">${esc(item.heading)}:</strong> ${esc(item.body)}</p>
+</div>`
+    )
+    .join("\n");
   return sectionShell(ctx, content, `${options}${content.reveal ? revealBlock(ctx, content.reveal) : ""}`);
 };
 
@@ -283,27 +307,47 @@ const renderMatrixTable: TemplateRenderer = (ctx, content) => {
   return sectionShell(ctx, content, `${table}${content.reveal ? revealBlock(ctx, content.reveal) : ""}`);
 };
 
+// A REAL timeline: numbered dots on a continuous vertical spine, not a stack of
+// accordions. Each event is a [dot column | content] grid row; the dot column
+// draws the connector line so the spine spans whatever height the entry needs.
 const renderTimeline: TemplateRenderer = (ctx, content) => {
   const { styles } = ctx;
+  const last = content.items.length - 1;
   const events = content.items
-    .map(
-      (item) => `<details style="border-left:6px solid ${styles.accent};padding:10px 14px;margin:12px 0;background:#ffffff;border-radius:0 9px 9px 0;">
-<summary style="font-weight:700;cursor:pointer;color:${styles.accentDark};">${esc(item.heading)}${item.meta ? ` <span style="font-weight:400;color:${styles.mutedText};">· ${esc(item.meta)}</span>` : ""}</summary>
-<p style="margin:8px 0 0;">${esc(item.body)}</p>
-</details>`
-    )
+    .map((item, index) => {
+      const connector = index === last ? "" : `<span aria-hidden="true" style="display:block;width:3px;flex:1 1 auto;min-height:14px;margin:4px auto 0;background:${withAlpha(styles.accent, 0.55)};border-radius:2px;"></span>`;
+      return `<div style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:0 12px;">
+<div style="display:flex;flex-direction:column;align-items:center;">
+<span aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:${styles.accentDark};color:${styles.onAccentDark};font-weight:800;font-size:14px;">${index + 1}</span>
+${connector}
+</div>
+<div style="padding:2px 0 18px;">
+<p style="margin:0 0 2px;font-weight:800;color:${styles.accentDark};">${esc(item.heading)}${item.meta ? ` <span style="font-weight:500;color:${styles.mutedText};font-size:13px;">· ${esc(item.meta)}</span>` : ""}</p>
+<p style="margin:0;">${esc(item.body)}</p>
+</div>
+</div>`;
+    })
     .join("\n");
   return sectionShell(ctx, content, events);
 };
 
+// A flashcard DECK: every prompt is its own tap-to-reveal card in a grid, with a
+// visible flip affordance and a distinct "answer side" treatment on open.
 const renderFlipCard: TemplateRenderer = (ctx, content) => {
   const { styles } = ctx;
-  const front = content.items[0];
-  if (!front) return "";
-  return `<details style="border:2px solid ${styles.accent};border-radius:12px;margin:20px 0;overflow:hidden;font-family:${styles.font};">
-<summary style="padding:22px;text-align:center;font-size:19px;font-weight:700;cursor:pointer;background:${styles.soft};color:${styles.accentDark};">${esc(front.heading)}</summary>
-<div style="padding:22px;text-align:center;background:#ffffff;color:${styles.canvasText};"><p style="margin:0;">${esc(front.body)}</p></div>
-</details>`;
+  if (!content.items.length) return "";
+  const cards = content.items
+    .map(
+      (item) => `<details style="border:2px solid ${styles.accent};border-radius:14px;overflow:hidden;background:${styles.soft};">
+<summary style="display:block;padding:20px 16px 14px;text-align:center;cursor:pointer;color:${styles.accentDark};">
+<span style="display:block;font-size:17px;font-weight:800;line-height:1.35;">${esc(item.heading)}</span>
+<span style="display:inline-block;margin-top:10px;padding:3px 12px;border-radius:999px;border:1px solid ${withAlpha(styles.accentDark, 0.4)};font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:${styles.accentDark};">&#8634; Reveal</span>
+</summary>
+<div style="padding:16px;text-align:center;background:${styles.accentDark};color:${styles.onAccentDark};"><p style="margin:0;font-size:15px;line-height:1.5;">${esc(item.body)}</p>${item.meta ? `<p style="margin:8px 0 0;font-size:12px;opacity:0.85;">${esc(item.meta)}</p>` : ""}</div>
+</details>`
+    )
+    .join("\n");
+  return sectionShell(ctx, content, `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:start;">${cards}</div>`);
 };
 
 // Media/figure templates render only when a real asset URL is provided — otherwise

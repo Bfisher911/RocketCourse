@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { headingOrderIssues, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, prepareStudentFacingHtmlForCanvas, sanitizeAiHtml, sanitizeHtmlForPreview, stripStudentFacingAuthoringNotes, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
+import { headingOrderIssues, normalizeHeadingOrder, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, prepareStudentFacingHtmlForCanvas, sanitizeAiHtml, sanitizeHtmlForPreview, stripStudentFacingAuthoringNotes, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
 import { hrefsFromHtml } from "./htmlSafety";
 
 describe("html safety (shared Canvas HTML safety)", () => {
@@ -84,6 +84,21 @@ describe("html safety (shared Canvas HTML safety)", () => {
 
   it("reports practical heading order issues", () => {
     expect(headingOrderIssues("<h2>Starts too low</h2><h4>Jump</h4>")).toEqual(["First heading is h2, not h1.", "Heading jumps from h2 to h4."]);
+  });
+
+  it("normalizeHeadingOrder clamps skipped heading levels", () => {
+    expect(normalizeHeadingOrder("<h1>Title</h1><h3>Jump</h3><p>x</p><h3>Fine now</h3>"))
+      .toBe("<h1>Title</h1><h2>Jump</h2><p>x</p><h3>Fine now</h3>");
+    expect(normalizeHeadingOrder('<h1>Title</h1><h4 class="x">Deep</h4>'))
+      .toBe('<h1>Title</h1><h2 class="x">Deep</h2>');
+    // Already-clean sequences pass through untouched.
+    const clean = "<h1>A</h1><h2>B</h2><h3>C</h3><h2>D</h2>";
+    expect(normalizeHeadingOrder(clean)).toBe(clean);
+  });
+
+  it("sanitizeAiHtml output passes the heading-order validator", () => {
+    const aiHtml = "<h1>Welcome</h1><h3>Getting started</h3><p>Body</p><h3>Support</h3>";
+    expect(headingOrderIssues(sanitizeAiHtml(aiHtml))).toEqual([]);
   });
 
   it("summarizes practical HTML safety issues", () => {

@@ -108,18 +108,38 @@ export function mount(stage, ctx) {
   function respond(text) {
     const t = text.toLowerCase();
     if (t.includes("attention") || t.includes("need")) {
-      ai("Two things must be fixed before a confident export: an unverified quiz answer key in Module 3, and an incomplete rubric on the Module 4 essay. I can take you to each.", {
-        scope: "2 items · Module 3 & Module 4", what: "Open the readiness list and resolve both must-fix blockers.",
-        showLabel: "Show readiness", show: () => set({ kind: "readiness" }),
-        doneLabel: "Opened readiness", apply: () => set({ kind: "readiness" }) });
+      // Answer from the REAL readiness state — never a canned count.
+      const blockers = B.session.readiness?.blockers ?? [];
+      const warnings = B.session.readiness?.warnings ?? [];
+      if (blockers.length === 0 && warnings.length === 0) {
+        ai("Nothing needs your attention — every readiness check passes. You're clear to validate and export.");
+      } else {
+        const parts = [];
+        if (blockers.length) parts.push(blockers.length + " must-fix item" + (blockers.length === 1 ? "" : "s") + " (" + blockers.slice(0, 2).map(b => b.label).join("; ") + (blockers.length > 2 ? "; …" : "") + ")");
+        if (warnings.length) parts.push(warnings.length + " advisory recommendation" + (warnings.length === 1 ? "" : "s"));
+        ai("Right now you have " + parts.join(" and ") + ". I can take you to the full list.", {
+          scope: blockers.length + " must-fix · " + warnings.length + " advisory", what: "Open the readiness list and work through each item.",
+          showLabel: "Show readiness", show: () => set({ kind: "readiness" }),
+          doneLabel: "Opened readiness", apply: () => set({ kind: "readiness" }) });
+      }
     } else if (t.includes("rubric")) {
-      ai("The Short Essay 2 rubric is missing performance levels for its “Use of evidence” criterion, so it's worth 0 points. I can add three standard levels (Exceeds / Meets / Developing) totalling 8 points.", {
+      const incomplete = Object.values(B.session.rubrics).find(x => !x.complete);
+      if (!incomplete) {
+        ai("Every rubric is complete — each criterion has performance levels and points. Nothing to repair here.");
+        return;
+      }
+      ai("A rubric is missing performance levels on at least one criterion, so that criterion is worth 0 points. I can add three standard levels (Exceeds / Meets / Developing).", {
         scope: "1 rubric · Module 4 essay", what: "Add the missing performance levels and mark the rubric complete.",
         showLabel: "Open the essay", show: () => { center = { kind: "item" }; modId = B.focusModuleId(); itemId = B.focusItemId(modId, "assignment"); render(); },
         doneLabel: "Completed the rubric", apply: () => { const r = Object.values(B.session.rubrics).find(x => !x.complete); if (!r) { render(); return; } const c = r.criteria.find(x => x.levels.length === 0); if (c) { c.points = 8; c.levels = [{ label: "Exceeds", points: 8, desc: "Precise, integrated evidence." }, { label: "Meets", points: 6, desc: "Relevant evidence." }, { label: "Developing", points: 3, desc: "Thin evidence." }]; } r.complete = true; r.points = r.criteria.reduce((s, x) => s + x.points, 0); B.session.commit?.(); B.resolveIssue("b2"); B.resolveIssue("rev3"); render(); } });
     } else if (t.includes("fix") && t.includes("must")) {
-      ai("I'll clear both must-fix blockers: verify the Module 3 answer key and complete the Module 4 rubric. You approve the change before I touch anything.", {
-        scope: "Course-wide · 2 blockers", what: "Verify the answer key AND complete the essay rubric in one approved step.",
+      const blockerCount = (B.session.readiness?.blockers ?? []).length;
+      if (blockerCount === 0) {
+        ai("There are no must-fix blockers right now — only advisory recommendations. Ask “what needs my attention?” to see them.");
+        return;
+      }
+      ai("I'll clear the " + blockerCount + " must-fix blocker" + (blockerCount === 1 ? "" : "s") + " — unverified answer keys and incomplete rubrics. You approve the change before I touch anything.", {
+        scope: "Course-wide · " + blockerCount + " blocker" + (blockerCount === 1 ? "" : "s"), what: "Verify answer keys AND complete rubrics in one approved step.",
         doneLabel: "Both blockers cleared", apply: () => {
           for (const quiz of Object.values(B.session.quizzes)) { const q = quiz.questions.find(x => x.needsAttention); if (q) { q.needsAttention = null; q.verified = true; } }
           const r = Object.values(B.session.rubrics).find(x => !x.complete); if (r) { const c = r.criteria.find(x => x.levels.length === 0); if (c) { c.points = 8; c.levels = [{ label: "Meets", points: 6, desc: "Relevant evidence." }]; } r.complete = true; }

@@ -45,16 +45,16 @@ export function WelcomeSummary({
           <p className="welcome-module-note">{teachingModuleCount} teaching modules plus {supportModuleCount} support modules for orientation, final work, or instructor resources.</p>
         )}
         <p>
-          This is a complete first draft — not a finished course. Walk through the five build phases to review and
-          polish it, then export to Canvas.
+          This is a complete first draft — not a finished course. The guided review walks you through it step by
+          step so you can polish it, then export to Canvas.
         </p>
         <p className="welcome-module-note">
-          There are nine ways to work on this course — a guided journey, a course map, a storyboard, and more.
-          Switch anytime from the Experience menu in the top bar; your course never changes when you switch.
+          Prefer a different way of working? The Experience menu in the top bar offers other workspaces for the
+          same course — switching never changes your content.
         </p>
         <div className="welcome-actions">
           <button className="primary" onClick={onStartReviewing}>
-            <Rocket size={16} /> Start reviewing <ArrowRight size={16} />
+            <Rocket size={16} /> Start guided review <ArrowRight size={16} />
           </button>
           <button className="ghost-button" onClick={onDismiss}>
             Explore on my own

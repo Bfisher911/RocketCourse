@@ -40,10 +40,17 @@
 .mp-insp__note--warn { background: var(--warn-bg); color: var(--warn); }
 
 /* Narrow: the inspector is RELOCATED below the canvas, never removed — its
-   controls (duplicate/move/publish/readiness) stay reachable, just stacked. */
-@container (max-width: 1080px) {
-  .mp { grid-template-columns: 220px 1fr; }
-  .mp-inspector { grid-column: 1 / -1; position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+   controls (duplicate/move/publish/readiness) stay reachable, just stacked.
+   Relocate at 1220px (not 1080px): between those widths the fixed 280px side
+   column crushed its own content. Once stacked, the inspector's blocks flow
+   into columns so it reads as a panel, not a narrow tower. */
+@container (max-width: 1220px) {
+  .mp { grid-template-columns: 220px minmax(0, 1fr); }
+  .mp-inspector {
+    grid-column: 1 / -1; position: static; height: auto; border-left: 0; border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 28px; align-items: start;
+  }
+  .mp-insp__head { grid-column: 1 / -1; }
 }
 @container (max-width: 760px) {
   .mp { grid-template-columns: 1fr; }

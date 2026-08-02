@@ -44,7 +44,12 @@ export function saveCoursePreferred(courseId: string, id: string): void {
   writePref(LS_COURSE_PREF(courseId), id);
 }
 
-/** In-memory shared context for the current session. */
-export function createContext(experienceId: string): WorkflowContext {
-  return { experienceId, taskPointer: 1 };
+/** In-memory shared context for the current session.
+ *
+ * `initialTask` sets where every experience enters: task 1 (define) for a
+ * from-scratch course, task 6 (review the built modules) when the course
+ * already has generated content — re-opening a built course should land in
+ * editing, not back at the start of the wizard. */
+export function createContext(experienceId: string, initialTask = 1): WorkflowContext {
+  return { experienceId, taskPointer: initialTask };
 }

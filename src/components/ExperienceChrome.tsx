@@ -5,6 +5,9 @@
 
 import { experiencesByCode, getExperience } from "../workflows/experienceRegistry";
 import "../design-system/tokens/rc-tokens.css";
+// The chrome's .rc-xchrome styles live in the workflow shell sheet; import it
+// here (its former importer, WorkflowHost, is gone).
+import "../workflows/workflow-shell.css";
 
 interface ExperienceChromeProps {
   courseTitle: string;
@@ -35,8 +38,8 @@ export function ExperienceChrome(props: ExperienceChromeProps) {
             value={props.experienceId}
             onChange={e => props.onSwitch(e.target.value)}
           >
-            {experiencesByCode().map(exp => (
-              <option key={exp.id} value={exp.id} disabled={!exp.enabled}>
+            {experiencesByCode().filter(exp => exp.enabled).map(exp => (
+              <option key={exp.id} value={exp.id}>
                 {exp.code} · {exp.name}{exp.isDefault ? " (recommended)" : ""}
               </option>
             ))}

@@ -131,4 +131,4 @@ export function BlueprintReview({
 }
 
 // Shown once, right after generation finishes: celebrate what was built and hand the
-// user a single obvious next action ("Start reviewing") instead of a cold workspace.
+// user a single obvious next action ("Start guided review") instead of a cold workspace.

@@ -1,5 +1,6 @@
 import type { CourseModule, CourseOutcome, CourseProject, Discussion, ModuleItem, ObjectMetadata, Rubric } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
+import { resolvePreviewImageSources } from "./canvasLinks";
 import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
 import { withAlpha } from "../utils/color";
 import { buildDiscussionCard, buildThemedNote, buildThemedSteps, getThemeStyles } from "./themeDesign";
@@ -511,8 +512,10 @@ export const restoreDiscussion = (course: CourseProject, discussion: Discussion,
   return changeDiscussionModule(withDiscussion, discussion.id, discussion.moduleId, timestamp);
 };
 
-// Shared Canvas preview sanitizer (htmlSafety.ts), aliased so DiscussionsTab keeps its import.
-export const sanitizeDiscussionHtmlForPreview = sanitizeHtmlForPreview;
+// Shared Canvas preview sanitizer (htmlSafety.ts) plus the packaged-image placeholder,
+// aliased so DiscussionsTab keeps its import.
+export const sanitizeDiscussionHtmlForPreview = (html: string): string =>
+  resolvePreviewImageSources(sanitizeHtmlForPreview(html));
 
 export const rubricForDiscussion = (course: CourseProject, discussion: Discussion): Rubric | undefined =>
   discussion.rubricId ? course.rubrics.find((rubric) => rubric.id === discussion.rubricId) : undefined;

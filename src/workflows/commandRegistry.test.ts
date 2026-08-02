@@ -25,12 +25,13 @@ function makeCtx(overrides: Partial<CommandContext> = {}): CommandContext {
 }
 
 describe("command registry", () => {
-  it("offers switching to the other eight experiences, not the current one", () => {
-    const cmds = buildCommands(makeCtx({ experienceId: "course-map" }));
+  it("offers switching only to OTHER enabled experiences (W03–W09 are tiered off)", () => {
+    const cmds = buildCommands(makeCtx({ experienceId: "original" }));
     const exp = cmds.filter(c => c.group === "Experience");
-    expect(exp).toHaveLength(8);
-    expect(exp.some(c => c.id === "exp:course-map")).toBe(false);
-    expect(exp.some(c => c.id === "exp:guided-journey")).toBe(true);
+    expect(exp.map(c => c.id)).toEqual(["exp:guided-journey"]);
+    // Disabled experiences never appear, and neither does the current one.
+    const fromGuided = buildCommands(makeCtx({ experienceId: "guided-journey" })).filter(c => c.group === "Experience");
+    expect(fromGuided.map(c => c.id)).toEqual(["exp:original"]);
   });
 
   it("includes a Content command for every module and content item", () => {
@@ -67,8 +68,8 @@ describe("command registry", () => {
 
   it("filters by all tokens and ranks label-prefix matches first", () => {
     const cmds = buildCommands(makeCtx());
-    const switchStory = filterCommands(cmds, "switch storyboard");
-    expect(switchStory[0]?.label).toBe("Switch to Visual Storyboard");
+    const switchGuided = filterCommands(cmds, "switch guided");
+    expect(switchGuided[0]?.label).toBe("Switch to Guided Course Journey");
     // multi-token requires every token present
     expect(filterCommands(cmds, "zzzz nope")).toHaveLength(0);
     // empty query returns everything

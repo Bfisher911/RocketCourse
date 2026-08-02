@@ -62,6 +62,10 @@ const TABS: { key: Tab; label: string; icon: typeof Gauge }[] = [
 ];
 
 const dollars = (cents: number): string => `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+// LLM spend runs to fractions of a dollar; whole-dollar rounding shows "$0" against
+// a four-digit generation count. Keep cents until the figure is large enough for them
+// to stop mattering.
+const preciseDollars = (cents: number): string => (cents >= 10000 ? dollars(cents) : `$${(cents / 100).toFixed(2)}`);
 
 interface CreditTarget {
   type: "workspace" | "user";
@@ -270,7 +274,7 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
             ["Past due", overview?.pastDueSubscriptions],
             ["Exports (this month)", overview?.exportsThisMonth],
             ["AI generations (this month)", overview?.aiThisMonth],
-            ["Est. LLM cost (mo)", overview ? dollars(overview.estCostCents) : undefined],
+            ["Est. LLM cost (mo)", overview ? preciseDollars(overview.estCostCents) : undefined],
             ["Est. revenue (annualized)", overview ? dollars(overview.estRevenueCents) : undefined]
           ].map(([label, value]) => (
             <div className="sa-stat" key={String(label)}>
@@ -382,8 +386,8 @@ export function SuperAdminScreen({ selfUserId }: { selfUserId: string }) {
             <div className="sa-stat"><strong>{overview?.aiThisMonth ?? "—"}</strong><span>AI generations</span></div>
             <div className="sa-stat"><strong>{overview?.imageGenerationsThisMonth ?? "—"}</strong><span>Image sets</span></div>
             <div className="sa-stat"><strong>{overview?.imageCreditsUsedThisMonth ?? "—"}</strong><span>Image credits</span></div>
-            <div className="sa-stat"><strong>{overview ? dollars(overview.imageCostCents) : "—"}</strong><span>Image provider cost</span></div>
-            <div className="sa-stat"><strong>{overview ? dollars(overview.estCostCents) : "—"}</strong><span>Est. LLM/API cost</span></div>
+            <div className="sa-stat"><strong>{overview ? preciseDollars(overview.imageCostCents) : "—"}</strong><span>Image provider cost</span></div>
+            <div className="sa-stat"><strong>{overview ? preciseDollars(overview.estCostCents) : "—"}</strong><span>Est. LLM/API cost</span></div>
             <div className="sa-stat"><strong>{overview ? dollars(overview.estRevenueCents) : "—"}</strong><span>Est. revenue (annualized)</span></div>
             <div className="sa-stat">
               <strong>{overview && overview.estRevenueCents > 0 ? `${Math.round((1 - overview.estCostCents / overview.estRevenueCents) * 100)}%` : "—"}</strong>

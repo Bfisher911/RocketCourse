@@ -3,6 +3,8 @@ import { useMemo, useRef, useState } from "react";
 import { BuilderHero, BuilderMetricGrid } from "./builder/BuilderChrome";
 import type { CourseProject, PublishState, Quiz, QuizDifficulty, QuizQuestion, QuizQuestionType } from "../types";
 import { stripHtml } from "../utils/text";
+import { resolvePreviewImageSources } from "../services/canvasLinks";
+import { sanitizeHtmlForPreview } from "../services/htmlSafety";
 import {
   QUIZ_REVISE_ACTIONS,
   QUIZ_TEMPLATES,
@@ -240,7 +242,7 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
               <button key={quiz.id} className={`quiz-list-card ${quiz.id === selectedQuiz.id ? "active" : ""} ${issues.some((issue) => issue.severity === "error") ? "has-errors" : ""}`} onClick={() => setSelectedQuizId(quiz.id)}>
                 <span className={`quiz-status ${issues.length ? "review" : "ready"}`}>{issueLabel(issues.length)}</span>
                 <strong>{quiz.title}</strong>
-                <small>{quiz.purpose}</small>
+                <small>{stripHtml(quiz.purpose)}</small>
                 <div>
                   <span><Layers size={12} /> {course.modules.find((module) => module.id === quiz.moduleId)?.title ?? "Missing module"}</span>
                   <span><FileQuestion size={12} /> {quiz.questions.length} questions</span>
@@ -411,7 +413,12 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab, onExportQti, o
 
         <aside className="quiz-preview-panel" aria-label="Quiz validation and preview">
           <div className="quiz-preview-sticky">
-            <header><span className="eyebrow">Canvas/QTI preview</span><h3>{selectedQuiz.title}</h3><p>{selectedQuiz.purpose}</p></header>
+            <header>
+              <span className="eyebrow">Canvas/QTI preview</span>
+              <h3>{selectedQuiz.title}</h3>
+              {/* purpose doubles as the Canvas quiz description and may carry HTML — render it as Canvas would. */}
+              <div className="quiz-preview-purpose" dangerouslySetInnerHTML={{ __html: resolvePreviewImageSources(sanitizeHtmlForPreview(selectedQuiz.purpose)) }} />
+            </header>
             <div className="quiz-export-map">
               <span><FileQuestion size={12} /> {selectedQuiz.id}/assessment_qti.xml</span>
               <span><FileQuestion size={12} /> non_cc_assessments/{selectedQuiz.id}.xml.qti</span>

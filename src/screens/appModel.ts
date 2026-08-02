@@ -19,26 +19,35 @@ export const progressSteps = [
   "Validating course package"
 ];
 
-export const editorTabs = [
-  "Overview",
-  "Imagery",
-  "Homepage",
-  "Syllabus",
-  "Modules",
-  "Pages",
-  "Interactions",
-  "Assignments",
-  "Discussions",
-  "Quizzes",
-  "Rubrics",
-  "Gradebook Setup",
-  "Contact Hours",
-  "Theme",
-  "Transform",
-  "Export"
+/**
+ * THE single source of truth for the editor's build steps. Each step is one
+ * tab, belongs to exactly one guided-rail phase, and carries the one-line
+ * description shown in guided mode. `editorTabs`, `editorPhases`, and
+ * `stepDescriptions` are all derived from this list — add or move a step here
+ * and every surface follows.
+ */
+export const EDITOR_STEPS = [
+  { tab: "Overview", phase: "Foundations", description: "Confirm the course title, description, and learning outcomes." },
+  { tab: "Imagery", phase: "Foundations", description: "Prepare accessible course images and Canvas-sized crops." },
+  { tab: "Homepage", phase: "Foundations", description: "Design the first page students see in Canvas." },
+  { tab: "Syllabus", phase: "Foundations", description: "Review and polish the syllabus students will read." },
+  { tab: "Modules", phase: "Content", description: "Organize lessons into modules and set their order." },
+  { tab: "Pages", phase: "Content", description: "Edit the content pages inside your modules." },
+  { tab: "Interactions", phase: "Content", description: "Review and adjust the Canvas interaction patterns placed on your pages." },
+  { tab: "Assignments", phase: "Assessment", description: "Set up graded assignments and their instructions." },
+  { tab: "Discussions", phase: "Assessment", description: "Write discussion prompts and participation guidance." },
+  { tab: "Quizzes", phase: "Assessment", description: "Build quizzes, questions, and answer keys." },
+  { tab: "Rubrics", phase: "Assessment", description: "Attach grading rubrics to your assessments." },
+  { tab: "Gradebook Setup", phase: "Logistics", description: "Balance grading categories so they total 100%." },
+  { tab: "Contact Hours", phase: "Logistics", description: "Verify instructional time meets your requirements." },
+  { tab: "Theme", phase: "Finish", description: "Pick the visual style applied to exported Canvas pages." },
+  { tab: "Transform", phase: "Finish", description: "Optional: apply bulk changes across the whole course." },
+  { tab: "Export", phase: "Finish", description: "Validate everything and download your Canvas package." }
 ] as const;
 
-export type EditorTab = (typeof editorTabs)[number];
+export type EditorTab = (typeof EDITOR_STEPS)[number]["tab"];
+
+export const editorTabs: readonly EditorTab[] = EDITOR_STEPS.map((step) => step.tab);
 
 /**
  * Guided mode shows one build step (tab) at a time with back/next controls so new
@@ -65,39 +74,26 @@ export const storeEditorView = (mode: EditorViewMode): void => {
 };
 
 /**
- * The build steps grouped into 5 phases so the guided rail reads as a short,
- * approachable journey ("Phase 2 of 5") instead of a wall. Order must
- * match editorTabs — every tab appears in exactly one phase.
+ * The build steps grouped into phases so the guided rail reads as a short,
+ * approachable journey ("Phase 2 of 5") instead of a wall. Derived from
+ * EDITOR_STEPS — phase order follows first appearance.
  */
-export const editorPhases: Array<{ name: string; steps: EditorTab[] }> = [
-  { name: "Foundations", steps: ["Overview", "Imagery", "Homepage", "Syllabus"] },
-  { name: "Content", steps: ["Modules", "Pages", "Interactions"] },
-  { name: "Assessment", steps: ["Assignments", "Discussions", "Quizzes", "Rubrics"] },
-  { name: "Logistics", steps: ["Gradebook Setup", "Contact Hours"] },
-  { name: "Finish", steps: ["Theme", "Transform", "Export"] }
-];
+export const editorPhases: Array<{ name: string; steps: EditorTab[] }> = EDITOR_STEPS.reduce<Array<{ name: string; steps: EditorTab[] }>>(
+  (phases, step) => {
+    const existing = phases.find((phase) => phase.name === step.phase);
+    if (existing) existing.steps.push(step.tab);
+    else phases.push({ name: step.phase, steps: [step.tab] });
+    return phases;
+  },
+  []
+);
 
 export const phaseIndexForTab = (tab: EditorTab): number =>
   Math.max(0, editorPhases.findIndex((phase) => phase.steps.includes(tab)));
 
-export const stepDescriptions: Record<EditorTab, string> = {
-  Overview: "Confirm the course title, description, and learning outcomes.",
-  Imagery: "Prepare accessible course images and Canvas-sized crops.",
-  Homepage: "Design the first page students see in Canvas.",
-  Syllabus: "Review and polish the syllabus students will read.",
-  Modules: "Organize lessons into modules and set their order.",
-  Pages: "Edit the content pages inside your modules.",
-  Interactions: "Review and adjust the Canvas interaction patterns placed on your pages.",
-  Assignments: "Set up graded assignments and their instructions.",
-  Discussions: "Write discussion prompts and participation guidance.",
-  Quizzes: "Build quizzes, questions, and answer keys.",
-  Rubrics: "Attach grading rubrics to your assessments.",
-  "Gradebook Setup": "Balance grading categories so they total 100%.",
-  "Contact Hours": "Verify instructional time meets your requirements.",
-  Theme: "Pick the visual style applied to exported Canvas pages.",
-  Transform: "Optional: apply bulk changes across the whole course.",
-  Export: "Validate everything and download your Canvas package."
-};
+export const stepDescriptions: Record<EditorTab, string> = Object.fromEntries(
+  EDITOR_STEPS.map((step) => [step.tab, step.description])
+) as Record<EditorTab, string>;
 
 export const weekdayOptions = ["0", "1", "2", "3", "4", "5", "6"];
 export const weekdayLabels: Record<string, string> = {
@@ -110,5 +106,9 @@ export const weekdayLabels: Record<string, string> = {
   "6": "Saturday"
 };
 
-export const formatDate = (iso: string): string =>
-  new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+export const formatDate = (iso: string): string => {
+  const date = new Date(iso);
+  // Missing/zero timestamps otherwise render as the Unix epoch ("Dec 31, 6:00 PM").
+  if (!iso || Number.isNaN(date.getTime()) || date.getTime() === 0) return "recently";
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+};

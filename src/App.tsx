@@ -95,7 +95,7 @@ import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
 import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { ReviewMode } from "./components/ReviewMode";
-import { WorkflowHost, type WorkflowFocusHandle } from "./components/WorkflowHost";
+import { GuidedJourney, type WorkflowFocusHandle } from "./components/GuidedJourney";
 import { ExperienceChrome } from "./components/ExperienceChrome";
 import {
   editorPhases,
@@ -142,7 +142,7 @@ import { isChunkLoadError } from "./components/ChunkErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
 import { typeToTab, type CommandContext } from "./workflows/commandRegistry";
 import { experiencesByCode, getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
-import { loadCoursePreferred, loadUserPreferred, saveCoursePreferred, saveUserPreferred } from "./workflows/workflowContext";
+import { loadCoursePreferred, saveCoursePreferred } from "./workflows/workflowContext";
 import { useModalFocus } from "./hooks/useModalFocus";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
@@ -188,7 +188,7 @@ import {
   validateModulePlan,
   type ModulePreviewFilter
 } from "./services/modulePlanner";
-import { listProjects, persistenceEnabled, saveProject } from "./services/projectStore";
+import { listProjectSummaries, listProjects, persistenceEnabled, saveProject, type ProjectSummary } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
 
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
@@ -258,6 +258,8 @@ function App() {
   // pre-populated with the demo course. The dashboard's real "No course projects
   // yet" empty state handles this.
   const [projects, setProjects] = useState<CourseProject[]>([]);
+  // Lightweight card data shown while the full project payloads are still downloading.
+  const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
   // Placeholder, never rendered: the editor is unreachable at boot (pathToScreen
   // cannot return "editor"), so a real course is always set before anything
   // reads this. Keeps `course` non-nullable across ~100 call sites.
@@ -275,13 +277,15 @@ function App() {
   const [experienceId, setExperienceId] = useState<string>(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("exp");
     if (fromUrl && getExperience(fromUrl)?.enabled) return fromUrl;
-    return resolveExperienceId(loadCoursePreferred(SAMPLE_PROJECT_ID), loadUserPreferred());
+    return resolveExperienceId(loadCoursePreferred(SAMPLE_PROJECT_ID));
   });
   const chooseExperience = (id: string): void => {
     if (!getExperience(id)?.enabled) return;
-    setExperienceId(id);
+    // Experience workspaces are lazy-loaded; switching synchronously from an
+    // event handler suspends mid-input and trips the error boundary. A
+    // transition lets the current experience stay up while the next one loads.
+    startTransition(() => setExperienceId(id));
     saveCoursePreferred(course.id, id);
-    saveUserPreferred(id);
     const url = new URL(window.location.href);
     url.searchParams.set("exp", id);
     window.history.replaceState(window.history.state, "", url.toString());
@@ -384,6 +388,7 @@ function App() {
   // Route guard: the authenticated dashboard requires a session. Unauthenticated users are sent
   // to sign in. (Landing, pricing, and the public sample editor stay open.) Once a session exists,
   // leave the auth screens for the dashboard.
+  const bootRedirectRef = useRef(false);
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.session && (screen === "dashboard" || screen === "workspace" || screen === "admin")) {
@@ -392,6 +397,15 @@ function App() {
     }
     if (auth.session && (screen === "login" || screen === "signup")) {
       setScreen("dashboard");
+    }
+    // On the FIRST resolved auth check only: a signed-in user loading "/" gets
+    // their dashboard, not the marketing homepage. In-app navigation to the
+    // homepage afterwards is left alone.
+    if (!bootRedirectRef.current) {
+      bootRedirectRef.current = true;
+      if (auth.session && screen === "landing" && window.location.pathname === "/") {
+        setScreen("dashboard");
+      }
     }
   }, [auth.loading, auth.session, screen]);
 
@@ -433,15 +447,23 @@ function App() {
   }, []);
 
   // Load the signed-in user's saved projects from Supabase (replacing the local sample list).
+  // Two phases: a lightweight summary query paints the dashboard immediately, while the
+  // full course_json batch (potentially many MB across all projects) hydrates behind it.
   useEffect(() => {
     if (!auth.session || !persistenceEnabled()) return;
     let active = true;
+    void listProjectSummaries().then((summaries) => {
+      if (active) setProjectSummaries(summaries);
+    });
     void listProjects().then((loaded) => {
       // No `loaded.length` guard: it existed only to stop an empty result from
       // wiping the demo course that used to seed this list. The list now starts
       // empty, so an account with no saved courses correctly keeps showing the
       // real "No course projects yet" empty state.
-      if (active) setProjects(loaded);
+      if (active) {
+        setProjects(loaded);
+        setProjectSummaries([]);
+      }
     });
     return () => {
       active = false;
@@ -890,10 +912,19 @@ function App() {
         quizzes ? `${quizzes} quiz${quizzes === 1 ? "" : "zes"}` : "",
         announcements ? `${announcements} announcement${announcements === 1 ? "" : "s"}` : ""
       ].filter(Boolean);
+      // Fresh AI drafts arrive flagged for human review, so the readiness score
+      // usually DIPS right after a fill. Say so — otherwise "generate" reading
+      // as "made my course worse" is the natural (wrong) conclusion.
+      const scoreBefore = buildReadinessReport(course).score;
+      const scoreAfter = buildReadinessReport(result.course).score;
+      const scoreNote =
+        result.aiCount > 0 && scoreAfter < scoreBefore
+          ? ` Readiness moved ${scoreBefore} → ${scoreAfter} because new AI drafts start as “needs review” — approving them in Review course brings it back up.`
+          : "";
       setFillSummary(
         result.aiCount === 0
           ? "AI was unreachable, so every object kept its structured template. Check that the AI proxy (netlify dev) is running, then try again."
-          : `Generated full content for ${filledParts.join(", ") || "the course"}.${result.fallbackCount ? ` ${result.fallbackCount} object${result.fallbackCount === 1 ? "" : "s"} kept the template (AI unavailable).` : ""}`
+          : `Generated full content for ${filledParts.join(", ") || "the course"}.${result.fallbackCount ? ` ${result.fallbackCount} object${result.fallbackCount === 1 ? "" : "s"} kept the template (AI unavailable).` : ""}${scoreNote}`
       );
       return result.course;
     } catch (error) {
@@ -1130,26 +1161,20 @@ function App() {
       {screen === "dashboard" && auth.session && (
         <DashboardScreen
           projects={projects}
+          summaries={projectSummaries}
           entitlement={auth.entitlement}
           onCreate={() => startNewIntake()}
           onPricing={() => setScreen("pricing")}
           onRefreshStatus={auth.refreshSubscription}
           onBillingPortal={handleOpenBillingPortal}
           billingError={checkoutError}
-          onOpen={(project, expId) => {
+          onOpen={(project) => {
             setDemoActive(false);
             setTourOpen(false);
             setCourse(project);
             setExportMode(project.exportMode);
             setImportNotes([]);
             setValidationReport(null);
-            // Optional per-card experience choice: persist it so the course-open
-            // effect resolves to it, and set it directly for an immediate open.
-            if (expId && getExperience(expId)?.enabled) {
-              saveCoursePreferred(project.id, expId);
-              saveUserPreferred(expId);
-              setExperienceId(expId);
-            }
             setScreen("editor");
           }}
         />
@@ -1187,7 +1212,7 @@ function App() {
       )}
       {screen === "editor" && (
         <ExperienceChrome
-          courseTitle={course.title}
+          courseTitle={course.title.trim() || "Untitled course"}
           experienceId={experienceId}
           readinessScore={readiness.score}
           readinessBlockers={readiness.blockers}
@@ -1197,14 +1222,23 @@ function App() {
         />
       )}
       {screen === "editor" && experienceId !== "original" && (
-        <WorkflowHost
+        <GuidedJourney
+          ref={workflowFocusRef}
           course={course}
-          experienceId={experienceId}
           onUpdateCourse={updateCourse}
+          validationReport={validationReport}
+          exportAllowed={exportAllowed}
+          isFillingContent={isFillingContent}
+          fillProgress={fillProgress}
+          fillSummary={fillSummary}
           onRunValidation={runValidation}
           onDownload={downloadPackage}
-          onFillFullContent={fillFullCourseContent}
-          onFocusHandle={(handle) => { workflowFocusRef.current = handle; }}
+          onFillFullContent={() => { void fillFullCourseContent(); }}
+          onExit={() => setScreen("dashboard")}
+          onOpenFullEditor={(tab) => {
+            chooseExperience("original");
+            setActiveTab(tab);
+          }}
         />
       )}
       {screen === "editor" && paletteOpen && (
@@ -1295,14 +1329,25 @@ function App() {
           course={course}
           onStartReviewing={() => {
             setWelcomeOpen(false);
-            setActiveTab("Overview");
-            setReviewOpen(true);
+            // Hand off to the guided journey, which enters built courses at its
+            // Review stage — the natural first stop after a fresh draft.
+            chooseExperience("guided-journey");
           }}
           onDismiss={() => setWelcomeOpen(false)}
         />
       )}
       {screen === "editor" && reviewOpen && (
-        <ReviewMode course={course} onClose={() => setReviewOpen(false)} onJumpToTab={setActiveTab} />
+        <ReviewMode
+          course={course}
+          onClose={() => setReviewOpen(false)}
+          onJumpToTab={setActiveTab}
+          onJumpToItem={(refId, tab) => {
+            // In the original editor a tab switch is the right landing; in the
+            // workflow experiences, deep-link straight to the item being fixed.
+            if (experienceId === "original") setActiveTab(tab);
+            else if (!workflowFocusRef.current?.focusRef(refId)) setActiveTab(tab);
+          }}
+        />
       )}
 
       {screen === "blog" && (

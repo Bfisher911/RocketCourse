@@ -69,7 +69,12 @@ interface ConceptApi {
   focusModule?: (moduleId: string) => void;
 }
 
-export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: (c: WorkflowContext) => void): WorkflowHost {
+export function createHost(
+  stage: HTMLElement,
+  ctx: WorkflowContext,
+  onChange?: (c: WorkflowContext) => void,
+  opts?: { onExit?: () => void }
+): WorkflowHost {
   let current: { id: string; api: ConceptApi } | null = null;
   let disposed = false;
   // Monotonic token: every show() captures its value and, after the async
@@ -104,7 +109,10 @@ export function createHost(stage: HTMLElement, ctx: WorkflowContext, onChange?: 
     if (disposed || seq !== showSeq) return; // superseded during load — do not mount
     stage.innerHTML = ""; // clear anything a superseded show may have left
     const api: ConceptApi = mod.mount(stage, {
-      go: (_hash: string) => { /* internal experience nav; context stays shared */ },
+      // "#/" is the concepts' "leave the workspace" route; in the app that
+      // means back to the dashboard. Other hashes stay internal to the
+      // experience and the shared context.
+      go: (hash: string) => { if (hash === "#/") opts?.onExit?.(); },
       onReady: () => api.goToTask?.(ctx.taskPointer),
     });
     current = { id: experienceId, api };

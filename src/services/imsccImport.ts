@@ -323,11 +323,63 @@ export const importCanvasCourseFromImscc = async (file: File, settings: CourseSe
   }
   notes.push("Rubric, outcome, and file recovery is partial in this browser-only MVP parser.");
 
-  const modules = [
-    base.modules[0],
-    ...importedContentModules.map((module, index) => ({ ...module, order: index + 1 })),
-    ...base.modules.slice(1).map((module, index) => ({ ...module, order: importedContentModules.length + index + 1 }))
-  ];
+  // When the package carried real module structure, the imported modules ARE
+  // the course. Keeping the generated scaffold's content weeks alongside them
+  // duplicated every module (and its pages/assignments) in the imported course.
+  // Base support modules survive only when the package lacks an equivalent
+  // (matched by normalized title), and generated objects belonging to dropped
+  // base modules are dropped with them — except the homepage and syllabus
+  // pages, which the app's builders and export checklist rely on.
+  const normalizeTitle = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const importedTitles = new Set(importedContentModules.map((module) => normalizeTitle(module.title)));
+  const keptBaseModules =
+    parsedModules.length > 0
+      ? base.modules.filter((module) => module.kind !== "content" && !importedTitles.has(normalizeTitle(module.title)))
+      : base.modules;
+  const keptBaseModuleIds = new Set(keptBaseModules.map((module) => module.id));
+  const droppedBaseModuleIds = new Set(base.modules.filter((module) => !keptBaseModuleIds.has(module.id)).map((module) => module.id));
+
+  const modules =
+    parsedModules.length > 0
+      ? [...importedContentModules, ...keptBaseModules].map((module, index) => ({ ...module, order: index + 1 }))
+      : [
+          base.modules[0],
+          ...importedContentModules.map((module, index) => ({ ...module, order: index + 1 })),
+          ...base.modules.slice(1).map((module, index) => ({ ...module, order: importedContentModules.length + index + 1 }))
+        ];
+
+  const importedHasFrontPage = importedPages.some((page) => page.frontPage);
+  const importedHasSyllabus = importedPages.some((page) => page.slug === "syllabus");
+  const keepBasePage = (page: CoursePage): boolean =>
+    (page.frontPage && !importedHasFrontPage) ||
+    (page.slug === "syllabus" && !importedHasSyllabus) ||
+    !droppedBaseModuleIds.has(page.moduleId ?? "");
+  const keptBasePages = base.pages.filter(keepBasePage);
+  const keptBaseAssignments = base.assignments.filter((assignment) => !droppedBaseModuleIds.has(assignment.moduleId));
+  const keptBaseDiscussions = base.discussions.filter((discussion) => !droppedBaseModuleIds.has(discussion.moduleId));
+  const keptBaseQuizzes = base.quizzes.filter((quiz) => !droppedBaseModuleIds.has(quiz.moduleId));
+  // Rubrics attached to dropped assignments would dangle; keep only the rest.
+  const droppedRubricIds = new Set(
+    base.assignments
+      .filter((assignment) => droppedBaseModuleIds.has(assignment.moduleId))
+      .map((assignment) => assignment.rubricId)
+      .filter((id): id is string => Boolean(id))
+  );
+  const keptBaseRubrics = base.rubrics.filter((rubric) => !droppedRubricIds.has(rubric.id));
+  // Outcomes were aligned to the scaffold's content weeks; remap that alignment
+  // onto the imported content modules by position so outcomes stay non-orphaned.
+  const baseContentIds = base.modules.filter((module) => module.kind === "content").map((module) => module.id);
+  const importedContentIds = importedContentModules.map((module) => module.id);
+  const alignmentMap = new Map<string, string>();
+  baseContentIds.forEach((id, index) => {
+    const target = importedContentIds[index] ?? importedContentIds[importedContentIds.length - 1];
+    if (parsedModules.length > 0 && target) alignmentMap.set(id, target);
+  });
+  const remappedOutcomes = base.outcomes.map((outcome) => ({
+    ...outcome,
+    alignedModuleIds: Array.from(new Set(outcome.alignedModuleIds.map((id) => alignmentMap.get(id) ?? id)))
+      .filter((id) => !droppedBaseModuleIds.has(id))
+  }));
 
   return {
     course: {
@@ -336,10 +388,12 @@ export const importCanvasCourseFromImscc = async (file: File, settings: CourseSe
       prompt: `Imported from ${file.name}`,
       status: "edited",
       updatedAt: timestamp,
-      pages: [...base.pages, ...withRecoveredModuleId(importedPages)],
-      assignments: [...base.assignments, ...withRecoveredModuleId(importedAssignments)],
-      discussions: [...base.discussions, ...withRecoveredModuleId(importedDiscussions)],
-      quizzes: [...base.quizzes, ...withRecoveredModuleId(importedQuizzes)],
+      pages: [...keptBasePages, ...withRecoveredModuleId(importedPages)],
+      assignments: [...keptBaseAssignments, ...withRecoveredModuleId(importedAssignments)],
+      discussions: [...keptBaseDiscussions, ...withRecoveredModuleId(importedDiscussions)],
+      quizzes: [...keptBaseQuizzes, ...withRecoveredModuleId(importedQuizzes)],
+      rubrics: keptBaseRubrics,
+      outcomes: remappedOutcomes,
       modules,
       metadata: metadata(timestamp)
     },

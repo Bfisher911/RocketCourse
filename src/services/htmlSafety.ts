@@ -136,6 +136,30 @@ export const demoteExtraH1s = (html: string): string => {
   });
 };
 
+// Model-authored bodies also skip heading levels (h1 straight to h3), which the
+// heading-order validator flags on every later readiness/export pass. Clamp each
+// heading to at most one level below the previous one; the first heading keeps
+// its level (the h1 rules above handle that separately).
+export const normalizeHeadingOrder = (html: string): string => {
+  let prev = 0;
+  let open: { from: number; to: number } | null = null;
+  return html.replace(/<(\/?)h([1-6])(\b[^>]*)>/gi, (match, slash: string, lvl: string, attrs: string) => {
+    const level = Number(lvl);
+    if (!slash) {
+      const target = prev === 0 ? level : Math.min(level, prev + 1);
+      prev = target;
+      open = { from: level, to: target };
+      return target === level ? match : `<h${target}${attrs}>`;
+    }
+    if (open && open.from === level) {
+      const target = open.to;
+      open = null;
+      return target === level ? match : `</h${target}>`;
+    }
+    return match;
+  });
+};
+
 // For builders whose contract is plain prose (<p> only): headings the model sneaks in are
 // flattened to bold paragraphs so appended fragments never introduce heading-order or
 // duplicate-h1 export errors on the page they land in.
@@ -189,8 +213,8 @@ export const stripUnresolvableHrefs = (html: string): string =>
 // (hallucinated relative paths, moustache tokens). The anchor text stays; only the dead href
 // attribute is removed. Apply to every AI builder that returns HTML.
 export const sanitizeAiHtml = (html: string): string =>
-  stripStudentFacingAuthoringNotes(demoteExtraH1s(
+  stripStudentFacingAuthoringNotes(normalizeHeadingOrder(demoteExtraH1s(
     stripUnresolvableHrefs(
       sanitizeHtmlForPreview(html).replace(/\shref\s*=\s*(["'])\s*(?:#[^"']*)?\1/gi, "")
     )
-  ));
+  )));

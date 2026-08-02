@@ -7,15 +7,15 @@ import type { AuthSessionState } from "../auth/useAuthSession";
 import { BrandBadge } from "../components/brand";
 import { EmptyState } from "../components/form";
 import { buildReadinessReport } from "../services/readiness";
+import type { ProjectSummary } from "../services/projectStore";
 import { buildCourseTileSvg } from "../services/themeDesign";
 import type { CourseProject } from "../types";
-import { experiencesByCode, resolveExperienceId } from "../workflows/experienceRegistry";
-import { loadCoursePreferred, loadUserPreferred } from "../workflows/workflowContext";
 
 import { formatDate } from "./appModel";
 
 export function Dashboard({
   projects,
+  summaries = [],
   entitlement,
   onCreate,
   onPricing,
@@ -25,13 +25,16 @@ export function Dashboard({
   onOpen
 }: {
   projects: CourseProject[];
+  /** Lightweight rows shown while the full project payloads download. */
+  summaries?: ProjectSummary[];
   entitlement: AuthSessionState["entitlement"];
   onCreate: () => void;
   onPricing: () => void;
   onRefreshStatus: () => Promise<void>;
   onBillingPortal: () => void;
   billingError?: string | null;
-  onOpen: (project: CourseProject, experienceId?: string) => void;
+  /** Opens the project in its last-used experience (resolved by the app). */
+  onOpen: (project: CourseProject) => void;
 }) {
   const [refreshing, setRefreshing] = useState(false);
   const fmtLimit = (used: number, remaining: number | null): string =>
@@ -122,7 +125,7 @@ export function Dashboard({
           <span className="stat-icon">
             <BookOpen size={20} />
           </span>
-          <span>{projects.length}</span>
+          <span>{projects.length || summaries.length}</span>
           <p>Course projects</p>
         </div>
         <div className="stat-panel pink">
@@ -136,20 +139,46 @@ export function Dashboard({
           <span className="stat-icon">
             <Gauge size={20} />
           </span>
-          <span>{projects.length ? Math.round(projects.reduce((sum, project) => sum + buildReadinessReport(project).score, 0) / projects.length) : 0}%</span>
+          <span>{projects.length ? Math.round(projects.reduce((sum, project) => sum + buildReadinessReport(project).score, 0) / projects.length) : summaries.length ? Math.round(summaries.reduce((sum, item) => sum + item.readinessScore, 0) / summaries.length) : 0}%</span>
           <p>Avg readiness</p>
         </div>
       </section>
-      {projects.length === 0 ? (
+      {projects.length === 0 && summaries.length > 0 ? (
+        <section className="project-list" aria-label="Course projects loading">
+          {summaries.map((item) => (
+            <div key={item.id} className="project-row">
+              <div className="project-open project-open--loading" aria-label={`${item.title.trim() || "Untitled course"} — loading`}>
+                <span className="project-main">
+                  <span className="project-glyph project-tile" aria-hidden="true">
+                    <BookOpen size={20} />
+                  </span>
+                  <span>
+                    <strong>{item.title.trim() || "Untitled course"}</strong>
+                    <small>Loading course… • updated {formatDate(item.updatedAt)}</small>
+                  </span>
+                </span>
+                <span className="project-meta">
+                  <span className="readiness-mini" title={`Readiness ${item.readinessScore}%`}>
+                    <span className="bar" aria-hidden="true">
+                      <i style={{ width: `${item.readinessScore}%` }} />
+                    </span>
+                    {item.readinessScore}%
+                  </span>
+                  <span className={`status-pill ${item.status}`}>{item.status}</span>
+                </span>
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : projects.length === 0 ? (
         <EmptyState title="No course projects yet" body="Start a new RocketCourse build to see it here with readiness and export status." />
       ) : (
         <section className="project-list" aria-label="Course projects">
           {projects.map((project) => {
             const score = buildReadinessReport(project).score;
-            const pref = resolveExperienceId(loadCoursePreferred(project.id), loadUserPreferred());
             return (
               <div key={project.id} className="project-row">
-                <button className="project-open" onClick={() => onOpen(project)} aria-label={`Open ${project.title}`}>
+                <button className="project-open" onClick={() => onOpen(project)} aria-label={`Open ${project.title.trim() || "Untitled course"}`}>
                   <span className="project-main">
                     <span className="project-glyph project-tile" aria-hidden="true">
                       {project.theme ? (
@@ -163,7 +192,7 @@ export function Dashboard({
                       )}
                     </span>
                     <span>
-                      <strong>{project.title}</strong>
+                      <strong>{project.title.trim() || "Untitled course"}</strong>
                       <small>
                         {project.modules.length} modules • {project.assignments.length} assignments • updated {formatDate(project.updatedAt)}
                       </small>
@@ -180,21 +209,6 @@ export function Dashboard({
                     <ArrowRight size={16} aria-hidden="true" />
                   </span>
                 </button>
-                <label className="project-exp">
-                  <span className="project-exp__k">Open in</span>
-                  <select
-                    className="project-exp__select"
-                    value={pref}
-                    aria-label={`Choose a building experience for ${project.title}`}
-                    onChange={(e) => onOpen(project, e.target.value)}
-                  >
-                    {experiencesByCode().map((exp) => (
-                      <option key={exp.id} value={exp.id} disabled={!exp.enabled}>
-                        {exp.code} · {exp.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
             );
           })}
