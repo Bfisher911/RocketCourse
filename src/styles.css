@@ -2,6 +2,14 @@
    RocketCourse — Units-inspired Curriculum Studio
    Paper & ink foundation, saturated energy accents, editorial
    display type, visible grid, soft ambient depth.
+
+   NOTE ON EDITOR-TAB CLASSES: styles.editor-tabs.css is loaded lazily by
+   the tab components, so it attaches AFTER this file and WINS every tie.
+   Rules here that mention tab classes (.assignment-*, .discussion-*,
+   .quiz-*, .rubric-*, .page-*) are cross-cutting only — overflow guards,
+   shared tile hover/press motion, app-wide responsive collapse. If you set
+   a property here that styles.editor-tabs.css also sets on the same class,
+   YOUR CHANGE WILL NOT APPLY. Put per-tab styling in that file instead.
    TOKEN FLIP: every legacy cosmic variable below now aliases the
    Units palette so the whole 14k-line sheet retints from here.
    Contrast rule: each semantic works BOTH as text-on-paper and

@@ -287,7 +287,11 @@ export const GuidedJourney = forwardRef<WorkflowFocusHandle, GuidedJourneyProps>
           <button type="button" className="ghost-button" disabled={stageIndex === 0} onClick={() => goStage(stageIndex - 1)}>
             <ArrowLeft size={15} /> Back
           </button>
-          <span className="gj-foot__hint gj-tiny">{stageHint(stage.key, readiness.blockers)}</span>
+          {/* No footer hint. Each one restated the stage body copy sitting
+              directly above it — the Student preview stage said the same thing
+              three times on one screen. The body copy is more specific, so it
+              is the one that stays. */}
+          <span className="gj-foot__spacer" />
           {stage.key === "export" ? (
             <button type="button" className="primary" onClick={props.onExit}>
               Back to dashboard <ArrowRight size={15} />
@@ -316,22 +320,6 @@ const stagePrimaryLabel = (key: StageKey): string => {
   }
 };
 
-// Every hint tells the user something about THEIR course or their next move.
-// (An earlier "One primary action per step." described our design principle to
-// itself, which is not help — nobody reading it learned what to do.)
-const stageHint = (key: StageKey, blockers: number): string => {
-  switch (key) {
-    case "define": return "Plain language is fine — this is read for structure, never invented from.";
-    case "configure": return "These reflect the course as built — adjust anything that changed.";
-    case "blueprint": return "The structure behind the content. Change course-level decisions here.";
-    case "generate": return "A first draft to react to — everything stays editable.";
-    case "review": return "Open any module to read and edit its items.";
-    case "resolve": return blockers > 0 ? `${blockers} item${blockers === 1 ? "" : "s"} need${blockers === 1 ? "s" : ""} your judgment` : "Everything else was handled automatically.";
-    case "preview": return "Exactly what students see once this is imported.";
-    case "export": return "Import into Canvas is not verified until you test it.";
-    default: return "";
-  }
-};
 
 // ---------------------------------------------------------------------------
 // Stage: Define
