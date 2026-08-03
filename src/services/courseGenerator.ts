@@ -31,12 +31,13 @@ import type {
   Theme,
   VisualTemplate
 } from "../types";
-import { escapeXml, nowIso, slugify } from "../utils/text";
+import { escapeXml, nowIso, slugify, topicInSentence } from "../utils/text";
 import { buildCourseQualityReport } from "./courseQuality";
 import { applyCourseInteractions } from "./interactionSelection";
 import { getOutcomeFramework } from "./outcomeFrameworks";
 import { getModulePattern, getStructureFramework } from "./courseDesignModels";
 import { getQuizPurpose } from "./quizPurposes";
+import { normalizeQuizQuestionForCanvas } from "./quizBuilder";
 import { DEFAULT_TEMPLATE_ID, createHomepageState, defaultHomepageContent, renderHomepage, rethemeHomepageHtml } from "./homepageTemplates";
 import { chooseModuleOverviewStyle, renderModuleOverviewHtml } from "./moduleOverviewTemplates";
 import {
@@ -541,8 +542,8 @@ const subjectAssignmentPlan = (courseTopic: string, moduleTopic: string, setting
   if (isGenericTemplate(settings)) {
     return {
       purpose: "This assignment asks you to move from course concepts to grounded analysis and decision-making.",
-      create: `Create an applied analysis brief that helps a real audience understand how ${moduleTopic.toLowerCase()} affects a decision, policy, design, classroom, workplace, or community context.`,
-      scenario: `You are preparing this brief for an audience that needs context, evidence, tradeoffs, and a defensible next step connected to ${moduleTopic.toLowerCase()}.`,
+      create: `Create an applied analysis brief that helps a real audience understand how ${topicInSentence(moduleTopic)} affects a decision, policy, design, classroom, workplace, or community context.`,
+      scenario: `You are preparing this brief for an audience that needs context, evidence, tradeoffs, and a defensible next step connected to ${topicInSentence(moduleTopic)}.`,
       steps: ["Select a relevant example, case, problem, or scenario.", "Explain the context, stakeholders, and decision point.", "Use module vocabulary and at least two pieces of course evidence.", "Analyze consequences, tradeoffs, or ethical considerations.", "End with a practical recommendation, next step, or unresolved question."],
       deliverables: ["Applied analysis brief, paper, slide narrative, memo, or equivalent instructor-approved artifact.", "Clear heading structure that matches the task.", "Evidence from course materials or verified instructor-approved sources.", "Recommendation, decision, design choice, or next step supported by evidence.", "Accessible file names, links, headings, captions, and alt text where applicable."],
       examples: [["A focused case with named stakeholders and evidence.", "A broad opinion that never identifies who is affected."], ["A recommendation linked to course concepts.", "A summary of sources without analysis."], ["A file with headings, descriptive links, and accessible media.", "A file with unclear labels, broken links, or missing alt text."]]
@@ -551,25 +552,25 @@ const subjectAssignmentPlan = (courseTopic: string, moduleTopic: string, setting
   const artifactChoices = listJoin(profile.artifacts.slice(0, 4));
   const evidenceChoices = listJoin(profile.evidenceTypes.slice(0, 4));
   return {
-    purpose: `This assignment asks you to use ${moduleTopic.toLowerCase()} as a ${profile.lens} problem inside ${courseTopic}. Your goal is to make a defensible claim from specific course evidence.`,
-    create: `Create the ${profile.caseLabel} for the ${profile.audience}. The brief should focus on one ${profile.artifactLabel}, explain what it reveals about ${moduleTopic.toLowerCase()}, and recommend how a reader should interpret or act on the evidence.`,
-    scenario: `Imagine the ${profile.audience} is preparing a public-facing explanation of ${courseTopic}. They need you to choose a concrete example such as ${artifactChoices}, connect it to ${moduleTopic.toLowerCase()}, and explain the strongest interpretation with limits clearly named.`,
+    purpose: `This assignment asks you to use ${topicInSentence(moduleTopic)} as a ${profile.lens} problem inside ${courseTopic}. Your goal is to make a defensible claim from specific course evidence.`,
+    create: `Create the ${profile.caseLabel} for the ${profile.audience}. The brief should focus on one ${profile.artifactLabel}, explain what it reveals about ${topicInSentence(moduleTopic)}, and recommend how a reader should interpret or act on the evidence.`,
+    scenario: `Imagine the ${profile.audience} is preparing a public-facing explanation of ${courseTopic}. They need you to choose a concrete example such as ${artifactChoices}, connect it to ${topicInSentence(moduleTopic)}, and explain the strongest interpretation with limits clearly named.`,
     steps: [
       `Select one course-specific example related to ${courseTopic}: ${artifactChoices}.`,
-      `Describe the context of the example and the module idea it illustrates: ${moduleTopic.toLowerCase()}.`,
+      `Describe the context of the example and the module idea it illustrates: ${topicInSentence(moduleTopic)}.`,
       `Use at least two evidence types such as ${evidenceChoices}.`,
       `Explain one tension, uncertainty, or competing interpretation that a careful reader should notice.`,
       `End with a recommendation for how the ${profile.audience} should explain, preserve, revise, teach, or act on this evidence.`
     ],
     deliverables: [
       `${profile.caseLabel} with a clear title and 3-5 section headings.`,
-      `One focused claim about ${moduleTopic.toLowerCase()} in ${courseTopic}.`,
+      `One focused claim about ${topicInSentence(moduleTopic)} in ${courseTopic}.`,
       `At least two pieces of course evidence, such as ${evidenceChoices}.`,
       `A short recommendation or interpretation memo for the ${profile.audience}.`,
       "Accessible file names, links, headings, captions, and alt text where applicable."
     ],
     examples: [
-      [`A focused ${profile.artifactLabel} connected to ${moduleTopic.toLowerCase()} and interpreted with course evidence.`, `A generic paragraph about ${courseTopic.toLowerCase()} that never names a specific artifact, case, or source.`],
+      [`A focused ${profile.artifactLabel} connected to ${topicInSentence(moduleTopic)} and interpreted with course evidence.`, `A generic paragraph about ${topicInSentence(courseTopic)} that never names a specific artifact, case, or source.`],
       ["A recommendation that names what the evidence can and cannot prove.", "A confident claim with no limitation, uncertainty, or counterevidence."],
       [`A brief that uses terms such as ${profile.keyTerms.slice(0, 3).join(", ")} accurately.`, "A submission that uses course vocabulary as decoration without explaining the terms."]
     ]
@@ -769,7 +770,7 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
         moduleId,
         `${moduleLabel} Core Reading: ${moduleTopic}`,
         "textbook",
-        `Gives students an instructor-selected anchor text for ${moduleTopic.toLowerCase()}.`,
+        `Gives students an instructor-selected anchor text for ${topicInSentence(moduleTopic)}.`,
         45,
         "Read with the module outcomes nearby and mark two ideas to use in discussion or applied work.",
         "Replace with the exact textbook chapter, OER section, or institution-approved reading.",
@@ -782,7 +783,7 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
         moduleId,
         `${moduleLabel} Evidence Source`,
         "scholarly-article",
-        `Models how evidence is used to support claims about ${courseTopic.toLowerCase()}.`,
+        `Models how evidence is used to support claims about ${topicInSentence(courseTopic)}.`,
         35,
         "Skim the abstract and conclusion first, then identify one claim, one piece of evidence, and one limitation.",
         "Add a verified scholarly article, library permalink, or reading-list citation. Do not leave this placeholder as a fake source.",
@@ -795,7 +796,7 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
         moduleId,
         `${moduleLabel} Media Example`,
         "video",
-        `Provides a concrete example students can connect to ${moduleTopic.toLowerCase()}.`,
+        `Provides a concrete example students can connect to ${topicInSentence(moduleTopic)}.`,
         20,
         "Watch or review the media example and note one moment that illustrates the module vocabulary.",
         "Add a verified accessible video, podcast, website, or instructor-created mini-lecture. Include captions or transcript information.",
@@ -813,11 +814,11 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
       moduleId,
       `${moduleLabel} Core Brief: ${moduleTopic}`,
       "supplemental",
-      `Gives students an anchor explanation of how ${moduleTopic.toLowerCase()} functions inside ${courseTopic}.`,
+      `Gives students an anchor explanation of how ${topicInSentence(moduleTopic)} functions inside ${courseTopic}.`,
       45,
       `Read the brief as a map for this module. Mark one concept, one example from ${courseTopic}, and one question you can use in discussion or applied work.`,
       "Optional: replace this generated brief with the exact textbook chapter, OER section, or institution-approved reading used by the instructor.",
-      `Generated source brief: compare ${artifactChoices} to explain how ${moduleTopic.toLowerCase()} shapes ${courseTopic}. Students should track ${evidenceChoices}.`,
+      `Generated source brief: compare ${artifactChoices} to explain how ${topicInSentence(moduleTopic)} shapes ${courseTopic}. Students should track ${evidenceChoices}.`,
       false,
       timestamp
     ),
@@ -826,11 +827,11 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
       moduleId,
       `${moduleLabel} Evidence Dossier`,
       "supplemental",
-      `Models how evidence supports claims about ${courseTopic.toLowerCase()} and ${moduleTopic.toLowerCase()}.`,
+      `Models how evidence supports claims about ${topicInSentence(courseTopic)} and ${topicInSentence(moduleTopic)}.`,
       35,
       `Identify one claim, one piece of evidence, and one limitation from the ${profile.caseLabel}. Use those notes in the discussion or assignment.`,
       "Optional: add a library permalink, scholarly article, local archive item, dataset, or verified reading-list citation that strengthens this generated dossier.",
-      `Generated evidence dossier: students examine ${evidenceChoices} and decide which evidence best supports a claim about ${moduleTopic.toLowerCase()} in ${courseTopic}.`,
+      `Generated evidence dossier: students examine ${evidenceChoices} and decide which evidence best supports a claim about ${topicInSentence(moduleTopic)} in ${courseTopic}.`,
       false,
       timestamp
     ),
@@ -839,11 +840,11 @@ const buildModuleResources = (moduleId: string, moduleLabel: string, moduleTopic
       moduleId,
       `${moduleLabel} Applied Example`,
       "supplemental",
-      `Provides a concrete example students can connect to ${moduleTopic.toLowerCase()}.`,
+      `Provides a concrete example students can connect to ${topicInSentence(moduleTopic)}.`,
       20,
-      `Review the example and name the moment where ${moduleTopic.toLowerCase()} becomes visible. Prepare one observation for class discussion.`,
+      `Review the example and name the moment where ${topicInSentence(moduleTopic)} becomes visible. Prepare one observation for class discussion.`,
       "Optional: replace with a captioned video, podcast, website, image set, instructor-created mini-lecture, or local example.",
-      `Generated media or example prompt: use a ${profile.artifactLabel} from ${courseTopic} to show ${moduleTopic.toLowerCase()} in action. Include caption or transcript guidance if media is added.`,
+      `Generated media or example prompt: use a ${profile.artifactLabel} from ${courseTopic} to show ${topicInSentence(moduleTopic)} in action. Include caption or transcript guidance if media is added.`,
       true,
       timestamp
     )
@@ -1060,7 +1061,7 @@ const quizQuestions = (quizId: string, moduleTopic: string, courseTopic: string,
     {
       id: `${quizId}_q3`,
       type: "short_answer",
-      stem: isGenericTemplate(settings) ? `Name one example that illustrates ${moduleTopic.toLowerCase()} and explain why it matters.` : `Name one ${profile.artifactLabel} that could illustrate ${moduleTopic.toLowerCase()} in ${courseTopic}, and explain why it matters.`,
+      stem: isGenericTemplate(settings) ? `Name one example that illustrates ${topicInSentence(moduleTopic)} and explain why it matters.` : `Name one ${profile.artifactLabel} that could illustrate ${topicInSentence(moduleTopic)} in ${courseTopic}, and explain why it matters.`,
       feedback: "A strong answer names a specific example and explains its significance using module vocabulary.",
       correctFeedback: "Look for a concrete example, relevant vocabulary, and a clear explanation of significance.",
       incorrectFeedback: "If the response is vague, ask the student to add a concrete example and one course concept.",
@@ -1073,7 +1074,7 @@ const quizQuestions = (quizId: string, moduleTopic: string, courseTopic: string,
     {
       id: `${quizId}_q4`,
       type: settings.quizDifficulty === "challenging" ? "essay" : "multiple_choice",
-      stem: isGenericTemplate(settings) ? `How should an instructor or practitioner evaluate competing claims about ${moduleTopic.toLowerCase()}?` : `How should a ${profile.audience} evaluate competing claims about ${moduleTopic.toLowerCase()} in ${courseTopic}?`,
+      stem: isGenericTemplate(settings) ? `How should an instructor or practitioner evaluate competing claims about ${topicInSentence(moduleTopic)}?` : `How should a ${profile.audience} evaluate competing claims about ${topicInSentence(moduleTopic)} in ${courseTopic}?`,
       choices: settings.quizDifficulty === "challenging" ? undefined : ["By popularity only", "By evidence, context, and consequences", "By speed", "By personal preference"],
       correctAnswer: settings.quizDifficulty === "challenging" ? undefined : "By evidence, context, and consequences",
       feedback: "A strong answer weighs evidence, context, and consequences.",
@@ -1088,7 +1089,7 @@ const quizQuestions = (quizId: string, moduleTopic: string, courseTopic: string,
     {
       id: `${quizId}_q5`,
       type: "short_answer",
-      stem: isGenericTemplate(settings) ? `Identify one unresolved question students should carry forward from ${moduleTopic.toLowerCase()}.` : `Identify one unresolved question about ${artifactChoices} that students should carry forward from ${moduleTopic.toLowerCase()}.`,
+      stem: isGenericTemplate(settings) ? `Identify one unresolved question students should carry forward from ${topicInSentence(moduleTopic)}.` : `Identify one unresolved question about ${artifactChoices} that students should carry forward from ${topicInSentence(moduleTopic)}.`,
       feedback: "A strong response names a question that can guide discussion, assignment work, or the final project.",
       correctFeedback: "Look for a question that is specific enough to investigate in later work.",
       incorrectFeedback: "Ask the student to connect the question to a module concept or outcome.",
@@ -1100,7 +1101,11 @@ const quizQuestions = (quizId: string, moduleTopic: string, courseTopic: string,
     }
   ];
 
-  return base.slice(0, Math.max(1, Math.min(10, settings.quizQuestionsPerQuiz)));
+  // Two of these templates are open-response prompts ("Name one example… and explain why it
+  // matters") typed as short_answer with no answer key. Canvas auto-grades short_answer by exact
+  // string match, so a keyless one marks every submission wrong. Normalizing turns them into the
+  // essay questions they always were, which is what `instructorReviewRequired` already promised.
+  return base.slice(0, Math.max(1, Math.min(10, settings.quizQuestionsPerQuiz))).map(normalizeQuizQuestionForCanvas);
 };
 
 const ROTATING_DISCUSSION_FORMATS = [
@@ -1121,7 +1126,8 @@ type RotatingDiscussionFormat = (typeof ROTATING_DISCUSSION_FORMATS)[number];
 const discussionFormatFor = (moduleNumber: number): RotatingDiscussionFormat => ROTATING_DISCUSSION_FORMATS[(moduleNumber - 1) % ROTATING_DISCUSSION_FORMATS.length];
 
 const discussionFormatDetails = (format: RotatingDiscussionFormat, moduleTopic: string, courseTopic: string, settings: CourseSettings): { role: string; prompt: string; replyMove: string } => {
-  const topic = moduleTopic.toLowerCase();
+  // Interpolated into student-facing prompt prose, so acronyms have to survive.
+  const topic = topicInSentence(moduleTopic);
   const profile = subjectProfileFor(courseTopic, moduleTopic);
   if (!isGenericTemplate(settings)) {
     const artifactChoices = listJoin(profile.artifacts.slice(0, 4));
@@ -1249,7 +1255,7 @@ const discussionPrompt = (moduleTopic: string, courseTopic: string, settings: Co
       : `Apply the module concepts to a realistic ${subjectProfileFor(courseTopic, moduleTopic).lens} decision connected to ${courseTopic}.`
   };
   const evidenceLine = isGenericTemplate(settings)
-    ? `Connect your answer to ${courseTopic.toLowerCase()} and to the current module vocabulary.`
+    ? `Connect your answer to ${topicInSentence(courseTopic)} and to the current module vocabulary.`
     : `Ground your answer in ${courseTopic} by using a specific example such as ${listJoin(profile.artifacts.slice(0, 4))} and at least one evidence type such as ${listJoin(profile.evidenceTypes.slice(0, 3))}.`;
 
   return canvasShell(
@@ -1310,7 +1316,7 @@ const assignmentDescription = (title: string, moduleTopic: string, courseTopic: 
   const plan = subjectAssignmentPlan(courseTopic, moduleTopic, settings);
   return canvasShell(
     title,
-    `Apply ${moduleTopic.toLowerCase()} to a realistic problem, case, or teaching context.`,
+    `Apply ${topicInSentence(moduleTopic)} to a realistic problem, case, or teaching context.`,
     `<p style="margin: 0 0 16px;"><img src="${fileRef("assignment-type-icon.svg")}" alt="Assignment launchpad icon" style="width: 82px; height: auto; display: inline-block;" /></p>
 ${section("Purpose", `<p>${plan.purpose}</p>`, theme)}
 ${section("What You Will Create", `<p>${plan.create}</p>`, theme)}
@@ -1656,10 +1662,13 @@ export const generateCourseProject = ({ prompt, settings, themeOverride, moduleT
   mergedSettings.title = title;
   mergedSettings.description = resolveCourseDescription(mergedSettings, title, moduleCountForDescription);
   const selectedTheme = themeOverride ?? getTheme(mergedSettings.themeId);
-  // Visual-template themes (ids "vt-…") carry a discipline-flavored bannerLabel ("Kinesiology")
-  // that would read as wrong-subject content on this course's banners; the course title is always
-  // the right label. Custom school themes keep their institution label.
-  const bannerLabel = selectedTheme.id.startsWith("vt-") ? title : selectedTheme.bannerLabel;
+  // The banner label is printed on student-facing pages and baked into the week-badge SVGs, so it
+  // has to name the course. Built-in themes carry a bannerLabel that is theme-picker marketing copy
+  // ("Quiet precision", "Structured clarity") — a Tulane export printed "Quiet precision" 57 times
+  // across the student course. Visual-template themes carry a discipline label ("Kinesiology") that
+  // is just as wrong on another subject. In both cases the course title is the right label; only a
+  // custom school theme has a label worth keeping, because that names the institution.
+  const bannerLabel = selectedTheme.id.startsWith("custom_") ? selectedTheme.bannerLabel : title;
   const theme = applyAccessibilityTier(
     { ...selectedTheme, bannerLabel, intensity: selectedTheme.intensity ?? mergedSettings.themeIntensity },
     mergedSettings.accessibilityTier
@@ -2028,7 +2037,7 @@ ${section("Conversation Moves", checklistHtml(["Connect a classmate's experience
         slugify(`${moduleLabel}-${moduleTopic}-resources`),
         canvasShell(
           `${moduleLabel}: Readings and Resources`,
-          isGenericTemplate(mergedSettings) ? "Use these instructor-editable resources to build the evidence base for this module." : `Use these generated source briefs to build an evidence base for ${moduleTopic.toLowerCase()} in ${topic}.`,
+          isGenericTemplate(mergedSettings) ? "Use these instructor-editable resources to build the evidence base for this module." : `Use these generated source briefs to build an evidence base for ${topicInSentence(moduleTopic)} in ${topic}.`,
           `${section("How To Use These Resources", checklistHtml(isGenericTemplate(mergedSettings) ? ["Prioritize required resources first.", "Record one concept, one example, and one question from each required source.", "Treat generated citations and URLs as placeholders until an instructor replaces them with verified sources."] : [`Start with the core brief and identify the ${moduleProfile.artifactLabel} it asks you to examine.`, `Record one claim, one example, and one limitation related to ${topic}.`, `Use the evidence dossier to gather ${listJoin(moduleProfile.evidenceTypes.slice(0, 3))}.`, "If your instructor adds verified readings or media, use those sources as the authoritative version."]), theme)}
 ${section("Resource List", resourceCardsHtml(moduleResources, theme), theme)}
 ${callout("Using added media", "<p>When your instructor adds readings or media, use the linked captions, transcripts, or accessible file versions when available.</p>", theme)}`,
@@ -2062,7 +2071,7 @@ ${callout("Using added media", "<p>When your instructor adds readings or media, 
           "Canvas-friendly lesson content, examples, misconception checks, and instructor-editable teaching notes.",
           `${section("Mini-Lecture", `<p>${moduleTopic} asks students to connect course concepts to evidence, context, and decisions. In this module, students use ${moduleProfile.lens} to interpret examples connected to ${topic}.</p><p>A strong analysis starts with a concrete artifact or case, such as ${listJoin(moduleProfile.artifacts.slice(0, 4))}. Then it asks: <em>What is happening? What evidence supports the claim? What context changes the interpretation? What can and cannot be concluded?</em> The rest of this page walks that sequence so you can reuse it on the graded work.</p>`, theme)}
 ${section("Key Terms", `<p>Learn these well enough to use them in a sentence. The assignment and quiz both reward precise vocabulary.</p>${listHtml([
-            `<strong>${moduleTopic} vocabulary:</strong> the specific words this module uses to describe ${moduleTopic.toLowerCase()} precisely instead of in general terms.`,
+            `<strong>${moduleTopic} vocabulary:</strong> the specific words this module uses to describe ${topicInSentence(moduleTopic)} precisely instead of in general terms.`,
             `<strong>${moduleProfile.keyTerms[0]}:</strong> a discipline-specific idea students use to make a precise claim about ${topic}.`,
             `<strong>${moduleProfile.keyTerms[1]}:</strong> the evidence pattern that makes a claim more than an unsupported impression.`,
             `<strong>${moduleProfile.keyTerms[2]}:</strong> the surrounding condition that changes how a source, case, or artifact should be read.`,
@@ -2076,8 +2085,8 @@ ${exampleNote("Worked Example", `<p>Here is the five-move method applied to the 
             "<strong>Limit:</strong> make at least one uncertainty, missing perspective, or competing interpretation explicit.",
             `<strong>Conclusion:</strong> state a clear, defensible interpretation for the ${moduleProfile.audience}.`
           ])}<p style="margin: 12px 0 0;">Notice that opinion never appears on its own. Every judgment is anchored to evidence and context.</p>`, theme)}
-${tipNote("Why This Matters", `<p>Advanced courses and employers expect graduates to move from opinion to evidence-based judgment. Practicing the five-move method on ${moduleTopic.toLowerCase()} now builds the exact habit you will use in this module's graded work, in the final project, and in professional decisions later.</p>`, theme)}
-${misconceptionNote("Common Misconception", `<p>A common mistake is treating ${moduleTopic.toLowerCase()} as a simple opinion question. Course work should move from opinion toward evidence, context, and reasoned judgment.</p>`, theme)}
+${tipNote("Why This Matters", `<p>Advanced courses and employers expect graduates to move from opinion to evidence-based judgment. Practicing the five-move method on ${topicInSentence(moduleTopic)} now builds the exact habit you will use in this module's graded work, in the final project, and in professional decisions later.</p>`, theme)}
+${misconceptionNote("Common Misconception", `<p>A common mistake is treating ${topicInSentence(moduleTopic)} as a simple opinion question. Course work should move from opinion toward evidence, context, and reasoned judgment.</p>`, theme)}
 ${checkNote("Check Your Understanding", checklistHtml(["Define one module term in your own words.", "Name one example that illustrates the concept.", "Explain one consequence or tradeoff.", "Write one question you still need answered."]), theme)}
 ${section("Instructor Teaching Notes", checklistHtml(["Replace the worked example with one from the discipline or local context.", "Add a short announcement that connects this lesson to the graded task.", "Watch for students who summarize sources without explaining why the evidence matters."]), theme)}`,
           theme
@@ -2097,8 +2106,8 @@ ${section("Instructor Teaching Notes", checklistHtml(["Replace the worked exampl
         canvasShell(
           `${moduleLabel}: Practice Activity`,
           "A low-stakes activity to prepare for discussion, quiz, assignment, or final project work.",
-          `${section("Practice Prompt", `<p>Choose one example connected to ${moduleTopic.toLowerCase()} in ${topic}. Create a quick analysis with three parts: what is happening, what evidence supports your interpretation, and what question remains.</p>`, theme)}
-${section("Student Steps", checklistHtml([`Write a one-sentence claim about ${moduleTopic.toLowerCase()}.`, `Add one piece of evidence from the module resources, such as ${moduleProfile.evidenceTypes[0]}.`, `Name the audience or affected group that would care about this ${moduleProfile.artifactLabel}.`, "Identify one uncertainty to discuss or investigate."]), theme)}
+          `${section("Practice Prompt", `<p>Choose one example connected to ${topicInSentence(moduleTopic)} in ${topic}. Create a quick analysis with three parts: what is happening, what evidence supports your interpretation, and what question remains.</p>`, theme)}
+${section("Student Steps", checklistHtml([`Write a one-sentence claim about ${topicInSentence(moduleTopic)}.`, `Add one piece of evidence from the module resources, such as ${moduleProfile.evidenceTypes[0]}.`, `Name the audience or affected group that would care about this ${moduleProfile.artifactLabel}.`, "Identify one uncertainty to discuss or investigate."]), theme)}
 ${section("Self-Check", checklistHtml(["Did I use at least one module term?", "Did I explain why the evidence matters?", "Did I connect this practice to a course outcome or final project idea?"]), theme)}
 ${callout("What To Do Next", "<p>Use this practice response as a starting point for the discussion, quiz preparation, assignment, or final project checkpoint.</p>", theme)}`,
           theme
@@ -2160,7 +2169,7 @@ ${callout("What To Do Next", "<p>Use this practice response as a starting point 
         moduleId,
         dueAt: quizDueAt,
         assignmentGroupId: "group_quizzes",
-        purpose: `${quizPurposeModel.framing(moduleTopic)} Aligned outcomes: ${alignedOutcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.code).join(", ")}.<p><img src="${fileRef("quiz-icon.svg")}" alt="Quiz support icon" style="width: 74px; height: auto; display: inline-block;" /></p><h2>Quiz Support</h2><ul><li>Review the module overview, key terms, and common mistake callout before starting.</li><li>${isGenericTemplate(mergedSettings) ? "Use feedback after submission to decide what to review next." : `Use feedback to revisit the source brief, ${moduleProfile.artifactLabel}, and evidence types for ${moduleTopic.toLowerCase()}.`}</li><li>Ask the instructor about any item that still feels unclear after remediation.</li></ul>`,
+        purpose: `${quizPurposeModel.framing(moduleTopic)} Aligned outcomes: ${alignedOutcomeIds.map((outcomeId) => outcomes.find((outcome) => outcome.id === outcomeId)?.code).join(", ")}.<p><img src="${fileRef("quiz-icon.svg")}" alt="Quiz support icon" style="width: 74px; height: auto; display: inline-block;" /></p><h2>Quiz Support</h2><ul><li>Review the module overview, key terms, and common mistake callout before starting.</li><li>${isGenericTemplate(mergedSettings) ? "Use feedback after submission to decide what to review next." : `Use feedback to revisit the source brief, ${moduleProfile.artifactLabel}, and evidence types for ${topicInSentence(moduleTopic)}.`}</li><li>Ask the instructor about any item that still feels unclear after remediation.</li></ul>`,
         points: questions.reduce((sum, question) => sum + question.points, 0),
         allowedAttempts: mergedSettings.quizPurpose === "pre-assessment" ? 1 : 2,
         shuffleAnswers: true,
@@ -2303,7 +2312,7 @@ ${section("What To Carry Forward", `<p>Bring this artifact, the feedback it rece
         canvasShell(
           `${moduleLabel} Wrap-Up`,
           "Close the module by consolidating what changed in your thinking.",
-          `${section("What You Covered", `<p>You explored ${moduleTopic.toLowerCase()} and practiced applying course concepts in context.</p>`, theme)}
+          `${section("What You Covered", `<p>You explored ${topicInSentence(moduleTopic)} and practiced applying course concepts in context.</p>`, theme)}
 ${section("You Should Now Be Able To", listHtml(moduleObjectives), theme)}
 ${section("Before You Continue", checklistHtml(completionChecklist), theme)}
 ${section("Reflection Questions", checklistHtml(["What concept feels most useful now?", "What question remains unresolved?", "How does this module connect to your final project or professional context?"]), theme)}
@@ -2324,7 +2333,7 @@ ${section("Module Navigation", wrapNavBar(index), theme)}`,
     modules.push({
       id: moduleId,
       title: `${moduleLabel}: ${moduleTopic}`,
-      description: `Students explore ${moduleTopic.toLowerCase()} through structured pages, practice, feedback, and recap.`,
+      description: `Students explore ${topicInSentence(moduleTopic)} through structured pages, practice, feedback, and recap.`,
       objectives: moduleObjectives,
       workloadHours,
       order: moduleNumber,
@@ -2554,7 +2563,9 @@ ${section("Next Steps", "<p>Save your final project, feedback, and key resources
     scheduleRows: schedule
       .filter((entry) => entry.itemType === "module")
       .slice(0, moduleCount)
-      .map((entry) => `${entry.title}: ${entry.notes || `Plan approximately ${entry.workloadHours} hours.`}`)
+      // Student-facing schedule text. `entry.notes` is instructor-only scheduling guidance; see the
+      // matching note in syllabusTemplates.ts.
+      .map((entry, index) => `${entry.title}: ${entry.workloadHours ? `Plan approximately ${entry.workloadHours} hours.` : `Module ${index + 1}.`}`)
   };
   const finalSyllabusContent = defaultSyllabusContent(finalSyllabusContext);
   const finalSyllabusTemplateId = chooseSyllabusTemplate(finalSyllabusContext);

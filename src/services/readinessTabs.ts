@@ -21,6 +21,8 @@ import type { EditorTab } from "../screens/appModel";
 
 const CHECK_TABS: Record<string, EditorTab> = {
   // Outcomes and course-level identity
+  // Announcements are edited from the course command centre, not a content tab.
+  "announcement-distinctness": "Overview",
   objectives: "Overview",
   "objective-quality": "Overview",
   "objective-measurable": "Overview",
@@ -76,6 +78,9 @@ const CHECK_TABS: Record<string, EditorTab> = {
   "visual-heading-order": "Pages",
   "internal-links": "Pages",
   "placeholder-links": "Pages",
+  // Dead anchors come from AI-written bodies across pages, assignments, discussions and
+  // announcements; Pages is where the bulk of that HTML is authored and fixed.
+  "dead-anchors": "Pages",
   "alignment-map": "Pages",
   // Unsafe Canvas HTML lives in page/assignment/discussion bodies; Pages is
   // where the bulk of it is authored and fixed.
@@ -109,6 +114,7 @@ const CHECK_TABS: Record<string, EditorTab> = {
   "calendar-page": "Contact Hours",
   "schedule-start-date": "Contact Hours",
   "graded-due-dates": "Contact Hours",
+  "due-dates-decided": "Contact Hours",
   "due-date-blackouts": "Contact Hours",
   "due-date-term": "Contact Hours",
 

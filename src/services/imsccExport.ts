@@ -620,7 +620,12 @@ const createAssessmentMetaXml = (quiz: Quiz): string => `<?xml version="1.0" enc
   <workflow_state>${workflowState(quiz.publishState)}</workflow_state>
   <shuffle_answers>${quiz.shuffleAnswers ? "true" : "false"}</shuffle_answers>
   <scoring_policy>keep_highest</scoring_policy>
-  <hide_results></hide_results>
+  <!-- An empty hide_results reveals the correct answers as soon as an attempt is submitted. Paired
+       with allowed_attempts > 1 and keep_highest, that lets a student submit blind, read the whole
+       answer key, and retake for full marks — which is exactly what shipped in the Tulane export.
+       Withhold the key until the student has used their attempts; single-attempt quizzes still show
+       feedback immediately, because there is nothing left to exploit. -->
+  <hide_results>${(quiz.allowedAttempts ?? 1) > 1 ? "until_after_last_attempt" : ""}</hide_results>
   <quiz_type>assignment</quiz_type>
   <points_possible>${quiz.points}</points_possible>
   ${quiz.dueAt ? `<due_at>${xml(quiz.dueAt)}</due_at>` : ""}

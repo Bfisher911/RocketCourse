@@ -1,6 +1,6 @@
 import type { CourseProject, ModuleItemType, ReadinessCheck, ReadinessReport } from "../types";
 import { slugify, stripHtml } from "../utils/text";
-import { hasUnsafeHtml, headingOrderIssues, imageTagsMissingAltCount, malformedLinksFromHtml } from "./htmlSafety";
+import { deadAnchorCount, hasUnsafeHtml, headingOrderIssues, imageTagsMissingAltCount, malformedLinksFromHtml } from "./htmlSafety";
 import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
@@ -20,11 +20,19 @@ const check = (
   severity: "required" | "recommended" = "required"
 ): ReadinessCheck => ({ id, label, passed, detail, severity });
 
+// Announcements are exported to Canvas and are the first thing a student reads, so they belong in
+// every content gate. They were omitted here for a long time, and a Tulane export shipped four
+// announcements that were all the same welcome letter with eleven un-clickable anchors between them
+// — none of which any check could see.
+const announcementBlocks = (course: CourseProject): Array<{ id: string; title: string; html: string }> =>
+  (course.announcements ?? []).map((announcement) => ({ id: announcement.id, title: `Announcement: ${announcement.title}`, html: announcement.bodyHtml }));
+
 const htmlBlocks = (course: CourseProject): Array<{ id: string; title: string; html: string }> => [
   ...course.pages.map((page) => ({ id: page.id, title: page.title, html: page.bodyHtml })),
   ...course.assignments.map((assignment) => ({ id: assignment.id, title: assignment.title, html: assignment.descriptionHtml })),
   ...course.discussions.map((discussion) => ({ id: discussion.id, title: discussion.title, html: discussion.promptHtml })),
-  ...course.quizzes.map((quiz) => ({ id: quiz.id, title: quiz.title, html: quiz.purpose }))
+  ...course.quizzes.map((quiz) => ({ id: quiz.id, title: quiz.title, html: quiz.purpose })),
+  ...announcementBlocks(course)
 ];
 
 // Body blocks whose visible text length is a meaningful signal of substance. Quiz "purpose"
@@ -32,7 +40,8 @@ const htmlBlocks = (course: CourseProject): Array<{ id: string; title: string; h
 const bodyBlocks = (course: CourseProject): Array<{ id: string; title: string; html: string }> => [
   ...course.pages.map((page) => ({ id: page.id, title: page.title, html: page.bodyHtml })),
   ...course.assignments.map((assignment) => ({ id: assignment.id, title: assignment.title, html: assignment.descriptionHtml })),
-  ...course.discussions.map((discussion) => ({ id: discussion.id, title: discussion.title, html: discussion.promptHtml }))
+  ...course.discussions.map((discussion) => ({ id: discussion.id, title: discussion.title, html: discussion.promptHtml })),
+  ...announcementBlocks(course)
 ];
 
 // Visible (rendered) text length, after stripping markup — markup length alone would rate an
@@ -249,6 +258,23 @@ const computeReadinessReport = (course: CourseProject): ReadinessReport => {
     )
   ].filter((block) => hasUnsafeHtml(block.html));
   const placeholderLinks = htmlBlocks(course).flatMap((block) => hrefsFrom(block.html).filter(isPlaceholderHref).map((href) => `${block.title}: ${href || "(empty)"}`));
+
+  // `placeholderLinks` can only see hrefs that exist, so an <a> the model wrote with no href at all
+  // slips past it while still rendering as a styled, un-clickable button. Count the elements, not
+  // the attributes.
+  const deadAnchorBlocks = htmlBlocks(course)
+    .map((block) => ({ title: block.title, count: deadAnchorCount(block.html) }))
+    .filter((entry) => entry.count > 0);
+
+  // Announcements generated from only their title come back as the same welcome letter under
+  // different headings, so a student is told the term is half over on day one. Compare openings.
+  const announcementOpenings = new Map<string, string[]>();
+  (course.announcements ?? []).forEach((announcement) => {
+    const opening = stripHtml(announcement.bodyHtml).trim().slice(0, 120).toLowerCase();
+    if (!opening) return;
+    announcementOpenings.set(opening, [...(announcementOpenings.get(opening) ?? []), announcement.title]);
+  });
+  const duplicateAnnouncements = [...announcementOpenings.values()].filter((titles) => titles.length > 1);
   const pageTargetSet = pageTargets(course);
   const resourceTargetSet = resourceTargets(course);
   // Canvas substitution tokens ($WIKI_REFERENCE$/..., $CANVAS_OBJECT_REFERENCE$/..., $IMS-CC-FILEBASE$/...)
@@ -544,6 +570,19 @@ const computeReadinessReport = (course: CourseProject): ReadinessReport => {
     check("calendar-page", "Course calendar and workload page present", Boolean(calendarPage && /Schedule Table|Generated module calendar/i.test(calendarPage.bodyHtml)), calendarPage ? "Student-facing calendar and workload plan is generated." : "No course calendar and workload page found."),
     check("calendar-link", "Homepage calendar link resolves", homepageCalendarResolves, homepageCalendarResolves ? "Homepage links to the generated calendar page." : "Homepage calendar link does not resolve.", "recommended"),
     check("schedule-start-date", "Schedule start date configured when due dates are enabled", !scheduleSettings.enableDueDates || Boolean(scheduleSettings.termStartDate), scheduleSettings.enableDueDates ? scheduleSettings.termStartDate ? `Term starts ${scheduleSettings.termStartDate}.` : "Due dates are enabled, but no term start date is set." : "Due dates are disabled by default."),
+    // Every other date check short-circuits to "passed" when due dates are switched off, so the
+    // report used to come back green for a course that ships with an empty Canvas calendar, no
+    // to-do entries, and a syllabus telling students the dates are still to be set. That is a
+    // decision the instructor has to make, not a check that quietly passes.
+    check(
+      "due-dates-decided",
+      "Due dates are set, or deliberately left to the instructor",
+      scheduleSettings.enableDueDates,
+      scheduleSettings.enableDueDates
+        ? `${gradedItems.length} graded item(s) carry generated due dates.`
+        : `Due dates are off, so all ${gradedItems.length} graded item(s) export with no due date: the Canvas calendar, student to-do list, and late-work policy will not work until you add dates in Canvas.`,
+      "recommended"
+    ),
     check("graded-due-dates", "Graded items have due dates when enabled", !scheduleSettings.enableDueDates || missingDueDates.length === 0, missingDueDates.length ? `${missingDueDates.slice(0, 3).map((item) => item.title).join("; ")} missing due dates.` : `${gradedItems.length} graded item due dates checked.`),
     check("due-date-blackouts", "Due dates avoid holidays and blackout dates", !scheduleSettings.enableDueDates || blockedDueDates.length === 0, blockedDueDates.length ? `${blockedDueDates.slice(0, 3).map((item) => item.title).join("; ")} lands on a blocked date.` : "Generated due dates avoid configured blocked dates."),
     check("due-date-term", "Due dates stay inside the configured term", !scheduleSettings.enableDueDates || scheduleSettings.allowDueDatesOutsideTerm || outOfTermDueDates.length === 0, outOfTermDueDates.length ? `${outOfTermDueDates.slice(0, 3).map((item) => item.title).join("; ")} is outside the configured term.` : "Generated due dates stay inside configured term bounds.", "recommended"),
@@ -553,6 +592,22 @@ const computeReadinessReport = (course: CourseProject): ReadinessReport => {
     check("workload", "Workload estimate present", course.contactHours.totalHours > 0, `${course.contactHours.totalHours} total student workload hours estimated.`),
     check("accessibility", "No unsafe Canvas HTML", unsafeBlocks.length === 0, unsafeBlocks.length ? `${unsafeBlocks.length} content block(s) include unsafe HTML.` : "Content avoids scripts, embeds, forms, event handlers, and dangerous URIs."),
     check("placeholder-links", "No placeholder links", placeholderLinks.length === 0, placeholderLinks.length ? placeholderLinks.slice(0, 3).join("; ") : "No empty, hash, JavaScript, or TODO links found."),
+    check(
+      "dead-anchors",
+      "Every link a student can see is clickable",
+      deadAnchorBlocks.length === 0,
+      deadAnchorBlocks.length
+        ? `${deadAnchorBlocks.reduce((sum, entry) => sum + entry.count, 0)} anchor(s) render as buttons but go nowhere: ${deadAnchorBlocks.slice(0, 3).map((entry) => `${entry.title} (${entry.count})`).join("; ")}.`
+        : "No anchors without a resolvable href."
+    ),
+    check(
+      "announcement-distinctness",
+      "Announcements say different things",
+      duplicateAnnouncements.length === 0,
+      duplicateAnnouncements.length
+        ? `${duplicateAnnouncements.map((titles) => titles.join(" / ")).join("; ")} open with identical text — the body does not match the title.`
+        : `${(course.announcements ?? []).length} announcement(s) have distinct openings.`
+    ),
     check("internal-links", "Internal links resolve locally", missingInternalLinks.length === 0, missingInternalLinks.length ? missingInternalLinks.slice(0, 3).join("; ") : "Internal page and asset links resolve.", "recommended"),
     check("resource-verification", "Resources include purpose, use, time, and verification notes", resourceDetailGaps.length === 0, resourceDetailGaps.length ? `${resourceDetailGaps.slice(0, 3).map((resource) => resource.title).join("; ")} need stronger purpose, student instructions, estimated time, or instructor verification notes.` : "Every structured resource includes purpose, student use, estimated time, and instructor verification guidance.", "recommended"),
     check("empty-content", "No empty content blocks", emptyBodyBlocks.length === 0, emptyBodyBlocks.length ? `${emptyBodyBlocks.map((block) => block.title).slice(0, 3).join(", ")} have effectively no body content.` : "Pages, assignments, and discussions all carry body content."),

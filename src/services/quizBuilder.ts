@@ -40,7 +40,37 @@ export const normalizeTrueFalseAnswer = (rawAnswer: string | undefined): "True" 
 };
 
 const OPEN_RESPONSE_STEM = /^(?:in\s+\d|explain|analy[sz]e|evaluate|compare|contrast|discuss|describe\s+how|reflect|justify|defend|how\b|why\b)/i;
-const ACTIONABLE_ESSAY_STEM = /^(?:in\s+\d|explain|analy[sz]e|evaluate|compare|contrast|discuss|describe|reflect|justify|defend|assess|interpret|develop|propose|recommend|how\b|why\b|what\b)/i;
+
+// Stems that ask for more than one thing. Canvas grades short_answer by exact string match against
+// the keyed answers, so a "list two" question can never be answered correctly in one box — whatever
+// the key says, the student's phrasing and ordering will differ.
+const MULTI_ITEM_STEM = /\b(?:list|name|identify|give|provide|state|describe)\s+(?:two|three|four|five|2|3|4|5|several|both|multiple)\b/i;
+
+// A leaked authoring placeholder standing in for an answer key.
+const PLACEHOLDER_ANSWER = /^\[.*\]$/s;
+const REVIEW_PLACEHOLDER = /\b(?:instructor\s+review|review\s+required|tbd|to\s+be\s+determined)\b/i;
+
+// Whether an auto-graded short_answer key is realistically matchable. Canvas compares the student's
+// typed string against the keyed answers (with `|` separating accepted alternatives) and awards
+// nothing for a near miss, so an unmatchable key silently scores every correct student zero.
+//
+// The Tulane export (https://tulane.instructure.com/courses/2325839) shipped seven such items:
+// four keyed to the literal string "[Instructor review required]", and three keyed to comma-joined
+// phrases like "High-stress decision-making, managing team dynamics" — 20 of 99 quiz points that
+// no student could earn. All four passed the older length-based gate at 3-5 words.
+export const unmatchableShortAnswerKey = (stem: string, answer: string): boolean => {
+  const key = answer.trim();
+  if (!key) return true;
+  if (PLACEHOLDER_ANSWER.test(key) || REVIEW_PLACEHOLDER.test(key)) return true;
+  if (MULTI_ITEM_STEM.test(stripHtml(stem).trim())) return true;
+  // "a|b" is Canvas's accepted-alternatives syntax and is fine; a comma, semicolon or joining "and"
+  // means the key is one string containing several distinct answers, which can never match.
+  if (!key.includes("|") && /[,;]|\s+and\s+/i.test(key)) return true;
+  return false;
+};
+// Imperative openings are already an instruction to the student; only declarative statements
+// ("True or false: …") need the analytical framing added.
+const ACTIONABLE_ESSAY_STEM = /^(?:in\s+\d|explain|analy[sz]e|evaluate|compare|contrast|discuss|describe|reflect|justify|defend|assess|interpret|develop|propose|recommend|name|identify|list|give|provide|state|outline|summari[sz]e|how\b|why\b|what\b)/i;
 
 const ensureActionableEssayStem = (stem: string): string => {
   const plainStem = stripHtml(stem).trim();
@@ -66,7 +96,7 @@ export const normalizeQuizQuestionForCanvas = (question: QuizQuestion): QuizQues
   }
   const answer = (question.correctAnswer ?? "").trim();
   const longAnswerKey = answer.length > 80 || answer.split(/\s+/).filter(Boolean).length > 10;
-  if (question.type === "short_answer" && (OPEN_RESPONSE_STEM.test(stripHtml(question.stem).trim()) || longAnswerKey)) {
+  if (question.type === "short_answer" && (OPEN_RESPONSE_STEM.test(stripHtml(question.stem).trim()) || longAnswerKey || unmatchableShortAnswerKey(question.stem, answer))) {
     return {
       ...question,
       type: "essay",
@@ -278,6 +308,17 @@ export const validateQuizPlan = (course: CourseProject): QuizPlanValidation => {
       if (question.type === "multiple_choice" && (!question.choices || question.choices.filter((choice) => choice.trim()).length < 2)) add(quiz, "choices", "error", "Choices missing", "Multiple choice questions need at least two answer choices.", question);
       if (question.type === "multiple_choice" && (!question.correctAnswer || !(question.choices ?? []).includes(question.correctAnswer))) add(quiz, "answer", "error", "Correct answer invalid", "Select a correct answer that matches one of the choices.", question);
       if (question.type === "true_false" && !["True", "False"].includes(question.correctAnswer ?? "")) add(quiz, "true-false-answer", "error", "True/false answer invalid", "True/false questions need True or False as the correct answer.", question);
+      // Canvas scores short_answer by exact string match, so an unmatchable key marks every correct
+      // student wrong and never surfaces as an error to the instructor.
+      if (question.type === "short_answer" && unmatchableShortAnswerKey(question.stem, question.correctAnswer ?? ""))
+        add(
+          quiz,
+          "short-answer-key",
+          "error",
+          "Short answer key cannot be matched",
+          `Canvas grades this by exact text match, so "${(question.correctAnswer ?? "").trim() || "(empty)"}" would score every correct student zero. Use a single word or phrase, list accepted alternatives with "|", or make this an essay question.`,
+          question
+        );
       if ((question.type === "short_answer" || question.type === "essay") && stripHtml(question.feedback ?? question.correctFeedback ?? "").length < 18) add(quiz, "feedback", "warning", "Grading guidance missing", "Add feedback or grading guidance for open-response questions.", question);
       if ((question.type === "multiple_choice" || question.type === "true_false") && !question.correctFeedback && !question.incorrectFeedback && !question.feedback) add(quiz, "feedback", "warning", "Feedback missing", "Add feedback so students know why an answer is right or wrong.", question);
       if (question.alignedOutcomeIds.length === 0 || question.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId))) add(quiz, "outcomes", "warning", "Question outcomes missing", "Align the question to at least one valid outcome.", question);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { headingOrderIssues, normalizeHeadingOrder, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, prepareStudentFacingHtmlForCanvas, sanitizeAiHtml, sanitizeHtmlForPreview, stripStudentFacingAuthoringNotes, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
+import { deadAnchorCount, headingOrderIssues, normalizeHeadingOrder, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, prepareStudentFacingHtmlForCanvas, sanitizeAiHtml, sanitizeHtmlForPreview, stripStudentFacingAuthoringNotes, unsafeHtmlDetail, unsafeHtmlReasons, unwrapDeadAnchors } from "./htmlSafety";
 import { hrefsFromHtml } from "./htmlSafety";
 
 describe("html safety (shared Canvas HTML safety)", () => {
@@ -131,6 +131,30 @@ describe("html safety (shared Canvas HTML safety)", () => {
     expect(clean).toContain("Start Here");
     expect(clean).toContain("Intro");
     expect(clean).toContain("View Syllabus");
+  });
+
+  it("unwraps anchors the model emitted with no href instead of shipping a dead button", () => {
+    // Verbatim shape of the four announcements in the Tulane export
+    // (https://tulane.instructure.com/courses/2325839): the model wrote styled anchors with no
+    // href at all, and every one of them rendered as a coloured button that did nothing.
+    const dirty =
+      '<li><a style="background-color: #4CAF50; color: white; padding: 10px 15px;">Start Here</a></li>' +
+      '<li><a style="color: blue;">View Syllabus</a></li>';
+    const clean = sanitizeAiHtml(dirty);
+
+    expect(clean).toContain("Start Here");
+    expect(clean).toContain("View Syllabus");
+    expect(clean).not.toContain("<a");
+    expect(deadAnchorCount(clean)).toBe(0);
+  });
+
+  it("counts every anchor a student could click but Canvas cannot follow", () => {
+    const html =
+      '<a>no href</a><a href="">empty</a><a href="#">hash</a><a href="{{token}}">token</a>' +
+      '<a href="modules/module_start">hallucinated</a><a href="https://ok.org">real</a>';
+
+    expect(deadAnchorCount(html)).toBe(5);
+    expect(deadAnchorCount(unwrapDeadAnchors(html))).toBe(0);
   });
 
   it("sanitizeAiHtml makes model HTML safe to store and export", () => {

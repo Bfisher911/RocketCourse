@@ -70,22 +70,68 @@ export const aiGeneratePageBody = (course: CourseProject, page: CoursePage): Pro
 // ---------------------------------------------------------------------------
 // Announcements -> bodyHtml
 // ---------------------------------------------------------------------------
+
+// Where in the term an announcement lands, so the model writes the right kind of message. The
+// generator names periodic announcements by role ("announcement_midpoint", "announcement_final_
+// stretch"), and the welcome announcement is always first.
+const announcementTermPosition = (announcement: Announcement, totalModules: number): string => {
+  const id = announcement.id.toLowerCase();
+  if (id.includes("welcome") || id.includes("start")) return "start of term — before any work is due";
+  if (id.includes("final") || id.includes("stretch") || id.includes("closing")) {
+    return `end of term — students are finishing the final project, roughly module ${Math.max(1, totalModules - 1)} of ${totalModules}`;
+  }
+  if (id.includes("mid")) return `midpoint — students have completed roughly ${Math.floor(totalModules / 2)} of ${totalModules} modules and have feedback to review`;
+  return "during the term";
+};
+
+// Anchors pointing at Canvas objects via substitution tokens or absolute Canvas URLs. Used to make
+// sure a rewrite did not quietly delete the navigation the announcement exists to provide.
+const canvasLinkCount = (html: string): number =>
+  Array.from(html.matchAll(/href\s*=\s*["']([^"']+)["']/gi)).filter((match) =>
+    /^\$[A-Z][A-Z0-9_.-]*\$|^%24[A-Z]|instructure\.com|^wiki_content\/|web_resources\//i.test(match[1].trim())
+  ).length;
+// The model used to receive only the announcement's title. With no idea where in the term the
+// announcement sits, it wrote the same day-one welcome letter every time — so a Tulane export
+// shipped "Midpoint check-in" and "Final stretch — bringing it together" both opening "Welcome to
+// the course!". It also invented its own navigation links, which the sanitizer then had to strip.
+//
+// The deterministic body already knows the term position AND already carries correct Canvas link
+// tokens, so hand it over and ask for a rewrite that preserves every anchor exactly. The model
+// improves the prose; it no longer guesses the calendar or the URLs.
 export const aiGenerateAnnouncementBody = (course: CourseProject, announcement: Announcement): Promise<AiResult<string>> =>
   withFallback(
     async () => {
+      const totalModules = course.modules.filter((module) => module.kind === "content").length;
       const json = await generateJson<{ bodyHtml?: unknown }>({
         stage: "homepageDraft",
         courseId: course.id,
         context: {
           blueprintJson: buildBlueprintContext(course),
-          announcementRequestJson: { title: announcement.title }
+          announcementRequestJson: {
+            title: announcement.title,
+            termPosition: announcementTermPosition(announcement, totalModules),
+            totalModules,
+            currentDraftHtml: announcement.bodyHtml
+          }
         },
         outputContract:
-          'Return {"bodyHtml": "<Canvas-safe HTML for a warm, specific instructor announcement: 2-3 short paragraphs in second person that connect to THIS course\'s subject and where students are in the term, plus a short bulleted list of concrete next steps. Use only inline styles; no scripts, iframes, headings larger than h2, or external CSS.>"}.'
+          'Return {"bodyHtml": "<Canvas-safe HTML that REWRITES currentDraftHtml into warmer, more specific instructor prose. ' +
+          'The announcement MUST match its title and termPosition: a start-of-term announcement welcomes students, a midpoint one ' +
+          'refers to work already completed and feedback already returned, an end-of-term one refers to the final project and closing out. ' +
+          'Never write a welcome message for a midpoint or end-of-term announcement. ' +
+          'Copy every <a> element from currentDraftHtml verbatim, keeping its href exactly as given; do NOT invent, reword, or add links, ' +
+          'and never emit an <a> without an href. 2-3 short paragraphs in second person plus a short bulleted list of concrete next steps. ' +
+          'Use only inline styles; no scripts, iframes, headings larger than h2, or external CSS.>"}.'
       });
       const bodyHtml = toCleanString(json.bodyHtml);
       if (!bodyHtml) throw new Error("AI did not return announcement HTML.");
-      return sanitizeAiHtml(bodyHtml);
+      const clean = sanitizeAiHtml(bodyHtml);
+      // Keep the deterministic body rather than shipping a rewrite that dropped the navigation the
+      // announcement exists to provide, or that ignored the term position and welcomed students again.
+      if (canvasLinkCount(clean) < canvasLinkCount(announcement.bodyHtml)) {
+        throw new Error("AI announcement dropped Canvas links from the draft.");
+      }
+      return clean;
     },
     () => announcement.bodyHtml
   );

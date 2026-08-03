@@ -1,3 +1,4 @@
+import { topicInSentence } from "../utils/text";
 import type { CourseSettings, ModuleOverviewStyleId, Theme } from "../types";
 import { fileRef } from "./canvasLinks";
 import {
@@ -112,8 +113,8 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
     case "inquiry-cycle":
       return {
         missionLabel: "Inquiry brief",
-        mission: `Investigate ${topic.toLowerCase()} by moving from a question to evidence, interpretation, and a defensible next step.`,
-        bigQuestion: `What evidence would change how we understand ${topic.toLowerCase()} in ${courseTitle}?`,
+        mission: `Investigate ${topicInSentence(topic)} by moving from a question to evidence, interpretation, and a defensible next step.`,
+        bigQuestion: `What evidence would change how we understand ${topicInSentence(topic)} in ${courseTitle}?`,
         read: "Read for claims, assumptions, and evidence.",
         watch: "Watch or review examples for patterns and tensions.",
         do: "Build a short answer that explains what the evidence makes visible.",
@@ -126,13 +127,13 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         keyTerms: baseTerms,
         beforeBegin: ["Open the module overview first.", "Write one question you expect the module to answer.", "Keep notes on evidence, uncertainty, and next steps."],
         commonMistake: "Do not stop at a broad opinion. Use the module evidence to revise or complicate the first answer.",
-        wrapPreview: `By the end, you should be ready to connect this inquiry to ${nextTopic.toLowerCase()}.`
+        wrapPreview: `By the end, you should be ready to connect this inquiry to ${topicInSentence(nextTopic)}.`
       };
     case "project-sprint":
       return {
         missionLabel: "Sprint brief",
-        mission: `Use ${topic.toLowerCase()} to create a small, visible piece of work that can feed a larger project or decision.`,
-        bigQuestion: `What can you make or improve this week that proves your understanding of ${topic.toLowerCase()}?`,
+        mission: `Use ${topicInSentence(topic)} to create a small, visible piece of work that can feed a larger project or decision.`,
+        bigQuestion: `What can you make or improve this week that proves your understanding of ${topicInSentence(topic)}?`,
         read: "Read to collect requirements and constraints.",
         watch: "Watch examples for structure, quality, and audience fit.",
         do: "Draft, test, or revise one concrete artifact.",
@@ -149,12 +150,12 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         ],
         beforeBegin: ["Review the rubric or success checklist.", "Create a small work plan before drafting.", "Save evidence and feedback for revision."],
         commonMistake: "Do not wait for the perfect final idea. A useful draft gives you something to improve.",
-        wrapPreview: `Your work here should make the next project move in ${nextTopic.toLowerCase()} easier.`
+        wrapPreview: `Your work here should make the next project move in ${topicInSentence(nextTopic)} easier.`
       };
     case "case-based":
       return {
         missionLabel: "Case file",
-        mission: `Treat ${topic.toLowerCase()} as a case with context, stakeholders, evidence, options, and consequences.`,
+        mission: `Treat ${topicInSentence(topic)} as a case with context, stakeholders, evidence, options, and consequences.`,
         bigQuestion: `What is the most defensible decision once the evidence and stakeholders are visible?`,
         read: "Read for facts, constraints, and missing information.",
         watch: "Watch examples for stakeholder impact.",
@@ -172,12 +173,12 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         ],
         beforeBegin: ["Separate facts from interpretation.", "Name the affected stakeholders.", "Look for evidence before recommending action."],
         commonMistake: "Do not recommend before diagnosing. Strong case work explains why the action fits the evidence.",
-        wrapPreview: `The case logic here prepares you for the next decision in ${nextTopic.toLowerCase()}.`
+        wrapPreview: `The case logic here prepares you for the next decision in ${topicInSentence(nextTopic)}.`
       };
     case "debate-based":
       return {
         missionLabel: "Debate brief",
-        mission: `Use ${topic.toLowerCase()} to practice making a position stronger through evidence, counterargument, and respectful reply.`,
+        mission: `Use ${topicInSentence(topic)} to practice making a position stronger through evidence, counterargument, and respectful reply.`,
         bigQuestion: `Which position is most defensible, and what evidence would make you revise it?`,
         read: "Read to identify claims and counterclaims.",
         watch: "Watch for examples of evidence-based disagreement.",
@@ -195,12 +196,12 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         ],
         beforeBegin: ["Write your first position in one sentence.", "Find evidence for and against it.", "Prepare to revise your view if better evidence appears."],
         commonMistake: "Do not caricature the opposing view. A fair counterargument makes your own reasoning stronger.",
-        wrapPreview: `The debate moves here will help you evaluate claims in ${nextTopic.toLowerCase()}.`
+        wrapPreview: `The debate moves here will help you evaluate claims in ${topicInSentence(nextTopic)}.`
       };
     case "lab-based":
       return {
         missionLabel: "Lab brief",
-        mission: `Approach ${topic.toLowerCase()} as a lab cycle: prepare, observe, record, analyze, and explain what the evidence can support.`,
+        mission: `Approach ${topicInSentence(topic)} as a lab cycle: prepare, observe, record, analyze, and explain what the evidence can support.`,
         bigQuestion: `What can we responsibly conclude from the evidence in this module?`,
         read: "Read for procedure, vocabulary, and constraints.",
         watch: "Watch demonstrations or examples for method and error.",
@@ -218,12 +219,12 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         ],
         beforeBegin: ["Read safety, access, or ethics notes.", "Know what evidence you are collecting.", "Separate observation from interpretation."],
         commonMistake: "Do not overclaim. Strong lab reasoning states what the evidence can and cannot show.",
-        wrapPreview: `Your observations here become stronger analysis in ${nextTopic.toLowerCase()}.`
+        wrapPreview: `Your observations here become stronger analysis in ${topicInSentence(nextTopic)}.`
       };
     case "reading-seminar":
       return {
         missionLabel: "Seminar brief",
-        mission: `Use ${topic.toLowerCase()} to read closely, annotate purposefully, and enter discussion with evidence-backed ideas.`,
+        mission: `Use ${topicInSentence(topic)} to read closely, annotate purposefully, and enter discussion with evidence-backed ideas.`,
         bigQuestion: `What does close reading reveal that a quick summary would miss?`,
         read: "Read for argument, structure, and language choices.",
         watch: "Watch for interpretive moves or contextual examples.",
@@ -241,12 +242,12 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         ],
         beforeBegin: ["Preview headings or structure.", "Annotate one strong passage.", "Write one question that can open discussion."],
         commonMistake: "Do not summarize the whole source when the task asks for interpretation. Choose a passage and explain it.",
-        wrapPreview: `The reading habits here prepare you to enter ${nextTopic.toLowerCase()} with sharper questions.`
+        wrapPreview: `The reading habits here prepare you to enter ${topicInSentence(nextTopic)} with sharper questions.`
       };
     case "field-investigation":
       return {
         missionLabel: "Field brief",
-        mission: `Treat ${topic.toLowerCase()} as a field investigation where place, context, observation, and evidence all matter.`,
+        mission: `Treat ${topicInSentence(topic)} as a field investigation where place, context, observation, and evidence all matter.`,
         bigQuestion: `What becomes visible when we observe the system in context?`,
         read: "Read for background and field lenses.",
         watch: "Watch examples for patterns, variation, and local context.",
@@ -264,12 +265,12 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         ],
         beforeBegin: ["Know what you are observing.", "Protect privacy and local context.", "Record evidence before explaining it."],
         commonMistake: "Do not treat a single observation as a universal pattern. Name uncertainty and needed evidence.",
-        wrapPreview: `These field notes will help you compare systems in ${nextTopic.toLowerCase()}.`
+        wrapPreview: `These field notes will help you compare systems in ${topicInSentence(nextTopic)}.`
       };
     case "design-studio":
       return {
         missionLabel: "Studio brief",
-        mission: `Use ${topic.toLowerCase()} to make, critique, revise, and explain design choices with evidence.`,
+        mission: `Use ${topicInSentence(topic)} to make, critique, revise, and explain design choices with evidence.`,
         bigQuestion: `What design choice would most improve the learner, user, or audience experience?`,
         read: "Read for constraints and criteria.",
         watch: "Watch examples for composition, usability, and tradeoffs.",
@@ -287,12 +288,12 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         ],
         beforeBegin: ["Define the audience or user.", "Name the constraint you are working within.", "Prepare to revise based on critique."],
         commonMistake: "Do not defend every first choice. Studio learning depends on visible, purposeful revision.",
-        wrapPreview: `Your revision habits here will carry into ${nextTopic.toLowerCase()}.`
+        wrapPreview: `Your revision habits here will carry into ${topicInSentence(nextTopic)}.`
       };
     case "operations-briefing":
       return {
         missionLabel: "Operations brief",
-        mission: `Use ${topic.toLowerCase()} to identify priorities, risks, decisions, and next actions in a clear operational sequence.`,
+        mission: `Use ${topicInSentence(topic)} to identify priorities, risks, decisions, and next actions in a clear operational sequence.`,
         bigQuestion: `What should happen next, and what evidence supports that priority?`,
         read: "Read for rules, thresholds, stakeholders, and risk.",
         watch: "Watch examples for signals, escalation, and decision timing.",
@@ -310,13 +311,13 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         ],
         beforeBegin: ["Read the situation before acting.", "Name risks and affected stakeholders.", "Keep action steps specific and accountable."],
         commonMistake: "Do not confuse urgency with importance. Use evidence to decide what comes first.",
-        wrapPreview: `The operations logic here prepares you to manage complexity in ${nextTopic.toLowerCase()}.`
+        wrapPreview: `The operations logic here prepares you to manage complexity in ${topicInSentence(nextTopic)}.`
       };
     default:
       return {
         missionLabel: "Module mission briefing",
-        mission: `Start ${topic.toLowerCase()} by understanding the purpose, sequence, actions, and support built into this module.`,
-        bigQuestion: `How does ${topic.toLowerCase()} change what you can explain, decide, or create in ${courseTitle}?`,
+        mission: `Start ${topicInSentence(topic)} by understanding the purpose, sequence, actions, and support built into this module.`,
+        bigQuestion: `How does ${topicInSentence(topic)} change what you can explain, decide, or create in ${courseTitle}?`,
         read: "Read for vocabulary, evidence, and the central idea.",
         watch: "Watch or review examples that make the idea concrete.",
         do: "Practice, discuss, check understanding, and submit any graded work.",
@@ -329,7 +330,7 @@ const copyFor = (styleId: ModuleOverviewStyleId, topic: string, courseTitle: str
         keyTerms: baseTerms,
         beforeBegin: ["Read this overview before opening the rest of the module.", "Plan time for reading, practice, discussion, and graded work.", "Write one question to revisit during the wrap-up."],
         commonMistake: "Do not skip the overview. It explains how the module pieces fit together.",
-        wrapPreview: `The wrap-up will help you connect this module to ${nextTopic.toLowerCase()}.`
+        wrapPreview: `The wrap-up will help you connect this module to ${topicInSentence(nextTopic)}.`
       };
   }
 };

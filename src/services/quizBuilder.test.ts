@@ -10,6 +10,7 @@ import {
   duplicateQuiz,
   restoreQuiz,
   normalizeQuizQuestionForCanvas,
+  unmatchableShortAnswerKey,
   validateQuizPlan
 } from "./quizBuilder";
 import { sampleProject } from "./courseGenerator";
@@ -39,6 +40,55 @@ describe("quiz builder", () => {
     expect(normalized.type).toBe("essay");
     expect(normalized.correctAnswer).toBeUndefined();
     expect(normalized.instructorReviewRequired).toBe(true);
+  });
+
+  // Every key below shipped to a live Canvas course and silently scored correct students zero:
+  // https://tulane.instructure.com/courses/2325839. All four are 3-5 words, so the older
+  // length-based gate passed them.
+  it.each([
+    ["List two common challenges faced by EMS supervisors.", "High-stress decision-making, managing team dynamics"],
+    ["List two tools that can be utilized for quality assessment in EMS.", "Patient satisfaction surveys, performance metrics"],
+    ["List two key components of effective Crew Resource Management.", "Communication and teamwork"],
+    ["Name the quality improvement step this scenario skipped.", "[Instructor review required]"],
+    ["Name the quality improvement step this scenario skipped.", "Instructor review required"]
+  ])("routes the unmatchable short-answer key %#, %j, to manual grading", (stem, correctAnswer) => {
+    expect(unmatchableShortAnswerKey(stem, correctAnswer)).toBe(true);
+
+    const normalized = normalizeQuizQuestionForCanvas({
+      id: "short_1",
+      type: "short_answer",
+      stem,
+      correctAnswer,
+      points: 3,
+      difficulty: "balanced",
+      alignedOutcomeIds: [],
+      moduleId: "module_1"
+    });
+
+    // Manually graded beats auto-graded-and-always-wrong.
+    expect(normalized.type).toBe("essay");
+    expect(normalized.correctAnswer).toBeUndefined();
+    expect(normalized.instructorReviewRequired).toBe(true);
+  });
+
+  it("keeps short answers whose key a student could actually type", () => {
+    expect(unmatchableShortAnswerKey("Name the term for applying concepts to a real situation.", "application")).toBe(false);
+    // "|" is Canvas's accepted-alternatives syntax, not a compound answer.
+    expect(unmatchableShortAnswerKey("Name the term for applying concepts to a real situation.", "application|applied analysis")).toBe(false);
+
+    const normalized = normalizeQuizQuestionForCanvas({
+      id: "vocab_1",
+      type: "short_answer",
+      stem: "Name the term for applying concepts to a real situation.",
+      correctAnswer: "application|applied analysis",
+      points: 2,
+      difficulty: "balanced",
+      alignedOutcomeIds: [],
+      moduleId: "module_1"
+    });
+
+    expect(normalized.type).toBe("short_answer");
+    expect(normalized.correctAnswer).toBe("application|applied analysis");
   });
 
   it("turns declarative essay stems into an actionable written-response prompt", () => {

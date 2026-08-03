@@ -21,7 +21,7 @@
 import type { CourseProject, ModuleItem } from "../types";
 import { nowIso, slugify } from "../utils/text";
 import { rebalanceWeights } from "./gradebookSummary";
-import { demoteExtraH1s, stripUnresolvableHrefs } from "./htmlSafety";
+import { demoteExtraH1s, unwrapDeadAnchors } from "./htmlSafety";
 import { normalizeTrueFalseAnswer, reconcileChoiceAnswer } from "./quizBuilder";
 
 export interface RepairResult {
@@ -301,7 +301,7 @@ export const repairCourse = (input: CourseProject): RepairResult => {
   // Drop just the dead href — the anchor text stays — across every exported HTML body.
   let linkScrubs = 0;
   const scrubHtml = (html: string): string => {
-    const scrubbed = stripUnresolvableHrefs(html);
+    const scrubbed = unwrapDeadAnchors(html);
     if (scrubbed !== html) linkScrubs += 1;
     return scrubbed;
   };

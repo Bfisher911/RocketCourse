@@ -274,19 +274,23 @@ describe("RocketCourse export engine", () => {
       canvasCompatibility: 95,
       exportReadiness: 95
     };
+    // These represent courses ready to hand to students, so they carry a term and due dates. A
+    // course exporting with an empty Canvas calendar is flagged by `due-dates-decided` and is not
+    // expected to reach these thresholds.
+    const scheduled = { ...defaultSettings.schedule, enableDueDates: true, termStartDate: "2026-08-24" };
     const courses = [
       sampleProject,
       generateCourseProject({
         prompt: "Build me a 4-week professional course on Community Health Program Design.",
-        settings: { ...defaultSettings, courseLengthPreset: "4-weeks", lengthWeeks: 4, moduleCount: 4, organizationPattern: "weeks", assignmentCadence: "every-module" }
+        settings: { ...defaultSettings, courseLengthPreset: "4-weeks", lengthWeeks: 4, moduleCount: 4, organizationPattern: "weeks", assignmentCadence: "every-module", schedule: scheduled }
       }),
       generateCourseProject({
         prompt: "Build me an 8-module course on Museum Exhibit Planning with quizzes and discussions.",
-        settings: { ...defaultSettings, courseLengthPreset: "8-weeks", lengthWeeks: 8, moduleCount: 8, quizFrequency: "module", discussionFrequency: "module", assignmentCadence: "every-other-module" }
+        settings: { ...defaultSettings, courseLengthPreset: "8-weeks", lengthWeeks: 8, moduleCount: 8, quizFrequency: "module", discussionFrequency: "module", assignmentCadence: "every-other-module", schedule: scheduled }
       }),
       generateCourseProject({
         prompt: "Build me a quiz-heavy 6-week course on Data Literacy.",
-        settings: { ...defaultSettings, courseLengthPreset: "6-weeks", lengthWeeks: 6, moduleCount: 6, quizFrequency: "module", discussionFrequency: "none", assignmentCadence: "custom" }
+        settings: { ...defaultSettings, courseLengthPreset: "6-weeks", lengthWeeks: 6, moduleCount: 6, quizFrequency: "module", discussionFrequency: "none", assignmentCadence: "custom", schedule: scheduled }
       })
     ];
 

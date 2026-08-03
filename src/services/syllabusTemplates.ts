@@ -171,7 +171,9 @@ const syllabusSnapshot = (content: SyllabusContent, theme: Theme): string =>
 const scheduleTimeline = (content: SyllabusContent, theme: Theme): string =>
   buildThemedTimeline(
     theme,
-    content.weeklySchedule.slice(0, 6).map((row, index) => {
+    // Every week, not the first six: a 10-week course rendered a timeline that stopped at Week 6
+    // directly above a list that showed all ten, which reads as a bug to a student.
+    content.weeklySchedule.map((row, index) => {
       const [first, ...rest] = row.split(":");
       const label = first && first.length <= 36 ? first : `Schedule item ${index + 1}`;
       const body = rest.length ? rest.join(":").trim() : row;
@@ -378,7 +380,11 @@ export const syllabusContextFromCourse = (course: {
   scheduleRows: course.schedule
     .filter((entry) => entry.itemType === "module")
     .slice(0, Math.max(1, course.settings.moduleCount))
-    .map((entry, index) => `${entry.title}: ${entry.notes || `Plan approximately ${entry.workloadHours} hours.` || `Module ${index + 1}.`}`)
+    // `entry.notes` is instructor scheduling guidance ("Set module release date and due dates after
+    // confirming the official term calendar…") and belongs in the instructor guide, not in the
+    // syllabus a student reads — a Tulane export printed that one sentence as the description of all
+    // ten weeks, sixteen times over. Students get the workload estimate instead.
+    .map((entry, index) => `${entry.title}: ${entry.workloadHours ? `Plan approximately ${entry.workloadHours} hours.` : `Module ${index + 1}.`}`)
 });
 
 export const defaultSyllabusContent = (context: SyllabusContext): SyllabusContent => {

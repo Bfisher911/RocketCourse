@@ -98,3 +98,16 @@ export const stripHtml = (html: string): string =>
   decodeHtmlEntities(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
 
 export const nowIso = (): string => new Date().toISOString();
+
+// Lowercase a course or module title for mid-sentence use WITHOUT destroying acronyms and proper
+// nouns. A naive `.toLowerCase()` turns "Introduction to EMS Leadership" into "introduction to ems
+// leadership"; a Tulane export shipped 44 lowercased "ems" across 17 pages, in the opening sentence
+// of every module overview ("Start quality improvement in ems by understanding…").
+//
+// A token is left alone when it is all-caps (EMS, CRM, HIPAA, ICS), mixed-case in a way plain prose
+// never is (McGraw, iOS, PhD), or carries a digit (COVID-19, ISO9001). Ordinary Capitalised words
+// lowercase normally, because those are the ones a sentence should absorb.
+const PRESERVE_CASE = /^[^a-z]*[A-Z]{2,}[^a-z]*$|^[A-Za-z]*[a-z]+[A-Z]|\d/;
+
+export const topicInSentence = (value: string): string =>
+  value.replace(/[\p{L}\p{N}][\p{L}\p{N}'’.\-]*/gu, (token) => (PRESERVE_CASE.test(token) ? token : token.toLowerCase()));

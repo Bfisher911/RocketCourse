@@ -160,20 +160,41 @@ const degraders = {
   }
 };
 
+// A course an instructor could actually teach from has due dates, so these fixtures schedule them.
+// Without dates the Canvas calendar, the student to-do list, and every late-work policy are inert —
+// `due-dates-decided` says so, and a top score should not be reachable while that is true.
+const scheduled = { enableDueDates: true, termStartDate: "2026-08-24" };
+
 const goodCourses: Array<{ name: string; course: CourseProject }> = [
   { name: "sample project", course: sampleProject },
   {
     name: "4-week community health",
     course: generateCourseProject({
       prompt: "Build me a 4-week professional course on Community Health Program Design.",
-      settings: { ...defaultSettings, courseLengthPreset: "4-weeks", lengthWeeks: 4, moduleCount: 4, organizationPattern: "weeks", assignmentCadence: "every-module" }
+      settings: {
+        ...defaultSettings,
+        courseLengthPreset: "4-weeks",
+        lengthWeeks: 4,
+        moduleCount: 4,
+        organizationPattern: "weeks",
+        assignmentCadence: "every-module",
+        schedule: { ...defaultSettings.schedule, ...scheduled }
+      }
     })
   },
   {
     name: "8-module museum planning",
     course: generateCourseProject({
       prompt: "Build me an 8-module course on Museum Exhibit Planning with quizzes and discussions.",
-      settings: { ...defaultSettings, courseLengthPreset: "8-weeks", lengthWeeks: 8, moduleCount: 8, quizFrequency: "module", discussionFrequency: "module" }
+      settings: {
+        ...defaultSettings,
+        courseLengthPreset: "8-weeks",
+        lengthWeeks: 8,
+        moduleCount: 8,
+        quizFrequency: "module",
+        discussionFrequency: "module",
+        schedule: { ...defaultSettings.schedule, ...scheduled }
+      }
     })
   }
 ];
@@ -189,6 +210,21 @@ describe("readiness depth", () => {
         expect(checkOf(course, id)?.passed, `${name} ${id}`).toBe(true);
       });
     });
+  });
+
+  it("says so when a course would export with no due dates at all", () => {
+    // Due dates default to off. Every other date check short-circuits to "passed" in that case, so
+    // the report used to be green for a course whose Canvas calendar is empty.
+    const dateless = generateCourseProject({
+      prompt: "Build me a 4-week professional course on Community Health Program Design.",
+      settings: { ...defaultSettings, courseLengthPreset: "4-weeks", lengthWeeks: 4, moduleCount: 4 }
+    });
+
+    const decided = checkOf(dateless, "due-dates-decided");
+    expect(decided?.passed).toBe(false);
+    expect(decided?.detail).toContain("no due date");
+    // Still importable — this is a decision to make, not a blocker.
+    expect(report(dateless).blockers).toBe(0);
   });
 
   it("flags empty content blocks", () => {

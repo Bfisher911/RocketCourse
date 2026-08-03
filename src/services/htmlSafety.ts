@@ -201,20 +201,41 @@ export const prepareStudentFacingHtmlForCanvas = (html: string, canvasProvidesTi
 const RESOLVABLE_HREF =
   /^(?:https?:\/\/|mailto:|tel:|#|\$[A-Z][A-Z0-9_.-]*\$|%24[A-Z][A-Z0-9_.-]*%24|(?:\.\.\/)?web_resources\/|wiki_content\/)/i;
 
-// Drop href attributes Canvas cannot resolve; the anchor text is kept so no words are lost.
-export const stripUnresolvableHrefs = (html: string): string =>
-  html.replace(/\shref\s*=\s*(["'])([^"']*)\1/gi, (match, _quote: string, href: string) =>
-    RESOLVABLE_HREF.test(href.trim()) && !href.includes("{{") ? match : ""
-  );
+// Whether Canvas can actually follow this href after import. Empty, "#", and moustache tokens are
+// dead on arrival, as are model-hallucinated relative paths.
+const isResolvableHref = (href: string): boolean => {
+  const value = href.trim();
+  if (!value || value === "#") return false;
+  if (value.includes("{{")) return false;
+  return RESOLVABLE_HREF.test(value);
+};
+
+// Anchors Canvas cannot follow: no href, an empty/"#"/moustache href, or a hallucinated relative
+// path. Removing only the href attribute would leave an <a> that still carries the model's button
+// styling — it looks clickable, highlights on hover, and does nothing. That is worse for a student
+// than plain text, and it hides the defect from `malformedLinksFromHtml`/the placeholder-links
+// readiness check, both of which only inspect hrefs that exist. So unwrap the whole element: the
+// words survive, the fake affordance does not.
+export const unwrapDeadAnchors = (html: string): string =>
+  // Anchors cannot nest, so a non-greedy pair match is exact.
+  html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (match, attrs: string, inner: string) => {
+    const href = attrs.match(/\shref\s*=\s*(["'])([^"']*)\1/i);
+    return href && isResolvableHref(href[2]) ? match : inner;
+  });
+
+// Anchors a student can see but not click. Zero is the only acceptable value in exported content.
+export const deadAnchorCount = (html: string): number =>
+  Array.from(html.matchAll(/<a\b([^>]*)>/gi)).filter((match) => {
+    const href = match[1].match(/\shref\s*=\s*(["'])([^"']*)\1/i);
+    return !href || !isResolvableHref(href[2]);
+  }).length;
 
 // Make model-authored HTML safe to STORE and EXPORT (not just preview). On top of the Canvas
-// sanitizer it drops placeholder/empty/"#" hrefs, which the .imscc export validator treats as
-// blocking "placeholder or unsafe link" errors, and any href a Canvas import can't resolve
-// (hallucinated relative paths, moustache tokens). The anchor text stays; only the dead href
-// attribute is removed. Apply to every AI builder that returns HTML.
+// sanitizer it unwraps every anchor Canvas cannot follow — placeholder/empty/"#" hrefs, which the
+// .imscc export validator treats as blocking "placeholder or unsafe link" errors, hallucinated
+// relative paths, moustache tokens, and anchors the model emitted with no href at all. The words
+// stay; the un-followable link element does not. Apply to every AI builder that returns HTML.
 export const sanitizeAiHtml = (html: string): string =>
   stripStudentFacingAuthoringNotes(normalizeHeadingOrder(demoteExtraH1s(
-    stripUnresolvableHrefs(
-      sanitizeHtmlForPreview(html).replace(/\shref\s*=\s*(["'])\s*(?:#[^"']*)?\1/gi, "")
-    )
+    unwrapDeadAnchors(sanitizeHtmlForPreview(html))
   )));
