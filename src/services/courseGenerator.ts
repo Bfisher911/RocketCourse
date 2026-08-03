@@ -38,6 +38,7 @@ import { getOutcomeFramework } from "./outcomeFrameworks";
 import { getModulePattern, getStructureFramework } from "./courseDesignModels";
 import { getQuizPurpose } from "./quizPurposes";
 import { normalizeQuizQuestionForCanvas } from "./quizBuilder";
+import { descendPoints } from "./rubricBuilder";
 import { DEFAULT_TEMPLATE_ID, createHomepageState, defaultHomepageContent, renderHomepage, rethemeHomepageHtml } from "./homepageTemplates";
 import { chooseModuleOverviewStyle, renderModuleOverviewHtml } from "./moduleOverviewTemplates";
 import {
@@ -873,12 +874,12 @@ const makeRubric = (
       title: `Outcome criterion: ${outcome?.code ?? `Outcome ${index + 1}`}`,
       description: `${purposeLabel} work demonstrates the aligned outcome: ${label}`,
       outcomeId,
-      levels: [
+      levels: descendPoints([
         { label: "Exemplary", points: outcomeMax, description: "Clearly demonstrates the outcome with accurate course concepts, specific evidence, and focused reasoning." },
         { label: "Proficient", points: Math.max(1, Math.round(outcomeMax * 0.75)), description: "Demonstrates the outcome with mostly accurate concepts and relevant evidence." },
         { label: "Developing", points: Math.max(1, Math.round(outcomeMax * 0.5)), description: "Partially demonstrates the outcome, but the connection to course evidence or reasoning is incomplete." },
         { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
-      ]
+      ])
     };
   });
   const criteria: RubricCriterion[] = [
@@ -888,24 +889,24 @@ const makeRubric = (
       title: "Evidence, reasoning, and application",
       description: "Uses course concepts, examples, and reasoning in a way that fits the task.",
       outcomeId: outcomeIds[1] ?? outcomeIds[0],
-      levels: [
+      levels: descendPoints([
         { label: "Exemplary", points: evidenceMax, description: "Specific evidence supports thoughtful analysis and practical application." },
         { label: "Proficient", points: Math.max(1, Math.round(evidenceMax * 0.75)), description: "Evidence is relevant and mostly explained." },
         { label: "Developing", points: Math.max(1, Math.round(evidenceMax * 0.5)), description: "Evidence is limited, generic, or underexplained." },
         { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
-      ]
+      ])
     },
     {
       id: `${rubricId}_communication`,
       title: "Communication and accessibility",
       description: "Presents work clearly with accessible formatting and complete deliverables.",
       outcomeId: outcomeIds[2] ?? outcomeIds[0],
-      levels: [
+      levels: descendPoints([
         { label: "Exemplary", points: communicationMax, description: "Clear, polished, complete, and easy to navigate." },
         { label: "Proficient", points: Math.max(1, Math.round(communicationMax * 0.75)), description: "Generally clear with minor organization or editing issues." },
         { label: "Developing", points: Math.max(1, Math.round(communicationMax * 0.5)), description: "Difficult to follow, incomplete, or missing accessible structure." },
         { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
-      ]
+      ])
     }
   ];
 

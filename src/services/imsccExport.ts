@@ -244,7 +244,11 @@ const createDiscussionMetaXml = (discussion: Discussion): string => `<?xml versi
   <type>topic</type>
   <workflow_state>${workflowState(discussion.publishState)}</workflow_state>
   <discussion_type>threaded</discussion_type>
-  <require_initial_post>true</require_initial_post>
+  <!-- Post-before-you-can-read is right for a graded discussion: it stops students from shopping
+       their answer off the thread. It is wrong for an ungraded help forum, where it means a student
+       cannot read an existing answer to their own question until they have posted a duplicate of it
+       — which is exactly what shipped on the Tulane course's "Ask Course Questions" forum. -->
+  <require_initial_post>${discussion.points > 0 ? "true" : "false"}</require_initial_post>
   ${
     discussion.points > 0
       ? `<assignment identifier="${xml(`${discussion.id}_assignment`)}">
@@ -272,7 +276,11 @@ const createDiscussionMetaXml = (discussion: Discussion): string => `<?xml versi
 const createAnnouncementXml = (announcement: Announcement): string => `<?xml version="1.0" encoding="UTF-8"?>
 <topic xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imsdt_v1p1" xmlns:xsi="${XSI}" xsi:schemaLocation="http://www.imsglobal.org/xsd/imsccv1p1/imsdt_v1p1 http://www.imsglobal.org/profile/cc/ccv1p1/ccv1p1_imsdt_v1p1.xsd">
   <title>${xml(announcement.title)}</title>
-  <text texttype="text/html">${xml(announcement.bodyHtml)}</text>
+  <!-- Announcements go through the same student-facing preparation as pages, assignments and
+       discussions: authoring notes stripped, body H1s demoted so Canvas's own title stays the only
+       h1. They used to be exported raw, which is how four announcements full of dead anchors and
+       duplicate H1s reached students. -->
+  <text texttype="text/html">${xml(prepareStudentFacingHtmlForCanvas(announcement.bodyHtml))}</text>
 </topic>`;
 
 const createAnnouncementMetaXml = (announcement: Announcement): string => `<?xml version="1.0" encoding="UTF-8"?>

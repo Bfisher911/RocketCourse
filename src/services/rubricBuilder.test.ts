@@ -4,6 +4,7 @@ import { buildImsccZip, validateImsccZip } from "./imsccExport";
 import {
   RUBRIC_TEMPLATES,
   applyRubricTemplate,
+  descendPoints,
   attachRubricToAssignment,
   attachRubricToDiscussion,
   buildRubricFromTemplate,
@@ -17,6 +18,42 @@ import { exportIdPrefix } from "./exportIdentifiers";
 const clone = (course: CourseProject): CourseProject => structuredClone(course);
 
 describe("rubric builder", () => {
+  it("keeps every rubric level worth strictly less than the one above it", () => {
+    // At max 3, round(3 * 0.75) and round(3 * 0.5) are both 2, so "Proficient" and "Developing"
+    // scored identically on every discussion rubric in the Tulane export and the level stopped
+    // discriminating between two genuinely different pieces of work.
+    const collided = descendPoints([
+      { label: "Exemplary", points: 3 },
+      { label: "Proficient", points: 2 },
+      { label: "Developing", points: 2 },
+      { label: "Not yet demonstrated", points: 0 }
+    ]);
+
+    expect(collided.map((level) => level.points)).toEqual([3, 2, 1, 0]);
+
+    // Already-descending scales are untouched apart from the pinned zero.
+    expect(descendPoints([
+      { label: "Exemplary", points: 20 },
+      { label: "Proficient", points: 15 },
+      { label: "Developing", points: 9 },
+      { label: "Not yet demonstrated", points: 0 }
+    ]).map((level) => level.points)).toEqual([20, 15, 9, 0]);
+  });
+
+  it("generates every built-in template with strictly descending levels", () => {
+    RUBRIC_TEMPLATES.forEach((template) => {
+      const rubric = applyRubricTemplate(clone(sampleProject), sampleProject.rubrics[0].id, template.id);
+      rubric.rubrics.forEach((r) => {
+        r.criteria.forEach((criterion) => {
+          const points = criterion.levels.map((level) => level.points);
+          points.slice(1).forEach((value, index) => {
+            expect(value, `${template.id} / ${criterion.title}`).toBeLessThan(points[index]);
+          });
+        });
+      });
+    });
+  });
+
   it("generates student-facing rubric templates with criteria, levels, points, and outcomes", () => {
     const course = clone(sampleProject);
 

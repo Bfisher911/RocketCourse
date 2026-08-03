@@ -67,13 +67,29 @@ const touchedMetadata = (metadata: ObjectMetadata | undefined, timestamp: string
 
 const templateById = (templateId: RubricTemplateId): RubricTemplate => RUBRIC_TEMPLATES.find((template) => template.id === templateId) ?? RUBRIC_TEMPLATES[0];
 
-const levelsFor = (points: number) => [
-  { label: "Exemplary", points, description: "Complete, specific, polished, and strongly aligned to the task." },
-  { label: "Proficient", points: Math.round(points * 0.75), description: "Mostly complete and accurate with minor gaps or unevenness." },
-  { label: "Developing", points: Math.round(points * 0.45), description: "Partially complete, vague, or missing important expectations." },
-  { label: "Beginning", points: Math.round(points * 0.2), description: "Limited, incomplete, or not yet connected to the criteria." },
-  { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
-];
+// Percentage-of-max level points collide on small criteria: at max 3, round(3 * 0.75) and
+// round(3 * 0.5) are both 2, so "Proficient" and "Developing" award the same score and the rubric
+// stops discriminating — which is what shipped on every discussion rubric in the Tulane export.
+// Walk down from the top and force each level strictly below the one above it, floored at 0.
+export const descendPoints = <T extends { points: number }>(levels: T[]): T[] => {
+  let ceiling = Number.POSITIVE_INFINITY;
+  return levels.map((level, index) => {
+    // The bottom level is the explicit zero and stays there.
+    if (index === levels.length - 1) return { ...level, points: 0 };
+    const points = Math.max(0, Math.min(level.points, ceiling - 1));
+    ceiling = points;
+    return { ...level, points };
+  });
+};
+
+const levelsFor = (points: number) =>
+  descendPoints([
+    { label: "Exemplary", points, description: "Complete, specific, polished, and strongly aligned to the task." },
+    { label: "Proficient", points: Math.round(points * 0.75), description: "Mostly complete and accurate with minor gaps or unevenness." },
+    { label: "Developing", points: Math.round(points * 0.45), description: "Partially complete, vague, or missing important expectations." },
+    { label: "Beginning", points: Math.round(points * 0.2), description: "Limited, incomplete, or not yet connected to the criteria." },
+    { label: "Not yet demonstrated", points: 0, description: "No scorable evidence is present yet." }
+  ]);
 
 export const getRubricUsage = (course: CourseProject, rubricId: string): RubricUsage => ({
   assignments: course.assignments.filter((assignment) => assignment.rubricId === rubricId),

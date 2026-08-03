@@ -475,6 +475,32 @@ describe("RocketCourse export engine", () => {
     expect(settingsXml).not.toContain("&amp;#");
   });
 
+  it("lets students read an ungraded help forum without posting first", async () => {
+    // require_initial_post was hardcoded true for every discussion, so the Tulane course's ungraded
+    // "Ask Course Questions" forum made a student post a duplicate question before they could read
+    // the answer to their own.
+    const zip = await buildImsccZip(sampleProject);
+    const graded = sampleProject.discussions.find((d) => d.points > 0)!;
+    const ungraded = sampleProject.discussions.find((d) => d.points === 0);
+
+    const prefix = exportIdPrefix(sampleProject);
+    const metaFor = async (id: string) => (await zip.file(`${prefix}${id}_meta.xml`)?.async("text")) ?? "";
+
+    expect(await metaFor(graded.id)).toContain("<require_initial_post>true</require_initial_post>");
+    if (ungraded) expect(await metaFor(ungraded.id)).toContain("<require_initial_post>false</require_initial_post>");
+  });
+
+  it("withholds quiz answers until the last attempt on multi-attempt quizzes", async () => {
+    // An empty hide_results with allowed_attempts > 1 and keep_highest let a student submit blind,
+    // read the whole key, and retake for full marks.
+    const zip = await buildImsccZip(sampleProject);
+    const quiz = sampleProject.quizzes.find((q) => (q.allowedAttempts ?? 1) > 1);
+    if (!quiz) return;
+    const meta = (await zip.file(`${exportIdPrefix(sampleProject)}${quiz.id}/assessment_meta.xml`)?.async("text")) ?? "";
+
+    expect(meta).toContain("<hide_results>until_after_last_attempt</hide_results>");
+  });
+
   it("exports Canvas due date metadata when scheduling is enabled", async () => {
     const scheduledProject = generateCourseProject({
       prompt: "Build me a 4-week professional course on Community Health Program Design.",
