@@ -5,7 +5,7 @@
 // so the Super Admin can edit copy, the offer, the webinar, and the referral reward without a deploy.
 // All motion respects prefers-reduced-motion; all inputs use real <label>s.
 
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BadgePercent,
@@ -79,7 +79,10 @@ const useScrollReveal = (reduced: boolean, ready: boolean): void => {
 
 // ── Scroll parallax → sets a 0..1 CSS var on a ref (gated by reduced motion) ──
 const useParallax = (reduced: boolean) => {
-  const ref = useRef<HTMLDivElement | null>(null);
+  // useRef<T>(null) rather than useRef<T | null>(null): the former is what
+  // `ref={...}` accepts across React 18 and 19 type packages; the explicitly
+  // nullable form is a MutableRefObject and is rejected by React 18's ref prop.
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (reduced || typeof window === "undefined") return;
     let raf = 0;
@@ -154,7 +157,8 @@ function HeroBackdrop() {
 }
 
 /** Scroll-reactive "Canvas course shell" — a tilting stack of the things RocketCourse builds. */
-function CourseShellVisual({ parallaxRef }: { parallaxRef: RefObject<HTMLDivElement | null> }) {
+// Ref<T> is what a `ref` prop accepts under both React 18 and 19 typings.
+function CourseShellVisual({ parallaxRef }: { parallaxRef: Ref<HTMLDivElement> }) {
   const layers = [
     { icon: <GraduationCap size={15} aria-hidden />, label: "Modules", meta: "8 weeks · sequenced", tone: "cyan" },
     { icon: <Sparkles size={15} aria-hidden />, label: "Assignments & quizzes", meta: "rubrics attached", tone: "violet" },

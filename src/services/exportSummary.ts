@@ -14,7 +14,7 @@
 
 import type { CourseProject, EditorTab, ExportValidationIssue, ExportValidationReport, ReadinessReport } from "../types";
 import { hasUnsafeHtml } from "./htmlSafety";
-import { tabForCheck } from "./overviewSummary";
+import { isKnownCheckId, tabForCheck } from "./readinessTabs";
 
 // ---------------------------------------------------------------------------
 // Export checklist (derived from the course, works before validation runs)
@@ -80,12 +80,30 @@ export interface RichIssue extends ExportValidationIssue {
 }
 
 // Route an export issue id to the tab that fixes it. Package/manifest issues stay on Export;
-// content issues route to their builder tab (reusing the Overview check→tab map).
+// content issues route to their builder tab.
+//
+// NOTE the two id namespaces. Readiness checks are a fixed, exhaustive list and
+// are looked up exactly (services/readinessTabs.ts). Export validation ids are
+// GENERATED and embed the offending object's id — `missing-assignment-a1`,
+// `broken-module-ref-i1`, `quiz-quality-q1-stem` — so they can only be matched
+// by substring. They shared one function until that exact/substring difference
+// silently routed every generated id to the wrong tab.
 export const tabForExportIssue = (id: string): EditorTab => {
   if (/^(unsafe-html-|placeholder-link-|broken-internal-link-)/.test(id)) return "Pages";
   if (/^(manifest-|course-settings-|canvas-export-|module-meta-|duplicate-resource-|missing-resource-|missing-file-|empty-required-|malformed-xml-)/.test(id)) return "Export";
   if (/group|weight/.test(id)) return "Gradebook Setup";
-  return tabForCheck(id);
+  // An id that IS a readiness check keeps the canonical destination.
+  if (isKnownCheckId(id)) return tabForCheck(id);
+  // Otherwise match the object type embedded in the generated id.
+  if (/assignment/.test(id)) return "Assignments";
+  if (/discussion/.test(id)) return "Discussions";
+  if (/quiz/.test(id)) return "Quizzes";
+  if (/rubric/.test(id)) return "Rubrics";
+  if (/homepage/.test(id)) return "Homepage";
+  if (/syllabus/.test(id)) return "Syllabus";
+  if (/module/.test(id)) return "Modules";
+  if (/page/.test(id)) return "Pages";
+  return "Export";
 };
 
 const guidanceFor = (id: string): { category: string; why: string; fix: string } => {

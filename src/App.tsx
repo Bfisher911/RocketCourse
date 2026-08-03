@@ -1147,6 +1147,7 @@ function App() {
             onDownload={downloadPackage}
             onFillFullContent={() => { void fillFullCourseContent(); }}
             onAutoRepair={autoRepairCourse}
+            demoMode={demoActive}
             onStartBuild={() => startNewIntake()}
             onExit={() => setScreen("dashboard")}
             onOpenFullEditor={openFocusEditor}

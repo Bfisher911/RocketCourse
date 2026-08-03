@@ -205,23 +205,12 @@ export const courseStructureSummary = (course: CourseProject): CourseStructureSu
 // Course health summary (derived from the readiness report)
 // ---------------------------------------------------------------------------
 
-// Route a readiness check to the editor tab where it can be fixed. Order matters: more specific
-// keywords are tested before broader ones (homepage before page, group before assignment).
-export const tabForCheck = (id: string): EditorTab => {
-  if (/homepage|calendar-link|start-here-link/.test(id)) return "Homepage";
-  if (/syllabus/.test(id)) return "Syllabus";
-  if (/outcome|objective|bloom/.test(id)) return "Overview";
-  if (/weight|group|gradebook/.test(id)) return "Gradebook Setup";
-  if (/assignment/.test(id)) return "Assignments";
-  if (/discussion/.test(id)) return "Discussions";
-  if (/quiz/.test(id)) return "Quizzes";
-  if (/rubric/.test(id)) return "Rubrics";
-  if (/(^|-)page|placeholder-links|internal-links|empty-content|thin-content|accessibility/.test(id)) return "Pages";
-  if (/workload|contact/.test(id)) return "Contact Hours";
-  if (/module|start-here|reference-integrity|schedule|due-date/.test(id)) return "Modules";
-  if (/navigation|theme/.test(id)) return "Theme";
-  return "Export";
-};
+// Route a readiness check to the editor tab where it can be fixed.
+// Re-exported from the one canonical table (services/readinessTabs.ts) so this
+// and components/editor/shared.ts can no longer drift apart — they previously
+// disagreed for accessibility, navigation, reference-integrity and due dates.
+import { tabForCheck } from "./readinessTabs";
+export { tabForCheck };
 
 export interface HealthItem {
   id: string;
