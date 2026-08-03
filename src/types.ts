@@ -95,8 +95,6 @@ export interface ObjectMetadata {
 }
 
 export interface CourseImageSettings {
-  homepageBannerMode: "generated-svg" | "upload" | "url" | "future-ai";
-  courseTileMode: "generated-svg" | "upload" | "url" | "future-ai";
   moduleHeaderImages: boolean;
 }
 

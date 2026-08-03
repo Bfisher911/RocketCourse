@@ -75,6 +75,8 @@ export const generateJson = async <T>(args: GenerateJsonArgs): Promise<T> => {
   const userPrompt = `${filledUserPrompt}\n\nReturn ONLY a single valid JSON object, no markdown fences. ${args.outputContract}`;
 
   const result = await requestChatCompletion({
+    // `template` carries qualityChecklist + failureModes; buildChatMessages now
+    // renders them into a system message, so every builder states its own bar.
     messages: buildChatMessages(userPrompt, template),
     temperature: args.temperature ?? 0.5,
     maxTokens: args.maxTokens,

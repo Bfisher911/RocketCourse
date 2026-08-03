@@ -452,8 +452,8 @@ export function ThemeTab({
           <h2>Export Assets</h2>
           <p>The exported banner, tile, module headers, badges, icons, and dividers use the selected theme's palette, motif, and intensity.</p>
           <ul className="compact-list">
-            <li>Homepage banner: {course.settings.imageSettings.homepageBannerMode}</li>
-            <li>Course tile: {course.settings.imageSettings.courseTileMode}</li>
+            <li>Homepage banner: Theme artwork (replace it in Imagery)</li>
+            <li>Course tile: Theme artwork (replace it in Imagery)</li>
             <li>Module headers: {course.settings.imageSettings.moduleHeaderImages ? "Included" : "Off"}</li>
             <li>Reusable SVG assets: {course.fileAssets.filter((asset) => /badge|icon|divider/i.test(asset.fileName)).length}</li>
           </ul>

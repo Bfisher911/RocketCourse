@@ -2,6 +2,8 @@
 // (netlify/functions/openai.ts). The secret OPENAI_API_KEY lives only on the server,
 // so this file never sees or sends it — it just POSTs chat messages to our own endpoint.
 
+import { qualityGuidanceMessage } from "../ai/promptTemplates/promptGuidance";
+
 export type ChatRole = "system" | "developer" | "user" | "assistant";
 
 export interface ChatMessage {
@@ -106,7 +108,12 @@ export const requestChatCompletion = async (request: ChatCompletionRequest): Pro
  */
 export const buildChatMessages = (
   userPrompt: string,
-  instructions: { systemInstructions?: string; developerInstructions?: string } = {}
+  instructions: {
+    systemInstructions?: string;
+    developerInstructions?: string;
+    qualityChecklist?: string[];
+    failureModes?: string[];
+  } = {}
 ): ChatMessage[] => {
   const messages: ChatMessage[] = [];
   if (instructions.systemInstructions?.trim()) {
@@ -115,6 +122,15 @@ export const buildChatMessages = (
   if (instructions.developerInstructions?.trim()) {
     messages.push({ role: "system", content: instructions.developerInstructions.trim() });
   }
+  // Every prompt template authors a quality bar and a list of known failure
+  // modes; until now neither was ever sent, so the model was asked to do the
+  // work without being told what "good" means. This is the one builder behind
+  // every per-object generation, so adding it here covers all of them.
+  const guidance = qualityGuidanceMessage({
+    qualityChecklist: instructions.qualityChecklist ?? [],
+    failureModes: instructions.failureModes ?? []
+  });
+  if (guidance) messages.push({ role: "system", content: guidance });
   messages.push({ role: "user", content: userPrompt });
   return messages;
 };

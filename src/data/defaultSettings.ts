@@ -54,8 +54,6 @@ export const defaultSettings: CourseSettings = {
     allowDueDatesOutsideTerm: false
   },
   imageSettings: {
-    homepageBannerMode: "generated-svg",
-    courseTileMode: "generated-svg",
     moduleHeaderImages: true
   },
   sourceFiles: []

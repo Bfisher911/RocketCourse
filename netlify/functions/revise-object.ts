@@ -6,6 +6,7 @@
 import { getAuthedUser, json } from "./_shared/http";
 import { checkUserEntitlement, recordAiUsage } from "./_shared/userEntitlement";
 import { getActivePromptTemplate } from "../../src/ai/promptTemplates/registry";
+import { qualityGuidanceMessage } from "../../src/ai/promptTemplates/promptGuidance";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -65,9 +66,13 @@ export default async (request: Request): Promise<Response> => {
     .filter(Boolean)
     .join("\n");
 
+  // The revision stage's own quality bar and failure modes — authored on the
+  // template but never previously sent to the model.
+  const guidance = qualityGuidanceMessage(template);
   const messages = [
     { role: "system", content: template.systemInstructions },
     { role: "system", content: template.developerInstructions },
+    ...(guidance ? [{ role: "system", content: guidance }] : []),
     { role: "user", content: userPrompt }
   ];
 

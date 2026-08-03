@@ -8,6 +8,7 @@
 import { getAuthedUser, json } from "./_shared/http";
 import { checkUserEntitlement, recordAiUsage } from "./_shared/userEntitlement";
 import { getActivePromptTemplate } from "../../src/ai/promptTemplates/registry";
+import { courseStandardMessage, qualityGuidanceMessage } from "../../src/ai/promptTemplates/promptGuidance";
 import { BLUEPRINT_JSON_SHAPE, parseBlueprint } from "../../src/ai/blueprint";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -90,9 +91,15 @@ export default async (request: Request): Promise<Response> => {
     `\n\nDesign workflow requirement: ${workflowNote}` +
     `\n\nReturn ONLY a JSON object with exactly this shape (no prose, no markdown):\n${BLUEPRINT_JSON_SHAPE}`;
 
+  // The blueprint is the contract every downstream object is drafted against,
+  // so it gets both the stage quality bar AND the full course-architecture
+  // standard. Neither was previously sent to the model at all.
+  const guidance = qualityGuidanceMessage(template);
   const messages = [
     { role: "system", content: template.systemInstructions },
     { role: "system", content: template.developerInstructions },
+    { role: "system", content: courseStandardMessage() },
+    ...(guidance ? [{ role: "system", content: guidance }] : []),
     { role: "user", content: userPrompt }
   ];
 
