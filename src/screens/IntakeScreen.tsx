@@ -309,22 +309,14 @@ export function Intake({
               {settings.finalProject && <Toggle label="Scaffold final project" hint="Spreads the final project across smaller graded check-ins during the term instead of one big deadline." checked={settings.scaffoldFinalProject} onChange={(value) => onSettingsChange("scaffoldFinalProject", value)} />}
               <Toggle label="Rubrics" hint="Generates a Canvas rubric for every graded assignment and discussion, aligned to the course outcomes." checked={settings.includeRubrics} onChange={(value) => onSettingsChange("includeRubrics", value)} />
               <Toggle label="AAA contrast" hint="Uses the strictest WCAG AAA color-contrast tier for themed content (larger text, stronger contrast). Default is AA, the common institutional standard." checked={settings.accessibilityTier === "AAA"} onChange={(value) => onSettingsChange("accessibilityTier", value ? "AAA" : "AA")} />
-              <Select
-                label="Course card image"
-                value={settings.imageSettings.courseTileMode}
-                options={["generated-svg", "upload", "future-ai", "url"]}
-                labels={{ "generated-svg": "Start with theme artwork", upload: "Upload after build", "future-ai": "Generate with Premium", url: "Keep saved image URL" }}
-                hint="Canvas dashboard cards use a wide crop. Uploading your own image never uses AI credits."
-                onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, courseTileMode: value as CourseSettings["imageSettings"]["courseTileMode"] })}
-              />
-              <Select
-                label="Homepage banner"
-                value={settings.imageSettings.homepageBannerMode}
-                options={["generated-svg", "upload", "future-ai", "url"]}
-                labels={{ "generated-svg": "Start with theme artwork", upload: "Upload after build", "future-ai": "Generate with Premium", url: "Keep saved image URL" }}
-                hint="After the course is built, the Imagery step handles crop, focal point, alt text, versions, and export."
-                onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, homepageBannerMode: value as CourseSettings["imageSettings"]["homepageBannerMode"] })}
-              />
+              {/* Course-card and homepage-banner imagery are NOT asked here.
+                  Both used to be four-option pickers (including "Generate with
+                  Premium") that nothing in the pipeline read — the choice was
+                  never honoured. Every course starts with theme artwork, and the
+                  Imagery step does the real work after the build: upload at no
+                  AI charge or generate a coordinated set, plus crop, focal
+                  point, alt text and versions. Asking before the course exists
+                  was a decision the user could not yet make meaningfully. */}
               <Toggle label="Module image hooks" hint="Adds a decorative SVG header image to each module overview page (no external image services)." checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
             </div>
   );
