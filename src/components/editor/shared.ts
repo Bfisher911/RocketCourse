@@ -33,17 +33,10 @@ export const themePreviewModes: Array<{ id: ThemePreviewKind; label: string }> =
   { id: "rubric", label: "Rubric" }
 ];
 
-export const readinessTab = (id: string): EditorTab => {
-  if (id.startsWith("homepage")) return "Homepage";
-  if (id.startsWith("syllabus")) return "Syllabus";
-  if (id.startsWith("discussion")) return "Discussions";
-  if (id.startsWith("quiz")) return "Quizzes";
-  if (id.startsWith("rubric")) return "Rubrics";
-  if (id.startsWith("assignment-group") || /^(weight|weights|nonzero-weight)/.test(id)) return "Gradebook Setup";
-  if (id.startsWith("assignment")) return "Assignments";
-  if (/^(workload|contact|calendar|schedule|due-date|graded-due)/.test(id)) return "Contact Hours";
-  if (/^(export|instructor-pdf|syllabus-pdf|human-review|reference-integrity)/.test(id)) return "Export";
-  if (/^(module|required-modules|content-module|start-here|instructor-unpublished)/.test(id)) return "Modules";
-  if (/^(page-quality|internal-links|placeholder-links|thin-content|empty-content)/.test(id)) return "Pages";
-  return "Overview"; // outcomes, objectives, bloom, accessibility, navigation, alignment-map
-};
+/**
+ * The tab that fixes a readiness check. Aliases the one canonical table so the
+ * editor rail, the readiness drawer, the Overview cards and the guided journey
+ * all send the user to the SAME place — this used to be a second, independent
+ * regex chain that disagreed with services/overviewSummary.ts.
+ */
+export { tabForCheck as readinessTab } from "../../services/readinessTabs";

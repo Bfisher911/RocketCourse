@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef } from "react";
 
 const FOCUSABLE = [
   "a[href]",
@@ -12,8 +12,14 @@ const FOCUSABLE = [
 /**
  * Gives modal surfaces a predictable keyboard contract: focus enters the dialog,
  * Tab stays inside it, Escape closes it, and focus returns to the invoking control.
+ *
+ * The ref type is deliberately INFERRED from useRef rather than annotated: React
+ * 18 types make `useRef<T>(null)` a `RefObject<T>` while React 19 makes it
+ * `RefObject<T | null>`, and hard-coding either one breaks every consumer's
+ * `ref={...}` under the other major version. Inference tracks whichever
+ * @types/react is installed.
  */
-export function useModalFocus<T extends HTMLElement>(active: boolean, onClose: () => void): RefObject<T | null> {
+export function useModalFocus<T extends HTMLElement>(active: boolean, onClose: () => void) {
   const containerRef = useRef<T>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;

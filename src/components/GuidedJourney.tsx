@@ -54,6 +54,10 @@ interface GuidedJourneyProps {
   onFillFullContent: () => void;
   /** Run the automatic repair engine over the course; returns what was fixed. */
   onAutoRepair: () => string[];
+  /** Public demo: the sample course is pre-filled and AI is unavailable, so the
+   * full-course generation control is replaced with an explanation (matching
+   * ExportTab). Without this the demo offers a button that can only fail. */
+  demoMode: boolean;
   /** Start building a first draft for a course that has no content yet. */
   onStartBuild: () => void;
   /** Leave the workspace (e.g. the final "Back to dashboard"). */
@@ -956,17 +960,31 @@ function ExportStage(props: GuidedJourneyProps & { readinessBlockers: number }) 
       <p className="gj-lead">Export to Canvas · Canvas-oriented Common Cartridge (.imscc)</p>
       <ol className="gj-expsteps">
         <li className="gj-card">
-          <div className="gj-expstep__head">
-            <strong>1 · Generate full content</strong> <span className="gj-pill">recommended</span>
-          </div>
-          <p className="gj-tiny">Flesh every module into complete pages, assignments, and quizzes. Uses AI credit per empty item.</p>
-          <button type="button" className="ghost-button" disabled={filling} onClick={props.onFillFullContent}>
-            <Sparkles size={14} /> {filling ? "Generating…" : "Generate full content"}
-          </button>
-          {props.fillProgress && (
-            <p className="gj-tiny" role="status">{props.fillProgress.completed}/{props.fillProgress.total} · {props.fillProgress.label}</p>
+          {props.demoMode ? (
+            <>
+              <div className="gj-expstep__head">
+                <strong>1 · Sample content</strong> <span className="gj-pill gj-pill--ok">Pre-populated</span>
+              </div>
+              <p className="gj-tiny">
+                This demo course is already filled in. Full-course AI generation is available in a signed-in workspace,
+                so exploring the demo never spends AI credit.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="gj-expstep__head">
+                <strong>1 · Generate full content</strong> <span className="gj-pill">recommended</span>
+              </div>
+              <p className="gj-tiny">Flesh every module into complete pages, assignments, and quizzes. Uses AI credit per empty item.</p>
+              <button type="button" className="ghost-button" disabled={filling} onClick={props.onFillFullContent}>
+                <Sparkles size={14} /> {filling ? "Generating…" : "Generate full content"}
+              </button>
+              {props.fillProgress && (
+                <p className="gj-tiny" role="status">{props.fillProgress.completed}/{props.fillProgress.total} · {props.fillProgress.label}</p>
+              )}
+              {props.fillSummary && <p className="gj-tiny">{props.fillSummary}</p>}
+            </>
           )}
-          {props.fillSummary && <p className="gj-tiny">{props.fillSummary}</p>}
         </li>
         <li className="gj-card">
           <div className="gj-expstep__head">
