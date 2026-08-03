@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Copy, GraduationCap, Link2, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, Link2, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { BuilderHero, BuilderMetricGrid } from "./builder/BuilderChrome";
 import type { CourseProject, Rubric } from "../types";

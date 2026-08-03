@@ -1,5 +1,5 @@
 import { slugify, stripHtml } from "../utils/text";
-import { CALENDAR_HREF, PRINTABLE_HTML_HREF, PRINTABLE_PDF_HREF } from "./syllabusTemplates";
+import { PRINTABLE_HTML_HREF, PRINTABLE_PDF_HREF } from "./syllabusTemplates";
 
 export type SyllabusCheckStatus = "pass" | "warn" | "fail";
 

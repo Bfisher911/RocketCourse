@@ -6,7 +6,7 @@ import { AlertTriangle, BookOpen, CheckCircle2, ChevronDown, ChevronRight, Clipb
 import { EmptyState } from "../../components/form";
 import type { ModulePreviewFilter } from "../../services/modulePlanner";
 import { getModuleItemTarget, itemCountsForModule, moduleItemTypeLabel, validateModulePlan } from "../../services/modulePlanner";
-import type { ThemePreviewKind } from "../../services/themeDesign";
+import type { } from "../../services/themeDesign";
 import type { CourseModule, CourseProject, ModuleItem } from "../../types";
 
 import type { EditorTab } from "../../types";

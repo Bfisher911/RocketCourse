@@ -134,7 +134,7 @@ export const importCanvasCourseFromImscc = async (file: File, settings: CourseSe
   const title = manifestTitle && manifestTitle !== "Untitled" ? manifestTitle : file.name.replace(/\.imscc$/i, "").replace(/[-_]+/g, " ");
   const base = generateCourseProject({
     prompt: `Imported Canvas IMSCC package: ${file.name}`,
-    settings: { ...settings, title, buildMode: "guided" }
+    settings: { ...settings, title }
   });
 
   const pageFiles = Object.keys(zip.files).filter((path) => /^wiki_content\/.+\.html$/i.test(path));

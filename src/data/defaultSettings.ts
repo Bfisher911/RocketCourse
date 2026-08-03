@@ -6,7 +6,6 @@ export const MODALITY_OPTIONS = ["Online asynchronous", "Online synchronous", "H
 
 export const defaultSettings: CourseSettings = {
   // Retained for stored-project compatibility; the intake no longer exposes it.
-  buildMode: "guided",
   contentDepth: "complete-course",
   // Title and description intentionally start empty: real generations must derive
   // entirely from the user's intake. The public demo passes its own explicit settings
@@ -37,19 +36,15 @@ export const defaultSettings: CourseSettings = {
   scaffoldPattern: "key-milestones",
   includeRubrics: true,
   includeObjectives: true,
-  includeBloom: true,
   outcomeFramework: "bloom",
   structureFramework: "linear",
   modulePattern: "standard",
   themeIntensity: "polished",
   includeContactHours: true,
   interactionDensity: "balanced",
-  accessibilityFocus: true,
   accessibilityTier: "AA",
   schedule: {
     enableDueDates: false,
-    meetingCadence: "weekly",
-    weeklyPattern: ["Monday", "Wednesday"],
     holidays: [],
     blackoutDates: [],
     academicCalendar: "",
@@ -61,8 +56,7 @@ export const defaultSettings: CourseSettings = {
   imageSettings: {
     homepageBannerMode: "generated-svg",
     courseTileMode: "generated-svg",
-    moduleHeaderImages: true,
-    futureImageCreditLimit: 20
+    moduleHeaderImages: true
   },
   sourceFiles: []
 };

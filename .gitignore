@@ -21,3 +21,8 @@ courseforge-*.imscc
 *.pem
 *.key
 id_rsa
+
+# Local screenshot / capture output (regenerable, never build inputs)
+output/
+artifacts/**/*.png
+artifacts/**/*.jpg

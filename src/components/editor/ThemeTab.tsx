@@ -14,7 +14,7 @@ import type { ThemePreviewKind } from "../../services/themeDesign";
 import { buildThemePreviewHtml, getThemeStyles, validateTheme } from "../../services/themeDesign";
 import type { CourseProject, Theme, VisualTemplateCategory } from "../../types";
 
-import type { EditorTab } from "../../types";
+import type { } from "../../types";
 import { themePreviewModes } from "./shared";
 
 export function ThemeSwatch({ label, value }: { label: string; value: string }) {

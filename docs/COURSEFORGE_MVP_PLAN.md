@@ -1,1 +1,0 @@
-Moved to ROCKETCOURSE_MVP_PLAN.md

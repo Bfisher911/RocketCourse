@@ -92,7 +92,8 @@ export function Editor({
   canUndo = false,
   canRedo = false,
   onUndo,
-  onRedo
+  onRedo,
+  focusMode = false
 }: {
   course: CourseProject;
   activeTab: EditorTab;
@@ -141,9 +142,17 @@ export function Editor({
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  /** Opened as a layer over the guided journey rather than as the whole
+   * workspace. The journey is already the guide, so this editor drops its own
+   * phase wizard and gives direct access to the section the user asked for. */
+  focusMode?: boolean;
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<EditorViewMode>(readStoredEditorView);
+  const [storedViewMode, setViewMode] = useState<EditorViewMode>(readStoredEditorView);
+  // Two guided systems stacked read as two competing wizards; in a layer the
+  // journey owns guidance. The user's own saved preference is untouched — it
+  // simply doesn't apply while the editor is a tool inside another flow.
+  const viewMode: EditorViewMode = focusMode ? "tabs" : storedViewMode;
   // Readiness lives in a slide-over drawer (opened from the header chip) so the
   // editor is two calm columns instead of three competing ones.
   const [readinessOpen, setReadinessOpen] = useState(false);
@@ -366,14 +375,16 @@ export function Editor({
               ))}
             </div>
           )}
-          <div className="view-toggle" role="group" aria-label="Editor view mode">
-            <button className={viewMode === "guided" ? "active" : ""} aria-pressed={viewMode === "guided"} onClick={() => changeViewMode("guided")}>
-              <ListChecks size={14} /> Guided
-            </button>
-            <button className={viewMode === "tabs" ? "active" : ""} aria-pressed={viewMode === "tabs"} onClick={() => changeViewMode("tabs")}>
-              <LayoutDashboard size={14} /> All sections
-            </button>
-          </div>
+          {!focusMode && (
+            <div className="view-toggle" role="group" aria-label="Editor view mode">
+              <button className={viewMode === "guided" ? "active" : ""} aria-pressed={viewMode === "guided"} onClick={() => changeViewMode("guided")}>
+                <ListChecks size={14} /> Guided
+              </button>
+              <button className={viewMode === "tabs" ? "active" : ""} aria-pressed={viewMode === "tabs"} onClick={() => changeViewMode("tabs")}>
+                <LayoutDashboard size={14} /> All sections
+              </button>
+            </div>
+          )}
         </div>
         <div className="tab-body">
           {/* One boundary: exactly one tab renders at a time, so this is
