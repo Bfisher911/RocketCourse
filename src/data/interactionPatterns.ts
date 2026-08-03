@@ -113,7 +113,6 @@ const A11Y_DISCLOSURE =
   "Details/summary panels are keyboard-operable natively. Keep summary labels descriptive and heading order logical.";
 const A11Y_TABLE = "Table uses th scope headers; keep the wrapping div scrollable so mobile never clips columns.";
 const A11Y_LINKS = "Every card must link to a real Canvas destination with meaningful link text — no dead '#' links.";
-const A11Y_MEDIA = "Provide captions or a transcript and a short purpose statement; never autoplay.";
 const A11Y_IFRAME =
   "Descriptive iframe title, responsive container, text alternative, and an open-in-new-window link are required. Scores cannot pass back through a plain iframe.";
 

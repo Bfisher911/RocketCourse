@@ -164,8 +164,8 @@ function originalPlaceholder(): HTMLElement {
   el.innerHTML = `
     <div class="rc-host-original__panel">
       <div class="rc-code">W01</div>
-      <h2>Original RocketCourse workflow</h2>
-      <p>The current tabbed editor is preserved unchanged and remains the live app. In the
+      <h2>Advanced Workspace</h2>
+      <p>The full tabbed editor is preserved unchanged and remains the live app. In the
       integrated build this pane loads the existing editor over the same shared course; in this
       foundation preview it is represented as a registered experience so switching parity is visible.</p>
       <a class="rc-btn rc-btn--ghost" href="/" >Open the current app →</a>

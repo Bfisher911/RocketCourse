@@ -3,7 +3,7 @@
 // badge on Guided Journey, and an explicit promise that switching won't change
 // course content. Units-inspired styling via the rc- token layer.
 
-import { experiencesByCode, type WorkflowExperience } from "./experienceRegistry";
+import { experiencesForPicker, type WorkflowExperience } from "./experienceRegistry";
 import { saveUserPreferred } from "./workflowContext";
 
 export interface SelectorCallbacks {
@@ -31,7 +31,7 @@ export function openSelector(cb: SelectorCallbacks): HTMLElement {
   panel.appendChild(header(cb));
   const grid = document.createElement("div");
   grid.className = "rc-sel__grid";
-  experiencesByCode().forEach(exp => grid.appendChild(card(exp, cb)));
+  experiencesForPicker().forEach(exp => grid.appendChild(card(exp, cb)));
   panel.appendChild(grid);
 
   overlay.appendChild(panel);
@@ -59,7 +59,7 @@ function header(cb: SelectorCallbacks): HTMLElement {
 
 function card(exp: WorkflowExperience, cb: SelectorCallbacks): HTMLElement {
   const el = document.createElement("article");
-  el.className = "rc-xcard";
+  el.className = exp.isDefault ? "rc-xcard rc-xcard--rec" : "rc-xcard";
   el.style.setProperty("--accent", `var(${exp.accent})`);
   const isCurrent = cb.currentId() === exp.id;
 

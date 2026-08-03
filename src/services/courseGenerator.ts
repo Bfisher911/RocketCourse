@@ -10,7 +10,6 @@ import type {
   Assignment,
   AssignmentGroup,
   CanvasNavigationItem,
-  ContactHourPlan,
   CourseImageSettings,
   CourseModule,
   CourseOutcome,
@@ -612,7 +611,6 @@ const tableHtml = (caption: string, headers: string[], rows: string[][], theme: 
 const pill = (label: string, theme: Theme): string =>
   `<span style="display: inline-block; margin: 0 8px 8px 0; padding: 5px 12px; border-radius: 999px; background: ${theme.soft}; border: 1px solid ${theme.accent}; color: ${theme.accentDark}; font-size: 13px; font-weight: 600;">${label}</span>`;
 
-const pillRow = (labels: string[], theme: Theme): string => `<p style="margin: 0 0 4px;">${labels.map((label) => pill(label, theme)).join("")}</p>`;
 
 const checklistHtml = (items: string[]): string =>
   `<ul style="list-style: none; margin: 10px 0 0; padding: 0;">${items
@@ -634,8 +632,6 @@ const buttonLink = (href: string, label: string, theme: Theme): string => buildT
 const secondaryLink = (href: string, label: string, theme: Theme): string => buildThemedSecondaryButton(theme, label, href);
 
 const callout = (title: string, body: string, theme: Theme): string => buildThemedCallout(theme, title, body);
-// Typed instructional callouts — each pedagogical move gets a distinct, color-coded, icon-badged look.
-const keyTermNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "key-term", title, body);
 const exampleNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "example", title, body);
 const misconceptionNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "misconception", title, body);
 const checkNote = (title: string, body: string, theme: Theme): string => buildThemedNote(theme, "check", title, body);
@@ -645,7 +641,6 @@ const section = (title: string, body: string, theme: Theme): string => buildThem
 
 const canvasShell = (title: string, subtitle: string, body: string, theme: Theme): string => buildThemedShell(theme, title, subtitle, body);
 
-const pageHref = (slugOrTitle: string): string => `${slugify(slugOrTitle)}.html`;
 
 const readableFinalProjectType = (settings: CourseSettings): string =>
   settings.finalProjectType

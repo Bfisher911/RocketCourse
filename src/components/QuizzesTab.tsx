@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardCheck, Copy, Download, FileQuestion, FileText, Filter, GraduationCap, GripVertical, Key, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ClipboardCheck, Copy, Download, FileQuestion, FileText, Filter, GraduationCap, GripVertical, Key, Layers, Plus, RotateCcw, Search, Trash2, Wand2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { BuilderHero, BuilderMetricGrid } from "./builder/BuilderChrome";
 import type { CourseProject, PublishState, Quiz, QuizDifficulty, QuizQuestion, QuizQuestionType } from "../types";

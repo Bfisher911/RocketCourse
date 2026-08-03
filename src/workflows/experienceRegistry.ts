@@ -55,11 +55,11 @@ export const EXPERIENCES: WorkflowExperience[] = [
     accent: "--rc-green",
   },
   {
-    id: "original", code: "W01", name: "Original RocketCourse",
-    shortDescription: "The familiar tabbed workflow, preserved.",
+    id: "original", code: "W01", name: "Advanced Workspace",
+    shortDescription: "Every tool on screen at once, full direct control.",
     longDescription:
-      "The current RocketCourse editor, kept available unchanged as a selectable experience so existing users lose nothing.",
-    bestFor: "Returning users who know the current app",
+      "The full tabbed workspace: every editor, setting, and export tool visible and one click away. Best when you already know exactly what you want to change.",
+    bestFor: "Experienced builders who want direct control",
     guidance: "medium", navModel: "legacy-tabs", prototypeKey: null,
     demoAvailable: false, isDefault: false, enabled: true,
     accent: "--rc-ink",
@@ -152,4 +152,12 @@ export function resolveExperienceId(courseSpecific?: string | null, userPreferre
 /** Ordered by workflow code (W01…W09) for display. */
 export function experiencesByCode(): WorkflowExperience[] {
   return [...EXPERIENCES].sort((a, b) => a.code.localeCompare(b.code));
+}
+
+/** Picker order: the recommended default always leads; the rest follow by code.
+ * Every user-facing chooser reads this so the recommended path is option #1. */
+export function experiencesForPicker(): WorkflowExperience[] {
+  return [...EXPERIENCES].sort((a, b) =>
+    a.isDefault === b.isDefault ? a.code.localeCompare(b.code) : a.isDefault ? -1 : 1
+  );
 }

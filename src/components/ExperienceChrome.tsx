@@ -1,13 +1,14 @@
-// ExperienceChrome — the one utility strip shared by ALL ten editor states
-// (the original tabbed editor and the eight workflow experiences). Shows the
-// course, the current experience (W-code), and an accessible switcher.
-// Switching changes presentation only; course content never changes.
+// ExperienceChrome — the one persistent "you are here" strip shared by every
+// editor state (the Advanced Workspace and the guided journey). Answers the
+// four questions a builder actually has mid-course: which course, how good is
+// it (and is it improving), is my work safe, how do I jump anywhere.
+// Switching the view changes presentation only; course content never changes.
 
-import { experiencesByCode, getExperience } from "../workflows/experienceRegistry";
+import { useEffect, useRef } from "react";
+import { experiencesForPicker } from "../workflows/experienceRegistry";
 import "../design-system/tokens/rc-tokens.css";
-// The chrome's .rc-xchrome styles live in the workflow shell sheet; import it
-// here (its former importer, WorkflowHost, is gone).
-import "../workflows/workflow-shell.css";
+// Chrome styling only — the lab shell sheet is no longer pulled into the app bundle.
+import "./experienceChrome.css";
 
 interface ExperienceChromeProps {
   courseTitle: string;
@@ -20,8 +21,16 @@ interface ExperienceChromeProps {
 }
 
 export function ExperienceChrome(props: ExperienceChromeProps) {
-  const current = getExperience(props.experienceId);
   const readinessWord = props.readinessBlockers > 0 ? "Blocked" : props.readinessScore >= 90 ? "Ready" : "Review";
+  // Where this course stood when the session opened it. The score alone says
+  // how good the course is; the delta says RocketCourse is making it better —
+  // which is the thing the user should feel without having to look for it.
+  const baseline = useRef<number | null>(null);
+  useEffect(() => {
+    baseline.current ??= props.readinessScore;
+  }, [props.readinessScore]);
+  const gain = baseline.current === null ? 0 : props.readinessScore - baseline.current;
+
   return (
     <div data-rc-ds className="rc-xchrome" role="region" aria-label="Course workspace controls">
       <div className="rc-xchrome__seg">
@@ -29,33 +38,20 @@ export function ExperienceChrome(props: ExperienceChromeProps) {
         <span className="rc-xchrome__v" title={props.courseTitle}>{props.courseTitle}</span>
       </div>
       <div className="rc-xchrome__seg">
-        <span className="rc-xchrome__k">Experience</span>
-        <label className="rc-xchrome__switch">
-          <span className="rc-xchrome__code">{current?.code ?? "W02"}</span>
-          <select
-            className="rc-xchrome__select"
-            aria-label="Switch course-building experience — your course content never changes"
-            value={props.experienceId}
-            onChange={e => props.onSwitch(e.target.value)}
-          >
-            {experiencesByCode().filter(exp => exp.enabled).map(exp => (
-              <option key={exp.id} value={exp.id}>
-                {exp.code} · {exp.name}{exp.isDefault ? " (recommended)" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="rc-xchrome__seg">
-        <span className="rc-xchrome__k">Readiness</span>
+        <span className="rc-xchrome__k">Quality</span>
         <span className={"rc-xchrome__v rc-xchrome__v--" + readinessWord.toLowerCase()}>
           {readinessWord} · {props.readinessScore}
+          {gain > 0 && (
+            <span className="rc-xchrome__gain" title={`Up ${gain} points since you opened this course`}>
+              ▲ {gain}
+            </span>
+          )}
         </span>
       </div>
       <div className="rc-xchrome__seg">
-        <span className="rc-xchrome__k">Autosave</span>
+        <span className="rc-xchrome__k">Your work</span>
         <span className="rc-xchrome__v">
-          {props.saveState === "saving" ? "Saving…" : props.saveState === "error" ? "Retry needed" : props.saveState === "saved" ? "Saved" : "Local"}
+          {props.saveState === "saving" ? "Saving…" : props.saveState === "error" ? "Retry needed" : props.saveState === "saved" ? "Saved" : "Saved on this device"}
         </span>
       </div>
       <button
@@ -67,7 +63,24 @@ export function ExperienceChrome(props: ExperienceChromeProps) {
       >
         <span aria-hidden="true">⌘K</span> Commands
       </button>
-      <span className="rc-xchrome__note">Switching experiences never changes your course.</span>
+      {/* The view switcher is a preference, not a place — it sits last and
+          quiet so the recommended journey stays the obvious way to work. */}
+      <label className="rc-xchrome__switch rc-xchrome__switch--end">
+        <span className="rc-xchrome__k">View</span>
+        <select
+          className="rc-xchrome__select"
+          aria-label="Switch how you build this course — your course content never changes"
+          title="Switching views never changes your course."
+          value={props.experienceId}
+          onChange={e => props.onSwitch(e.target.value)}
+        >
+          {experiencesForPicker().filter(exp => exp.enabled).map(exp => (
+            <option key={exp.id} value={exp.id}>
+              {exp.name}{exp.isDefault ? " (recommended)" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

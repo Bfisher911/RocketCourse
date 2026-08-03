@@ -52,9 +52,13 @@ interface GuidedJourneyProps {
   onRunValidation: () => void;
   onDownload: () => void;
   onFillFullContent: () => void;
+  /** Run the automatic repair engine over the course; returns what was fixed. */
+  onAutoRepair: () => string[];
+  /** Start building a first draft for a course that has no content yet. */
+  onStartBuild: () => void;
   /** Leave the workspace (e.g. the final "Back to dashboard"). */
   onExit: () => void;
-  /** Open the full editor (W01) at a specific tab — for edits this journey keeps read-only. */
+  /** Open the detailed editor at a specific tab, layered over this journey (never a mode switch). */
   onOpenFullEditor: (tab: EditorTab) => void;
 }
 
@@ -64,7 +68,7 @@ const STAGES = [
   { key: "blueprint", label: "Blueprint", verb: "The plan behind the content" },
   { key: "generate", label: "Generate", verb: "The built first draft" },
   { key: "review", label: "Review", verb: "Walk the course and edit" },
-  { key: "resolve", label: "Fix issues", verb: "Clear what blocks export" },
+  { key: "resolve", label: "Improve", verb: "AI fixes what it can — you approve the rest" },
   { key: "preview", label: "Student preview", verb: "See what students see" },
   { key: "export", label: "Export", verb: "Package for Canvas" }
 ] as const;
@@ -105,15 +109,6 @@ const itemAttention = (item: ModuleItem, course: CourseProject): string | null =
   return null;
 };
 
-/** Which W01 tab edits this item type in full. */
-const tabForItemType = (type: ModuleItem["type"]): EditorTab => {
-  switch (type) {
-    case "assignment": return "Assignments";
-    case "discussion": return "Discussions";
-    case "quiz": return "Quizzes";
-    default: return "Pages";
-  }
-};
 
 export const GuidedJourney = forwardRef<WorkflowFocusHandle, GuidedJourneyProps>(function GuidedJourney(props, ref) {
   const { course, onUpdateCourse } = props;
@@ -213,14 +208,20 @@ export const GuidedJourney = forwardRef<WorkflowFocusHandle, GuidedJourneyProps>
         </div>
         <ol className="gj-steps">
           {STAGES.map((entry, index) => {
-            const unlocked = index <= Math.max(maxReached, ...[...done, -1]) + 1;
+            // Linear by default, never a cage: once a course HAS content, every
+            // step is reachable — someone returning to a finished course to grab
+            // the package should not have to click through Review and Preview to
+            // get there. Only a course with nothing in it still gates the steps
+            // that would have nothing to show.
+            const unlocked = built || index <= Math.max(maxReached, ...[...done, -1]) + 1;
             return (
               <li key={entry.key}>
                 <button
                   type="button"
                   className={`gj-step ${index === stageIndex ? "is-cur" : ""} ${done.has(index) ? "is-done" : ""}`}
                   disabled={!unlocked}
-                  aria-label={`Step ${index + 1}: ${entry.label}${done.has(index) ? " (done)" : ""}`}
+                  title={unlocked ? undefined : "Available once your course has content — build the first draft in Generate."}
+                  aria-label={`Step ${index + 1}: ${entry.label}${done.has(index) ? " (done)" : ""}${unlocked ? "" : " (available once your course has content)"}`}
                   aria-current={index === stageIndex ? "step" : undefined}
                   onClick={() => goStage(index)}
                 >
@@ -259,7 +260,7 @@ export const GuidedJourney = forwardRef<WorkflowFocusHandle, GuidedJourneyProps>
           {stage.key === "define" && <DefineStage {...props} recordDecision={recordDecision} />}
           {stage.key === "configure" && <ConfigureStage {...props} recordDecision={recordDecision} />}
           {stage.key === "blueprint" && <BlueprintStage {...props} recordDecision={recordDecision} />}
-          {stage.key === "generate" && <GenerateStage course={course} built={built} />}
+          {stage.key === "generate" && <GenerateStage course={course} built={built} onStartBuild={props.onStartBuild} />}
           {stage.key === "review" && (
             <ReviewStage
               {...props}
@@ -269,7 +270,9 @@ export const GuidedJourney = forwardRef<WorkflowFocusHandle, GuidedJourneyProps>
               onOpenItem={setOpenItemId}
             />
           )}
-          {stage.key === "resolve" && <ResolveStage course={course} readiness={readiness} onOpenFullEditor={props.onOpenFullEditor} />}
+          {stage.key === "resolve" && (
+            <ResolveStage course={course} readiness={readiness} onAutoRepair={props.onAutoRepair} onOpenFullEditor={props.onOpenFullEditor} />
+          )}
           {stage.key === "preview" && (
             <PreviewStage course={course} previewModuleId={previewModuleId} onSelectModule={setPreviewModuleId} />
           )}
@@ -309,13 +312,18 @@ const stagePrimaryLabel = (key: StageKey): string => {
   }
 };
 
+// Every hint tells the user something about THEIR course or their next move.
+// (An earlier "One primary action per step." described our design principle to
+// itself, which is not help — nobody reading it learned what to do.)
 const stageHint = (key: StageKey, blockers: number): string => {
   switch (key) {
-    case "define": return "One primary action per step.";
+    case "define": return "Plain language is fine — this is read for structure, never invented from.";
     case "configure": return "These reflect the course as built — adjust anything that changed.";
     case "blueprint": return "The structure behind the content. Change course-level decisions here.";
+    case "generate": return "A first draft to react to — everything stays editable.";
     case "review": return "Open any module to read and edit its items.";
-    case "resolve": return blockers > 0 ? `${blockers} must-fix item${blockers === 1 ? "" : "s"} open` : "No must-fix items remain.";
+    case "resolve": return blockers > 0 ? `${blockers} item${blockers === 1 ? "" : "s"} need${blockers === 1 ? "s" : ""} your judgment` : "Everything else was handled automatically.";
+    case "preview": return "Exactly what students see once this is imported.";
     case "export": return "Import into Canvas is not verified until you test it.";
     default: return "";
   }
@@ -436,7 +444,7 @@ function ConfigureStage(props: GuidedJourneyProps & { recordDecision: (label: st
         </span>
       </div>
       <p className="gj-callout gj-tiny">
-        💡 Only the decisions that change the plan appear now. Everything else waits until it matters.
+        💡 Changing any of these reshapes the plan for the whole course. Finer details — individual pages, rubrics, due dates — are edited where they live, later on.
       </p>
     </div>
   );
@@ -544,14 +552,19 @@ function BlueprintStage(props: GuidedJourneyProps & { recordDecision: (label: st
 // Stage: Generate
 // ---------------------------------------------------------------------------
 
-function GenerateStage({ course, built }: { course: CourseProject; built: boolean }) {
+function GenerateStage({ course, built, onStartBuild }: { course: CourseProject; built: boolean; onStartBuild: () => void }) {
   if (!built) {
     return (
       <div className="gj-stack">
-        <p className="gj-lead">This course has no generated content yet.</p>
+        <p className="gj-lead">This course has no content yet — let&rsquo;s build the first draft.</p>
         <p className="gj-tiny">
-          Build the first draft from the <strong>Create</strong> flow (top bar) — describe the course, approve the AI blueprint, and the draft lands back here for review.
+          You&rsquo;ll describe the course, approve the plan RocketCourse proposes, and the draft lands back here for review. Nothing is published anywhere.
         </p>
+        <div>
+          <button type="button" className="primary" onClick={onStartBuild}>
+            <Sparkles size={15} /> Build my first draft
+          </button>
+        </div>
       </div>
     );
   }
@@ -685,7 +698,7 @@ function ItemEditor(props: GuidedJourneyProps & { item: ModuleItem }) {
             <p className="gj-tiny">Rich layout page · shown exactly as students will see it.</p>
             <article className="gj-preview prose" dangerouslySetInnerHTML={{ __html: resolvePreviewImageSources(sanitizeHtmlForPreview(page.bodyHtml)) }} />
             <button type="button" className="ghost-button" onClick={() => onOpenFullEditor("Pages")}>
-              <ExternalLink size={14} /> Edit the full layout in Pages
+              <ExternalLink size={14} /> Open the full layout editor
             </button>
           </>
         ) : (
@@ -741,7 +754,7 @@ function AssignmentView({ assignment, course, onOpenFullEditor }: { assignment: 
         </p>
       )}
       <button type="button" className="ghost-button" onClick={() => onOpenFullEditor("Assignments")}>
-        <ExternalLink size={14} /> Edit in Assignments
+        <ExternalLink size={14} /> Edit this assignment in detail
       </button>
     </section>
   );
@@ -812,7 +825,7 @@ function QuizView({ quiz, onUpdateCourse, onOpenFullEditor }: { quiz: Quiz; onUp
         <p className="gj-tiny"><CheckCircle2 size={13} /> Answer key verified.</p>
       )}
       <button type="button" className="ghost-button" onClick={() => onOpenFullEditor("Quizzes")}>
-        <ExternalLink size={14} /> Edit questions in Quizzes
+        <ExternalLink size={14} /> Edit the questions in detail
       </button>
     </section>
   );
@@ -822,23 +835,44 @@ function QuizView({ quiz, onUpdateCourse, onOpenFullEditor }: { quiz: Quiz; onUp
 // Stage: Fix issues
 // ---------------------------------------------------------------------------
 
-function ResolveStage({ course, readiness, onOpenFullEditor }: {
+function ResolveStage({ course, readiness, onAutoRepair, onOpenFullEditor }: {
   course: CourseProject;
   readiness: ReturnType<typeof buildReadinessReport>;
+  onAutoRepair: () => string[];
   onOpenFullEditor: (tab: EditorTab) => void;
 }) {
   void course;
+  // AI first: entering this stage runs the repair engine before showing the
+  // user anything. What it fixed is celebrated quietly; only what genuinely
+  // needs human judgment is left as work.
+  const [autoFixes, setAutoFixes] = useState<string[] | null>(null);
+  const ranRepair = useRef(false);
+  useEffect(() => {
+    if (ranRepair.current) return;
+    ranRepair.current = true;
+    setAutoFixes(onAutoRepair());
+  }, [onAutoRepair]);
+
   const failing = readiness.checks.filter((check) => !check.passed);
   const blockers = failing.filter((check) => check.severity === "required");
   const advisories = failing.filter((check) => check.severity === "recommended");
   return (
     <div className="gj-stack">
       <p className="gj-lead">
-        Anything that blocks a confident export is listed here, along with recommendations. Every item shows exactly what to do.
+        RocketCourse repairs structural problems automatically as you work. Anything left below needs your judgment — every item says exactly what to do.
       </p>
-      <p className="gj-tiny">{blockers.length} must-fix · {advisories.length} advisory</p>
-      {failing.length === 0 && <p className="gj-tiny"><CheckCircle2 size={14} /> All checks pass. Ready to export.</p>}
-      {[{ title: "Must fix before export", list: blockers, warn: true }, { title: "Advisory", list: advisories, warn: false }]
+      {autoFixes && autoFixes.length > 0 && (
+        <section className="gj-card gj-celebrate" role="status">
+          <h3 className="gj-h3"><Sparkles size={15} aria-hidden="true" /> Fixed for you just now</h3>
+          <ul className="gj-list">
+            {autoFixes.map((fix) => (
+              <li key={fix}><CheckCircle2 size={13} aria-hidden="true" /> {fix}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {failing.length === 0 && <p className="gj-tiny"><CheckCircle2 size={14} /> Everything checks out. Ready to export.</p>}
+      {[{ title: "Needs your judgment before export", list: blockers, warn: true }, { title: "Ways to make it even better", list: advisories, warn: false }]
         .filter((group) => group.list.length > 0)
         .map((group) => (
           <section key={group.title} className="gj-card">
@@ -853,7 +887,7 @@ function ResolveStage({ course, readiness, onOpenFullEditor }: {
                       <p className="gj-tiny">{check.detail}</p>
                     </div>
                     <button type="button" className="ghost-button" onClick={() => onOpenFullEditor(tab)}>
-                      Open {tab} <ExternalLink size={13} />
+                      Fix in {tab} <ExternalLink size={13} />
                     </button>
                   </li>
                 );
@@ -915,6 +949,8 @@ function PreviewStage({ course, previewModuleId, onSelectModule }: {
 function ExportStage(props: GuidedJourneyProps & { readinessBlockers: number }) {
   const { course, validationReport } = props;
   const filling = props.isFillingContent;
+  const [exportFixes, setExportFixes] = useState<string[] | null>(null);
+  const blockingIssues = validationReport?.issues.filter((issue) => issue.severity === "error").length ?? 0;
   return (
     <div className="gj-stack">
       <p className="gj-lead">Export to Canvas · Canvas-oriented Common Cartridge (.imscc)</p>
@@ -934,10 +970,26 @@ function ExportStage(props: GuidedJourneyProps & { readinessBlockers: number }) 
         </li>
         <li className="gj-card">
           <div className="gj-expstep__head">
-            <strong>2 · Clear must-fix issues</strong>
-            {props.readinessBlockers === 0 ? <span className="gj-pill gj-pill--ok">Cleared</span> : <span className="gj-pill gj-pill--warn">{props.readinessBlockers} open</span>}
+            <strong>2 · Remaining issues</strong>
+            {props.readinessBlockers === 0 ? <span className="gj-pill gj-pill--ok">All clear</span> : <span className="gj-pill gj-pill--warn">{props.readinessBlockers} open</span>}
           </div>
-          <p className="gj-tiny">{props.readinessBlockers === 0 ? "No blocking issues remain." : "Resolve them in the Fix issues step."}</p>
+          <p className="gj-tiny">
+            {props.readinessBlockers === 0
+              ? "Nothing needs attention — structural repairs are applied automatically."
+              : "Try the automatic fix first; anything still listed afterwards needs your judgment in the Improve step."}
+          </p>
+          {props.readinessBlockers > 0 && (
+            <button type="button" className="ghost-button" onClick={() => setExportFixes(props.onAutoRepair())}>
+              <Sparkles size={14} /> Fix automatically
+            </button>
+          )}
+          {exportFixes && (
+            <p className="gj-tiny" role="status">
+              {exportFixes.length > 0
+                ? `✓ Applied ${exportFixes.length} automatic repair${exportFixes.length === 1 ? "" : "s"}.`
+                : "Nothing here can be fixed automatically — what remains needs your judgment in the Improve step."}
+            </p>
+          )}
         </li>
         <li className="gj-card">
           <div className="gj-expstep__head"><strong>3 · Validate & download</strong></div>
@@ -950,9 +1002,9 @@ function ExportStage(props: GuidedJourneyProps & { readinessBlockers: number }) 
           </div>
           {validationReport && (
             <p className="gj-tiny" role="status">
-              {validationReport.valid ? "Local validation passed" : "Validation found blocking issues"} (score {validationReport.score}) ·{" "}
-              {validationReport.issues.filter((issue) => issue.severity === "error").length} blocking ·{" "}
-              {validationReport.issues.filter((issue) => issue.severity === "warning").length} warnings
+              {validationReport.valid
+                ? `✓ Package validated — ready for Canvas (score ${validationReport.score}).`
+                : `${blockingIssues} issue${blockingIssues === 1 ? " needs" : "s need"} your judgment — automatic repairs were already applied. The Improve step lists each one.`}
             </p>
           )}
         </li>

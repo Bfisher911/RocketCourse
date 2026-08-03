@@ -10,9 +10,7 @@ import {
   Layers,
   MessageSquare,
   Palette,
-  Rocket,
-  Target
-} from "lucide-react";
+  Rocket} from "lucide-react";
 import { getTheme } from "../data/themes";
 import type { CourseSettings } from "../types";
 

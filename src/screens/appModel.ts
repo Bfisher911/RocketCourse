@@ -5,7 +5,7 @@
 // so keeping them in App.tsx would make each screen import App while App lazily
 // imported the screen back — a cycle that fails at runtime, not build time.
 
-import type { CourseProject } from "../types";
+import type { } from "../types";
 
 export const progressSteps = [
   "Reading course prompt and uploads",

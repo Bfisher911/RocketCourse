@@ -295,3 +295,8 @@
 /* export */
 .gj-expsteps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; counter-reset: none; }
 .gj-expstep__head { display: flex; align-items: center; gap: 10px; }
+
+/* quiet celebration — what the repair engine just fixed automatically */
+.gj-celebrate { border-color: #157f3d33; background: #157f3d0d; }
+.gj-celebrate .gj-h3 { color: #157f3d; display: flex; align-items: center; gap: 6px; }
+.gj-celebrate .gj-list li { display: flex; align-items: baseline; gap: 6px; }

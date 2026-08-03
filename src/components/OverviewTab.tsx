@@ -21,7 +21,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { CourseOutcome, CourseProject, EditorTab } from "../types";
+import type { CourseProject, EditorTab } from "../types";
 import {
   addOutcome,
   buildOverviewModel,

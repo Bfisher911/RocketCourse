@@ -1,54 +1,6 @@
-import {
-  ArrowDownToLine,
-  ArrowLeft,
-  ArrowRight,
-  AlertTriangle,
-  BookOpen,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  FlaskConical,
-  LogOut,
-  Wallet,
-  ChevronRight,
-  ClipboardCheck,
-  Clock,
-  CreditCard,
-  FileArchive,
-  FileText,
-  Gauge,
-  GripVertical,
-  Home,
-  Info,
-  Layers,
-  LayoutDashboard,
-  ListChecks,
-  Loader2,
-  Lock,
-  Mail,
-  Menu,
-  MessageSquareText,
-  MoveRight,
-  Newspaper,
-  Palette,
-  PanelLeft,
-  PenLine,
-  Plus,
-  RefreshCw,
-  Rocket,
-  RotateCcw,
-  RotateCw,
-  ShieldAlert,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
-  Upload,
-  User,
-  Wand2,
-  X
-} from "lucide-react";
-import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { BrandBadge, BrandHeader, BrandOrbitalAccent, LogoMark, LogoWordmark, RocketCourseLoader } from "./components/brand";
+import { ArrowDownToLine, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, FlaskConical, LogOut, Wallet, Clock, CreditCard, FileText, Gauge, Home, Info, Layers, LayoutDashboard, ListChecks, Lock, Mail, Menu, Newspaper, Palette, PanelLeft, PenLine, Rocket, ShieldAlert, ShieldCheck, Sparkles, User, Wand2, X } from "lucide-react";
+import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BrandHeader, BrandOrbitalAccent, LogoMark, LogoWordmark } from "./components/brand";
 import { ReadinessRing } from "./components/ReadinessRing";
 import { usePlatformAccess, type UsePlatformAccess } from "./services/usePlatformAccess";
 // Public marketing/legal surfaces: leaf views reachable only by navigation, so
@@ -65,22 +17,10 @@ const SuperAdminScreen = lazy(() => import("./components/admin/SuperAdminScreen"
 // Editor tabs are lazy. Only one renders at a time, and reaching any of them
 // requires opening a course — but statically they dragged the course-generation
 // engine, every content builder and the export stack onto the landing page.
-const AssignmentsTab = lazy(() => import("./components/AssignmentsTab").then(m => ({ default: m.AssignmentsTab })));
 import { AuthScreen, type AuthScreenMode } from "./components/AuthScreen";
 import { applySeo, pathToScreen, screenToPath } from "./seo";
-const ContactHoursTab = lazy(() => import("./components/ContactHoursTab").then(m => ({ default: m.ContactHoursTab })));
-const DiscussionsTab = lazy(() => import("./components/DiscussionsTab").then(m => ({ default: m.DiscussionsTab })));
 const ExportTab = lazy(() => import("./components/ExportTab").then(m => ({ default: m.ExportTab })));
-const GradebookTab = lazy(() => import("./components/GradebookTab").then(m => ({ default: m.GradebookTab })));
-const HomepageTab = lazy(() => import("./components/HomepageTab").then(m => ({ default: m.HomepageTab })));
-const ImageryTab = lazy(() => import("./components/ImageryTab").then(m => ({ default: m.ImageryTab })));
-const InteractionsTab = lazy(() => import("./components/InteractionsTab").then(m => ({ default: m.InteractionsTab })));
-const OverviewTab = lazy(() => import("./components/OverviewTab").then(m => ({ default: m.OverviewTab })));
-const PagesTab = lazy(() => import("./components/PagesTab").then(m => ({ default: m.PagesTab })));
 const PricingPage = lazy(() => import("./components/PricingPage").then(m => ({ default: m.PricingPage })));
-const QuizzesTab = lazy(() => import("./components/QuizzesTab").then(m => ({ default: m.QuizzesTab })));
-const RubricsTab = lazy(() => import("./components/RubricsTab").then(m => ({ default: m.RubricsTab })));
-const SyllabusTab = lazy(() => import("./components/SyllabusTab").then(m => ({ default: m.SyllabusTab })));
 const AboutPage = lazy(() => import("./components/AboutPage").then(m => ({ default: m.AboutPage })));
 const GuidesPage = lazy(() => import("./components/GuidesPage").then(m => ({ default: m.GuidesPage })));
 const ContactPage = lazy(() => import("./components/ContactPage").then(m => ({ default: m.ContactPage })));
@@ -89,7 +29,6 @@ import { DemoTour } from "./components/DemoTour";
 const LegalPage = lazy(() => import("./components/LegalPage").then(m => ({ default: m.LegalPage })));
 const IntegrationPage = lazy(() => import("./components/IntegrationPage").then(m => ({ default: m.IntegrationPage })));
 const FoundingCohortPage = lazy(() => import("./components/FoundingCohortPage").then(m => ({ default: m.FoundingCohortPage })));
-const TransformTab = lazy(() => import("./components/TransformTab").then(m => ({ default: m.TransformTab })));
 import { PublicFooter } from "./components/PublicFooter";
 import { CampaignBanner } from "./components/CampaignBanner";
 import { ProductWalkthrough } from "./components/ProductWalkthrough";
@@ -97,20 +36,7 @@ import { CourseBlueprintPreview } from "./components/CourseBlueprintPreview";
 import { ReviewMode } from "./components/ReviewMode";
 import { GuidedJourney, type WorkflowFocusHandle } from "./components/GuidedJourney";
 import { ExperienceChrome } from "./components/ExperienceChrome";
-import {
-  editorPhases,
-  editorTabs,
-  formatDate,
-  phaseIndexForTab,
-  progressSteps,
-  readStoredEditorView,
-  stepDescriptions,
-  storeEditorView,
-  weekdayLabels,
-  weekdayOptions,
-  type EditorTab,
-  type EditorViewMode
-} from "./screens/appModel";
+import { progressSteps, type EditorTab } from "./screens/appModel";
 import { ScreenSkeleton } from "./components/ScreenSkeleton";
 // Screens extracted from App.tsx. Landing stays EAGER (prerendered first paint);
 // everything reachable only by navigation is lazy.
@@ -120,30 +46,16 @@ const Editor = lazy(() => import("./screens/EditorScreen").then(m => ({ default:
 const Intake = lazy(() => import("./screens/IntakeScreen").then(m => ({ default: m.Intake })));
 const Progress = lazy(() => import("./screens/ProgressScreen").then(m => ({ default: m.Progress })));
 const WelcomeSummary = lazy(() => import("./screens/WelcomeSummary").then(m => ({ default: m.WelcomeSummary })));
-import { editMetadata, moveItem, readinessTab, renumberModules } from "./components/editor/shared";
+import { moveItem, renumberModules } from "./components/editor/shared";
 // Extracted editor screens, loaded on demand. ThemeTab in particular is the only
 // consumer of data/visualTemplates and the main consumer of data/themes, so
 // deferring it is what lets those leave the first paint.
-const ModulesTab = lazy(() => import("./components/editor/ModulesTab").then(m => ({ default: m.ModulesTab })));
-const ReadinessPanel = lazy(() => import("./components/editor/ReadinessPanel").then(m => ({ default: m.ReadinessPanel })));
 const ThemeTab = lazy(() => import("./components/editor/ThemeTab").then(m => ({ default: m.ThemeTab })));
-import {
-  CollapsibleSection,
-  EmptyState,
-  Input,
-  ListTextArea,
-  NumberInput,
-  Select,
-  SourceStatusBadge,
-  TextArea,
-  Toggle
-} from "./components/form";
 import { isChunkLoadError } from "./components/ChunkErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
 import { typeToTab, type CommandContext } from "./workflows/commandRegistry";
-import { experiencesByCode, getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
+import { getExperience, resolveExperienceId } from "./workflows/experienceRegistry";
 import { loadCoursePreferred, saveCoursePreferred } from "./workflows/workflowContext";
-import { useModalFocus } from "./hooks/useModalFocus";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 // aiGeneration and courseTransforms both reach services/courseGenerator, whose
@@ -151,8 +63,7 @@ import type { CourseBlueprint } from "./ai/blueprint";
 // call site so neither pulls the generation engine onto the first paint.
 import { recordCourseAiSpend } from "./services/aiSpendMeter";
 import type { ChatCompletionCost } from "./services/openaiClient";
-import { AiSpendBadge } from "./components/AiSpendBadge";
-import { buildThemeFromCustom, customThemesEnabled, listCustomThemes, saveCustomTheme, type CustomThemeInput } from "./services/customThemes";
+import { customThemesEnabled, listCustomThemes, saveCustomTheme, type CustomThemeInput } from "./services/customThemes";
 import { openBillingPortal, startCheckout } from "./billing/checkout";
 import { defaultSettings } from "./data/defaultSettings";
 import type { Plan, PlanKey } from "./data/plans";
@@ -162,13 +73,8 @@ import { themes } from "./data/themes";
 // generation at module scope (see services/sampleCourse.ts). Identity constants
 // and the lazy materializer come from that tiny module instead; the generator
 // itself is awaited at the call sites that actually generate.
-import {
-  getSampleProject,
-  PLACEHOLDER_COURSE,
-  SAMPLE_PROJECT_EXPORT_MODE,
-  SAMPLE_PROJECT_ID
-} from "./services/sampleCourse";
-import { visualTemplates, visualTemplateForThemeId } from "./data/visualTemplates";
+import { getSampleProject, PLACEHOLDER_COURSE, SAMPLE_PROJECT_EXPORT_MODE, SAMPLE_PROJECT_ID } from "./services/sampleCourse";
+import { visualTemplates } from "./data/visualTemplates";
 import { buildCourseQualityReport } from "./services/courseQuality";
 // The export / import / PDF cluster is deliberately NOT imported statically.
 // It pulls JSZip (~96 kB) plus the IMSCC, QTI and PDF engines — none of which a
@@ -178,41 +84,14 @@ import { buildCourseQualityReport } from "./services/courseQuality";
 // at build time, so they cost nothing).
 import type { FullFillProgress } from "./services/fullCourseContent";
 import { augmentPromptWithSources, parseSourceFile } from "./services/sourceParsing";
-import {
-  duplicateModuleWithContent,
-  getModuleItemTarget,
-  itemCountsForModule,
-  moduleItemTypeLabel,
-  moveModuleItem,
-  removeModule,
-  validateModulePlan,
-  type ModulePreviewFilter
-} from "./services/modulePlanner";
+import { duplicateModuleWithContent, moveModuleItem, removeModule } from "./services/modulePlanner";
 import { listProjectSummaries, listProjects, persistenceEnabled, saveProject, type ProjectSummary } from "./services/projectStore";
 import { buildReadinessReport } from "./services/readiness";
+import { repairCourse } from "./services/courseRepair";
 
-import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
+import { buildScheduleContext } from "./services/scheduleInput";
 import { inferSettingsFromPrompt } from "./services/promptInference";
-import { stripHtml } from "./utils/text";
-import { buildCourseTileSvg, buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
-import { colorblindSafetyReport } from "./services/accessibility";
-import type {
-  CourseModule,
-  CourseProject,
-  CourseSettings,
-  Discussion,
-  ExportMode,
-  ExportValidationReport,
-  ModuleItem,
-  ObjectMetadata,
-  Quiz,
-  ReadinessCheck,
-  Rubric,
-  Screen,
-  SourceFile,
-  Theme,
-  VisualTemplateCategory
-} from "./types";
+import type { CourseProject, CourseSettings, ExportMode, ExportValidationReport, Quiz, Screen, SourceFile, Theme } from "./types";
 
 
 const downloadBlob = (blob: Blob, fileName: string): void => {
@@ -292,6 +171,16 @@ function App() {
   };
   // Command palette (⌘K) — one shared command surface across every experience.
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Detailed-editor overlay for the guided journey: opening a full editor tab
+  // never switches the experience — the journey stays mounted (and keeps its
+  // place) underneath while the workspace opens on top with a way back.
+  const [focusTab, setFocusTab] = useState<EditorTab | null>(null);
+  // The Editor chunk is lazy; mounting it from a click must be a transition or
+  // React refuses to suspend on the synchronous update and trips the boundary.
+  const openFocusEditor = (tab: EditorTab): void => {
+    setActiveTab(tab);
+    startTransition(() => setFocusTab(tab));
+  };
   const workflowFocusRef = useRef<WorkflowFocusHandle | null>(null);
   const auth = useAuthSession();
   const access = usePlatformAccess(auth.session);
@@ -346,6 +235,12 @@ function App() {
     const fromCourse = loadCoursePreferred(course.id);
     if (fromCourse && getExperience(fromCourse)?.enabled) setExperienceId(fromCourse);
   }, [course.id]);
+
+  // The detailed-editor layer belongs to one journey session — leaving the
+  // editor or deliberately switching experiences closes it.
+  useEffect(() => {
+    setFocusTab(null);
+  }, [screen, experienceId]);
 
   const readiness = useMemo(() => buildReadinessReport(course), [course]);
   const quality = useMemo(() => buildCourseQualityReport(course), [course]);
@@ -539,6 +434,16 @@ function App() {
     });
     setValidationReport(null);
     setHistoryVersion((version) => version + 1);
+  };
+
+  // AI-first repair: run the deterministic repair engine over the course, apply
+  // the result, and return the list of what was fixed so the UI can celebrate
+  // quietly ("✓ Fixed automatically") instead of handing the user a to-do list.
+  // repairCourse is pure and idempotent, so this is always safe to call.
+  const autoRepairCourse = (): string[] => {
+    const { course: repaired, repairs } = repairCourse(course);
+    if (repairs.length) updateCourse(() => repaired);
+    return repairs;
   };
 
   const undoCourse = (): void => {
@@ -849,10 +754,14 @@ function App() {
       const { blob, report, fileName } = await generateImsccBlob({ ...courseToExport, exportMode }, exportMode);
       setValidationReport(report);
       if (!report.valid) {
+        // The export pipeline already ran the automatic repair engine, so what
+        // remains genuinely needs the instructor's judgment (e.g. a quiz with no
+        // questions). Say what was attempted and what's left — never send the
+        // user hunting through other tabs.
         const blockerCount = report.issues.filter((issue) => issue.severity === "error").length;
         setExportError(
-          `Validation found ${blockerCount} blocking issue${blockerCount === 1 ? "" : "s"} — the list below names each one. ` +
-            `Try "Make export-ready" in the Transform tab to auto-fix structural problems, then download again.`
+          `RocketCourse repaired everything that could be fixed automatically, but ${blockerCount} issue${blockerCount === 1 ? " still needs" : "s still need"} ` +
+            `your judgment before the package would import cleanly into Canvas. Each one is listed below with exactly what to do.`
         );
         return;
       }
@@ -1222,24 +1131,27 @@ function App() {
         />
       )}
       {screen === "editor" && experienceId !== "original" && (
-        <GuidedJourney
-          ref={workflowFocusRef}
-          course={course}
-          onUpdateCourse={updateCourse}
-          validationReport={validationReport}
-          exportAllowed={exportAllowed}
-          isFillingContent={isFillingContent}
-          fillProgress={fillProgress}
-          fillSummary={fillSummary}
-          onRunValidation={runValidation}
-          onDownload={downloadPackage}
-          onFillFullContent={() => { void fillFullCourseContent(); }}
-          onExit={() => setScreen("dashboard")}
-          onOpenFullEditor={(tab) => {
-            chooseExperience("original");
-            setActiveTab(tab);
-          }}
-        />
+        // hidden (not unmounted) while the detailed editor is open on top, so
+        // the journey keeps its stage, module, and decision state.
+        <div hidden={focusTab !== null}>
+          <GuidedJourney
+            ref={workflowFocusRef}
+            course={course}
+            onUpdateCourse={updateCourse}
+            validationReport={validationReport}
+            exportAllowed={exportAllowed}
+            isFillingContent={isFillingContent}
+            fillProgress={fillProgress}
+            fillSummary={fillSummary}
+            onRunValidation={runValidation}
+            onDownload={downloadPackage}
+            onFillFullContent={() => { void fillFullCourseContent(); }}
+            onAutoRepair={autoRepairCourse}
+            onStartBuild={() => startNewIntake()}
+            onExit={() => setScreen("dashboard")}
+            onOpenFullEditor={openFocusEditor}
+          />
+        </div>
       )}
       {screen === "editor" && paletteOpen && (
         <CommandPalette
@@ -1251,11 +1163,11 @@ function App() {
             chooseExperience,
             focusModule: (id) => {
               if (experienceId === "original") setActiveTab("Modules");
-              else workflowFocusRef.current?.focusModule(id);
+              else if (workflowFocusRef.current?.focusModule(id)) setFocusTab(null);
             },
             focusRef: (refId, type) => {
               if (experienceId === "original") setActiveTab(typeToTab(type) as EditorTab);
-              else workflowFocusRef.current?.focusRef(refId);
+              else if (workflowFocusRef.current?.focusRef(refId)) setFocusTab(null);
             },
             goDashboard: () => setScreen("dashboard"),
             runValidation,
@@ -1270,7 +1182,8 @@ function App() {
           } satisfies CommandContext}
         />
       )}
-      {screen === "editor" && experienceId === "original" && (
+      {screen === "editor" && (experienceId === "original" || focusTab !== null) && (() => {
+        const editorSurface = (
         <Editor
           course={course}
           activeTab={activeTab}
@@ -1319,8 +1232,27 @@ function App() {
           canRedo={redoStackRef.current.length > 0}
           onUndo={undoCourse}
           onRedo={redoCourse}
+          focusMode={experienceId !== "original"}
         />
-      )}
+        );
+        // In the Advanced Workspace the editor IS the experience. From the
+        // guided journey it opens as a layer with an always-visible way back —
+        // the journey never silently becomes a different app.
+        if (experienceId === "original") return editorSurface;
+        return (
+          <div className="focus-editor" role="region" aria-label="Detailed editor, opened from your guided journey">
+            <div className="focus-editor__bar">
+              <button type="button" className="primary" onClick={() => setFocusTab(null)}>
+                ← Back to your journey
+              </button>
+              <span className="focus-editor__note">
+                Detailed editor · same course — everything you change here is kept when you go back.
+              </span>
+            </div>
+            {editorSurface}
+          </div>
+        );
+      })()}
       {screen === "editor" && demoActive && tourOpen && (
         <DemoTour onSetTab={setActiveTab} onClose={() => setTourOpen(false)} />
       )}
@@ -1342,10 +1274,16 @@ function App() {
           onClose={() => setReviewOpen(false)}
           onJumpToTab={setActiveTab}
           onJumpToItem={(refId, tab) => {
-            // In the original editor a tab switch is the right landing; in the
-            // workflow experiences, deep-link straight to the item being fixed.
-            if (experienceId === "original") setActiveTab(tab);
-            else if (!workflowFocusRef.current?.focusRef(refId)) setActiveTab(tab);
+            // In the Advanced Workspace a tab switch is the right landing; in the
+            // guided journey, deep-link straight to the item being fixed (closing
+            // the detailed-editor layer if it was open), falling back to opening
+            // that layer at the right tab — never switching experiences.
+            if (experienceId === "original") {
+              setActiveTab(tab);
+              return;
+            }
+            if (workflowFocusRef.current?.focusRef(refId)) setFocusTab(null);
+            else openFocusEditor(tab);
           }}
         />
       )}
@@ -1431,6 +1369,12 @@ function TopBar({
 }) {
   const { session, entitlement } = auth;
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Inside the workspace the marketing links (Pricing, Guides, About, Contact,
+  // Blog) are five dead ends that lead OUT of a course mid-build, stacked above
+  // the workspace chrome and the experience's own rail. Building a course gets
+  // one navigation model: the workspace destinations, the logo, and the account.
+  const workspaceOnly = screen === "editor";
+  const workspaceNav = Boolean(session);
   const cls = (active: boolean): string => (active ? "active" : "");
   const navigate = (next: () => void): void => {
     setMobileNavOpen(false);
@@ -1439,17 +1383,27 @@ function TopBar({
   return (
     <header className="topbar">
       <BrandHeader onClick={() => onNavigate("landing")} />
-      <button
-        type="button"
-        className="topnav-toggle"
-        aria-expanded={mobileNavOpen}
-        aria-controls="primary-navigation"
-        onClick={() => setMobileNavOpen((open) => !open)}
+      {!(workspaceOnly && !workspaceNav) && (
+        <button
+          type="button"
+          className="topnav-toggle"
+          aria-expanded={mobileNavOpen}
+          aria-controls="primary-navigation"
+          onClick={() => setMobileNavOpen((open) => !open)}
+        >
+          {mobileNavOpen ? <X size={18} /> : <Menu size={18} />}
+          <span>{mobileNavOpen ? "Close" : "Menu"}</span>
+        </button>
+      )}
+      <nav
+        id="primary-navigation"
+        className={`topnav ${mobileNavOpen ? "is-open" : ""}`}
+        aria-label="Primary"
+        // Signed out inside the workspace (the public demo) there are no
+        // workspace destinations left — the logo and the demo banner are the
+        // way out, so an empty nav would only add chrome.
+        hidden={workspaceOnly && !workspaceNav}
       >
-        {mobileNavOpen ? <X size={18} /> : <Menu size={18} />}
-        <span>{mobileNavOpen ? "Close" : "Menu"}</span>
-      </button>
-      <nav id="primary-navigation" className={`topnav ${mobileNavOpen ? "is-open" : ""}`} aria-label="Primary">
         {session && (
           <div className="topnav-product" role="group" aria-label="Your workspace">
             <button className={`nav-emph ${cls(screen === "dashboard")}`} onClick={() => navigate(() => onNavigate("dashboard"))}>
@@ -1467,32 +1421,36 @@ function TopBar({
         )}
         {/* Signed-in users reach Home via the logo and are past needing the demo —
             trimming both keeps the workspace nav focused on the product. */}
-        {!session && (
+        {!session && !workspaceOnly && (
           <button className={cls(screen === "landing")} onClick={() => navigate(() => onNavigate("landing"))}>
             <Home size={16} /> Home
           </button>
         )}
-        {!session && (
+        {!session && !workspaceOnly && (
           <button className={cls(screen === "demo")} onClick={() => navigate(onDemo)}>
             <PanelLeft size={16} /> Demo
           </button>
         )}
-        <button className={cls(screen === "pricing")} onClick={() => navigate(() => onNavigate("pricing"))}>
-          <CreditCard size={16} /> Pricing
-        </button>
-        <button className={cls(screen === "guides")} onClick={() => navigate(() => onNavigate("guides"))}>
-          <BookOpen size={16} /> Guides
-        </button>
-        <button className={cls(screen === "about")} onClick={() => navigate(() => onNavigate("about"))}>
-          <Info size={16} /> About
-        </button>
-        <button className={cls(screen === "contact")} onClick={() => navigate(() => onNavigate("contact"))}>
-          <Mail size={16} /> Contact
-        </button>
-        <button className={cls(screen === "blog" || screen === "blogPost")} onClick={() => navigate(() => onNavigate("blog"))}>
-          <Newspaper size={16} /> Blog
-        </button>
-        {access.isSuperAdmin && (
+        {!workspaceOnly && (
+          <>
+            <button className={cls(screen === "pricing")} onClick={() => navigate(() => onNavigate("pricing"))}>
+              <CreditCard size={16} /> Pricing
+            </button>
+            <button className={cls(screen === "guides")} onClick={() => navigate(() => onNavigate("guides"))}>
+              <BookOpen size={16} /> Guides
+            </button>
+            <button className={cls(screen === "about")} onClick={() => navigate(() => onNavigate("about"))}>
+              <Info size={16} /> About
+            </button>
+            <button className={cls(screen === "contact")} onClick={() => navigate(() => onNavigate("contact"))}>
+              <Mail size={16} /> Contact
+            </button>
+            <button className={cls(screen === "blog" || screen === "blogPost")} onClick={() => navigate(() => onNavigate("blog"))}>
+              <Newspaper size={16} /> Blog
+            </button>
+          </>
+        )}
+        {access.isSuperAdmin && !workspaceOnly && (
           <button className={cls(screen === "admin")} onClick={() => navigate(() => onNavigate("admin"))}>
             <ShieldAlert size={16} /> Super Admin
           </button>

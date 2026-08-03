@@ -44,7 +44,6 @@ export type EditorTab =
   | "Transform"
   | "Export";
 
-export type BuildMode = "vibe" | "guided" | "hybrid";
 
 export type CourseContentDepth = "complete-course" | "generic-template";
 
@@ -70,7 +69,6 @@ export type ModuleKind = "start" | "content" | "final" | "instructor";
 
 export type ResourceType = "textbook" | "oer" | "scholarly-article" | "website" | "video" | "podcast" | "local-file" | "instructor-added" | "supplemental";
 
-export type MeetingCadence = "weekly" | "twice-weekly" | "self-paced" | "custom";
 
 export type ReviewPriority = "must" | "recommended" | "optional";
 
@@ -98,11 +96,8 @@ export interface ObjectMetadata {
 
 export interface CourseImageSettings {
   homepageBannerMode: "generated-svg" | "upload" | "url" | "future-ai";
-  homepageBannerUrl?: string;
   courseTileMode: "generated-svg" | "upload" | "url" | "future-ai";
-  courseTileUrl?: string;
   moduleHeaderImages: boolean;
-  futureImageCreditLimit: number;
 }
 
 export type CourseImagePlacement = "course-card" | "homepage-banner" | "supporting";
@@ -165,8 +160,6 @@ export interface ScheduleSettings {
   enableDueDates: boolean;
   termStartDate?: string;
   termEndDate?: string;
-  meetingCadence: MeetingCadence;
-  weeklyPattern: string[];
   holidays: string[];
   blackoutDates: string[];
   /** Optional pasted school academic calendar (raw multi-line text) used as generation context. */
@@ -178,7 +171,6 @@ export interface ScheduleSettings {
 }
 
 export interface CourseSettings {
-  buildMode: BuildMode;
   /** Controls whether RocketCourse creates complete subject-specific materials or an editable generic shell. */
   contentDepth?: CourseContentDepth;
   title: string;
@@ -210,7 +202,6 @@ export interface CourseSettings {
   scaffoldPattern: ScaffoldPattern;
   includeRubrics: boolean;
   includeObjectives: boolean;
-  includeBloom: boolean;
   /** Pedagogical framework used to frame learning outcomes (Bloom, SOLO, Dimensions of Knowledge, Kolb). */
   outcomeFramework: OutcomeFrameworkKey;
   /** Course-level instructional-design framework (sequencing/framing of the whole course). */
@@ -225,7 +216,6 @@ export interface CourseSettings {
   /** How many Canvas interaction patterns the generator inserts course-wide.
    * Optional + back-compatible: unset behaves as "balanced". */
   interactionDensity?: "minimal" | "balanced" | "rich" | "immersive";
-  accessibilityFocus: boolean;
   /** WCAG contrast tier for generated content. "AAA" deepens themed colors to clear 7:1. Default "AA". */
   accessibilityTier?: "AA" | "AAA";
   schedule: ScheduleSettings;

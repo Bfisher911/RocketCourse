@@ -1,0 +1,50 @@
+/* Experience chrome — the persistent workspace status strip (ExperienceChrome.tsx).
+   Split out of workflows/workflow-shell.css so the app's render-blocking stylesheet
+   no longer carries the ~6.7 KB of lab-only shell/selector styling that only the
+   (never-deployed) workflows.html lab uses. */
+/* Persistent workspace header: BOTH the app topbar (70px, sticky top:0) and the
+   experience chrome (sticky top:70px) stay put while you work, so the switcher,
+   readiness and ⌘K are always in reach. Each experience's rails then pin
+   directly beneath that stack. --rc-chrome-offset is measured live from the two
+   bars (WorkflowHost), so the pin is exact even when the chrome wraps — no magic
+   constant, and no rail overhang/gap at any scroll position. 134px is the
+   first-paint fallback (70 + ~64) before measurement runs. */
+[data-rc-ds].rc-xchrome, .rc-xchrome[data-rc-ds] {
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  padding: 8px 20px; background: var(--rc-paper-bright);
+  border-bottom: var(--rc-border-2); font-family: var(--rc-font-ui);
+  position: sticky; top: 70px; z-index: 20; color: var(--rc-ink);
+  box-shadow: 0 1px 0 rgba(17,17,17,.04);
+}
+@media (max-width: 760px) {
+  /* Single-column territory: rails go static (see each concept's @container
+     rules), so a persistent chrome would only eat a short screen's height —
+     let it and the header scroll away, and zero the offset. This block sits
+     AFTER the base rule so its static wins the source-order tie (media queries
+     add no specificity). */
+  [data-rc-ds].rc-xchrome, .rc-xchrome[data-rc-ds] { position: static; }
+}
+.rc-xchrome__seg { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.rc-xchrome__k { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--rc-muted-ink); }
+.rc-xchrome__v { font-weight: 700; font-size: 13px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-xchrome__v--blocked { color: var(--rc-danger); }
+.rc-xchrome__v--review { color: #6b4a00; }
+.rc-xchrome__v--ready { color: #04351f; }
+.rc-xchrome__switch { display: inline-flex; align-items: center; gap: 8px; }
+.rc-xchrome__select { font: inherit; font-weight: 700; font-size: 13px; border: 1px solid var(--rc-grid-line); border-radius: var(--rc-radius-xs); background: var(--rc-paper-bright); color: var(--rc-ink); padding: 6px 8px; max-width: 260px; min-height: 38px; }
+@media (pointer: coarse) { .rc-xchrome__select { min-height: 44px; } }
+.rc-xchrome__select:focus-visible { outline: var(--rc-focus); outline-offset: 1px; }
+.rc-xchrome__cmdk { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--rc-grid-line); background: var(--rc-paper); color: var(--rc-muted-ink);
+  border-radius: var(--rc-radius-pill); padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 600; min-height: 32px; }
+.rc-xchrome__cmdk:hover { border-color: var(--rc-blue); color: var(--rc-ink); }
+.rc-xchrome__cmdk span { font-family: var(--rc-font-mono); }
+.rc-xchrome__cmdk + .rc-xchrome__switch--end { margin-left: 0; }
+/* The view switcher trails the status segments: a preference, not a place. */
+.rc-xchrome__switch--end { gap: 6px; }
+.rc-xchrome__switch--end .rc-xchrome__select { max-width: 232px; }
+/* Quiet "this course is getting better" signal beside the quality score. */
+.rc-xchrome__gain { margin-left: 6px; font-size: 11.5px; font-weight: 800; color: #04351f; }
+@media (max-width: 900px) { .rc-xchrome__cmdk span:last-child, .rc-xchrome__cmdk { } }
+@media (pointer: coarse) { .rc-xchrome__cmdk { min-height: 44px; } }
+@media (max-width: 760px) { .rc-xchrome__v { max-width: 160px; } }

@@ -81,50 +81,6 @@
    serves the lab's viewport frame and the app). The stage must therefore BE a
    query container, or none of their collapses fire inside the SPA. */
 .rc-workflow-stage { min-height: calc(100vh - var(--rc-chrome-offset, 134px)); container-type: inline-size; }
-/* Persistent workspace header: BOTH the app topbar (70px, sticky top:0) and the
-   experience chrome (sticky top:70px) stay put while you work, so the switcher,
-   readiness and ⌘K are always in reach. Each experience's rails then pin
-   directly beneath that stack. --rc-chrome-offset is measured live from the two
-   bars (WorkflowHost), so the pin is exact even when the chrome wraps — no magic
-   constant, and no rail overhang/gap at any scroll position. 134px is the
-   first-paint fallback (70 + ~64) before measurement runs. */
-[data-rc-ds].rc-xchrome, .rc-xchrome[data-rc-ds] {
-  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
-  padding: 8px 20px; background: var(--rc-paper-bright);
-  border-bottom: var(--rc-border-2); font-family: var(--rc-font-ui);
-  position: sticky; top: 70px; z-index: 20; color: var(--rc-ink);
-  box-shadow: 0 1px 0 rgba(17,17,17,.04);
-}
-@media (max-width: 760px) {
-  /* Single-column territory: rails go static (see each concept's @container
-     rules), so a persistent chrome would only eat a short screen's height —
-     let it and the header scroll away, and zero the offset. This block sits
-     AFTER the base rule so its static wins the source-order tie (media queries
-     add no specificity). */
-  .rc-workflow-host { --rc-chrome-offset: 0px; }
-  [data-rc-ds].rc-xchrome, .rc-xchrome[data-rc-ds] { position: static; }
-}
-.rc-xchrome__seg { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
-.rc-xchrome__k { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--rc-muted-ink); }
-.rc-xchrome__v { font-weight: 700; font-size: 13px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rc-xchrome__v--blocked { color: var(--rc-danger); }
-.rc-xchrome__v--review { color: #6b4a00; }
-.rc-xchrome__v--ready { color: #04351f; }
-.rc-xchrome__switch { display: inline-flex; align-items: center; gap: 8px; }
-.rc-xchrome__code { font-family: var(--rc-font-mono); font-size: 11px; font-weight: 700; background: var(--rc-ink); color: var(--rc-paper-bright); padding: 2px 7px; border-radius: var(--rc-radius-xs); }
-.rc-xchrome__select { font: inherit; font-weight: 700; font-size: 13px; border: 1px solid var(--rc-grid-line); border-radius: var(--rc-radius-xs); background: var(--rc-paper-bright); color: var(--rc-ink); padding: 6px 8px; max-width: 260px; min-height: 38px; }
-@media (pointer: coarse) { .rc-xchrome__select { min-height: 44px; } }
-.rc-xchrome__select:focus-visible { outline: var(--rc-focus); outline-offset: 1px; }
-.rc-xchrome__cmdk { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
-  border: 1px solid var(--rc-grid-line); background: var(--rc-paper); color: var(--rc-muted-ink);
-  border-radius: var(--rc-radius-pill); padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 600; min-height: 32px; }
-.rc-xchrome__cmdk:hover { border-color: var(--rc-blue); color: var(--rc-ink); }
-.rc-xchrome__cmdk span { font-family: var(--rc-font-mono); }
-.rc-xchrome__cmdk + .rc-xchrome__note { margin-left: 0; }
-.rc-xchrome__note { margin-left: auto; font-size: 11.5px; color: var(--rc-muted-ink); }
-@media (max-width: 900px) { .rc-xchrome__cmdk span:last-child, .rc-xchrome__cmdk { } }
-@media (pointer: coarse) { .rc-xchrome__cmdk { min-height: 44px; } }
-@media (max-width: 760px) { .rc-xchrome__note { display: none; } .rc-xchrome__v { max-width: 160px; } }
 
 /* Original-workflow placeholder */
 [data-rc-ds] .rc-host-original { display: grid; place-items: center; min-height: calc(100vh - 130px); padding: 40px; }
@@ -177,6 +133,9 @@
   border-radius: var(--rc-radius-lg); padding: 18px; display: flex; flex-direction: column; gap: 10px;
   border-top: 8px solid var(--accent); transition: transform var(--rc-motion-standard) var(--rc-ease-out); }
 .rc-xcard:hover { transform: translateY(-3px); }
+/* The recommended default leads the grid and reads as the primary choice. */
+.rc-xcard--rec { border-color: var(--rc-green); box-shadow: 0 0 0 2px var(--rc-green); grid-column: 1 / -1; }
+.rc-xcard--rec .rc-xcard__name { font-size: 1.55rem; }
 .rc-xcard__top { display: flex; align-items: center; gap: 8px; }
 .rc-xcard__code { background: var(--accent); color: #111; padding: 2px 8px; border-radius: var(--rc-radius-xs); }
 .rc-xcard__name { font-size: 1.35rem; }

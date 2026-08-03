@@ -9,7 +9,6 @@ import {
   FileArchive,
   FileJson,
   FileText,
-  Info,
   ListChecks,
   Loader2,
   MinusCircle,

@@ -11,7 +11,7 @@ import {
   PackageCheck,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { stripHtml } from "../utils/text";
 import type { CourseProject, EditorTab } from "../types";
