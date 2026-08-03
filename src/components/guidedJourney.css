@@ -300,3 +300,7 @@
 .gj-celebrate { border-color: #157f3d33; background: #157f3d0d; }
 .gj-celebrate .gj-h3 { color: #157f3d; display: flex; align-items: center; gap: 6px; }
 .gj-celebrate .gj-list li { display: flex; align-items: baseline; gap: 6px; }
+
+/* Footer keeps Back and the primary action at opposite ends; the middle slot
+   is intentionally empty now that the duplicated stage hint is gone. */
+.gj-foot__spacer { flex: 1; }

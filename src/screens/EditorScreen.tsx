@@ -249,22 +249,10 @@ export function Editor({
               );
             })}
           </>
-        ) : (
-          <>
-            <span className="rail-label">Quick nav</span>
-            {[
-              ["Overview", BookOpen],
-              ["Modules", GripVertical],
-              ["Assignments", ClipboardCheck],
-              ["Discussions", MessageSquareText],
-              ["Export", FileArchive]
-            ].map(([label, Icon]) => (
-              <button key={String(label)} className={activeTab === label ? "active" : ""} onClick={() => setActiveTab(label as EditorTab)}>
-                <Icon size={17} /> {String(label)}
-              </button>
-            ))}
-          </>
-        )}
+        ) : null}
+        {/* No "Quick nav" here in tab view: it listed 5 destinations that are a
+            strict subset of the 16-tab strip rendered a few hundred pixels away,
+            and both were always on screen together. One navigation model. */}
       </aside>
 
       <section className="editor-main">
@@ -289,9 +277,9 @@ export function Editor({
               <h1>{course.title.trim() || "Untitled course"}</h1>
             <p>
               Structured Canvas course preview and editor
-              {saveState === "saving" && <span className="save-chip saving"><Loader2 size={12} className="spin" /> Saving…</span>}
-              {saveState === "saved" && <span className="save-chip saved"><CheckCircle2 size={12} /> Saved</span>}
-              {saveState === "error" && <span className="save-chip error"><AlertTriangle size={12} /> Save failed</span>}
+              {/* Save state is shown once, in the persistent workspace chrome
+                  above ("Your work"), which is on screen in both experiences.
+                  A second copy here always rendered alongside it. */}
               <AiSpendBadge courseId={course.id} />
             </p>
             </div>

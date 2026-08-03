@@ -1,6 +1,23 @@
 /* ============================================================
    Editor tab styles (code-split)
    ------------------------------------------------------------
+   LOAD ORDER MATTERS — READ BEFORE EDITING A SHARED CLASS.
+   This sheet is imported by the lazy tab components, so the browser
+   attaches it AFTER styles.css. At equal specificity, THIS FILE WINS.
+
+   76 class names appear in both files, and for 42 of them both files set
+   the same property. That is not accidental duplication: styles.css owns
+   cross-cutting concerns (overflow guards, shared tile hover/press motion,
+   app-wide responsive collapse) and mentions tab classes inside large
+   multi-selector groups, while this file owns each tab component's base
+   look AND its own responsive rules.
+
+   The practical consequence: for a class defined in both, editing the
+   styles.css copy usually has NO EFFECT — this file overrides it. Make the
+   change here. (Verified in production at 375px: the hero collapses to a
+   column, the layout is single-column, and nothing overflows, because this
+   sheet's own media rules govern.)
+
    Moved out of styles.css so this never blocks the first paint.
    Every rule here belongs to a tab that is React.lazy'd, verified by
    checking each class name's referencing components — sections whose

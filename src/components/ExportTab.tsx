@@ -379,9 +379,10 @@ export function ExportTab({
           <button type="button" className="secondary" onClick={downloadReport} disabled={!validationReport}>
             <FileJson size={16} /> Download report
           </button>
-          <button type="button" className="secondary" onClick={() => void copyChecklist()}>
-            <Copy size={16} /> {copyState}
-          </button>
+          {/* "Copy import checklist" lives once, in the Canvas import guide card
+              below — beside the checklist it actually copies. A second copy here
+              shared the same `copyState`, so clicking either flipped both to
+              "Copied", which read like a bug. */}
           </div>
         </div>
 
