@@ -343,6 +343,23 @@ interface SubjectProfile {
 
 const subjectProfileFor = (courseTopic: string, moduleTopic: string): SubjectProfile => {
   const text = `${courseTopic} ${moduleTopic}`.toLowerCase();
+  // Prehospital / public-safety leadership. Checked before the clinical profile because an EMS
+  // supervision course is about crews, protocols and medical direction, not medication safety —
+  // and before the generic fallback because falling through produced a course whose every page
+  // talked about "a stakeholder note" and "a visual or data artifact" instead of a run report.
+  // `\bems\b` is deliberate: an unbounded "ems" matches inside "systems".
+  if (/(emergency medical|\bems\b|paramedic|\bemt\b|prehospital|pre-hospital|fire service|first responder|public safety|emergency management|incident command)/.test(text)) {
+    return {
+      lens: "prehospital operations and crew leadership",
+      audience: "operations and medical-direction team",
+      caseLabel: `${courseTopic} incident review`,
+      artifactLabel: "call review, patient care report, or quality-improvement finding",
+      artifacts: ["call review", "patient care report", "response-time summary", "incident debrief", "protocol deviation report", "crew performance observation"],
+      evidenceTypes: ["run report detail", "response-time data", "protocol requirement", "medical-direction guidance", "crew debrief statement", "quality-improvement metric"],
+      actionVerbs: ["assess", "debrief", "escalate", "standardize"],
+      keyTerms: ["crew resource management", "closed-loop communication", "medical direction", "scope of practice", "quality improvement", "incident command"]
+    };
+  }
   if (/(pharmac|nursing|medication|medicine|clinical|patient care)/.test(text)) {
     return {
       lens: "clinical reasoning and medication safety",
@@ -498,10 +515,14 @@ const outcomeText = (verb: string, topic: string, index: number): string => {
   const nextEvidence = profile.evidenceTypes[(rotationIndex + 1) % profile.evidenceTypes.length];
   const term = profile.keyTerms[rotationIndex % profile.keyTerms.length];
   const nextTerm = profile.keyTerms[(rotationIndex + 1) % profile.keyTerms.length];
+  // Outcome count follows the framework's level count (six under Bloom), and only the
+  // remember/identify frame names key terms — so listing just two left most of a discipline's core
+  // vocabulary out of the outcomes entirely. Three keeps the sentence readable and the coverage real.
+  const thirdTerm = profile.keyTerms[(rotationIndex + 2) % profile.keyTerms.length];
   const withArticle = (value: string): string => `${/^[aeiou]/i.test(value) ? "an" : "a"} ${value}`;
 
   if (["remember", "identify"].includes(normalized)) {
-    return `${verb} ${term}, ${nextTerm}, and other foundational concepts used in ${topic}.`;
+    return `${verb} ${term}, ${nextTerm}, ${thirdTerm}, and other foundational concepts used in ${topic}.`;
   }
   if (["understand", "describe", "explain", "conceptualize"].includes(normalized)) {
     return `${verb} how ${evidence} and ${nextEvidence} shape ${profile.lens} in ${topic}.`;
@@ -1701,7 +1722,12 @@ export const generateCourseProject = ({ prompt, settings, themeOverride, moduleT
   });
 
   const framework = getOutcomeFramework(mergedSettings.outcomeFramework);
-  const outcomes: CourseOutcome[] = Array.from({ length: 10 }, (_, index) => {
+  // One course outcome per level of the chosen framework, not a fixed ten. Bloom has six levels, so
+  // asking for ten meant outcomes 7-10 reused the sentence frames of 1-4 with two nouns swapped —
+  // CLO 1 and CLO 7 both read "Identify <term>, <term>, and other foundational concepts used in
+  // <course>". Six also matches what programmes actually expect at the course level; ten reads as
+  // padding and makes the alignment map unusable.
+  const outcomes: CourseOutcome[] = Array.from({ length: framework.levels.length }, (_, index) => {
     const level = framework.levels[index % framework.levels.length];
     return {
       id: id("outcome", index + 1),
@@ -2348,7 +2374,16 @@ ${section("Module Navigation", wrapNavBar(index), theme)}`,
   }
 
   const finalModuleId = "module_final_project";
-  const finalOutcomeIds = [outcomes[1].id, outcomes[3].id, outcomes[5].id, outcomes[8].id];
+  // The final project should span the upper half of the framework rather than a fixed set of
+  // indices — outcome count follows the chosen framework's level count, so hardcoded slots like
+  // outcomes[8] do not exist under Bloom's six levels.
+  const finalOutcomeIds = Array.from(
+    new Set(
+      [Math.floor(outcomes.length / 2), outcomes.length - 3, outcomes.length - 2, outcomes.length - 1]
+        .filter((index) => index >= 0 && index < outcomes.length)
+        .map((index) => outcomes[index].id)
+    )
+  );
   const finalItems: ModuleItem[] = [];
   const finalReleaseAt = releaseDateForModule(mergedSettings, moduleCount);
   const finalDueAt = dueDateForModule(mergedSettings, moduleCount, 6);
