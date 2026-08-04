@@ -151,16 +151,20 @@ export const buildCourseMap = (
       const cells = outcomes
         .map((code) => {
           const hit = module.outcomeCodes.includes(code);
-          const dot = hit
-            ? `<span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: ${pal.accent};"></span>`
-            : `<span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: ${withAlpha(pal.accent, 0.1)};"></span>`;
-          return `<td style="padding: 7px 6px; text-align: center; border-top: 1px solid ${pal.border};">${dot}</td>`;
+          // The filled/faded swatch carries the meaning visually, so it is decorative and the state
+          // is also given as text. Without this the grid conveys alignment by colour alone: a
+          // screen reader reads an empty cell, and so does anyone who cannot distinguish the two
+          // shades. The text is clipped rather than hidden with a class, because Canvas keeps
+          // inline styles but strips stylesheets.
+          const dot = `<span aria-hidden="true" style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: ${hit ? pal.accent : withAlpha(pal.accent, 0.1)};"></span>`;
+          const label = `<span style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;">${hit ? `Aligned to ${esc(code)}` : `Not aligned to ${esc(code)}`}</span>`;
+          return `<td style="padding: 7px 6px; text-align: center; border-top: 1px solid ${pal.border}; position: relative;">${dot}${label}</td>`;
         })
         .join("");
       return `<tr style="background: ${index % 2 ? withAlpha(pal.accent, 0.04) : "#ffffff"};"><th scope="row" style="text-align: left; padding: 7px 10px; border-top: 1px solid ${pal.border}; font-family: ${VIZ_FONT}; font-size: 13px; font-weight: 700; color: ${pal.ink};">${esc(module.title)}</th>${cells}</tr>`;
     })
     .join("");
   return `<div style="margin: 18px 0; border: 1px solid ${pal.border}; border-radius: 14px; overflow: hidden;">
-  <table style="width: 100%; border-collapse: collapse;"><thead><tr style="background: ${pal.soft};">${head}</tr></thead><tbody>${rows}</tbody></table>
+  <table style="width: 100%; border-collapse: collapse;"><caption style="caption-side: top; text-align: left; margin: 0 0 10px; padding: 0 10px; color: ${pal.ink}; font-family: ${VIZ_FONT}; font-size: 13px; font-weight: 700;">Course outcome coverage by module</caption><thead><tr style="background: ${pal.soft};">${head}</tr></thead><tbody>${rows}</tbody></table>
 </div>`.trim();
 };

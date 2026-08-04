@@ -66,4 +66,24 @@ describe("themeDataViz", () => {
     expect(html).toContain("CO3");
     canvasSafe(html);
   });
+
+  it("states outcome alignment as text, not colour alone", () => {
+    const html = buildCourseMap(
+      theme,
+      [
+        { title: "Foundations", outcomeCodes: ["CO1"] },
+        { title: "Application", outcomeCodes: ["CO2"] }
+      ],
+      ["CO1", "CO2"]
+    );
+
+    // The grid used to say "aligned" only by filling a swatch, so a screen reader read an empty
+    // cell and nobody relying on contrast could tell the two shades apart.
+    expect(html).toContain("<caption");
+    expect(html).toContain("Aligned to CO1");
+    expect(html).toContain("Not aligned to CO2");
+    // The swatch itself is decorative now that the state is also text.
+    expect(html).toContain('aria-hidden="true"');
+    canvasSafe(html);
+  });
 });
