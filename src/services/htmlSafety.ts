@@ -1,3 +1,4 @@
+import { contrastRatio, parseHex, type Rgb } from "../utils/color";
 // ============================================================================
 // Canvas HTML safety — single source of truth
 // ----------------------------------------------------------------------------
@@ -239,3 +240,137 @@ export const sanitizeAiHtml = (html: string): string =>
   stripStudentFacingAuthoringNotes(normalizeHeadingOrder(demoteExtraH1s(
     unwrapDeadAnchors(sanitizeHtmlForPreview(html))
   )));
+
+// ============================================================================
+// Inline-style contrast
+// ----------------------------------------------------------------------------
+// The theme's own palette is contrast-checked at generation time, but nothing checked the colours
+// that land inside generated or model-authored HTML. A Tulane export shipped announcement buttons
+// at #ffffff on #4caf50 (2.78:1) and #ffffff on #ff9800 (2.16:1) — both far below AA — because the
+// model invented its own palette and announcements were outside every gate.
+//
+// Course HTML is styled entirely with inline `style=` attributes and carries no stylesheet, so a
+// tag-stack walk reproduces the browser's computed values closely enough to gate on: text colour
+// and background each come from the nearest ancestor that sets them.
+// ============================================================================
+
+export interface ContrastIssue {
+  foreground: string;
+  background: string;
+  ratio: number;
+  required: number;
+  sample: string;
+}
+
+const VOID_ELEMENTS = new Set(["img", "br", "hr", "input", "meta", "link", "source", "area", "col", "embed", "track", "wbr"]);
+
+const declarations = (style: string): Record<string, string> => {
+  const out: Record<string, string> = {};
+  style.split(";").forEach((part) => {
+    const index = part.indexOf(":");
+    if (index > 0) out[part.slice(0, index).trim().toLowerCase()] = part.slice(index + 1).trim();
+  });
+  return out;
+};
+
+// CSS named colours the models actually reach for. `color: white` on a coloured button is the single
+// most common shape in model-authored HTML, and treating it as unparseable silently inherited the
+// ancestor's colour and hid the very failures this scanner exists to catch.
+const NAMED_COLORS: Record<string, string> = {
+  white: "#ffffff", black: "#000000", red: "#ff0000", green: "#008000", blue: "#0000ff",
+  yellow: "#ffff00", orange: "#ffa500", purple: "#800080", gray: "#808080", grey: "#808080",
+  silver: "#c0c0c0", navy: "#000080", teal: "#008080", maroon: "#800000", lime: "#00ff00",
+  olive: "#808000", aqua: "#00ffff", cyan: "#00ffff", fuchsia: "#ff00ff", magenta: "#ff00ff"
+};
+
+// A colour token plus its alpha. Translucent values are composited over what is behind them rather
+// than discarded: `rgba(255,255,255,0.7)` on a dark panel renders as a real, measurable grey, and
+// treating it as unreadable made the scanner fall back to an ancestor's colour and report a pair
+// that never appears on screen.
+const readColor = (value: string): { rgb: Rgb; alpha: number } | null => {
+  const named = NAMED_COLORS[value.trim().toLowerCase()];
+  const source = named ?? value;
+  const match = source.match(/#[0-9a-fA-F]{3,6}|rgba?\([^)]*\)/);
+  if (!match) {
+    const word = source.toLowerCase().match(/\b(white|black|red|green|blue|yellow|orange|purple|gray|grey|silver|navy|teal|maroon|lime|olive|aqua|cyan|fuchsia|magenta)\b/);
+    if (!word) return null;
+    const rgb = parseHex(NAMED_COLORS[word[1]]);
+    return rgb ? { rgb, alpha: 1 } : null;
+  }
+  const token = match[0];
+  if (token.startsWith("#")) {
+    const rgb = parseHex(token);
+    return rgb ? { rgb, alpha: 1 } : null;
+  }
+  const parts = token.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)\s*(?:[,/]\s*([\d.]+)\s*)?\)/);
+  if (!parts) return null;
+  return {
+    rgb: { r: Number(parts[1]), g: Number(parts[2]), b: Number(parts[3]) },
+    alpha: parts[4] === undefined ? 1 : Number(parts[4])
+  };
+};
+
+// Source-over compositing: what the eye actually sees when `layer` sits on `base`.
+const composite = (layer: { rgb: Rgb; alpha: number }, base: Rgb): Rgb => ({
+  r: Math.round(layer.rgb.r * layer.alpha + base.r * (1 - layer.alpha)),
+  g: Math.round(layer.rgb.g * layer.alpha + base.g * (1 - layer.alpha)),
+  b: Math.round(layer.rgb.b * layer.alpha + base.b * (1 - layer.alpha))
+});
+
+const toHex = ({ r, g, b }: Rgb): string => `#${[r, g, b].map((c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0")).join("")}`;
+
+interface Frame { color: Rgb; background: Rgb; size: number; bold: boolean }
+
+/** Inline colour pairs that fail WCAG 2.1 AA, one entry per distinct pair. */
+export const contrastIssuesFromHtml = (html: string, pageBackground = "#ffffff"): ContrastIssue[] => {
+  const issues: ContrastIssue[] = [];
+  const seen = new Set<string>();
+  const base = parseHex(pageBackground) ?? { r: 255, g: 255, b: 255 };
+  const stack: Frame[] = [{ color: parseHex("#2b2d30")!, background: base, size: 16, bold: false }];
+
+  const pattern = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>|([^<]+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    const [full, tag, attrs, text] = match;
+
+    if (text !== undefined) {
+      const content = text.replace(/&[a-z#0-9]+;/gi, " ").trim();
+      if (content.length < 3) continue;
+      const top = stack[stack.length - 1];
+      const large = top.size >= 24 || (top.size >= 18.66 && top.bold);
+      const required = large ? 3 : 4.5;
+      const foreground = toHex(top.color);
+      const background = toHex(top.background);
+      const ratio = contrastRatio(foreground, background);
+      const key = `${foreground}|${background}|${large}`;
+      if (ratio < required && !seen.has(key)) {
+        seen.add(key);
+        issues.push({ foreground, background, ratio: Math.round(ratio * 100) / 100, required, sample: content.slice(0, 60) });
+      }
+      continue;
+    }
+
+    const lower = tag.toLowerCase();
+    if (full.startsWith("</")) {
+      if (stack.length > 1) stack.pop();
+      continue;
+    }
+    if (VOID_ELEMENTS.has(lower) || full.endsWith("/>")) continue;
+
+    const parent = stack[stack.length - 1];
+    const style = declarations((attrs.match(/style\s*=\s*"([^"]*)"/i)?.[1] ?? ""));
+    const size = Number(style["font-size"]?.match(/([\d.]+)px/)?.[1]) || parent.size;
+    const weight = style["font-weight"];
+    const backgroundLayer = readColor(style["background-color"] ?? "") ?? readColor(style.background ?? "");
+    const background = backgroundLayer ? composite(backgroundLayer, parent.background) : parent.background;
+    const colorLayer = style.color ? readColor(style.color) : null;
+    stack.push({
+      // Text composites over its OWN background, which is why background is resolved first.
+      color: colorLayer ? composite(colorLayer, background) : parent.color,
+      background,
+      size,
+      bold: weight ? weight === "bold" || weight === "bolder" || Number(weight) >= 700 : lower === "strong" || lower === "b" || lower === "th" || parent.bold
+    });
+  }
+  return issues;
+};

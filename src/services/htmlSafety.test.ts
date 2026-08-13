@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deadAnchorCount, headingOrderIssues, normalizeHeadingOrder, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, prepareStudentFacingHtmlForCanvas, sanitizeAiHtml, sanitizeHtmlForPreview, stripStudentFacingAuthoringNotes, unsafeHtmlDetail, unsafeHtmlReasons, unwrapDeadAnchors } from "./htmlSafety";
+import { contrastIssuesFromHtml, deadAnchorCount, headingOrderIssues, normalizeHeadingOrder, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, prepareStudentFacingHtmlForCanvas, sanitizeAiHtml, sanitizeHtmlForPreview, stripStudentFacingAuthoringNotes, unsafeHtmlDetail, unsafeHtmlReasons, unwrapDeadAnchors } from "./htmlSafety";
 import { hrefsFromHtml } from "./htmlSafety";
 
 describe("html safety (shared Canvas HTML safety)", () => {
@@ -155,6 +155,37 @@ describe("html safety (shared Canvas HTML safety)", () => {
 
     expect(deadAnchorCount(html)).toBe(5);
     expect(deadAnchorCount(unwrapDeadAnchors(html))).toBe(0);
+  });
+
+  it("flags the exact button colours that shipped to Tulane below AA", () => {
+    // Verbatim from the four announcements on https://tulane.instructure.com/courses/2325839.
+    const html =
+      '<a style="background-color: #4CAF50; color: white; padding: 10px 15px;">Start Here</a>' +
+      '<a style="background-color: #FF9800; color: white; padding: 10px 15px;">Access Course Calendar</a>';
+    const issues = contrastIssuesFromHtml(html);
+
+    expect(issues).toHaveLength(2);
+    // `color: white` is a named colour — treating it as unparseable used to inherit the ancestor's
+    // colour and hide the failure entirely.
+    expect(issues[0]).toMatchObject({ foreground: "#ffffff", background: "#4caf50", required: 4.5 });
+    expect(issues[0].ratio).toBeCloseTo(2.78, 1);
+    expect(issues[1].ratio).toBeCloseTo(2.16, 1);
+  });
+
+  it("composites translucent layers instead of inheriting an opaque ancestor", () => {
+    // 70% white on a dark panel renders as a real grey. Discarding the alpha made the scanner fall
+    // back to the ancestor's near-black and report a pair that never appears on screen.
+    const html = '<div style="background: #065f46; color: #111827;"><span style="color: rgba(255,255,255,0.7);">terminal label</span></div>';
+    const issues = contrastIssuesFromHtml(html);
+
+    expect(issues.every((issue) => issue.foreground !== "#111827")).toBe(true);
+  });
+
+  it("passes content that clears AA, and respects the large-text threshold", () => {
+    expect(contrastIssuesFromHtml('<p style="color: #111827; background: #ffffff;">Readable body copy.</p>')).toEqual([]);
+    // 3:1 is the bar for large text.
+    expect(contrastIssuesFromHtml('<h1 style="font-size: 34px; color: #ffffff; background: #0891b2;">Large heading</h1>')).toEqual([]);
+    expect(contrastIssuesFromHtml('<p style="font-size: 16px; color: #ffffff; background: #0891b2;">Small body</p>')).toHaveLength(1);
   });
 
   it("sanitizeAiHtml makes model HTML safe to store and export", () => {

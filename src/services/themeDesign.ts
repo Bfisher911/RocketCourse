@@ -1,5 +1,5 @@
 import type { Theme, ThemeCardStyle, ThemeFont, ThemeHeroScene, ThemeHeroStyle, ThemeIntensity, ThemeMotif, ThemePattern } from "../types";
-import { bestTextOn, contrastRatio, shiftHue, withAlpha } from "../utils/color";
+import { bestTextOn, contrastRatio, darken, shiftHue, withAlpha } from "../utils/color";
 import { escapeXml } from "../utils/text";
 import { icon, iconLabel, type IconName } from "./themeIcons";
 import { ELEVATION, MEASURE, RADIUS, SPACE } from "./exportTokens";
@@ -16,6 +16,8 @@ export interface ThemeStyles {
   soft: string;
   contrastText: string;
   onAccent: string;
+  /** The accent darkened until it clears AA as text on `soft`. Use for accent-coloured labels. */
+  accentOnSoft: string;
   onAccentDark: string;
   border: string;
   canvasText: string;
@@ -46,6 +48,15 @@ const fontStack = (font: ThemeFont | undefined): string => {
     default:
       return "'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif";
   }
+};
+
+// The accent is chosen to look right as a FILL. Used as TEXT on the theme's tinted `soft` surface it
+// is often just under AA — #0891b2 on #ecfeff is 3.54:1, #ea580c on #fff7ed is 3.35:1. Darken it
+// until it clears 4.5:1 so accent-coloured labels stay readable in every theme.
+const accentTextOn = (accent: string, background: string): string => {
+  let current = accent;
+  for (let i = 0; i < 24 && contrastRatio(current, background) < 4.5; i += 1) current = darken(current, 0.06);
+  return current;
 };
 
 // Pick #ffffff or #0b1020 — whichever keeps the WORST contrast across both gradient stops highest —
@@ -161,6 +172,7 @@ export const getThemeStyles = (theme: Theme): ThemeStyles => {
     soft: theme.soft,
     contrastText: theme.contrastText,
     onAccent: bestTextOn(theme.accent),
+    accentOnSoft: accentTextOn(theme.accent, theme.soft),
     onAccentDark: bestTextOn(theme.accentDark),
     border: intensity === "clean" ? "#e5e7eb" : intensity === "immersive" ? withAlpha(theme.accent, 0.38) : "#dbe4f0",
     canvasText: "#111827",
@@ -510,7 +522,11 @@ export const buildThemedShell = (theme: Theme, title: string, subtitle: string, 
   const styles = getThemeStyles(theme);
   const onInk = styles.onGradient === "#ffffff" ? "#ffffff" : "#0b1020";
   const underline = withAlpha(onInk, 0.55);
-  const eyebrow = `<div style="display: inline-block; margin: 0 0 16px; padding: 6px 14px; border-radius: 999px; background: ${withAlpha(onInk, 0.18)}; color: ${styles.onGradient}; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>`;
+  // Scrim the pill with the OPPOSITE ink, not a wash of the ink itself. Tinting a hero with 18% of
+  // the same colour the text uses barely shifts it, so a 12px eyebrow sat at 3.53:1 on the lighter
+  // scenes. A 45% scrim of the opposite ink guarantees separation whatever the hero behind it.
+  const eyebrowScrim = withAlpha(onInk === "#ffffff" ? "#000000" : "#ffffff", 0.45);
+  const eyebrow = `<div style="display: inline-block; margin: 0 0 16px; padding: 6px 14px; border-radius: 999px; background: ${eyebrowScrim}; color: ${styles.onGradient}; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;">${escHtml(theme.bannerLabel)}</div>`;
   const wrap = (hero: string): string =>
     `<div style="font-family: ${styles.font}; color: ${styles.canvasText}; line-height: 1.65;">${hero}${body}</div>`.trim();
 
@@ -848,7 +864,7 @@ export const buildWorkloadTiles = (theme: Theme, tiles: Array<{ label: string; v
         `<div style="display: inline-block; width: 31%; min-width: 150px; vertical-align: top; margin: 0 1% 14px 0; box-sizing: border-box; padding: 16px 18px; background: linear-gradient(135deg, ${styles.soft} 0%, ${withAlpha(styles.accent, 0.06)} 100%); border: 1px solid ${withAlpha(styles.accent, 0.28)}; border-radius: 14px;">
     <div style="font-size: 26px; font-weight: 900; color: ${styles.accentDark}; font-family: ${styles.font};">${escHtml(tile.value)}</div>
     <div style="font-size: 13px; font-weight: 700; color: #374151; margin: 4px 0 0; font-family: ${styles.font};">${escHtml(tile.label)}</div>
-    ${tile.sub ? `<div style="font-size: 12px; color: #6b7280; margin: 3px 0 0;">${escHtml(tile.sub)}</div>` : ""}
+    ${tile.sub ? `<div style="font-size: 12px; color: ${styles.mutedText}; margin: 3px 0 0;">${escHtml(tile.sub)}</div>` : ""}
   </div>`
     )
     .join("");
@@ -865,7 +881,7 @@ export const buildModuleRoadmap = (theme: Theme, stops: Array<{ label: string; s
         `<div style="display: inline-block; vertical-align: top; width: 24%; min-width: 130px; margin: 0 1% 12px 0; box-sizing: border-box; text-align: center;">
     <span style="display: inline-block; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, ${styles.accent}, ${styles.accentDark}); color: ${styles.onAccent}; line-height: 34px; font-weight: 800; font-family: ${styles.font};">${index + 1}</span>
     <div style="font-size: 13.5px; font-weight: 700; color: ${styles.accentDark}; margin: 7px 0 0; font-family: ${styles.font};">${escHtml(stop.label)}</div>
-    ${stop.sub ? `<div style="font-size: 12px; color: #6b7280; margin: 2px 0 0;">${escHtml(stop.sub)}</div>` : ""}
+    ${stop.sub ? `<div style="font-size: 12px; color: ${styles.mutedText}; margin: 2px 0 0;">${escHtml(stop.sub)}</div>` : ""}
   </div>`
     )
     .join("");
@@ -965,8 +981,8 @@ export const buildThemedStatBand = (
     .map(
       (stat) => `<div style="display: inline-block; vertical-align: top; box-sizing: border-box; width: 48%; min-width: 180px; margin: 0 2% 12px 0; padding: 18px 16px; text-align: center; background-color: ${styles.soft}; background-image: linear-gradient(135deg, ${styles.soft} 0%, ${withAlpha(styles.accent, 0.08)} 100%); border: 1px solid ${withAlpha(styles.accent, 0.28)}; border-radius: ${RADIUS.card}px; font-size: 15px;">
     <div style="font-size: 30px; font-weight: 900; color: ${styles.accentDark}; line-height: 1.1; font-family: ${styles.font};">${escHtml(stat.value)}</div>
-    <div style="margin: 4px 0 0; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: ${styles.accent};">${escHtml(stat.label)}</div>
-    ${stat.sub ? `<div style="margin: 3px 0 0; font-size: 12px; color: #64748b;">${escHtml(stat.sub)}</div>` : ""}
+    <div style="margin: 4px 0 0; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: ${styles.accentOnSoft};">${escHtml(stat.label)}</div>
+    ${stat.sub ? `<div style="margin: 3px 0 0; font-size: 12px; color: ${styles.mutedText};">${escHtml(stat.sub)}</div>` : ""}
   </div>`
     )
     .join("");
@@ -1021,7 +1037,7 @@ export const buildThemedEffortMeter = (theme: Theme, level: number, max = 3, lab
         `<span aria-hidden="true" style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-left: 5px; background: ${index < filled ? styles.accent : withAlpha(styles.accent, 0.22)};"></span>`
     )
     .join("");
-  return `<span style="display: inline-block; font-family: ${styles.font};"><span style="font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #64748b; vertical-align: middle;">${escHtml(label)}</span>${dots}<span style="position: absolute; left: -9999px;">${filled} of ${max}</span></span>`;
+  return `<span style="display: inline-block; font-family: ${styles.font};"><span style="font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: ${styles.mutedText}; vertical-align: middle;">${escHtml(label)}</span>${dots}<span style="position: absolute; left: -9999px;">${filled} of ${max}</span></span>`;
 };
 
 /** Visually-grouped panels (a static, JS-free "tabbed" section): a tab bar over stacked panels. */
@@ -1117,7 +1133,7 @@ export const buildThemedResourceCard = (
   return `<div style="margin: 12px 0; background: #ffffff; border: 1px solid ${styles.border}; border-left: 4px solid ${styles.accent}; border-radius: 12px; padding: 14px 18px; box-shadow: ${ELEVATION.sm}; font-family: ${styles.font};">
   <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: ${styles.accentDark}; background: ${withAlpha(styles.accent, 0.1)}; border: 1px solid ${withAlpha(styles.accent, 0.32)}; padding: 3px 10px; border-radius: 999px;">${icon(iconName, { color: styles.accent, size: 14 })}${escHtml(resource.kind)}</span>
   <div style="margin: 9px 0 0; font-size: 16px;">${titleHtml}</div>
-  ${resource.meta ? `<div style="margin: 3px 0 0; color: #64748b; font-size: 14px;">${escHtml(resource.meta)}</div>` : ""}
+  ${resource.meta ? `<div style="margin: 3px 0 0; color: ${styles.mutedText}; font-size: 14px;">${escHtml(resource.meta)}</div>` : ""}
 </div>`.trim();
 };
 

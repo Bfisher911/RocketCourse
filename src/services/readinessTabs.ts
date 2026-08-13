@@ -81,6 +81,7 @@ const CHECK_TABS: Record<string, EditorTab> = {
   // Dead anchors come from AI-written bodies across pages, assignments, discussions and
   // announcements; Pages is where the bulk of that HTML is authored and fixed.
   "dead-anchors": "Pages",
+  "content-contrast": "Pages",
   "alignment-map": "Pages",
   // Unsafe Canvas HTML lives in page/assignment/discussion bodies; Pages is
   // where the bulk of it is authored and fixed.

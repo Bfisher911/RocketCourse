@@ -610,7 +610,10 @@ const tableHtml = (caption: string, headers: string[], rows: string[][], theme: 
   const head = headers
     .map(
       (header) =>
-        `<th scope="col" style="text-align: left; padding: 12px 14px; border: none; background: linear-gradient(135deg, ${theme.accent}, ${theme.accentDark}); color: ${onAccent}; font-weight: 800;">${header}</th>`
+        // Solid accentDark, not a gradient from accent: the text colour is chosen for accentDark,
+        // but a gradient puts that same text over the lighter `accent` at one end, where it was
+        // never checked. On a cyan or orange accent that lands at ~3.6:1 — below AA.
+        `<th scope="col" style="text-align: left; padding: 12px 14px; border: none; background: ${theme.accentDark}; color: ${onAccent}; font-weight: 800;">${header}</th>`
     )
     .join("");
   const body = rows
@@ -637,7 +640,7 @@ const pill = (label: string, theme: Theme): string =>
 
 const checklistHtml = (items: string[]): string =>
   `<ul style="list-style: none; margin: 10px 0 0; padding: 0;">${items
-    .map((item) => `<li style="margin: 8px 0; padding-left: 28px; position: relative;"><span style="position: absolute; left: 0; color: #0f766e; font-weight: 700;">&#10003;</span>${item}</li>`)
+    .map((item) => `<li style="margin: 8px 0; padding-left: 28px; position: relative;"><span aria-hidden="true" style="position: absolute; left: 0; color: #0f766e; font-weight: 700;">&#10003;</span>${item}</li>`)
     .join("")}</ul>`;
 
 const outcomeBadges = (outcomes: CourseOutcome[], outcomeIds: string[], theme: Theme): string =>

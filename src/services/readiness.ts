@@ -1,6 +1,6 @@
 import type { CourseProject, ModuleItemType, ReadinessCheck, ReadinessReport } from "../types";
 import { slugify, stripHtml } from "../utils/text";
-import { deadAnchorCount, hasUnsafeHtml, headingOrderIssues, imageTagsMissingAltCount, malformedLinksFromHtml } from "./htmlSafety";
+import { contrastIssuesFromHtml, deadAnchorCount, hasUnsafeHtml, headingOrderIssues, imageTagsMissingAltCount, malformedLinksFromHtml } from "./htmlSafety";
 import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
@@ -275,6 +275,13 @@ const computeReadinessReport = (course: CourseProject): ReadinessReport => {
     announcementOpenings.set(opening, [...(announcementOpenings.get(opening) ?? []), announcement.title]);
   });
   const duplicateAnnouncements = [...announcementOpenings.values()].filter((titles) => titles.length > 1);
+
+  // The theme palette is contrast-checked when it is built, but colours the model writes inline are
+  // not. The Tulane export shipped announcement buttons at 2.16:1 and 2.78:1 because the model
+  // invented its own palette in HTML nothing inspected.
+  const contrastFailures = htmlBlocks(course).flatMap((block) =>
+    contrastIssuesFromHtml(block.html).map((issue) => `${block.title}: ${issue.foreground} on ${issue.background} is ${issue.ratio}:1 (needs ${issue.required}:1)`)
+  );
   const pageTargetSet = pageTargets(course);
   const resourceTargetSet = resourceTargets(course);
   // Canvas substitution tokens ($WIKI_REFERENCE$/..., $CANVAS_OBJECT_REFERENCE$/..., $IMS-CC-FILEBASE$/...)
@@ -599,6 +606,15 @@ const computeReadinessReport = (course: CourseProject): ReadinessReport => {
       deadAnchorBlocks.length
         ? `${deadAnchorBlocks.reduce((sum, entry) => sum + entry.count, 0)} anchor(s) render as buttons but go nowhere: ${deadAnchorBlocks.slice(0, 3).map((entry) => `${entry.title} (${entry.count})`).join("; ")}.`
         : "No anchors without a resolvable href."
+    ),
+    check(
+      "content-contrast",
+      "Text in generated content meets WCAG AA contrast",
+      contrastFailures.length === 0,
+      contrastFailures.length
+        ? `${contrastFailures.length} colour pair(s) below AA: ${contrastFailures.slice(0, 3).join("; ")}.`
+        : "Every inline colour pair in course content clears WCAG AA.",
+      "recommended"
     ),
     check(
       "announcement-distinctness",

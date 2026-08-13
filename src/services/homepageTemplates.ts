@@ -314,12 +314,12 @@ const highContrast = (content: HomepageContent, theme: Theme): string => {
     <p style="margin: 0 0 20px; font-size: 18px; color: #1a1a1a;">${escHtml(content.welcome)}</p>
     <p style="margin: 0;">${hcButton(content.primaryButton, buttonBg)}${hcButton(content.secondaryButton, "#ffffff")}</p>
   </div>
-  <section style="margin: 20px 0; padding: 24px; border: 3px solid #000000; border-radius: 8px;">
+  <section style="margin: 20px 0; padding: 24px; background: #ffffff; border: 3px solid #000000; border-radius: 8px;">
     <h2 style="margin: 0 0 12px; font-size: 24px; color: #000000;">Your path through this course</h2>
     ${checklist(content.pathItems, "#0b1020")}
   </section>
-  ${content.instructorNote.trim() ? `<section style="margin: 20px 0; padding: 24px; border: 3px solid #000000; border-radius: 8px;"><h2 style="margin: 0 0 12px; font-size: 24px; color: #000000;">A note from your instructor</h2><p style="margin: 0; font-size: 17px; color: #1a1a1a;">${escHtml(content.instructorNote)}</p></section>` : ""}
-  <section style="margin: 20px 0 0; padding: 24px; border: 3px solid #000000; border-radius: 8px;">
+  ${content.instructorNote.trim() ? `<section style="margin: 20px 0; padding: 24px; background: #ffffff; border: 3px solid #000000; border-radius: 8px;"><h2 style="margin: 0 0 12px; font-size: 24px; color: #000000;">A note from your instructor</h2><p style="margin: 0; font-size: 17px; color: #1a1a1a;">${escHtml(content.instructorNote)}</p></section>` : ""}
+  <section style="margin: 20px 0 0; padding: 24px; background: #ffffff; border: 3px solid #000000; border-radius: 8px;">
     <h2 style="margin: 0 0 12px; font-size: 24px; color: #000000;">Helpful links</h2>
     <ul style="margin: 0; padding-left: 22px;">${hcLinks}</ul>
   </section>`
