@@ -1,14 +1,28 @@
 # Canvas Export Reference Fixture
 
-Place a known-good Canvas course export here when sandbox access is available.
+`course_settings/` holds structural XML taken from a REAL Canvas Common Cartridge export
+(Tulane, August 2026), kept so the exporter can be checked against Canvas's own output instead of
+against assumptions. Course content is deliberately not vendored — only the small settings files
+that define package structure.
 
-The intended fixture should be a small manually built Canvas course exported from Canvas as `.imscc` and unzipped for comparison. It should include:
+## What is here, and what it settled
 
-- Homepage and syllabus page.
-- Start Here module.
-- At least one regular module with page, assignment, discussion, and quiz.
-- One rubric.
-- Assignment groups.
+- **`files_meta.xml`** — the file that answers "how do we stop instructor-only artifacts being
+  student-downloadable?". Canvas's own export uses a `<folders>` section; the published XSD
+  (`https://canvas.instructure.com/xsd/cccv1p0.xsd`, element `fileMeta`) also allows a `<files>`
+  section where each `<file>` takes a required `path` attribute plus optional `display_name`,
+  `hidden`, `locked`, `lock_at`, `unlock_at`, and `usage_rights`. `locked` is Canvas's unpublished
+  state for a file: `hidden` alone still permits a direct fetch by URL. The exporter now emits this
+  for the instructor guide, and the manifest declares it alongside the other `course_settings`
+  files, which is exactly how Canvas declares it.
+- **`late_policy.xml`** and **`media_tracks.xml`** — emitted by Canvas, not yet by RocketCourse.
+  `late_policy.xml` is the obvious next gap: the generated syllabus describes a late-work policy in
+  prose while the gradebook ships with no policy attached.
+
+## Still worth vendoring
+
+A full manually built Canvas course (homepage, syllabus, Start Here, one module with page /
+assignment / discussion / quiz, one rubric, assignment groups) for a complete structural diff.
 
 The MVP export engine is based on public Canvas LMS exporter source and local validation, but production compatibility should not be claimed until generated packages are imported into a Canvas sandbox and compared with this fixture.
 

@@ -475,6 +475,27 @@ describe("RocketCourse export engine", () => {
     expect(settingsXml).not.toContain("&amp;#");
   });
 
+  it("locks instructor-only files so students cannot fetch them by URL", async () => {
+    // The unpublished Instructor Resources module hides the page, never the file. In the live Tulane
+    // export instructor-guide.pdf was hidden:false, locked:false — any student with the URL could
+    // open the teaching guide. Shape verified against a real Canvas export and against Canvas's
+    // published XSD, where fileMeta/files/file takes `path` plus optional hidden/locked.
+    const zip = await buildImsccZip(sampleProject);
+    const filesMeta = (await zip.file("course_settings/files_meta.xml")?.async("text")) ?? "";
+    const manifest = (await zip.file("imsmanifest.xml")?.async("text")) ?? "";
+
+    expect(filesMeta).toContain('<file path="instructor-guide.pdf">');
+    expect(filesMeta).toContain('<file path="instructor-guide-printable.html">');
+    // `locked` is Canvas's unpublished state for a file — hidden alone still allows a direct fetch.
+    expect(filesMeta).toContain("<locked>true</locked>");
+    // Canvas only reads it if the manifest declares it alongside the other course_settings files.
+    expect(manifest).toContain("course_settings/files_meta.xml");
+
+    // The student-facing assets must stay reachable.
+    expect(filesMeta).not.toContain("course-banner.svg");
+    expect(filesMeta).not.toContain("syllabus-printable.pdf");
+  });
+
   it("keeps interaction blocks in the printable syllabus, not just the on-screen one", async () => {
     // Interaction blocks sit beside the body as structured data, so the printables — built straight
     // from bodyHtml — used to drop them. In the Tulane export that cost the printed syllabus its

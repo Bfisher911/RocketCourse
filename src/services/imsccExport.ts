@@ -645,6 +645,42 @@ const createAssessmentMetaXml = (quiz: Quiz): string => `<?xml version="1.0" enc
   <aligned_outcome_identifierrefs>${xml(quiz.alignedOutcomeIds.join(","))}</aligned_outcome_identifierrefs>
 </quiz>`;
 
+// Per-file Canvas metadata. Instructor-only artifacts ship in the same web_resources folder as the
+// student assets, which on import become ordinary course files: the unpublished Instructor Resources
+// module hides the PAGE, never the FILE, so anyone with the URL could open the teaching guide. The
+// live Tulane export had instructor-guide.pdf sitting at hidden:false, locked:false.
+//
+// `locked` is Canvas's unpublished state for a file — students cannot fetch it even by direct link.
+// Shape verified against a real Canvas Common Cartridge export and against Canvas's published XSD
+// (https://canvas.instructure.com/xsd/cccv1p0.xsd), where fileMeta/files/file takes a required
+// `path` attribute plus optional display_name, hidden, locked, lock_at, unlock_at, usage_rights.
+const INSTRUCTOR_ONLY_USAGES = new Set(["instructor-guide"]);
+
+const instructorOnlyAssetPaths = (course: CourseProject): string[] => {
+  const fromUsage = course.fileAssets.filter((asset) => INSTRUCTOR_ONLY_USAGES.has(asset.usage)).map((asset) => asset.fileName);
+  // The printable HTML companion is written directly by the exporter, so it has no fileAsset entry.
+  return [...new Set([...fromUsage, "instructor-guide.pdf", "instructor-guide-printable.html"])].sort();
+};
+
+const createFilesMetaXml = (course: CourseProject): string => {
+  // Package paths are web_resources/<name>; Canvas lands those at the course-files root, so the
+  // `path` here is the bare file name.
+  const files = instructorOnlyAssetPaths(course)
+    .map(
+      (name) => `    <file path="${xml(name)}">
+      <hidden>true</hidden>
+      <locked>true</locked>
+    </file>`
+    )
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<fileMeta ${canvasSchemaAttrs}>
+  <files>
+${files}
+  </files>
+</fileMeta>`;
+};
+
 const createManifest = (course: CourseProject): string => {
   const courseSettingsFiles = [
     "course_settings/course_settings.xml",
@@ -654,6 +690,7 @@ const createManifest = (course: CourseProject): string => {
     "course_settings/learning_outcomes.xml",
     "course_settings/course_navigation.xml",
     "course_settings/context.xml",
+    "course_settings/files_meta.xml",
     "course_settings/canvas_export.txt"
   ];
 
@@ -801,6 +838,7 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
   zip.file("course_settings/learning_outcomes.xml", createLearningOutcomesXml(course));
   zip.file("course_settings/course_navigation.xml", createCourseNavigationXml(course));
   zip.file("course_settings/context.xml", createContextInfoXml(course));
+  zip.file("course_settings/files_meta.xml", createFilesMetaXml(course));
   zip.file("course_settings/canvas_export.txt", createCanvasExportFlag());
   zip.file(
     "course_settings/syllabus.html",
