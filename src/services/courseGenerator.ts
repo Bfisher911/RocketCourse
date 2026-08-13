@@ -2815,6 +2815,40 @@ export const applyVisualTemplate = (course: CourseProject, template: VisualTempl
   return applyThemeToGeneratedContent(staged, staged.theme);
 };
 
+/**
+ * Re-render the instructor Outcome and Assessment Alignment Map from the course's CURRENT data.
+ *
+ * The map is a page, so it is a snapshot of whatever the graded items looked like when it was
+ * generated. The AI fill pass then replaces quiz questions and recomputes each quiz's points, which
+ * left the map quoting the deterministic template's totals forever: every quiz in the live Tulane
+ * export was listed at "(18 pts)" — 4+2+4+5+3 from the template questions — while the real values
+ * were 6 to 11. The instructor's own alignment reference was wrong for all ten.
+ *
+ * Rebuilding is additive: it also picks up modules the snapshot missed, because the map is rendered
+ * before the last module is appended to the course.
+ *
+ * Call this after anything that changes graded items, points, or outcome alignment.
+ */
+export const rebuildAlignmentMapPage = (course: CourseProject): CourseProject => {
+  const index = course.pages.findIndex((page) => page.slug === "outcome-and-assessment-alignment-map");
+  if (index < 0) return course;
+  const bodyHtml = buildAlignmentMapHtml(
+    course.title,
+    course.outcomes,
+    course.modules,
+    course.assignments,
+    course.discussions,
+    course.quizzes,
+    course.rubrics,
+    course.assignmentGroups,
+    course.theme
+  );
+  if (bodyHtml === course.pages[index].bodyHtml) return course;
+  const pages = [...course.pages];
+  pages[index] = { ...pages[index], bodyHtml };
+  return { ...course, pages };
+};
+
 export const sampleProject = generateCourseProject({
   prompt:
     "Build me a 12-week undergraduate course on AI and Modern Society. It is a three-credit course with weekly modules, discussions, short quizzes, a final project, and a clean modern theme.",

@@ -41,6 +41,7 @@ import {
   aiGenerateQuizQuestions,
   aiGenerateSyllabusContent
 } from "./aiBuilders";
+import { rebuildAlignmentMapPage } from "./courseGenerator";
 import { renderHomepage } from "./homepageTemplates";
 import { renderSyllabus } from "./syllabusTemplates";
 import { buildThemedCard } from "./themeDesign";
@@ -336,11 +337,16 @@ export const fillEntireCourseContent = async (
     announcements: (course.announcements ?? []).map(applyAnnouncement)
   };
 
+  // applyQuiz recomputes each quiz's points from its new AI questions, which makes the instructor
+  // alignment map — a page rendered back at generation time — stale. Re-render it from the filled
+  // course so it quotes the points the gradebook will actually use.
+  const filledWithFreshAlignmentMap = rebuildAlignmentMapPage(filled);
+
   const enrichedPages =
     pageBodies.size + pageProse.size + (homepageBodyHtml !== null ? 1 : 0) + (syllabusBodyHtml !== null ? 1 : 0);
 
   return {
-    course: filled,
+    course: filledWithFreshAlignmentMap,
     total,
     aiCount,
     fallbackCount,

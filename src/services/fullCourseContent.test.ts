@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { defaultSettings } from "../data/defaultSettings";
-import { generateCourseProject } from "./courseGenerator";
+import { generateCourseProject, rebuildAlignmentMapPage } from "./courseGenerator";
 import type { AiResult } from "./aiAssist";
 import type { HomepageContent, QuizQuestion, SyllabusContent } from "../types";
 
@@ -76,6 +76,54 @@ describe("planFullCourseFill", () => {
     expect(lecture && isFillablePage(lecture)).toBe(true);
     if (front) expect(isFillablePage(front)).toBe(false);
     if (syllabus) expect(isFillablePage(syllabus)).toBe(false);
+  });
+});
+
+describe("instructor alignment map", () => {
+  it("re-renders from current quiz points instead of the generation-time snapshot", () => {
+    // The map is a page, so it freezes whatever the graded items looked like when it was written.
+    // The AI fill pass then swaps quiz questions and recomputes each quiz's points, which left the
+    // live Tulane map quoting every quiz at "(18 pts)" -- the deterministic template's 4+2+4+5+3 --
+    // while the real values were 6 to 11. The instructor's own alignment reference was wrong for all
+    // ten quizzes.
+    const course = generateCourseProject({
+      prompt: "Build me a 4-week professional course on Community Health Program Design.",
+      settings: { ...defaultSettings, courseLengthPreset: "4-weeks", lengthWeeks: 4, moduleCount: 4 }
+    });
+    const slug = "outcome-and-assessment-alignment-map";
+    const originalPoints = course.quizzes[0].points;
+    const title = course.quizzes[0].title;
+
+    expect(course.pages.find((page) => page.slug === slug)?.bodyHtml).toContain(`${title} (${originalPoints} pts)`);
+
+    // Points change the way the AI fill pass changes them.
+    const repointed = { ...course, quizzes: course.quizzes.map((quiz) => ({ ...quiz, points: 7 })) };
+    // Without a rebuild the page still quotes the old total.
+    expect(repointed.pages.find((page) => page.slug === slug)?.bodyHtml).toContain(`${title} (${originalPoints} pts)`);
+
+    const rebuilt = rebuildAlignmentMapPage(repointed);
+    const body = rebuilt.pages.find((page) => page.slug === slug)?.bodyHtml ?? "";
+    expect(body).toContain(`${title} (7 pts)`);
+    expect(body).not.toContain(`${title} (${originalPoints} pts)`);
+  });
+
+  it("also completes the module list the generation-time snapshot missed", () => {
+    // The map is rendered before the last module is appended, so the snapshot names one module
+    // fewer than the finished course. Rebuilding is additive: every module appears and no graded
+    // item is dropped.
+    const course = generateCourseProject({
+      prompt: "Build me a 4-week professional course on Community Health Program Design.",
+      settings: { ...defaultSettings, courseLengthPreset: "4-weeks", lengthWeeks: 4, moduleCount: 4 }
+    });
+    const slug = "outcome-and-assessment-alignment-map";
+    const snapshot = course.pages.find((page) => page.slug === slug)?.bodyHtml ?? "";
+    const rebuilt = rebuildAlignmentMapPage(course).pages.find((page) => page.slug === slug)?.bodyHtml ?? "";
+    const named = (html: string) => course.modules.filter((module) => html.includes(module.title)).length;
+    const gradedItems = (html: string) => (html.match(/ pts\)/g) ?? []).length;
+
+    expect(named(snapshot)).toBeLessThan(course.modules.length);
+    expect(named(rebuilt)).toBe(course.modules.length);
+    expect(gradedItems(rebuilt)).toBe(gradedItems(snapshot));
   });
 });
 

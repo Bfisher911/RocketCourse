@@ -94,7 +94,7 @@ two discussion prompts.
 | # | Finding | Status |
 |---|---|---|
 | M1 | 10 CLOs were a 6-frame Bloom template; CLO 1≈7, 2≈8, 4≈10 | VERIFIED → FIXED |
-| M2 | Alignment map states every quiz as 18 pts; real values 6–11 | VERIFIED |
+| M2 | Alignment map states every quiz as 18 pts; real values 6–11 | VERIFIED → FIXED |
 | M3 | Equivalent weekly quizzes worth 6–11 points in one 15% group | VERIFIED → FIXED |
 | M4 | 2 attempts + immediate answers + keep-highest = free full marks | VERIFIED → FIXED |
 | M6 | A rubric level scoring 2 points for both Proficient and Developing | VERIFIED → FIXED |
@@ -142,6 +142,7 @@ two discussion prompts.
 | `bannerLabel` (theme-picker UI copy) exported to students | `courseGenerator.ts`, `data/themes.ts` | M8 |
 | Printables built from raw `bodyHtml`, dropping composed interaction blocks | `imsccExport.ts` | printable syllabus |
 | Nothing checked contrast of colours inside generated HTML | `htmlSafety.ts`, `readiness.ts` | 32 templates |
+| The alignment map is a page rendered during generation, so it froze the template quizzes' 4+2+4+5+3 = 18 and never saw the AI fill pass recompute them | `courseGenerator.ts`, `fullCourseContent.ts` | M2 |
 
 **The pattern underneath all of it:** RocketCourse validated *structure* thoroughly — 76 readiness
 checks covering modules, rubrics, weights, links, heading order — and validated *truth* almost not
@@ -170,7 +171,7 @@ lowercased acronyms (44), quiz point and length disparity, and both syllabus pla
 ## Still open
 
 - **Content defects needing an instructor**, not code: B1 (the CRM quiz items), B4 (no EMS law),
-  B5 (no contact route), M2 (alignment map point values), M11 (course name).
+  B5 (no contact route), M11 (course name).
 - **`enableDueDates` defaults off** — a product decision, now surfaced honestly rather than hidden.
 - **Three visual templates** still fail AA: palette limits (an accent too light to carry white, one
   gradient where neither black nor white clears AA), not code defects.
