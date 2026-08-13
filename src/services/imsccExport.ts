@@ -849,11 +849,19 @@ export const buildImsccZip = async (input: CourseProject): Promise<JSZip> => {
     const svg = buildVisualCourseAssetSvg(course, asset.path);
     if (svg && !zip.file(asset.path)) zip.file(asset.path, svg);
   });
-  zip.file("web_resources/syllabus-printable.html", printableHtml("Printable Syllabus", syllabusPage?.bodyHtml ?? ""));
+  // Interaction blocks live beside the body as structured data, so anything built straight from
+  // `bodyHtml` silently drops them. The printables used to do exactly that, which meant the printed
+  // syllabus — the copy most likely to be handed out or kept — lost its "Policies That Affect Your
+  // Grade" box (grading weights, late work, accommodations) and its support-routes menu.
+  const syllabusPrintableBody = syllabusPage ? composeBodyWithInteractions(syllabusPage.bodyHtml, syllabusPage.interactionBlocks, course.theme) : "";
+  const instructorPrintableBody = instructorGuidePage
+    ? composeBodyWithInteractions(instructorGuidePage.bodyHtml, instructorGuidePage.interactionBlocks, course.theme)
+    : "";
+  zip.file("web_resources/syllabus-printable.html", printableHtml("Printable Syllabus", syllabusPrintableBody));
   // Curated, fully structured syllabus PDF (same generator as the in-app "Syllabus PDF" button).
   zip.file("web_resources/syllabus-printable.pdf", buildSyllabusPdf(course));
-  zip.file("web_resources/instructor-guide-printable.html", printableHtml("Instructor Guide", instructorGuidePage?.bodyHtml ?? ""));
-  zip.file("web_resources/instructor-guide.pdf", buildPagePdf(course, "Instructor Guide", instructorGuidePage?.bodyHtml ?? ""));
+  zip.file("web_resources/instructor-guide-printable.html", printableHtml("Instructor Guide", instructorPrintableBody));
+  zip.file("web_resources/instructor-guide.pdf", buildPagePdf(course, "Instructor Guide", instructorPrintableBody));
 
   const supportingHtml = (asset: CourseImageAsset): string =>
     `<img src="$IMS-CC-FILEBASE$/${xml(packagePathForImage(asset).replace(/^web_resources\//, ""))}" ${imageAltAttribute(asset)} style="display:block;width:100%;height:auto;object-fit:cover;margin:0 0 1.25rem;" loading="lazy" />`;

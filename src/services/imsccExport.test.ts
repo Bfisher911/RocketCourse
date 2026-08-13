@@ -475,6 +475,20 @@ describe("RocketCourse export engine", () => {
     expect(settingsXml).not.toContain("&amp;#");
   });
 
+  it("keeps interaction blocks in the printable syllabus, not just the on-screen one", async () => {
+    // Interaction blocks sit beside the body as structured data, so the printables — built straight
+    // from bodyHtml — used to drop them. In the Tulane export that cost the printed syllabus its
+    // "Policies That Affect Your Grade" box and its support-routes menu, which are exactly what a
+    // student keeps a paper copy for.
+    const zip = await buildImsccZip(sampleProject);
+    const printable = (await zip.file("web_resources/syllabus-printable.html")?.async("text")) ?? "";
+    const syllabusTab = (await zip.file("course_settings/syllabus.html")?.async("text")) ?? "";
+
+    expect(syllabusTab).toContain("policy-box");
+    expect(printable, "printable syllabus lost its policy box").toContain("policy-box");
+    expect(printable, "printable syllabus lost its support menu").toContain("resource-recommendation-menu");
+  });
+
   it("lets students read an ungraded help forum without posting first", async () => {
     // require_initial_post was hardcoded true for every discussion, so the Tulane course's ungraded
     // "Ask Course Questions" forum made a student post a duplicate question before they could read
